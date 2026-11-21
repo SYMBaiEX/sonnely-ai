@@ -17,7 +17,7 @@ export type Session = {
 
 export async function request<T>(task: string, data?: unknown): Promise<T> {
   const response = await fetch(
-    "/api/relay/" + task,
+    "/api/sonnely/" + task,
     data === undefined
       ? { cache: "no-store" }
       : {
@@ -47,7 +47,7 @@ export function useSession() {
   useEffect(() => {
     if (new URLSearchParams(location.search).has("ref")) {
       const invite = new URLSearchParams(location.search).get("ref") ?? "";
-      if (/^[a-f0-9]{16}$/.test(invite)) sessionStorage.setItem("fathom.invite", invite);
+      if (/^[a-f0-9]{16}$/.test(invite)) sessionStorage.setItem("sonnely.invite", invite);
     }
     void refresh();
   }, []);
@@ -105,9 +105,9 @@ export function WalletControl({
       await request("verify", {
         wallet: account.address,
         signature: [...signed.signature],
-        invite: sessionStorage.getItem("fathom.invite") ?? undefined,
+        invite: sessionStorage.getItem("sonnely.invite") ?? undefined,
       });
-      sessionStorage.removeItem("fathom.invite");
+      sessionStorage.removeItem("sonnely.invite");
       await refresh();
       setOpen(false);
     } catch (error) {

@@ -9,6 +9,7 @@
  */
 
 import type * as relay from "../relay.js";
+import type * as sonnely from "../sonnely.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +19,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   relay: typeof relay;
+  sonnely: typeof sonnely;
 }>;
 
 /**

@@ -14,7 +14,7 @@ const pages = {
   ],
   docs: ["Developer documentation", "Connect a wallet, create a scoped key, and send your first completion."],
   blog: ["Field notes", "A closer look at the gateway, the wallet, and how they fit together."],
-  contact: ["Talk to Fathom Relay", "Tell us what you’re building or get help with your workspace."],
+  contact: ["Talk to Sonnely", "Tell us what you’re building or get help with your workspace."],
 } as const;
 type Page = keyof typeof pages;
 type Props = { params: Promise<{ page: string }> };
@@ -33,11 +33,11 @@ export default async function Subpage({ params }: Props) {
   if (!Object.hasOwn(pages, page)) notFound();
   const [title, description] = pages[page as Page];
   return (
-    <div className="wrap inner-page">
+    <div className={"wrap inner-page page-" + page}>
       <header className="page-lead">
         <Scene />
         <Link href="/" className="eyebrow">
-          Fathom Relay <ArrowUpRight size={13} />
+          Sonnely <ArrowUpRight size={13} />
         </Link>
         <h1>{title}</h1>
         <p>{description}</p>
@@ -79,7 +79,7 @@ export default async function Subpage({ params }: Props) {
             <details>
               <summary>How do API key budgets work?</summary>
               <p>
-                Relay reserves a maximum estimated charge before sending each request. It releases the
+                Sonnely reserves a maximum estimated charge before sending each request. It releases the
                 difference when the provider reports usage. Unreported usage can leave a reservation pending
                 reconciliation.
               </p>
@@ -115,10 +115,13 @@ export default async function Subpage({ params }: Props) {
               <h2>Quickstart</h2>
               <ol>
                 <li>Open the console and sign in with a Solana wallet.</li>
-                <li>Create an API key and save it to a secrets manager. Relay displays the full key once.</li>
                 <li>
-                  Set <code>FATHOM_ORIGIN</code> to the base URL of this site and <code>FATHOM_API_KEY</code>{" "}
-                  to your key. Live requests require credits and an active model provider.
+                  Create an API key and save it to a secrets manager. Sonnely displays the full key once.
+                </li>
+                <li>
+                  Set <code>SONNELY_ORIGIN</code> to the base URL of this site and{" "}
+                  <code>SONNELY_API_KEY</code> to your key. Live requests require credits and an active model
+                  provider.
                 </li>
               </ol>
               <CodeExample />
@@ -126,9 +129,9 @@ export default async function Subpage({ params }: Props) {
             <section id="api">
               <h2>API reference</h2>
               <p>
-                <code>GET /v1/models</code> lists the available model IDs.{" "}
-                <code>POST /v1/chat/completions</code> accepts non-streaming text completions with a bearer
-                key.
+                <code>GET /api/sonnely/v1/models</code> lists the available model IDs.{" "}
+                <code>POST /api/sonnely/v1/chat/completions</code> accepts non-streaming text completions with
+                a bearer key.
               </p>
               <p>
                 Include <code>model</code> and <code>messages</code>. Each message has a <code>role</code> of
@@ -148,7 +151,7 @@ export default async function Subpage({ params }: Props) {
               <h2>Attestation</h2>
               <p>
                 NEAR AI publishes hardware evidence for its Private TEE model tier. You can inspect the model
-                evidence using its Verification Center. The Relay gateway does not verify each response or
+                evidence using its Verification Center. The Sonnely gateway does not verify each response or
                 provide client-to-model encryption.
               </p>
               <a className="text-link" href="https://docs.near.ai/cloud/verification">

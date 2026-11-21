@@ -81,13 +81,20 @@ export function ModelStrip() {
             className="panel model-card feature-model"
             key={model.id}
           >
-            <span className={"model-mark " + model.color}>{model.mark}</span>
+            <div className="between strip-card-top">
+              <span className={"model-mark " + model.color}>{model.mark}</span>
+              <span className="pill">{model.type}</span>
+            </div>
             <div>
               <h3>{model.name}</h3>
               <p>{model.summary}</p>
-              <span className="mono subtle">{model.context} provider context</span>
             </div>
-            <ArrowUpRight size={17} />
+            <div className="between strip-card-meta">
+              <span className="mono">{model.context} context</span>
+              <span className="text-link">
+                Open in chat <ArrowUpRight size={16} />
+              </span>
+            </div>
           </Link>
         ))}
       </div>

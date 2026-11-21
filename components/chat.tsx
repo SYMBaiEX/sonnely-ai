@@ -1,27 +1,45 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowUp, BadgeCheck, History, Plus, Sparkles, Trash2, KeyRound } from "lucide-react";
+import {
+  ArrowUp,
+  ArrowUpRight,
+  BadgeCheck,
+  Fingerprint,
+  History,
+  Plus,
+  Sparkles,
+  Trash2,
+  KeyRound,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { models } from "@/lib/models";
+import { CopyButton } from "./shared";
 import { request, type Session } from "./wallet";
 
-type Message = { role: "user" | "assistant"; content: string };
+type Message = { role: "user" | "assistant"; content: string; model?: string };
 type Thread = { id: string; model: string; messages: Message[] };
 type Reply = { choices: { message: { content: string | null } }[] };
 
 const samples = [
   {
+    icon: Fingerprint,
+    title: "Private inference",
     prompt: "What is a trusted execution environment?",
     reply:
-      "A trusted execution environment (TEE) is an isolated part of a computer designed to protect data while it’s being processed. An attestation report can help a client check what software and hardware are running inside it. In Fathom Relay’s setup, the model provider’s enclave and the Fathom web gateway are separate trust boundaries.",
+      "A trusted execution environment (TEE) is an isolated part of a computer designed to protect data while it’s being processed. An attestation report can help a client check what software and hardware are running inside it. In Sonnely’s setup, the model provider’s enclave and the Sonnely gateway are separate trust boundaries.",
   },
   {
+    icon: KeyRound,
+    title: "Key budgets",
     prompt: "Show a simple API key budget example.",
     reply:
       "If a key has a $5 daily limit and a $30 lifetime limit, requests stop when either budget would be exceeded. The gateway reserves an estimate before running each request, then releases the remainder after the provider reports usage.",
   },
   {
+    icon: Wallet,
+    title: "Wallet sign-in",
     prompt: "How does a wallet sign-in work?",
     reply:
       "Your wallet signs a message tied to this site and a one-time challenge. The server checks the signature against your public Solana address and opens a session. Signing in does not send a transaction or move your funds.",
@@ -50,11 +68,13 @@ export function Chat({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
-  const storageKey = "fathom.chats." + (session?.profile?.wallet ?? "guest");
+  const owner = session?.profile?.wallet ?? "guest";
+  const storageKey = "sonnely.chats." + owner;
+  const legacyStorageKey = "fathom.chats." + owner;
   const current = threads.find((thread) => thread.id === active);
   const activeSample = sample === null ? null : samples[sample];
   const ready = Boolean(session?.profile && session?.inferenceEnabled);
-  const messages = activeSample
+  const messages: Message[] = activeSample
     ? [
         { role: "user", content: activeSample.prompt },
         { role: "assistant", content: activeSample.reply },
@@ -63,13 +83,17 @@ export function Chat({
 
   useEffect(() => {
     try {
-      const saved = localHistory ? (JSON.parse(localStorage.getItem(storageKey) || "[]") as Thread[]) : [];
+      const saved = localHistory
+        ? (JSON.parse(
+            localStorage.getItem(storageKey) ?? localStorage.getItem(legacyStorageKey) ?? "[]",
+          ) as Thread[])
+        : [];
       setThreads(Array.isArray(saved) ? saved : []);
       setActive(null);
     } catch {
       setThreads([]);
     }
-  }, [localHistory, storageKey]);
+  }, [localHistory, storageKey, legacyStorageKey]);
 
   function save(next: Thread[]) {
     setThreads(next);
@@ -84,6 +108,7 @@ export function Chat({
 
   function start() {
     setActive(null);
+    setShowHistory(false);
     setSample(null);
     setText("");
     setError("");
@@ -98,9 +123,10 @@ export function Chat({
     const history: Message[] = [...(thread?.messages ?? []), { role: "user", content: prompt }];
     const previous = threads;
     const rest = threads.filter((item) => item.id !== id);
+    const payload = history.map(({ role, content }) => ({ role, content }));
     const requestMessages = plain
-      ? [{ role: "system", content: "Use concise, clear language." }, ...history.slice(-31)]
-      : history.slice(-32);
+      ? [{ role: "system", content: "Use concise, clear language." }, ...payload.slice(-31)]
+      : payload.slice(-32);
     const input = { model, messages: requestMessages, max_tokens: 1024 };
     if (new TextEncoder().encode(JSON.stringify(input)).byteLength > 36_000) {
       setError("This conversation is too long for the gateway. Start a new chat or shorten your message.");
@@ -115,7 +141,7 @@ export function Chat({
     try {
       const result = await request<Reply>("chat", input);
       const content = result.choices[0]?.message.content || "The provider returned no text.";
-      save([{ id, model, messages: [...history, { role: "assistant", content }] }, ...rest]);
+      save([{ id, model, messages: [...history, { role: "assistant", content, model }] }, ...rest]);
       await refresh();
     } catch (error) {
       setThreads(previous);
@@ -209,18 +235,24 @@ export function Chat({
             <h1>Inference workspace</h1>
             <p>Explore a sample or run a request with your account.</p>
             <div className="prompts">
-              {samples.map((item, index) => (
+              {samples.map(({ prompt, title, icon: Icon }, index) => (
                 <button
                   type="button"
                   className="button prompt"
-                  key={item.prompt}
+                  key={prompt}
+                  aria-label={prompt}
                   onClick={() => {
                     setSample(index);
                     setActive(null);
                     setError("");
                   }}
                 >
-                  {item.prompt}
+                  <Icon size={19} className="prompt-icon" aria-hidden />
+                  <span>
+                    <strong>{title}</strong>
+                    <span>{prompt}</span>
+                  </span>
+                  <ArrowUpRight size={15} aria-hidden />
                 </button>
               ))}
             </div>
@@ -234,10 +266,12 @@ export function Chat({
                   {message.role === "user"
                     ? "You"
                     : activeSample
-                      ? "Fathom sample"
-                      : models.find((item) => item.id === model)?.name}
+                      ? "Sonnely sample"
+                      : (models.find((item) => item.id === (message.model ?? current?.model))?.name ??
+                        "Model")}
                 </div>
                 <p>{message.content}</p>
+                {message.role === "assistant" && <CopyButton value={message.content} label="Copy response" />}
               </article>
             ))}
             {busy && (

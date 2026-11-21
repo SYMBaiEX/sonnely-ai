@@ -94,7 +94,9 @@ test("wallet account workflow scopes keys, referrals, and support requests", asy
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Local fixture");
   await page.getByRole("spinbutton", { name: "Daily cap (USD)" }).fill("5");
   await page.locator("form").getByRole("button", { name: "Create key", exact: true }).click();
-  await expect(page.getByRole("region", { name: "New API key" }).locator("code")).toHaveText(/^fr_live_/);
+  await expect(page.getByRole("region", { name: "New API key" }).locator("code")).toHaveText(
+    /^sonnely_live_/,
+  );
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.getByText("Local fixture", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Revoke", exact: true }).click();
@@ -138,8 +140,8 @@ test("wallet challenges reject wrong origins, invalid signatures, and replay", a
 }) => {
   const { wallet, sign } = createWallet();
   const origin = baseURL!;
-  const challengeRoute = "/api/relay/challenge";
-  const verifyRoute = "/api/relay/verify";
+  const challengeRoute = "/api/sonnely/challenge";
+  const verifyRoute = "/api/sonnely/verify";
   const badOrigin = await request.post(challengeRoute, {
     data: { wallet },
     headers: { origin: "https://example.org" },
@@ -159,8 +161,21 @@ test("wallet challenges reject wrong origins, invalid signatures, and replay", a
   expect(valid.ok()).toBeTruthy();
   const replay = await request.post(verifyRoute, { data: body, headers: { origin, cookie } });
   expect(replay.status()).toBe(400);
-  const list = await request.get("/v1/models");
+  const list = await request.get("/api/sonnely/v1/models");
   expect((await list.json()).data).toHaveLength(3);
-  const unauthorized = await request.post("/v1/chat/completions", { data: {} });
+  const unauthorized = await request.post("/api/sonnely/v1/chat/completions", { data: {} });
   expect(unauthorized.status()).toBe(401);
+});
+
+test("Sonnely API paths and compatibility routes serve the same model list", async ({ request }) => {
+  const current = await request.get("/api/sonnely/v1/models");
+  const previous = await request.get("/v1/models");
+  expect(current.ok()).toBeTruthy();
+  expect(previous.ok()).toBeTruthy();
+  expect(await current.json()).toEqual(await previous.json());
+  const account = await request.get("/api/sonnely/session");
+  const previousAccount = await request.get("/api/relay/session");
+  expect(account.ok()).toBeTruthy();
+  expect(previousAccount.ok()).toBeTruthy();
+  expect(await account.json()).toEqual(await previousAccount.json());
 });

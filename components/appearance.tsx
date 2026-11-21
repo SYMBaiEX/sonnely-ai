@@ -5,7 +5,7 @@ import { Moon, Sun } from "lucide-react";
 
 import { readTheme, themeKey, type Theme } from "@/lib/appearance";
 
-const changeEvent = "fathom:theme";
+const changeEvent = "sonnely:theme";
 
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);

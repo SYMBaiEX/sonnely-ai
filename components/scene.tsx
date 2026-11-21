@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-export function Scene({ variant = "banner" }: { variant?: "hero" | "banner" }) {
+export function Scene({ variant = "banner" }: { variant?: "hero" | "banner" | "feature" }) {
   const scene = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const entry = scene.current;

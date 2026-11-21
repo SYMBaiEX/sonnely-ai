@@ -17,10 +17,11 @@ import {
   hash,
   json,
   readBody,
-  RelayError,
+  SonnelyError,
   seal,
   sessionHash,
   sessionToken,
+  serviceSecret,
   unseal,
 } from "@/lib/server";
 
@@ -37,12 +38,15 @@ export async function GET(request: NextRequest, context: Context) {
     const { task } = await context.params;
     if (task === "session") {
       const { billingEnabled, cluster } = billing();
-      const enabled = Boolean(process.env.CONVEX_URL && process.env.RELAY_SERVICE_SECRET);
+      const enabled = Boolean(process.env.CONVEX_URL && serviceSecret());
       const token = sessionToken(request);
       const connection = enabled && token ? backend() : null;
       const profile =
         connection && token
-          ? await connection.db.query(api.relay.profile, { secret: connection.secret, session: hash(token) })
+          ? await connection.db.query(api.sonnely.profile, {
+              secret: connection.secret,
+              session: hash(token),
+            })
           : null;
       return json({
         profile,
@@ -55,9 +59,9 @@ export async function GET(request: NextRequest, context: Context) {
     const session = sessionHash(request);
     const { db, secret } = backend();
     const auth = { secret, session };
-    if (task === "keys") return json(await db.query(api.relay.listKeys, auth));
-    if (task === "referrals") return json(await db.query(api.relay.referrals, auth));
-    if (task === "history") return json(await db.query(api.relay.history, auth));
+    if (task === "keys") return json(await db.query(api.sonnely.listKeys, auth));
+    if (task === "referrals") return json(await db.query(api.sonnely.referrals, auth));
+    if (task === "history") return json(await db.query(api.sonnely.history, auth));
     if (task === "usage") {
       const days = z.coerce
         .number()
@@ -65,9 +69,9 @@ export async function GET(request: NextRequest, context: Context) {
         .parse(request.nextUrl.searchParams.get("days") ?? 30);
       const now = new Date();
       const since = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days + 1);
-      return json(await db.query(api.relay.usage, { ...auth, since }));
+      return json(await db.query(api.sonnely.usage, { ...auth, since }));
     }
-    throw new RelayError("Unknown route.", 404);
+    throw new SonnelyError("Unknown route.", 404);
   } catch (error) {
     return errorResponse(error);
   }
@@ -87,7 +91,7 @@ export async function POST(request: NextRequest, context: Context) {
         address: wallet,
         domain: site.host,
         uri: site.origin,
-        statement: "Sign in to Fathom Relay. This message does not move any funds.",
+        statement: "Sign in to Sonnely. This message does not move any funds.",
         version: "1",
         nonce: randomBytes(20).toString("hex"),
         issuedAt: new Date(now).toISOString(),
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest, context: Context) {
       const response = json({
         message: createSignInMessageText(input),
       });
-      response.cookies.set("fathom_challenge", seal(secret, JSON.stringify(input)), {
+      response.cookies.set("sonnely_challenge", seal(secret, JSON.stringify(input)), {
         ...cookie,
         maxAge: duration / 1000,
       });
@@ -108,7 +112,10 @@ export async function POST(request: NextRequest, context: Context) {
         .object({ wallet: address, signature: signatureBytes(64), invite: inviteCode.optional() })
         .parse(raw);
       const input = JSON.parse(
-        unseal(secret, request.cookies.get("fathom_challenge")?.value),
+        unseal(
+          secret,
+          request.cookies.get("sonnely_challenge")?.value ?? request.cookies.get("fathom_challenge")?.value,
+        ),
       ) as SolanaSignInInput;
       const expires = Date.parse(input.expirationTime ?? "");
       if (
@@ -119,7 +126,7 @@ export async function POST(request: NextRequest, context: Context) {
         input.domain !== site.host ||
         !input.nonce
       ) {
-        throw new RelayError("Start a new sign-in challenge.", 401);
+        throw new SonnelyError("Start a new sign-in challenge.", 401);
       }
       const signedMessage = new TextEncoder().encode(
         createSignInMessageText({ ...input, address: wallet, domain: input.domain }),
@@ -130,9 +137,9 @@ export async function POST(request: NextRequest, context: Context) {
         signedMessage,
         signature: Uint8Array.from(signature),
       });
-      if (!verified) throw new RelayError("Wallet signature could not be verified.", 401);
+      if (!verified) throw new SonnelyError("Wallet signature could not be verified.", 401);
       const token = randomBytes(32).toString("base64url");
-      await db.mutation(api.relay.signIn, {
+      await db.mutation(api.sonnely.signIn, {
         secret,
         session: hash(token),
         wallet,
@@ -142,7 +149,8 @@ export async function POST(request: NextRequest, context: Context) {
         referral: randomBytes(8).toString("hex"),
       });
       const response = json({ wallet });
-      response.cookies.set("fathom_session", token, { ...cookie, maxAge: 7 * 86400 });
+      response.cookies.set("sonnely_session", token, { ...cookie, maxAge: 7 * 86400 });
+      response.cookies.set("sonnely_challenge", "", { ...cookie, maxAge: 0 });
       response.cookies.set("fathom_challenge", "", { ...cookie, maxAge: 0 });
       return response;
     }
@@ -150,15 +158,16 @@ export async function POST(request: NextRequest, context: Context) {
     const session = sessionHash(request);
     const auth = { secret, session };
     if (task === "logout") {
-      await db.mutation(api.relay.signOut, auth);
+      await db.mutation(api.sonnely.signOut, auth);
       const response = json({ ok: true });
+      response.cookies.set("sonnely_session", "", { ...cookie, maxAge: 0 });
       response.cookies.set("fathom_session", "", { ...cookie, maxAge: 0 });
       return response;
     }
     if (task === "chat") return json(await infer(raw, { session }));
     if (task === "profile") {
       const { name } = z.object({ name: z.string().trim().max(60) }).parse(raw);
-      await db.mutation(api.relay.rename, { ...auth, name });
+      await db.mutation(api.sonnely.rename, { ...auth, name });
       return json({ ok: true });
     }
     if (task === "keys") {
@@ -170,12 +179,12 @@ export async function POST(request: NextRequest, context: Context) {
           expires: z.number().int().gt(Date.now()).nullable(),
         })
         .parse(raw);
-      const key = "fr_live_" + randomBytes(32).toString("base64url");
-      await db.mutation(api.relay.createKey, {
+      const key = "sonnely_live_" + randomBytes(32).toString("base64url");
+      await db.mutation(api.sonnely.createKey, {
         ...auth,
         ...fields,
         hash: hash(key),
-        prefix: key.slice(0, 15),
+        prefix: key.slice(0, 20),
         cap: fields.cap === null ? null : Math.round(fields.cap * 1_000_000),
         dailyCap: fields.dailyCap === null ? null : Math.round(fields.dailyCap * 1_000_000),
       });
@@ -183,41 +192,41 @@ export async function POST(request: NextRequest, context: Context) {
     }
     if (task === "revoke") {
       const { id } = z.object({ id: field(64) }).parse(raw);
-      await db.mutation(api.relay.revokeKey, { ...auth, id: id as Id<"keys"> });
+      await db.mutation(api.sonnely.revokeKey, { ...auth, id: id as Id<"keys"> });
       return json({ ok: true });
     }
     if (task === "contact") {
       const fields = z
         .object({ email: z.email().max(254), topic: field(60), message: field(3000) })
         .parse(raw);
-      return json({ ticket: await db.mutation(api.relay.ticket, { ...auth, ...fields }) }, 201);
+      return json({ ticket: await db.mutation(api.sonnely.ticket, { ...auth, ...fields }) }, 201);
     }
-    const profile = await db.query(api.relay.profile, auth);
-    if (!profile) throw new RelayError("Sign in with a Solana wallet.", 401);
+    const profile = await db.query(api.sonnely.profile, auth);
+    if (!profile) throw new SonnelyError("Sign in with a Solana wallet.", 401);
     if (task === "quote") {
       const { sol } = z.object({ sol: z.number().min(0.01).max(1000) }).parse(raw);
-      await db.mutation(api.relay.throttleQuote, auth);
+      await db.mutation(api.sonnely.throttleQuote, auth);
       return json(await quote(profile.wallet, sol));
     }
     if (task === "deposit" || task === "confirm") {
       const { billingEnabled, cluster, mint, recipient, rpc } = billing();
       if (!billingEnabled || !recipient || !rpc)
-        throw new RelayError("USDC payments are awaiting treasury setup.", 503);
+        throw new SonnelyError("USDC payments are awaiting treasury setup.", 503);
       if (task === "deposit") {
         const { dollars } = z.object({ dollars: z.number().int().min(5).max(1000) }).parse(raw);
         if (recipient === profile.wallet)
-          throw new RelayError("Use a wallet other than the treasury wallet.");
+          throw new SonnelyError("Use a wallet other than the treasury wallet.");
         await verifyCluster(rpc, cluster);
         const reference = bs58.encode(randomBytes(32));
         const payment = new URLSearchParams({
           amount: String(dollars),
           "spl-token": mint,
           reference,
-          label: "Fathom Relay",
+          label: "Sonnely",
           message: "Compute credit top-up",
         });
         const uri = "solana:" + recipient + "?" + payment.toString();
-        await db.mutation(api.relay.createDeposit, {
+        await db.mutation(api.sonnely.createDeposit, {
           ...auth,
           reference,
           recipient,
@@ -246,7 +255,7 @@ export async function POST(request: NextRequest, context: Context) {
             }),
         })
         .parse(raw);
-      const order = await db.query(api.relay.depositDetails, { ...auth, reference });
+      const order = await db.query(api.sonnely.depositDetails, { ...auth, reference });
       if (order.signature === signature) return json({ ok: true, cluster: order.cluster });
       if (
         order.signature ||
@@ -254,12 +263,12 @@ export async function POST(request: NextRequest, context: Context) {
         order.recipient !== recipient ||
         order.mint !== mint
       )
-        throw new RelayError("This payment cannot be matched with the configured treasury.");
+        throw new SonnelyError("This payment cannot be matched with the configured treasury.");
       await verifyPayment(rpc, signature, profile.wallet, order);
-      await db.mutation(api.relay.confirmDeposit, { ...auth, reference, signature });
+      await db.mutation(api.sonnely.confirmDeposit, { ...auth, reference, signature });
       return json({ ok: true, cluster: order.cluster });
     }
-    throw new RelayError("Unknown route.", 404);
+    throw new SonnelyError("Unknown route.", 404);
   } catch (error) {
     return errorResponse(error);
   }

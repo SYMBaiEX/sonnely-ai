@@ -1,6 +1,6 @@
 import { z } from "zod";
 import bs58 from "bs58";
-import { RelayError } from "./server";
+import { SonnelyError } from "./server";
 
 export const address = z
   .string()
@@ -64,11 +64,11 @@ async function rpcCall(rpc: string, method: string, params: unknown[]) {
       signal: AbortSignal.timeout(10_000),
     });
   } catch {
-    throw new RelayError("Solana RPC is unavailable.", 503);
+    throw new SonnelyError("Solana RPC is unavailable.", 503);
   }
-  if (!response.ok) throw new RelayError("Solana RPC is unavailable.", 503);
+  if (!response.ok) throw new SonnelyError("Solana RPC is unavailable.", 503);
   const payload = await response.json().catch(() => null);
-  if (!payload || payload.error) throw new RelayError("Solana RPC could not verify the transaction.", 503);
+  if (!payload || payload.error) throw new SonnelyError("Solana RPC could not verify the transaction.", 503);
   return payload.result as unknown;
 }
 
@@ -77,7 +77,7 @@ export async function verifyCluster(rpc: string, cluster: string) {
     cluster === "mainnet" ? "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" : "EtWTRABZaYq6iMfeYKouRu166VU2xqa1";
   const result = await rpcCall(rpc, "getGenesisHash", []);
   if (typeof result !== "string" || !result.startsWith(expected))
-    throw new RelayError("The configured Solana RPC is on a different network.", 503);
+    throw new SonnelyError("The configured Solana RPC is on a different network.", 503);
 }
 
 export async function verifyPayment(
@@ -93,7 +93,7 @@ export async function verifyPayment(
   ]);
   const tx = transaction.safeParse(result);
   if (!tx.success || tx.data.meta.err !== null)
-    throw new RelayError("No finalized successful payment was found.");
+    throw new SonnelyError("No finalized successful payment was found.");
   const {
     meta,
     transaction: { message },
@@ -101,7 +101,7 @@ export async function verifyPayment(
   const reference = message.accountKeys.find((key) => key.pubkey === order.reference);
   const signer = message.accountKeys.some((key) => key.pubkey === wallet && key.signer);
   if (!reference || reference.signer || reference.writable || !signer)
-    throw new RelayError("The signature does not match this payment request and wallet.");
+    throw new SonnelyError("The signature does not match this payment request and wallet.");
 
   const changeFor = (owner: string) => {
     const sum = (balances: z.infer<typeof tokenBalance>[]) =>
@@ -114,7 +114,7 @@ export async function verifyPayment(
     return sum(meta.postTokenBalances) - sum(meta.preTokenBalances);
   };
   if (changeFor(order.recipient) !== BigInt(order.amount) || changeFor(wallet) !== -BigInt(order.amount)) {
-    throw new RelayError("The finalized USDC transfer does not match the requested amount.");
+    throw new SonnelyError("The finalized USDC transfer does not match the requested amount.");
   }
 }
 
@@ -146,7 +146,7 @@ export async function quote(wallet: string, sol: number) {
     })
     .safeParse(result?.ok ? await result.json().catch(() => null) : null);
   if (!parsed.success)
-    throw new RelayError(
+    throw new SonnelyError(
       "No quote was available for this amount. Try a larger amount or retry shortly.",
       502,
     );

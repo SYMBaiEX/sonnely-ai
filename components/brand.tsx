@@ -7,7 +7,7 @@ export function Brand() {
       <span className="brand-icon">
         <Layers aria-hidden size={19} />
       </span>
-      Fathom<span className="brand-relay">Relay</span>
+      Sonnely
     </Link>
   );
 }

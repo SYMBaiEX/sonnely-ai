@@ -1,13 +1,14 @@
-import { ArrowRight, ArrowUpRight, BadgeCheck, Fingerprint, Radio, Terminal, Wallet } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Fingerprint, Radio, Terminal, Wallet } from "lucide-react";
 import Link from "next/link";
 import { CodeExample } from "@/components/shared";
 import { Scene } from "@/components/scene";
 import { ModelStrip } from "@/components/model-strip";
+import { RequestPath } from "@/components/request-path";
 
 export default function Home() {
   return (
     <>
-      <div className="wrap">
+      <div className="wrap home">
         <section className="hero">
           <Scene variant="hero" />
           <div className="hero-content">
@@ -32,12 +33,14 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="hero-meta glass">
+          <Link className="hero-meta glass" href="#request-path">
             <span>
               <Radio size={15} /> Execution layer
             </span>
-            <strong>NEAR AI · Private TEE</strong>
-          </div>
+            <strong>
+              NEAR AI · Private TEE <ArrowUpRight size={13} />
+            </strong>
+          </Link>
         </section>
         <div className="strip" aria-label="Platform components">
           <span>
@@ -68,47 +71,7 @@ export default function Home() {
           </div>
           <CodeExample />
         </section>
-        <section className="section">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">Data handling</p>
-              <h2>
-                Know where your
-                <br />
-                request runs.
-              </h2>
-            </div>
-            <Link className="text-link" href="/docs#privacy">
-              Read the privacy model <ArrowUpRight size={17} />
-            </Link>
-          </div>
-          <div className="model-cards">
-            <article className="panel benefit">
-              <BadgeCheck />
-              <h3>Hardware isolation</h3>
-              <p>
-                The model catalog uses NEAR AI’s Private TEE tier. Review the provider’s attestation evidence
-                directly.
-              </p>
-            </article>
-            <article className="panel benefit">
-              <Terminal />
-              <h3>Metadata-only usage</h3>
-              <p>
-                Relay’s account ledger records model IDs, token counts, request status, and cost. Saved chat
-                history is optional and local.
-              </p>
-            </article>
-            <article className="panel benefit">
-              <Wallet />
-              <h3>Wallet-owned access</h3>
-              <p>
-                Sign a message with your Solana wallet. Create revocable API keys with optional daily and
-                lifetime budgets.
-              </p>
-            </article>
-          </div>
-        </section>
+        <RequestPath />
         <section className="closing">
           <Scene />
           <div>

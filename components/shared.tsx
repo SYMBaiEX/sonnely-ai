@@ -1,20 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Check, Copy, Search } from "lucide-react";
 import { models } from "@/lib/models";
 
 export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
   const [status, setStatus] = useState("");
+  const clearStatus = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(clearStatus.current), []);
   async function copy() {
+    clearTimeout(clearStatus.current);
     try {
       await navigator.clipboard.writeText(value);
       setStatus("Copied");
     } catch {
       setStatus("Copy failed");
     }
-    setTimeout(() => setStatus(""), 1600);
+    clearStatus.current = setTimeout(() => setStatus(""), 1600);
   }
   return (
     <button type="button" className="button quiet small" onClick={copy} aria-label={status || label}>
@@ -26,21 +29,34 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
 
 export function ModelCatalog() {
   const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState("featured");
   const displayed = models.filter((model) =>
     (model.name + " " + model.type + " " + model.id).toLowerCase().includes(filter.toLowerCase().trim()),
   );
+  if (sort === "input") displayed.sort((a, b) => a.input - b.input);
+  if (sort === "output") displayed.sort((a, b) => a.output - b.output);
   return (
     <>
-      <label className="search">
-        <Search size={17} />
-        <input
-          type="search"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Find a model"
-          aria-label="Find a model"
-        />
-      </label>
+      <div className="catalog-tools">
+        <label className="search">
+          <Search size={17} />
+          <input
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Find a model"
+            aria-label="Find a model"
+          />
+        </label>
+        <select aria-label="Sort models" value={sort} onChange={(event) => setSort(event.target.value)}>
+          <option value="featured">Featured</option>
+          <option value="input">Lowest input price</option>
+          <option value="output">Lowest output price</option>
+        </select>
+      </div>
+      <p className="catalog-count caption" role="status">
+        {displayed.length} {displayed.length === 1 ? "model" : "models"}
+      </p>
       <div className="model-cards catalog-cards">
         {displayed.map((model) => (
           <article key={model.id} className="panel model-card">
@@ -83,7 +99,7 @@ export function ModelCatalog() {
         </p>
       )}
       <p className="caption">
-        NEAR AI lists these models in its Private TEE tier. Relay accepts text requests with smaller limits.{" "}
+        NEAR AI lists these models in its Private TEE tier. Sonnely accepts text requests with smaller limits.{" "}
         <a href="https://near.ai/models">Provider catalog ↗</a>
       </p>
     </>
@@ -95,8 +111,8 @@ export function CodeExample() {
   const model = models[0].id;
   const scripts = {
     cURL: [
-      'curl "$FATHOM_ORIGIN/v1/chat/completions" ' + String.fromCharCode(92),
-      '  -H "Authorization: Bearer $FATHOM_API_KEY" ' + String.fromCharCode(92),
+      'curl "$SONNELY_ORIGIN/api/sonnely/v1/chat/completions" ' + String.fromCharCode(92),
+      '  -H "Authorization: Bearer $SONNELY_API_KEY" ' + String.fromCharCode(92),
       '  -H "Content-Type: application/json" ' + String.fromCharCode(92),
       "  -d '{",
       '    "model": "' + model + '",',
@@ -104,11 +120,11 @@ export function CodeExample() {
       "  }'",
     ].join("\n"),
     JavaScript:
-      'import OpenAI from "openai";\n\nconst relay = new OpenAI({\n  baseURL: process.env.FATHOM_ORIGIN + "/v1",\n  apiKey: process.env.FATHOM_API_KEY,\n});\n\nconst reply = await relay.chat.completions.create({\n  model: "' +
+      'import OpenAI from "openai";\n\nconst sonnely = new OpenAI({\n  baseURL: process.env.SONNELY_ORIGIN + "/api/sonnely/v1",\n  apiKey: process.env.SONNELY_API_KEY,\n});\n\nconst reply = await sonnely.chat.completions.create({\n  model: "' +
       model +
       '",\n  messages: [{ role: "user", content: "Summarize this design." }],\n});',
     Python:
-      'import os\nfrom openai import OpenAI\n\nrelay = OpenAI(\n    base_url=os.environ["FATHOM_ORIGIN"] + "/v1",\n    api_key=os.environ["FATHOM_API_KEY"],\n)\n\nreply = relay.chat.completions.create(\n    model="' +
+      'import os\nfrom openai import OpenAI\n\nsonnely = OpenAI(\n    base_url=os.environ["SONNELY_ORIGIN"] + "/api/sonnely/v1",\n    api_key=os.environ["SONNELY_API_KEY"],\n)\n\nreply = sonnely.chat.completions.create(\n    model="' +
       model +
       '",\n    messages=[{"role": "user", "content": "Summarize this design."}],\n)',
   };
@@ -125,7 +141,16 @@ export function CodeExample() {
         <CopyButton value={scripts[tab]} label="Copy code" />
       </div>
       <pre>
-        <code>{scripts[tab]}</code>
+        <code>
+          {scripts[tab].split("\n").map((line, index) => (
+            <span className="code-line" key={index}>
+              <span className="code-line-number" aria-hidden="true">
+                {index + 1}
+              </span>
+              <span>{line || " "}</span>
+            </span>
+          ))}
+        </code>
       </pre>
     </div>
   );

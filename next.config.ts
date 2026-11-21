@@ -3,6 +3,12 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
+  async rewrites() {
+    return [
+      { source: "/v1/:path*", destination: "/api/sonnely/v1/:path*" },
+      { source: "/api/relay/:task", destination: "/api/sonnely/:task" },
+    ];
+  },
   async headers() {
     return [
       {

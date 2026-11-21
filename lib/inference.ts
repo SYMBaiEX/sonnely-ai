@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import { models } from "./models";
-import { backend, RelayError } from "./server";
+import { backend, SonnelyError } from "./server";
 
 const message = z
   .object({ role: z.enum(["system", "user", "assistant"]), content: z.string().min(1).max(12_000) })
@@ -41,15 +41,15 @@ const result = z.object({
 export async function infer(raw: unknown, auth: { session?: string; hash?: string }) {
   const input = completion.parse(raw);
   const model = models.find((item) => item.id === input.model);
-  if (!model) throw new RelayError("Choose a model from the catalog.", 404);
+  if (!model) throw new SonnelyError("Choose a model from the catalog.", 404);
   const upstreamKey = process.env.NEAR_AI_API_KEY;
-  if (!upstreamKey) throw new RelayError("Managed inference is awaiting provider activation.", 503);
+  if (!upstreamKey) throw new SonnelyError("Managed inference is awaiting provider activation.", 503);
 
   const maxTokens = input.max_tokens ?? 512;
   const bytes = Buffer.byteLength(JSON.stringify(input.messages));
   const reserve = Math.ceil((bytes + 256) * model.input + maxTokens * model.output);
   const { db, secret } = backend();
-  const id = await db.mutation(api.relay.reserve, { secret, ...auth, model: input.model, cost: reserve });
+  const id = await db.mutation(api.sonnely.reserve, { secret, ...auth, model: input.model, cost: reserve });
   let status: "complete" | "failed" | "unreported" = "unreported";
   let tokensIn = 0;
   let tokensOut = 0;
@@ -65,14 +65,14 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
         signal: AbortSignal.timeout(45_000),
       });
     } catch {
-      throw new RelayError("The provider did not respond. The reservation is pending reconciliation.", 502);
+      throw new SonnelyError("The provider did not respond. The reservation is pending reconciliation.", 502);
     }
     if (!response.ok) {
       if (response.status < 500) status = "failed";
-      throw new RelayError("The provider could not complete this request.", 502);
+      throw new SonnelyError("The provider could not complete this request.", 502);
     }
     const parsed = result.safeParse(await response.json().catch(() => null));
-    if (!parsed.success) throw new RelayError("The provider returned incomplete usage information.", 502);
+    if (!parsed.success) throw new SonnelyError("The provider returned incomplete usage information.", 502);
     const data = parsed.data;
     tokensIn = data.usage.prompt_tokens;
     tokensOut = data.usage.completion_tokens;
@@ -81,6 +81,6 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
     status = "complete";
     return { ...data, model: input.model, usage: { ...data.usage, total_tokens: tokensIn + tokensOut } };
   } finally {
-    await db.mutation(api.relay.settle, { secret, id, status, input: tokensIn, output: tokensOut, cost });
+    await db.mutation(api.sonnely.settle, { secret, id, status, input: tokensIn, output: tokensOut, cost });
   }
 }

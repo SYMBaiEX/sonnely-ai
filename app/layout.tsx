@@ -1,12 +1,15 @@
-import type { Metadata } from "next";
-import { themeBeforePaint } from "@/lib/appearance";
+import type { Metadata, Viewport } from "next";
+import { seasonBeforePaint, themeBeforePaint } from "@/lib/appearance";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import "@fontsource/instrument-serif/400-italic.css";
 import "./globals.css";
+import "./experience.css";
+
+export const viewport: Viewport = { viewportFit: "cover" };
 
 export const metadata: Metadata = {
-  title: { default: "Fathom Relay | Private AI on Solana", template: "%s | Fathom Relay" },
+  title: { default: "Sonnely | Private AI on Solana", template: "%s | Sonnely" },
   description:
     "A Solana-native workspace for confidential inference, model discovery, and metered API access.",
   icons: { icon: "/mark.png" },
@@ -16,7 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBeforePaint }} />
+        <script dangerouslySetInnerHTML={{ __html: themeBeforePaint + ";\n" + seasonBeforePaint }} />
       </head>
       <body>{children}</body>
     </html>

@@ -753,10 +753,7 @@ export function Referrals({ profile }: { profile: Profile }) {
   const url = profile ? origin + "/console?ref=" + profile.referral : "";
   return (
     <>
-      <Title
-        title="Referrals"
-        description="Invite someone to Fathom Relay and see verified wallet sign-ups."
-      />
+      <Title title="Referrals" description="Invite someone to Sonnely and see verified wallet sign-ups." />
       <Failure message={error} />
       <section className="panel callout">
         <div>
@@ -908,7 +905,7 @@ export function SettingsPanel({
         <div className="settings-row">
           <div>
             <strong>Save on this device</strong>
-            <p>Turning this off clears saved Relay chats from this browser.</p>
+            <p>Turning this off clears saved Sonnely chats from this browser.</p>
           </div>
           <button
             type="button"

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Activity,
   ArrowUpRight,
@@ -13,6 +12,7 @@ import {
   KeyRound,
   Menu,
   MessageSquare,
+  Search,
   Settings,
   Users,
   Wallet,
@@ -20,6 +20,7 @@ import {
 import type { Section } from "@/app/console/[[...section]]/page";
 import { usd } from "@/lib/models";
 import { Brand } from "./brand";
+import { CommandMenu } from "./command-menu";
 import { setTheme, ThemeSurface, useTheme } from "./appearance";
 import { Chat } from "./chat";
 import { ModelCatalog } from "./shared";
@@ -45,11 +46,15 @@ export function Console({ section, initialModel }: { section: Section; initialMo
   const [palette, setPalette] = useState(false);
   const [prefs, setPrefs] = useState(defaults);
   const theme = useTheme();
-  const router = useRouter();
 
   useEffect(() => {
     try {
-      setPrefs({ ...defaults, ...JSON.parse(localStorage.getItem("fathom.preferences") || "{}") });
+      setPrefs({
+        ...defaults,
+        ...JSON.parse(
+          localStorage.getItem("sonnely.preferences") ?? localStorage.getItem("fathom.preferences") ?? "{}",
+        ),
+      });
     } catch {
       /* Use defaults when stored preferences cannot be restored. */
     }
@@ -64,11 +69,6 @@ export function Console({ section, initialModel }: { section: Section; initialMo
     document.addEventListener("keydown", shortcut);
     return () => document.removeEventListener("keydown", shortcut);
   }, []);
-  useEffect(() => {
-    const dialog = document.querySelector<HTMLDialogElement>("#console-command");
-    if (palette && !dialog?.open) dialog?.showModal();
-    if (!palette && dialog?.open) dialog.close();
-  }, [palette]);
   function closeNavigation() {
     setNavOpen(false);
     navToggle.current?.focus();
@@ -86,10 +86,10 @@ export function Console({ section, initialModel }: { section: Section; initialMo
   function change(next: Preferences) {
     setPrefs(next);
     setTheme(next.theme);
-    localStorage.setItem("fathom.preferences", JSON.stringify(next));
+    localStorage.setItem("sonnely.preferences", JSON.stringify(next));
     if (!next.localHistory) {
       for (const key of Object.keys(localStorage))
-        if (key.startsWith("fathom.chats.")) localStorage.removeItem(key);
+        if (key.startsWith("sonnely.chats.") || key.startsWith("fathom.chats.")) localStorage.removeItem(key);
     }
   }
 
@@ -151,17 +151,9 @@ export function Console({ section, initialModel }: { section: Section; initialMo
       <div className="console-stage">
         <header className="console-bar glass">
           <div className="crumb">
-            <button
-              ref={navToggle}
-              className="icon-button nav-toggle"
-              type="button"
-              aria-expanded={navOpen}
-              aria-controls="console-navigation"
-              aria-label="Toggle navigation"
-              onClick={() => setNavOpen(!navOpen)}
-            >
-              <Menu size={20} />
-            </button>
+            <span className="compact-brand">
+              <Brand />
+            </span>
             <span>Workspace</span>
             <span className="slash">/</span>
             <strong>{selected.title}</strong>
@@ -173,32 +165,16 @@ export function Console({ section, initialModel }: { section: Section; initialMo
               onClick={() => setPalette(true)}
               aria-label="Quick navigation"
             >
-              <Command size={15} /> K
+              <Search size={16} />
+              <span>Jump to</span>
+              <kbd>
+                <Command size={12} /> K
+              </kbd>
             </button>
             <WalletControl session={session} refresh={refresh} />
           </div>
         </header>
-        <dialog id="console-command" className="panel command-dialog" onClose={() => setPalette(false)}>
-          <div className="between">
-            <h2>Go to page</h2>
-            <button type="button" className="button quiet small" onClick={() => setPalette(false)}>
-              Close
-            </button>
-          </div>
-          {nav.map(({ title, path, Icon }) => (
-            <button
-              className="button quiet full"
-              key={path}
-              type="button"
-              onClick={() => {
-                setPalette(false);
-                router.push(path);
-              }}
-            >
-              <Icon size={17} /> {title}
-            </button>
-          ))}
-        </dialog>
+        <CommandMenu open={palette} onClose={() => setPalette(false)} pages={nav} />
         <main id="console-content" className={section === "chat" ? "console-chat" : "console-content"}>
           {failure && (
             <p role="alert" className="error">
@@ -238,6 +214,34 @@ export function Console({ section, initialModel }: { section: Section; initialMo
           )}
         </main>
       </div>
+      <nav className="mobile-dock glass" aria-label="Quick workspace navigation">
+        {nav
+          .filter(({ id }) => ["chat", "models", "usage"].includes(id))
+          .map(({ id, path, Icon, title }) => (
+            <Link
+              key={id}
+              href={path}
+              className="dock-item"
+              aria-current={section === id ? "page" : undefined}
+              onClick={() => setNavOpen(false)}
+            >
+              <Icon size={20} aria-hidden />
+              <span>{title}</span>
+            </Link>
+          ))}
+        <button
+          ref={navToggle}
+          className="dock-item"
+          type="button"
+          aria-expanded={navOpen}
+          aria-controls="console-navigation"
+          aria-label="Toggle navigation"
+          onClick={() => setNavOpen(!navOpen)}
+        >
+          <Menu size={20} aria-hidden />
+          <span>All pages</span>
+        </button>
+      </nav>
     </ThemeSurface>
   );
 }
