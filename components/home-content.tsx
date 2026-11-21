@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, Braces, Code2, FileText, Fingerprint, KeyRound, ScanLine, Wallet } from "lucide-react";
 import { articles } from "@/lib/journal";
 import { limits } from "@/lib/api-contract";
+import { models } from "@/lib/models";
 
 const capabilities = [
   {
@@ -39,21 +40,21 @@ const workloads = [
     icon: FileText,
     title: "Synthesize documents",
     body: "Turn a set of notes into a brief, extract decisions, or compare short excerpts.",
-    model: "DeepSeek V4.1 Flash",
+    model: models[0],
     type: "documents",
   },
   {
     icon: ScanLine,
     title: "Extract and classify",
     body: "Identify fields, label a support ticket, or turn a short response into a consistent schema.",
-    model: "GLM 5.3 Flash",
+    model: models[1],
     type: "extract",
   },
   {
     icon: Code2,
     title: "Work through code",
     body: "Explain an unfamiliar function, summarize a small diff, or draft a test plan for review.",
-    model: "Qwen 3.6 35B",
+    model: models[2],
     type: "code",
   },
 ] as const;
@@ -61,25 +62,25 @@ const workloads = [
 export function HomeCapabilities() {
   return (
     <section className="section home-capabilities" aria-labelledby="capabilities-heading">
-      <div className="section-head">
+      <header className="section-head">
         <div>
           <p className="eyebrow">The gateway</p>
-          <h2 id="capabilities-heading">From your first prompt to a budgeted workload.</h2>
+          <h2 id="capabilities-heading">From request to receipt.</h2>
         </div>
         <p>Choose a model, connect your client, and track usage in the same workspace.</p>
-      </div>
-      <div className="capability-grid">
+      </header>
+      <ul className="capability-list" role="list">
         {capabilities.map(({ icon: Icon, title, body, href, action }) => (
-          <article className="panel benefit" key={title}>
-            <Icon aria-hidden="true" />
+          <li key={title}>
+            <Icon size={20} aria-hidden="true" />
             <h3>{title}</h3>
             <p>{body}</p>
             <Link className="text-link" href={href}>
               {action} <ArrowUpRight size={15} />
             </Link>
-          </article>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
@@ -138,7 +139,12 @@ export function HomeWorkloads() {
             <div className="workload-copy">
               <h3>{title}</h3>
               <p>{body}</p>
-              <p className="workload-model">Try {model}</p>
+              <Link
+                className="text-link workload-model"
+                href={"/console?model=" + encodeURIComponent(model.id)}
+              >
+                Try {model.name} <ArrowUpRight size={14} />
+              </Link>
             </div>
           </article>
         ))}

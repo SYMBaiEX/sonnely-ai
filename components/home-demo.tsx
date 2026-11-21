@@ -32,20 +32,62 @@ const examples = [
   },
 ] as const;
 
-export function HomeDemo() {
-  const [active, setActive] = useState(0);
-  const { instruction, input, output, model } = examples[active];
-  const prompt = JSON.stringify(instruction + "\n\n" + input).replaceAll("'", "'\\''");
-  const lines = [
-    `curl "${apiOrigin}${apiBasePath}/chat/completions" \\`,
-    '  -H "Authorization: Bearer $SONNELY_API_KEY" \\',
-    '  -H "Content-Type: application/json" \\',
+const languages = ["cURL", "Python", "JavaScript"] as const;
+type Language = (typeof languages)[number];
+const endpoint = apiOrigin + apiBasePath;
+
+function requestCode(language: Language, model: string, content: string) {
+  const modelId = JSON.stringify(model);
+  const message = JSON.stringify(content);
+  if (language === "Python")
+    return [
+      "import os",
+      "from openai import OpenAI",
+      "",
+      `client = OpenAI(base_url="${endpoint}",`,
+      '                api_key=os.environ["SONNELY_API_KEY"])',
+      "reply = client.chat.completions.create(",
+      `    model=${modelId},`,
+      `    messages=[{"role": "user", "content": ${message}}],`,
+      ")",
+      "print(reply.choices[0].message.content)",
+    ];
+  if (language === "JavaScript")
+    return [
+      'import OpenAI from "openai";',
+      "",
+      "const client = new OpenAI({",
+      `  baseURL: "${endpoint}",`,
+      "  apiKey: process.env.SONNELY_API_KEY,",
+      "});",
+      "const reply = await client.chat.completions.create({",
+      `  model: ${modelId},`,
+      `  messages: [{ role: "user", content: ${message} }],`,
+      "});",
+      "console.log(reply.choices[0].message.content);",
+    ];
+  return [
+    'curl "' + endpoint + '/chat/completions" ' + String.fromCharCode(92),
+    '  -H "Authorization: Bearer $SONNELY_API_KEY" ' + String.fromCharCode(92),
+    '  -H "Content-Type: application/json" ' + String.fromCharCode(92),
     "  -d '{",
-    `    "model": "${model.id}",`,
+    `    "model": ${modelId},`,
     '    "messages": [{"role": "user",',
-    `      "content": ${prompt}}]`,
+    '      "content": ' + message.replaceAll("'", "'\\''") + "}]",
     "  }'",
   ];
+}
+
+export function HomeDemo() {
+  const [active, setActive] = useState(0);
+  const [language, setLanguage] = useState<Language>("cURL");
+  const [showJson, setShowJson] = useState(false);
+  const { instruction, input, output, model } = examples[active];
+  const lines = requestCode(language, model.id, instruction + "\n\n" + input);
+  const sampleResponse = {
+    model: model.id,
+    choices: [{ index: 0, message: { role: "assistant", content: output } }],
+  };
 
   return (
     <section className="home-quickstart" id="quickstart" aria-labelledby="home-quickstart-heading">
@@ -81,10 +123,21 @@ export function HomeDemo() {
         <div className="home-api-panes">
           <div className="home-api-request">
             <div className="home-api-pane-head">
-              <h3>cURL request</h3>
-              <CopyButton value={lines.join("\n")} label="Copy request" />
+              <div className="home-api-languages" role="group" aria-label="Request language">
+                {languages.map((option) => (
+                  <button
+                    type="button"
+                    key={option}
+                    aria-pressed={language === option}
+                    onClick={() => setLanguage(option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+              <CopyButton key={language + active} value={lines.join("\n")} label="Copy request" />
             </div>
-            <pre>
+            <pre aria-label={language + " request"}>
               <code>
                 {lines.map((line, index) => (
                   <span className="home-api-line" key={index}>
@@ -98,12 +151,26 @@ export function HomeDemo() {
           <div className="home-api-response" aria-labelledby="home-api-response-title">
             <div className="home-api-pane-head">
               <h3 id="home-api-response-title">Sample response</h3>
+              <button
+                className="button quiet small"
+                type="button"
+                aria-pressed={showJson}
+                onClick={() => setShowJson(!showJson)}
+              >
+                JSON
+              </button>
             </div>
             <div className="home-api-result" aria-live="polite">
               <p className="home-api-model">
                 <Cpu size={15} aria-hidden /> {model.name}
               </p>
-              <p className={active === 1 ? "mono" : undefined}>{output}</p>
+              {showJson ? (
+                <pre aria-label="Sample response JSON">
+                  <code>{JSON.stringify(sampleResponse, null, 2)}</code>
+                </pre>
+              ) : (
+                <p className={active === 1 ? "mono" : undefined}>{output}</p>
+              )}
             </div>
             <Link
               className="text-link"

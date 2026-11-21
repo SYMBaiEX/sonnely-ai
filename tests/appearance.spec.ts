@@ -55,13 +55,13 @@ test("winter artwork switches across the site and the console at Chicago midnigh
   const art = page.locator(".hero .scene-image");
   const closing = page.locator(".closing .scene-image");
   await expect(art).toHaveCSS("background-image", /signal-night-winter\.webp/);
-  await expect(closing).toHaveCSS("background-image", /winter-night\.webp/);
+  await expect(closing).toHaveCSS("background-image", /signal-night-winter\.webp/);
   await page.getByRole("switch", { name: "Switch color theme" }).click();
   await expect(art).toHaveCSS("background-image", /signal-day-winter\.webp/);
-  await expect(closing).toHaveCSS("background-image", /winter-day\.webp/);
+  await expect(closing).toHaveCSS("background-image", /signal-day-winter\.webp/);
   await page.clock.fastForward(120_000);
   await expect(art).toHaveCSS("background-image", /signal-day\.webp/);
-  await expect(closing).toHaveCSS("background-image", /forest-day\.webp/);
+  await expect(closing).toHaveCSS("background-image", /signal-day\.webp/);
   await page.goto("/console");
   await expect(page.locator(".console-world")).toHaveCSS("background-image", /forest-day\.webp/);
 });
@@ -86,6 +86,40 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   await expect(page.getByRole("button", { name: "Usage", exact: true })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/console\/usage$/);
+});
+
+test("the guided request trace can stop, restart and reach the enclave", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.clock.install();
+  await page.goto("/");
+  const map = page.getByRole("region", { name: "Follow the request" });
+  const gateway = map.getByRole("button", { name: "Sonnely gateway" });
+  const enclave = map.getByRole("button", { name: "NEAR AI enclave" });
+
+  await map.getByRole("button", { name: "Trace request" }).click();
+  await expect(map.getByText("Step 1 of 3")).toBeVisible();
+  await page.clock.fastForward(4100);
+  await expect(gateway).toHaveAttribute("aria-pressed", "true");
+  await map.getByRole("button", { name: "Stop trace" }).click();
+  await page.clock.fastForward(12_400);
+  await expect(gateway).toHaveAttribute("aria-pressed", "true");
+
+  await map.getByRole("button", { name: "Trace request" }).click();
+  await expect(map.getByText("Step 1 of 3")).toBeVisible();
+  await page.clock.fastForward(4100);
+  await expect(gateway).toHaveAttribute("aria-pressed", "true");
+  await page.clock.fastForward(4100);
+  await expect(enclave).toHaveAttribute("aria-pressed", "true");
+  await expect(map.getByRole("link", { name: "Attestation guide" })).toHaveAttribute(
+    "href",
+    "/docs#verification",
+  );
+  await page.clock.fastForward(4100);
+  await map.getByRole("button", { name: "Replay trace" }).click();
+  await expect(map.getByText("Step 1 of 3")).toBeVisible();
+  await enclave.click();
+  await expect(map.getByRole("button", { name: "Trace request" })).toBeVisible();
+  await expect(enclave).toHaveAttribute("aria-pressed", "true");
 });
 
 test("the homepage offers a copyable request and links to the selected model", async ({ page, context }) => {
@@ -119,6 +153,24 @@ test("the homepage offers a copyable request and links to the selected model", a
     "href",
     "/console?model=z-ai%2Fglm-5.3-flash",
   );
+  const languages = demo.getByRole("group", { name: "Request language" });
+  await languages.getByRole("button", { name: "Python" }).click();
+  await demo.getByRole("button", { name: "Copy request" }).click();
+  const python = await page.evaluate(() => navigator.clipboard.readText());
+  expect(python).toContain("from openai import OpenAI");
+  expect(python).toContain('model="' + models[1].id + '"');
+  await languages.getByRole("button", { name: "JavaScript" }).click();
+  await demo.getByRole("button", { name: "Copy request" }).click();
+  const javascript = await page.evaluate(() => navigator.clipboard.readText());
+  expect(javascript).toContain("client.chat.completions.create");
+  expect(javascript).toContain(apiOrigin + apiBasePath);
+  await demo.getByRole("button", { name: "JSON", exact: true }).click();
+  expect(
+    JSON.parse((await demo.locator('pre[aria-label="Sample response JSON"]').textContent())!),
+  ).toMatchObject({
+    model: models[1].id,
+    choices: [{ message: { role: "assistant", content: '{ "owner": "Rin", "due": "Friday" }' } }],
+  });
   const catalog = page.getByRole("region", { name: "Choose your model." });
   const list = catalog.getByRole("list");
   await expect(list.getByRole("listitem")).toHaveCount(models.length);

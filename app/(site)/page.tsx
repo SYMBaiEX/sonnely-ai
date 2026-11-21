@@ -53,7 +53,7 @@ export default function Home() {
         <HomeWorkloads />
         <WorkspacePreview />
         <HomeResources />
-        <section className="closing">
+        <section className="closing home-closing">
           <Scene />
           <div>
             <h2>Start in the console.</h2>
