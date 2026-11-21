@@ -304,14 +304,15 @@ select:focus-visible {
   top: 12px;
 }
 .hero {
+  --hero-bottom-gutter: clamp(10px, 2vw, 28px);
   isolation: isolate;
   position: relative;
   overflow: hidden;
   display: grid;
-  min-height: 100vh;
-  min-height: 100svh;
+  min-height: calc(100vh - var(--hero-bottom-gutter));
+  min-height: calc(100svh - var(--hero-bottom-gutter));
   margin-inline: clamp(8px, 2vw, 34px);
-  margin-bottom: clamp(10px, 2vw, 28px);
+  margin-bottom: var(--hero-bottom-gutter);
   border-radius: 0 0 30px 30px;
   background: var(--surface);
   color: var(--ink);
