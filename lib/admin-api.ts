@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import bs58 from "bs58";
 import { z } from "zod";
+import type { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
 import { address, billing, findMatchingPayment, mainnetMint, rpcCall, verifyCluster } from "./payments";
 import { preparePaymentEnvelope } from "./payment-transaction";
@@ -43,15 +44,17 @@ export async function adminOverview(
 ) {
   const data = await db.query(api.finance.overview, { ...auth, since });
   const { rpc, cluster, recipient } = billing();
-  const [creditLiability, treasury] = await Promise.allSettled([
+  const [creditLiability, treasury, recovery] = await Promise.allSettled([
     db.query(api.finance.payoutCoverage, auth),
     rpc && recipient && cluster === "mainnet"
       ? verifyCluster(rpc, cluster).then(() => treasuryBalance(rpc, recipient))
       : Promise.resolve(null),
+    db.query(api.creditRecovery.queue, { ...auth, now: Date.now() }),
   ]);
   const treasuryMicros = treasury.status === "fulfilled" ? Number(treasury.value ?? NaN) : NaN;
   return json({
     ...data,
+    creditRecovery: recovery.status === "fulfilled" ? recovery.value : null,
     creditLiability: creditLiability.status === "fulfilled" ? creditLiability.value : null,
     treasuryMicros: Number.isSafeInteger(treasuryMicros) ? treasuryMicros : null,
   });
@@ -63,6 +66,18 @@ export async function adminAction(
   auth: { secret: string; session: string },
   db: ReturnType<typeof backend>["db"],
 ) {
+  if (task === "admin-resolve-credit") {
+    const { id, ...fields } = z
+      .object({
+        id: z.string().min(1).max(64),
+        resolution: z.enum(["release", "settle"]),
+        charged: z.number().int().safe().nonnegative(),
+        evidence: z.string().trim().min(8).max(500),
+      })
+      .parse(raw);
+    await db.mutation(api.creditRecovery.resolve, { ...auth, id: id as Id<"usage">, ...fields });
+    return json({ ok: true });
+  }
   if (task === "admin-reconcile") {
     const ids = await db.query(api.finance.pendingCosts, auth);
     const costs = ids.length ? await getProviderCosts(ids) : [];

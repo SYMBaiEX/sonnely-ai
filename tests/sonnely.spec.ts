@@ -246,3 +246,29 @@ test("the open Usage page receives Convex balance and usage changes without a re
   await expect(page.locator(".stat").filter({ hasText: "Spend" })).toContainText("$0.000210");
   await expect(page.getByRole("row", { name: /GLM 5.3 Flash/ })).toContainText("399");
 });
+
+test("launch endpoints describe this Solana workspace and its actual API", async ({ request }) => {
+  for (const [path, heading] of [
+    ["/terms", "Terms of Service"],
+    ["/privacy", "Privacy Notice"],
+    ["/status", "Service status"],
+  ]) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status()).toBe(200);
+    expect(await response.text()).toContain(heading);
+  }
+  const health = await request.get("/api/health", { maxRedirects: 0 });
+  expect([200, 503]).toContain(health.status());
+  expect(await health.json()).toMatchObject({
+    service: "sonnely-solana",
+    checks: { depositRecovery: expect.any(Boolean) },
+  });
+  const openapi = await request.get("/api/openapi", { maxRedirects: 0 });
+  expect(openapi.status()).toBe(200);
+  const spec = await openapi.json();
+  expect(spec.servers[0].url).toBe("https://sonnely.com/api/sonnely/v1");
+  const modelList = await (await request.get("/api/sonnely/v1/models")).json();
+  expect(spec.components.schemas.CompletionRequest.properties.model.enum).toEqual(
+    modelList.data.map((item: { id: string }) => item.id),
+  );
+});

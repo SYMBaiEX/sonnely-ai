@@ -28,7 +28,9 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
           <Brand />
           <p>Confidential inference workspace on Solana.</p>
           <nav aria-label="Footer">
-            <Link href="/docs#privacy">Data handling</Link>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+            <Link href="/status">Status</Link>
             <Link href="/contact">Support</Link>
             <Link href="/models">Model catalog</Link>
             <Link href="/pricing">Pricing</Link>

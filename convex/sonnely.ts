@@ -2,6 +2,8 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 
+import { creditDeposit, settleUsage } from "./ledger";
+import { termsVersion } from "../lib/policy";
 import { accountFor, auth, requireAccount, secret, service, walletRole } from "./access";
 
 const optionalNumber = v.union(v.number(), v.null());
@@ -79,6 +81,7 @@ export const profile = query({
       name: v.string(),
       balance: v.number(),
       referral: v.string(),
+      acceptedTerms: v.optional(v.string()),
       role: v.union(v.literal("admin"), v.literal("member")),
     }),
   ),
@@ -87,7 +90,20 @@ export const profile = query({
     const account = await accountFor(ctx, args.session);
     if (!account) return null;
     const { wallet, name, balance, referral } = account;
-    return { wallet, name, balance, referral, role: walletRole(wallet) };
+    return { wallet, name, balance, referral, acceptedTerms: account.termsVersion, role: walletRole(wallet) };
+  },
+});
+
+export const acceptTerms = mutation({
+  args: { ...auth, version: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await requireAccount(ctx, args.session);
+    if (args.version !== termsVersion) throw new ConvexError("Refresh to review the current terms.");
+    if (account.termsVersion !== termsVersion)
+      await ctx.db.patch(account._id, { termsVersion, termsAcceptedAt: Date.now() });
+    return null;
   },
 });
 
@@ -231,6 +247,7 @@ export const reserve = mutation({
     session: v.optional(v.string()),
     hash: v.optional(v.string()),
     pilotWallet: v.optional(v.string()),
+    requireTerms: v.optional(v.boolean()),
     model: v.string(),
     cost: v.number(),
   },
@@ -250,6 +267,8 @@ export const reserve = mutation({
     const account = key ? await ctx.db.get(key.account) : await requireAccount(ctx, args.session ?? "");
     if (args.pilotWallet && account?.wallet !== args.pilotWallet)
       throw new ConvexError("Managed inference is unavailable for this account.");
+    if (args.requireTerms && account?.termsVersion !== termsVersion)
+      throw new ConvexError("Accept the current Sonnely terms in the console.");
     if (!account || account.balance < args.cost) throw new ConvexError("Insufficient compute credits.");
     const recent = await ctx.db
       .query("usage")
@@ -302,29 +321,7 @@ export const settle = mutation({
     service(args.secret);
     const row = await ctx.db.get(args.id);
     if (!row || row.status !== "pending") return null;
-    const cost = args.status === "unreported" ? row.cost : Math.min(row.cost, args.cost);
-    const refund = row.cost - cost;
-    const account = await ctx.db.get(row.account);
-    if (account) await ctx.db.patch(account._id, { balance: account.balance + refund });
-    if (row.key) {
-      const key = await ctx.db.get(row.key);
-      const day = row.keyDay ?? new Date(row._creationTime).toISOString().slice(0, 10);
-      if (key) {
-        const daily = await ctx.db
-          .query("keyDays")
-          .withIndex("by_key_day", (q) => q.eq("key", key._id).eq("day", day))
-          .unique();
-        if (daily) await ctx.db.patch(daily._id, { spent: daily.spent - refund });
-        await ctx.db.patch(key._id, { lifetime: key.lifetime - refund });
-      }
-    }
-    await ctx.db.patch(row._id, {
-      input: args.input,
-      output: args.output,
-      cost,
-      status: args.status,
-      ...(args.providerRequest ? { providerRequest: args.providerRequest, reconciliation: "pending" } : {}),
-    });
+    await settleUsage(ctx, row, args);
     return null;
   },
 });
@@ -414,14 +411,7 @@ export const confirmDeposit = mutation({
       .withIndex("by_reference", (q) => q.eq("reference", args.reference))
       .unique();
     if (!row || row.account !== account._id) throw new ConvexError("Payment request unavailable.");
-    if (row.signature === args.signature) return null;
-    const used = await ctx.db
-      .query("deposits")
-      .withIndex("by_signature", (q) => q.eq("signature", args.signature))
-      .unique();
-    if (used || row.signature) throw new ConvexError("Payment already recorded.");
-    await ctx.db.patch(row._id, { signature: args.signature });
-    if (row.cluster === "mainnet") await ctx.db.patch(account._id, { balance: account.balance + row.amount });
+    await creditDeposit(ctx, row, account, args.signature);
     return null;
   },
 });

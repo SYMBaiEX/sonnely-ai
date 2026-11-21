@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
+import { CreditRecovery } from "./credit-recovery";
 import { creditBalance } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
 import { payWithWallet, request, type Session } from "./wallet";
 
 type Overview = FunctionReturnType<typeof api.finance.overview> & {
+  creditRecovery: FunctionReturnType<typeof api.creditRecovery.queue> | null;
   creditLiability: number | null;
   treasuryMicros: number | null;
 };
@@ -237,6 +239,7 @@ export function Admin({ session }: { session: Session | null }) {
               </table>
             </div>
           </section>
+          <CreditRecovery data={data.creditRecovery} busy={busy} act={act} />
           <section className="panel stack-panel">
             <h2>Profit payouts</h2>
             {data.payouts.length ? (

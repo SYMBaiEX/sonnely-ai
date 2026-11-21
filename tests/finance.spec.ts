@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { termsVersion } from "../lib/policy";
 import { models } from "../lib/models";
 import { markedUpRates, requestCharge } from "../lib/pricing";
 
@@ -72,6 +73,71 @@ test("wallet roles, tenant isolation and payout reconciliation are enforced in C
     reference: checkout.reference,
     signature: randomUUID(),
   });
+  await expect(
+    db.mutation(api.sonnely.reserve, {
+      ...member,
+      model: models[0].id,
+      cost: 1000,
+      requireTerms: true,
+    }),
+  ).rejects.toThrow("Accept the current Sonnely terms");
+  await db.mutation(api.sonnely.acceptTerms, { ...member, version: termsVersion });
+  const held = await db.mutation(api.sonnely.reserve, {
+    ...member,
+    model: models[0].id,
+    cost: 1000,
+    requireTerms: true,
+  });
+  await db.mutation(api.sonnely.settle, {
+    secret,
+    id: held,
+    input: 0,
+    output: 0,
+    cost: 0,
+    status: "unreported",
+  });
+  const evidence = "Fixture provider receipt and usage check";
+  const decision = { id: held, resolution: "settle" as const, charged: 250, evidence };
+  await expect(db.mutation(api.creditRecovery.resolve, { ...member, ...decision })).rejects.toThrow(
+    "Administrator access required",
+  );
+  await expect(
+    db.mutation(api.creditRecovery.resolve, { ...admin, ...decision, charged: 1001 }),
+  ).rejects.toThrow("final charge must fit");
+  await db.mutation(api.creditRecovery.resolve, { ...admin, ...decision });
+  await expect(db.mutation(api.creditRecovery.resolve, { ...admin, ...decision })).rejects.toThrow(
+    "no longer held",
+  );
+  expect((await db.query(api.sonnely.profile, member))?.balance).toBe(999_750);
+  expect((await db.query(api.creditRecovery.queue, { ...admin, now: Date.now() })).recent).toContainEqual(
+    expect.objectContaining({ usage: held, held: 1000, charged: 250, evidence }),
+  );
+  const release = await db.mutation(api.sonnely.reserve, { ...member, model: models[0].id, cost: 1000 });
+  await expect(
+    db.mutation(api.creditRecovery.resolve, {
+      ...admin,
+      id: release,
+      resolution: "release",
+      charged: 0,
+      evidence,
+    }),
+  ).rejects.toThrow("Wait five minutes");
+  await db.mutation(api.sonnely.settle, {
+    secret,
+    id: release,
+    input: 0,
+    output: 0,
+    cost: 0,
+    status: "unreported",
+  });
+  await db.mutation(api.creditRecovery.resolve, {
+    ...admin,
+    id: release,
+    resolution: "release",
+    charged: 0,
+    evidence,
+  });
+  expect((await db.query(api.sonnely.profile, member))?.balance).toBe(999_750);
   const providerRequest = randomUUID();
   const model = models[0];
   const id = await db.mutation(api.sonnely.reserve, { ...member, model: model.id, cost: 1000 });

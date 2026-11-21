@@ -27,6 +27,7 @@ import { Admin } from "./admin";
 import { Chat } from "./chat";
 import { ModelCatalog } from "./shared";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
+import { TermsAcceptance } from "./terms-acceptance";
 import { useSession, WalletControl } from "./wallet";
 
 const nav = [
@@ -195,6 +196,7 @@ export function Console({ section, initialModel }: { section: Section; initialMo
               {failure}
             </p>
           )}
+          {session?.termsRequired && <TermsAcceptance refresh={refresh} />}
           {section === "chat" && (
             <Chat
               key={(profile?.wallet ?? "guest") + ":" + initialModel}

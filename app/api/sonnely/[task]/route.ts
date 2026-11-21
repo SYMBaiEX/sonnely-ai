@@ -12,7 +12,8 @@ import { address, billing, findMatchingPayment, quote, verifyCluster, verifyPaym
 import { preparePayment } from "@/lib/payment-transaction";
 import { creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import { usageSince } from "@/lib/usage";
-import { allowedInPilot, managedProviderKey } from "@/lib/managed-access";
+import { allowedInPilot, managedProviderKey, publicInference } from "@/lib/managed-access";
+import { termsVersion } from "@/lib/policy";
 import { infer } from "@/lib/inference";
 import {
   backend,
@@ -72,9 +73,11 @@ export async function GET(request: NextRequest, context: Context) {
               session: hash(token),
             })
           : null;
-      const eligible = allowedInPilot(profile?.wallet);
+      const termsRequired = publicInference() && profile !== null && profile.acceptedTerms !== termsVersion;
+      const eligible = allowedInPilot(profile?.wallet) && !termsRequired;
       return json({
         profile,
+        termsRequired,
         enabled,
         inferenceEnabled: enabled && eligible && Boolean(managedProviderKey()),
         billingEnabled: enabled && eligible && billingEnabled,
@@ -192,6 +195,13 @@ export async function POST(request: NextRequest, context: Context) {
       response.cookies.set("fathom_session", "", { ...cookie, maxAge: 0 });
       return response;
     }
+    if (task === "accept-terms") {
+      const { version, accepted } = z
+        .object({ version: z.string().max(32), accepted: z.literal(true) })
+        .parse(raw);
+      await db.mutation(api.sonnely.acceptTerms, { ...auth, version });
+      return json({ ok: accepted });
+    }
     if (task === "chat") return json(await infer(raw, { session }));
     if (task === "profile") {
       const { name } = z.object({ name: z.string().trim().max(60) }).parse(raw);
@@ -242,6 +252,8 @@ export async function POST(request: NextRequest, context: Context) {
     }
     if (task === "deposit" || task === "confirm" || task === "payment-transaction") {
       const { billingEnabled, paymentVerificationEnabled, cluster, mint, recipient, rpc } = billing();
+      if (task !== "confirm" && publicInference() && profile.acceptedTerms !== termsVersion)
+        throw new SonnelyError("Accept the current Sonnely terms in the console.", 403);
       if (task === "deposit") {
         if (!allowedInPilot(profile.wallet)) throw new SonnelyError("USDC checkout is unavailable.", 503);
         if (!billingEnabled || !recipient || !rpc)

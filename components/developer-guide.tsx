@@ -83,6 +83,9 @@ export function DeveloperGuide() {
         <div className="doc-body">
           <section id="quickstart">
             <h2>Quickstart</h2>
+            <a className="text-link" href="/api/openapi">
+              OpenAPI specification
+            </a>
             <ol>
               <li>
                 <Link href="/console">Open the playground</Link> to try a sample or sign in with a Solana

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import { limits } from "./api-contract";
-import { managedProviderKey, pilotWallet } from "./managed-access";
+import { managedProviderKey, pilotWallet, publicInference } from "./managed-access";
 import { requestCharge } from "./pricing";
 import { providerRequestId } from "./provider-billing";
 import { models } from "./models";
@@ -63,6 +63,7 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
     ...(pilot ? { pilotWallet: pilot } : {}),
     model: input.model,
     cost: reserve,
+    ...(publicInference() ? { requireTerms: true } : {}),
   });
   let status: "complete" | "failed" | "unreported" = "unreported";
   let tokensIn = 0;
@@ -82,6 +83,9 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
     } catch {
       throw new SonnelyError("The provider did not respond. The reservation is pending reconciliation.", 502);
     }
+    const upstreamId = response.headers.get("inference-id");
+    if (upstreamId && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(upstreamId))
+      providerRequest = upstreamId;
     if (!response.ok) {
       if (response.status < 500) status = "failed";
       throw new SonnelyError("The provider could not complete this request.", 502);
@@ -93,7 +97,7 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
     tokensOut = data.usage.completion_tokens;
     const cached = Math.min(tokensIn, data.usage.prompt_tokens_details?.cached_tokens ?? 0);
     cost = requestCharge(model, tokensIn, cached, tokensOut);
-    providerRequest = providerRequestId(response.headers.get("inference-id"), data.id);
+    providerRequest = providerRequestId(upstreamId, data.id);
     status = "complete";
     return { ...data, model: input.model, usage: { ...data.usage, total_tokens: tokensIn + tokensOut } };
   } finally {

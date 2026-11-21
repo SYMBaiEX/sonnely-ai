@@ -8,6 +8,8 @@ export default defineSchema({
     balance: v.number(),
     lastQuote: v.optional(v.number()),
     referral: v.string(),
+    termsVersion: v.optional(v.string()),
+    termsAcceptedAt: v.optional(v.number()),
     invitedBy: v.optional(v.id("accounts")),
   })
     .index("by_wallet", ["wallet"])
@@ -89,10 +91,21 @@ export default defineSchema({
     cluster: v.string(),
     amount: v.number(),
     signature: v.optional(v.string()),
+    nextCheckAt: v.optional(v.number()),
   })
     .index("by_reference", ["reference"])
     .index("by_signature", ["signature"])
-    .index("by_account", ["account"]),
+    .index("by_account", ["account"])
+    .index("by_cluster_recipient_signature_next_check", ["cluster", "recipient", "signature", "nextCheckAt"]),
+  creditResolutions: defineTable({
+    usage: v.id("usage"),
+    admin: v.id("accounts"),
+    resolution: v.union(v.literal("release"), v.literal("settle")),
+    evidence: v.string(),
+    held: v.number(),
+    charged: v.number(),
+  }).index("by_usage", ["usage"]),
+  recoveryHealth: defineTable({ checkedAt: v.number(), failures: v.number() }),
   tickets: defineTable({
     account: v.id("accounts"),
     email: v.string(),

@@ -104,6 +104,9 @@ test("production requires an explicit launch mode and restricts the pilot to one
     expect(allowedInPilot(order.recipient)).toBe(false);
     expect(allowedInPilot(payer)).toBe(true);
     expect(managedProviderKey()).toBe("test-provider-key");
+    process.env.SONNELY_PUBLIC_INFERENCE = "true";
+    expect(allowedInPilot(order.recipient)).toBe(true);
+    expect(managedProviderKey()).toBe("test-provider-key");
   } finally {
     keys.forEach((key, index) => {
       const value = previous[index];

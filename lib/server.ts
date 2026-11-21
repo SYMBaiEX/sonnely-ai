@@ -4,6 +4,8 @@ import { ConvexError } from "convex/values";
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { limits } from "./api-contract";
+import { SonnelyError } from "./sonnely-error";
+export { SonnelyError } from "./sonnely-error";
 
 export function serviceSecret() {
   return process.env.SONNELY_SERVICE_SECRET ?? process.env.RELAY_SERVICE_SECRET;
@@ -22,15 +24,6 @@ export function backend() {
   return { db: new ConvexHttpClient(url, { logger: false }), secret };
 }
 
-export class SonnelyError extends Error {
-  constructor(
-    message: string,
-    public readonly status = 400,
-  ) {
-    super(message);
-  }
-}
-
 export function json(value: unknown, status = 200) {
   return NextResponse.json(value, { status, headers: { "Cache-Control": "no-store" } });
 }
@@ -46,7 +39,9 @@ export function errorResponse(error: unknown, openai = false) {
     message = error.data;
     status = /Invalid|Sign in|Unauthorized/.test(message)
       ? 401
-      : /Administrator access required|Only the treasury wallet/.test(message)
+      : /Administrator access required|Only the treasury wallet|Accept the current Sonnely terms/.test(
+            message,
+          )
         ? 403
         : /limit|Wait a minute/.test(message)
           ? 429

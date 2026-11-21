@@ -24,6 +24,7 @@ export type Session = {
     role?: "admin" | "member";
   } | null;
   enabled: boolean;
+  termsRequired?: boolean;
   billingEnabled: boolean;
   paymentVerificationEnabled: boolean;
   inferenceEnabled: boolean;

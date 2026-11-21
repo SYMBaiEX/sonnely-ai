@@ -31,3 +31,11 @@ Set `SONNELY_ORIGIN` to the deployed site and `SONNELY_API_KEY` to your scoped c
 The Japanese forest artwork switches from winter to the evergreen collection at midnight on January 1, 2027 in America/Chicago. Both collections include dark and light versions for the site and workspace.
 
 Support requests land in the Convex `tickets` table. Set up an operator inbox before advertising response times. Provider timeouts or incomplete usage may leave reservations held. Review the usage ledger and provider-side usage before making balance adjustments.
+
+## Recovery and launch
+
+Set the mainnet Helius `SOLANA_RPC_URL` on Convex alongside `SONNELY_TREASURY_WALLET`. The Convex cron checks open USDC drafts every two minutes, backs off older drafts, and applies the same finalized transfer and signature checks as browser checkout. Check `/api/health` or `/status` for the recovery heartbeat. The inference-provider check in health verifies configuration without incurring inference costs.
+
+In Admin, open Held credits to investigate an unreported request or a pending reservation older than five minutes. Record the provider receipt or investigation note before releasing the hold or entering a verified final charge. The resolution updates the customer balance and API key budgets together and saves an admin audit entry. Actual provider cost still needs a matching upstream billing record to affect payable margin.
+
+Public mode is controlled by `SONNELY_PUBLIC_INFERENCE=true`. It removes wallet allowlisting and requires the current terms version before funding or inference, including requests made with existing keys. Obtain provider approval and review the customer terms before enabling public mode. Accepted versions and timestamps are persisted in Convex. The public API schema is at `/api/openapi`.

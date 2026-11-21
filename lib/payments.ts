@@ -1,7 +1,7 @@
 import { z } from "zod";
 import bs58 from "bs58";
 import { managedProviderKey } from "./managed-access";
-import { SonnelyError } from "./server";
+import { SonnelyError } from "./sonnely-error";
 
 export const address = z
   .string()
