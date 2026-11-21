@@ -5,6 +5,7 @@ export default defineSchema({
   accounts: defineTable({
     wallet: v.string(),
     name: v.string(),
+    username: v.optional(v.string()),
     balance: v.number(),
     lastQuote: v.optional(v.number()),
     referral: v.string(),
@@ -14,6 +15,7 @@ export default defineSchema({
   })
     .index("by_wallet", ["wallet"])
     .index("by_referral", ["referral"])
+    .index("by_username", ["username"])
     .index("by_inviter", ["invitedBy"]),
   sessions: defineTable({
     hash: v.string(),
@@ -51,6 +53,9 @@ export default defineSchema({
     output: v.number(),
     cost: v.number(),
     providerRequest: v.optional(v.string()),
+    providerStatus: v.optional(v.number()),
+    outcome: v.optional(v.string()),
+    settledAt: v.optional(v.number()),
     providerCostNano: v.optional(v.number()),
     reconciliation: v.optional(v.union(v.literal("pending"), v.literal("reconciled"))),
     status: v.union(
@@ -61,6 +66,7 @@ export default defineSchema({
     ),
   })
     .index("by_account", ["account"])
+    .index("by_account_status_cost", ["account", "status", "cost"])
     .index("by_reconciliation", ["reconciliation"])
     .index("by_status", ["status"])
     .index("by_provider_request", ["providerRequest"]),
@@ -92,10 +98,12 @@ export default defineSchema({
     amount: v.number(),
     signature: v.optional(v.string()),
     nextCheckAt: v.optional(v.number()),
+    finalizedAt: v.optional(v.number()),
   })
     .index("by_reference", ["reference"])
     .index("by_signature", ["signature"])
     .index("by_account", ["account"])
+    .index("by_account_cluster_signature", ["account", "cluster", "signature"])
     .index("by_cluster_recipient_signature_next_check", ["cluster", "recipient", "signature", "nextCheckAt"]),
   creditResolutions: defineTable({
     usage: v.id("usage"),
@@ -111,5 +119,17 @@ export default defineSchema({
     email: v.string(),
     topic: v.string(),
     message: v.string(),
+    state: v.optional(v.union(v.literal("in_progress"), v.literal("resolved"))),
+    updatedAt: v.optional(v.number()),
+    assignedTo: v.optional(v.id("accounts")),
+  })
+    .index("by_account", ["account"])
+    .index("by_state", ["state"]),
+  crmEvents: defineTable({
+    account: v.id("accounts"),
+    admin: v.id("accounts"),
+    note: v.string(),
+    ticket: v.optional(v.id("tickets")),
+    kind: v.union(v.literal("note"), v.literal("ticket")),
   }).index("by_account", ["account"]),
 });

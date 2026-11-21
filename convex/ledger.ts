@@ -11,6 +11,8 @@ export async function settleUsage(
     input: number;
     output: number;
     providerRequest?: string;
+    providerStatus?: number;
+    outcome?: string;
   },
 ) {
   const cost = args.status === "unreported" ? row.cost : Math.min(row.cost, args.cost);
@@ -34,6 +36,9 @@ export async function settleUsage(
     output: args.output,
     cost,
     status: args.status,
+    settledAt: Date.now(),
+    ...(args.providerStatus === undefined ? {} : { providerStatus: args.providerStatus }),
+    ...(args.outcome ? { outcome: args.outcome } : {}),
     ...(args.providerRequest ? { providerRequest: args.providerRequest } : {}),
     ...(args.status === "complete" && args.providerRequest ? { reconciliation: "pending" } : {}),
   });
@@ -54,6 +59,6 @@ export async function creditDeposit(
   const balance = account.balance + row.amount;
   if (row.cluster === "mainnet" && !Number.isSafeInteger(balance))
     throw new ConvexError("The payment exceeds the credit balance limit.");
-  await ctx.db.patch(row._id, { signature, nextCheckAt: undefined });
+  await ctx.db.patch(row._id, { signature, nextCheckAt: undefined, finalizedAt: Date.now() });
   if (row.cluster === "mainnet") await ctx.db.patch(account._id, { balance });
 }

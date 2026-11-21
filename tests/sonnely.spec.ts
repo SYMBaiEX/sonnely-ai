@@ -110,10 +110,13 @@ test("wallet account workflow scopes keys, referrals, and support requests", asy
 
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("textbox", { name: "Display name" }).fill("Test operator");
-  await page.getByRole("button", { name: "Save name" }).click();
+  const username = "reader_" + (await import("node:crypto")).randomUUID().slice(0, 8);
+  await page.getByRole("textbox", { name: "Username" }).fill(username.toUpperCase());
+  await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByRole("status")).toHaveText("Profile saved.");
 
   await page.getByRole("link", { name: "Referrals", exact: true }).click();
+  await expect(page.getByText("@" + username, { exact: true })).toBeVisible();
   const invite = await page.locator("code").first().textContent();
   expect(invite).toContain("?ref=");
   const other = await browser.newContext({ baseURL });
@@ -284,7 +287,8 @@ test("the NEAR directory distinguishes privacy routes and Sonnely availability",
   await page.goto("/models");
   const directory = page.getByRole("region", { name: "NEAR AI model directory" });
   const table = directory.getByRole("table");
-  expect(await table.getByRole("row").count()).toBeGreaterThan(models.length + 1);
+  const providerIds = await table.locator(".near-model-id").allTextContents();
+  expect(providerIds.length).toBeGreaterThan(models.length);
   await expect(table.getByText("Available on Sonnely", { exact: true })).toHaveCount(models.length);
   const search = directory.getByRole("searchbox");
   const privacy = directory.getByRole("combobox", { name: "NEAR privacy tier" });
@@ -301,4 +305,10 @@ test("the NEAR directory distinguishes privacy routes and Sonnely availability",
   await expect(table.getByText("Private 3P TEE", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+
+  await page.setViewportSize({ width: 1080, height: 900 });
+  await page.goto("/console/models");
+  await expect(directory.locator(".near-model-id")).toHaveText(providerIds);
+  await expect(table.getByText("Available on Sonnely", { exact: true })).toHaveCount(models.length);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(1080);
 });

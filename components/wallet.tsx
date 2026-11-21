@@ -19,6 +19,7 @@ export type Session = {
   profile: {
     wallet: string;
     name: string;
+    username?: string;
     balance: number;
     referral: string;
     role?: "admin" | "member";

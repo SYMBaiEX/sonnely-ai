@@ -70,6 +70,8 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
   let tokensOut = 0;
   let cost = 0;
   let providerRequest: string | undefined;
+  let providerStatus: number | undefined;
+  let outcome = "upstream_transport";
   try {
     let response: Response;
     try {
@@ -83,13 +85,16 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
     } catch {
       throw new SonnelyError("The provider did not respond. The reservation is pending reconciliation.", 502);
     }
+    providerStatus = response.status;
     const upstreamId = response.headers.get("inference-id");
     if (upstreamId && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(upstreamId))
       providerRequest = upstreamId;
     if (!response.ok) {
+      outcome = "upstream_http";
       if (response.status < 500) status = "failed";
       throw new SonnelyError("The provider could not complete this request.", 502);
     }
+    outcome = "invalid_usage";
     const parsed = result.safeParse(await response.json().catch(() => null));
     if (!parsed.success) throw new SonnelyError("The provider returned incomplete usage information.", 502);
     const data = parsed.data;
@@ -99,6 +104,7 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
     cost = requestCharge(model, tokensIn, cached, tokensOut);
     providerRequest = providerRequestId(upstreamId, data.id);
     status = "complete";
+    outcome = "complete";
     return { ...data, model: input.model, usage: { ...data.usage, total_tokens: tokensIn + tokensOut } };
   } finally {
     await db.mutation(api.sonnely.settle, {
@@ -109,6 +115,8 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
       output: tokensOut,
       cost,
       ...(providerRequest ? { providerRequest } : {}),
+      ...(providerStatus === undefined ? {} : { providerStatus }),
+      outcome,
     });
   }
 }

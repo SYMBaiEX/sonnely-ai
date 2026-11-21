@@ -1,3 +1,4 @@
+import { normalizeUsername, usernameHelp, usernamePattern } from "../lib/username";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
@@ -79,6 +80,7 @@ export const profile = query({
     v.object({
       wallet: v.string(),
       name: v.string(),
+      username: v.optional(v.string()),
       balance: v.number(),
       referral: v.string(),
       acceptedTerms: v.optional(v.string()),
@@ -90,7 +92,15 @@ export const profile = query({
     const account = await accountFor(ctx, args.session);
     if (!account) return null;
     const { wallet, name, balance, referral } = account;
-    return { wallet, name, balance, referral, acceptedTerms: account.termsVersion, role: walletRole(wallet) };
+    return {
+      wallet,
+      name,
+      username: account.username,
+      balance,
+      referral,
+      acceptedTerms: account.termsVersion,
+      role: walletRole(wallet),
+    };
   },
 });
 
@@ -108,12 +118,22 @@ export const acceptTerms = mutation({
 });
 
 export const rename = mutation({
-  args: { ...auth, name: v.string() },
+  args: { ...auth, name: v.string(), username: v.optional(v.string()) },
   returns: v.null(),
   handler: async (ctx, args) => {
     service(args.secret);
     const account = await requireAccount(ctx, args.session);
-    await ctx.db.patch(account._id, { name: args.name });
+    const requested =
+      args.username === undefined ? account.username : normalizeUsername(args.username) || undefined;
+    if (requested) {
+      if (!usernamePattern.test(requested)) throw new ConvexError(usernameHelp);
+      const owner = await ctx.db
+        .query("accounts")
+        .withIndex("by_username", (q) => q.eq("username", requested))
+        .unique();
+      if (owner && owner._id !== account._id) throw new ConvexError("That username is already taken.");
+    }
+    await ctx.db.patch(account._id, { name: args.name, username: requested });
     return null;
   },
 });
@@ -314,6 +334,8 @@ export const settle = mutation({
     output: v.number(),
     cost: v.number(),
     providerRequest: v.optional(v.string()),
+    providerStatus: v.optional(v.number()),
+    outcome: v.optional(v.string()),
     status: v.union(v.literal("complete"), v.literal("failed"), v.literal("unreported")),
   },
   returns: v.null(),

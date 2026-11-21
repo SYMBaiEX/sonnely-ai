@@ -18,6 +18,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import type { nearCatalog } from "@/lib/near-catalog";
 import type { Section } from "@/app/console/[[...section]]/page";
 import { creditBalance } from "@/lib/credit-amount";
 import { Brand } from "./brand";
@@ -25,6 +26,7 @@ import { CommandMenu } from "./command-menu";
 import { setTheme, ThemeSurface, ThemeSwitch, useTheme } from "./appearance";
 import { Admin } from "./admin";
 import { Chat } from "./chat";
+import { NearModelDirectory } from "./near-model-directory";
 import { ModelCatalog } from "./shared";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
 import { TermsAcceptance } from "./terms-acceptance";
@@ -42,7 +44,15 @@ const nav = [
 ] as const;
 const defaults: Preferences = { theme: "dark", localHistory: false, plain: true };
 
-export function Console({ section, initialModel }: { section: Section; initialModel: string }) {
+export function Console({
+  section,
+  initialModel,
+  providerCatalog,
+}: {
+  section: Section;
+  initialModel: string;
+  providerCatalog?: Awaited<ReturnType<typeof nearCatalog>>;
+}) {
   const [range, setRange] = useState(30);
   const { session, failure, refresh, liveRows } = useSession(section === "usage" ? range : 0);
   const [navOpen, setNavOpen] = useState(false);
@@ -212,11 +222,12 @@ export function Console({ section, initialModel }: { section: Section; initialMo
               <header className="console-title">
                 <h1>Models</h1>
                 <p>Compare models available on Sonnely by workload and token cost.</p>
-                <Link href="/models#near-directory" className="text-link">
+                <Link href="#near-directory" className="text-link">
                   Browse the full NEAR directory <ArrowUpRight size={15} />
                 </Link>
               </header>
               <ModelCatalog />
+              {providerCatalog && <NearModelDirectory {...providerCatalog} />}
             </>
           )}
           {section === "admin" && <Admin session={session} />}
@@ -233,7 +244,7 @@ export function Console({ section, initialModel }: { section: Section; initialMo
           {section === "billing" && (
             <Billing key={session?.profile?.wallet ?? "guest"} session={session} refresh={refresh} />
           )}
-          {section === "referrals" && <Referrals profile={profile} />}
+          {section === "referrals" && <Referrals key={profile?.wallet ?? "guest"} profile={profile} />}
           {section === "settings" && (
             <SettingsPanel
               profile={profile}

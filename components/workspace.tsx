@@ -18,6 +18,7 @@ import { models, shorten, usd } from "@/lib/models";
 import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
+import { usernameHelp } from "@/lib/username";
 import { payWithWallet, request, type Session, type UsageRow } from "./wallet";
 
 type Profile = Session["profile"] | undefined;
@@ -70,26 +71,36 @@ function Failure({ message }: { message: string }) {
 }
 
 function useRemote<T>(enabled: boolean, route: string) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState("");
+  const [state, setState] = useState<{ route: string; version: number; data?: T; error?: string }>();
   const [version, setVersion] = useState(0);
   useEffect(() => {
+    if (!enabled) {
+      setState(undefined);
+      return;
+    }
     let alive = true;
-    setData(null);
-    setError("");
-    if (enabled)
-      void request<T>(route)
-        .then((result) => {
-          if (alive) setData(result);
-        })
-        .catch((err) => {
-          if (alive) setError(err instanceof Error ? err.message : "Could not load this page.");
-        });
+    void request<T>(route)
+      .then((data) => {
+        if (alive) setState({ route, version, data });
+      })
+      .catch((error) => {
+        if (alive)
+          setState({
+            route,
+            version,
+            error: error instanceof Error ? error.message : "Could not load this page.",
+          });
+      });
     return () => {
       alive = false;
     };
   }, [enabled, route, version]);
-  return { data, error, reload: () => setVersion((value) => value + 1) };
+  const current = enabled && state?.route === route && state.version === version ? state : undefined;
+  return {
+    data: current?.data ?? null,
+    error: current?.error ?? "",
+    reload: () => setVersion((value) => value + 1),
+  };
 }
 
 type Key = {
@@ -836,14 +847,27 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
   );
 }
 
+type ReferralRow = { username?: string; wallet: string; joined: number; funded: boolean; active: boolean };
+type ReferralPage = { page: ReferralRow[]; isDone: boolean; continueCursor: string };
+
 export function Referrals({ profile }: { profile: Profile }) {
-  const { data, error } = useRemote<{ wallet: string; time: number }[]>(Boolean(profile), "referrals");
+  const [cursor, setCursor] = useState("");
+  const [earlier, setEarlier] = useState<ReferralRow[]>([]);
+  const { data, error, reload } = useRemote<ReferralPage>(
+    Boolean(profile),
+    "referral-pipeline" + (cursor ? "?cursor=" + encodeURIComponent(cursor) : ""),
+  );
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
   const url = profile ? origin + "/console?ref=" + profile.referral : "";
+  const loading = Boolean(profile) && !data && !error;
+  const rows = [...earlier, ...(data?.page ?? [])];
   return (
     <>
-      <Title title="Referrals" description="Invite someone to Sonnely and see verified wallet sign-ups." />
+      <Title
+        title="Referrals"
+        description="Track invitations from wallet sign-up through funding and first paid request."
+      />
       <Failure message={error} />
       <section className="panel callout">
         <div>
@@ -852,39 +876,98 @@ export function Referrals({ profile }: { profile: Profile }) {
           </span>
           <h2>Your invite link</h2>
           {profile && origin ? (
-            <code className="secret-code">{url}</code>
+            <>
+              <p>
+                {profile.username
+                  ? "@" + profile.username
+                  : "Add a username in Settings so referrals can recognize you."}
+              </p>
+              <code className="secret-code">{url}</code>
+            </>
           ) : (
             <p>Connect a Solana wallet to get your personal invite link.</p>
           )}
         </div>
-        {profile && origin && <CopyButton value={url} label="Copy invite link" />}
+        {profile && origin && (
+          <div className="actions">
+            <CopyButton value={url} label="Copy invite link" />
+            <Link href="/console/settings" className="button quiet">
+              {profile.username ? "Edit username" : "Set username"}
+            </Link>
+          </div>
+        )}
       </section>
       <section className="panel breakdown">
-        <h2>Sign-ups</h2>
-        {profile && data?.length ? (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Wallet</th>
-                  <th>Joined (UTC)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((item, index) => (
-                  <tr key={index}>
-                    <td>
-                      <code>{item.wallet}</code>
-                    </td>
-                    <td>{date(item.time)}</td>
+        <div className="between">
+          <h2>Referral activity</h2>
+          {profile && (
+            <button
+              className="button quiet small"
+              disabled={loading}
+              onClick={() => {
+                setEarlier([]);
+                setCursor("");
+                reload();
+              }}
+            >
+              Refresh
+            </button>
+          )}
+        </div>
+        {!!rows.length && (
+          <>
+            <p className="caption">
+              Showing {rows.length} sign-ups · {rows.filter((row) => row.funded).length} funded ·{" "}
+              {rows.filter((row) => row.active).length} active
+            </p>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th>Joined (UTC)</th>
+                    <th>Mainnet funding</th>
+                    <th>Paid inference</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="caption">{profile ? "No verified sign-ups yet." : "Sign in to view referrals."}</p>
+                </thead>
+                <tbody>
+                  {rows.map((item, index) => (
+                    <tr key={item.joined + ":" + item.wallet + ":" + index}>
+                      <th scope="row">{item.username ? "@" + item.username : item.wallet}</th>
+                      <td>{date(item.joined)}</td>
+                      <td>{item.funded ? "Funded" : "Pending"}</td>
+                      <td>{item.active ? "Active" : "Pending"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
+        {!rows.length && (
+          <p className="caption" role="status">
+            {!profile
+              ? "Sign in to view referrals."
+              : loading
+                ? "Loading referrals…"
+                : "No verified sign-ups yet."}
+          </p>
+        )}
+        {data && !data.isDone && (
+          <button
+            className="button quiet small"
+            disabled={loading}
+            onClick={() => {
+              setEarlier((items) => [...items, ...data.page]);
+              setCursor(data.continueCursor);
+            }}
+          >
+            Load more referrals
+          </button>
+        )}
+        <p className="caption">
+          An invite is recorded when a wallet signs in for the first time through your link.
+        </p>
       </section>
     </>
   );
@@ -911,7 +994,7 @@ export function SettingsPanel({
     setError("");
     setNotice("");
     try {
-      await request("profile", { name: fields.get("name") });
+      await request("profile", { name: fields.get("name"), username: fields.get("username") });
       await refresh();
       setNotice("Profile saved.");
     } catch (error) {
@@ -942,13 +1025,32 @@ export function SettingsPanel({
           {profile && <CopyButton value={profile.wallet} label="Copy address" />}
         </div>
         {profile && (
-          <form className="settings-row" onSubmit={rename} key={profile.wallet + profile.name}>
+          <form
+            className="settings-row"
+            onSubmit={rename}
+            key={profile.wallet + profile.name + (profile.username ?? "")}
+          >
             <label>
               Display name
               <input name="name" maxLength={60} defaultValue={profile.name} placeholder="Your name" />
             </label>
+            <label>
+              Username
+              <input
+                name="username"
+                aria-describedby="username-help"
+                maxLength={24}
+                defaultValue={profile.username ?? ""}
+                placeholder="your_username"
+                autoCapitalize="none"
+                spellCheck={false}
+              />
+              <span id="username-help" className="caption">
+                {usernameHelp} Shown in referral activity.
+              </span>
+            </label>
             <button className="button quiet" type="submit" disabled={busy}>
-              Save name
+              Save profile
             </button>
           </form>
         )}

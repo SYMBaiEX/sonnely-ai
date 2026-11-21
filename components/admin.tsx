@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
+import { AdminCrm, type CrmView } from "./admin-crm";
 import { CreditRecovery } from "./credit-recovery";
 import { creditBalance } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
@@ -21,6 +22,7 @@ export function Admin({ session }: { session: Session | null }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [area, setArea] = useState<"overview" | CrmView>("overview");
   const data = result?.wallet === wallet ? result?.value : undefined;
   const reload = useCallback(async () => {
     if (wallet && authorized) setResult({ wallet, value: await request<Overview>("admin") });
@@ -48,9 +50,9 @@ export function Admin({ session }: { session: Session | null }) {
       <header className="console-title section-head">
         <div>
           <h1>Admin</h1>
-          <p>Platform activity, provider costs, and treasury payouts.</p>
+          <p>Manage customers, support, request traces, and treasury operations.</p>
         </div>
-        {authorized && (
+        {authorized && area === "overview" && (
           <button
             type="button"
             className="button quiet"
@@ -61,12 +63,28 @@ export function Admin({ session }: { session: Session | null }) {
           </button>
         )}
       </header>
-      {error && (
+      {authorized && (
+        <nav className="segmented crm-navigation" aria-label="Admin workspace">
+          {(
+            [
+              ["overview", "Overview"],
+              ["customers", "Customers"],
+              ["support", "Support"],
+              ["traces", "Traces"],
+            ] as const
+          ).map(([key, label]) => (
+            <button key={key} type="button" aria-pressed={area === key} onClick={() => setArea(key)}>
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+      {area === "overview" && error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
-      {notice && (
+      {area === "overview" && notice && (
         <p className="status" role="status">
           {notice}
         </p>
@@ -76,6 +94,8 @@ export function Admin({ session }: { session: Session | null }) {
           <h2>Administrator access required</h2>
           <p>Connect an authorized Solana wallet to view this workspace.</p>
         </section>
+      ) : area !== "overview" ? (
+        <AdminCrm view={area} key={wallet + ":" + area} />
       ) : !data ? (
         <p className="caption" role="status">
           Loading platform activity…

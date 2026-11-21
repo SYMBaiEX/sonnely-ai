@@ -60,12 +60,63 @@ export async function adminOverview(
   });
 }
 
+export async function adminCrm(
+  params: URLSearchParams,
+  auth: { secret: string; session: string },
+  db: ReturnType<typeof backend>["db"],
+) {
+  const cursor = z.string().max(4000).nullable().parse(params.get("cursor"));
+  const page = { cursor, numItems: 30 };
+  const search = z
+    .string()
+    .trim()
+    .max(80)
+    .parse(params.get("search") ?? "");
+  const filter = params.get("filter") ?? "all";
+  switch (params.get("view")) {
+    case "customers":
+      return json(await db.query(api.crm.customers, { ...auth, search, page }));
+    case "customer": {
+      const id = z.string().min(1).max(64).parse(params.get("id")) as Id<"accounts">;
+      return json(await db.query(api.crm.customer, { ...auth, id }));
+    }
+    case "support": {
+      const state = z.enum(["all", "open", "in_progress", "resolved"]).parse(filter);
+      return json(await db.query(api.crm.tickets, { ...auth, state, page }));
+    }
+    case "traces": {
+      const status = z.enum(["all", "pending", "complete", "failed", "unreported"]).parse(filter);
+      return json(await db.query(api.crm.traces, { ...auth, status, search, page }));
+    }
+    default:
+      throw new SonnelyError("Choose an admin view.", 404);
+  }
+}
+
 export async function adminAction(
   task: string,
   raw: unknown,
   auth: { secret: string; session: string },
   db: ReturnType<typeof backend>["db"],
 ) {
+  if (task === "admin-note") {
+    const { account, note } = z
+      .object({ account: z.string().min(1).max(64), note: z.string().trim().min(1).max(2000) })
+      .parse(raw);
+    await db.mutation(api.crm.addNote, { ...auth, account: account as Id<"accounts">, note });
+    return json({ ok: true }, 201);
+  }
+  if (task === "admin-ticket") {
+    const { id, ...fields } = z
+      .object({
+        id: z.string().min(1).max(64),
+        state: z.enum(["open", "in_progress", "resolved"]),
+        assignment: z.enum(["keep", "claim", "unassign"]),
+      })
+      .parse(raw);
+    await db.mutation(api.crm.updateTicket, { ...auth, id: id as Id<"tickets">, ...fields });
+    return json({ ok: true });
+  }
   if (task === "admin-resolve-credit") {
     const { id, ...fields } = z
       .object({

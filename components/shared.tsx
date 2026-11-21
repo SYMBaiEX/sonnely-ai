@@ -118,10 +118,12 @@ export function ModelCatalog() {
                     </td>
                   ))}
                   <td role="cell" className="catalog-actions">
-                    <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
-                      Open in chat <ArrowUpRight size={15} />
-                    </Link>
-                    <CopyButton value={model.id} label="Copy model ID" />
+                    <div className="catalog-row-actions">
+                      <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
+                        Open in chat <ArrowUpRight size={15} />
+                      </Link>
+                      <CopyButton value={model.id} label="Copy model ID" />
+                    </div>
                   </td>
                 </tr>
               ))}

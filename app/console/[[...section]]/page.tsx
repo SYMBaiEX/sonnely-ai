@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Console } from "@/components/console";
+import { nearCatalog } from "@/lib/near-catalog";
 import { models } from "@/lib/models";
 
 const sections = ["chat", "models", "keys", "usage", "billing", "referrals", "settings", "admin"] as const;
@@ -23,6 +24,7 @@ export default async function ConsolePage({ params, searchParams }: Props) {
   return (
     <Console
       section={name as Section}
+      providerCatalog={name === "models" ? await nearCatalog() : undefined}
       initialModel={models.find((item) => item.id === model)?.id ?? models[0].id}
     />
   );
