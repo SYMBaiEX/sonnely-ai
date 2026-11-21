@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Cpu, Terminal } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { apiBasePath, apiOrigin } from "@/lib/api-contract";
 import { models } from "@/lib/models";
 import { CopyButton } from "./shared";
@@ -35,6 +35,8 @@ const examples = [
 const languages = ["cURL", "Python", "JavaScript"] as const;
 type Language = (typeof languages)[number];
 const endpoint = apiOrigin + apiBasePath;
+const completionPath = apiBasePath + "/chat/completions";
+const codeToken = /("(?:\\.|[^"\\])*"|\b(?:curl|import|from|const|new|await)\b|-(?:H|d)(?=\s))/g;
 
 function requestCode(language: Language, model: string, content: string) {
   const modelId = JSON.stringify(model);
@@ -67,7 +69,7 @@ function requestCode(language: Language, model: string, content: string) {
       "console.log(reply.choices[0].message.content);",
     ];
   return [
-    'curl "' + endpoint + '/chat/completions" ' + String.fromCharCode(92),
+    'curl "' + apiOrigin + completionPath + '" ' + String.fromCharCode(92),
     '  -H "Authorization: Bearer $SONNELY_API_KEY" ' + String.fromCharCode(92),
     '  -H "Content-Type: application/json" ' + String.fromCharCode(92),
     "  -d '{",
@@ -91,23 +93,18 @@ export function HomeDemo() {
 
   return (
     <section className="home-quickstart" id="quickstart" aria-labelledby="home-quickstart-heading">
-      <header className="home-quickstart-head">
-        <div>
-          <h2 id="home-quickstart-heading">Your first API request.</h2>
-          <p>
-            Set <code>SONNELY_API_KEY</code> in your terminal, then copy and run the request.
-          </p>
-        </div>
+      <div className="home-quickstart-intro">
+        <h2 id="home-quickstart-heading">Your first API request.</h2>
+        <p>
+          <Link href="/console/keys">Create an API key</Link>, set <code>SONNELY_API_KEY</code>, and run an
+          example in your terminal.
+        </p>
         <Link href="/docs#quickstart" className="text-link">
-          Integration guide <ArrowUpRight size={16} />
+          Read the quickstart <ArrowRight size={16} aria-hidden />
         </Link>
-      </header>
-      <div className="home-api">
-        <div className="home-api-toolbar">
-          <p>
-            <Terminal size={17} aria-hidden /> Chat Completions
-          </p>
-          <div className="home-api-examples" role="group" aria-label="Choose a sample task">
+        <div className="home-api-samples">
+          <p id="home-api-example-label">Example</p>
+          <div className="home-api-examples" role="group" aria-labelledby="home-api-example-label">
             {examples.map(({ label }, index) => (
               <button
                 type="button"
@@ -120,74 +117,85 @@ export function HomeDemo() {
             ))}
           </div>
         </div>
-        <div className="home-api-panes">
-          <div className="home-api-request">
-            <div className="home-api-pane-head">
-              <div className="home-api-languages" role="group" aria-label="Request language">
-                {languages.map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    aria-pressed={language === option}
-                    onClick={() => setLanguage(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-              <CopyButton key={language + active} value={lines.join("\n")} label="Copy request" />
+      </div>
+      <div className="home-api">
+        <div className="home-api-endpoint">
+          <span>POST</span>
+          <code>{completionPath}</code>
+        </div>
+        <div className="home-api-request">
+          <div className="home-api-pane-head">
+            <div className="home-api-languages" role="group" aria-label="Request language">
+              {languages.map((option) => (
+                <button
+                  type="button"
+                  key={option}
+                  aria-pressed={language === option}
+                  onClick={() => setLanguage(option)}
+                >
+                  {option}
+                </button>
+              ))}
             </div>
-            <pre aria-label={language + " request"}>
-              <code>
-                {lines.map((line, index) => (
-                  <span className="home-api-line" key={index}>
-                    <span aria-hidden="true">{index + 1}</span>
-                    <span>{line}</span>
-                  </span>
-                ))}
-              </code>
-            </pre>
+            <CopyButton key={language + active} value={lines.join("\n")} label="Copy request" />
           </div>
-          <div className="home-api-response" aria-labelledby="home-api-response-title">
-            <div className="home-api-pane-head">
-              <h3 id="home-api-response-title">Sample response</h3>
-              <button
-                className="button quiet small"
-                type="button"
-                aria-pressed={showJson}
-                onClick={() => setShowJson(!showJson)}
-              >
-                JSON
-              </button>
-            </div>
-            <div className="home-api-result" aria-live="polite">
-              <p className="home-api-model">
-                <Cpu size={15} aria-hidden /> {model.name}
-              </p>
-              {showJson ? (
-                <pre aria-label="Sample response JSON">
-                  <code>{JSON.stringify(sampleResponse, null, 2)}</code>
-                </pre>
-              ) : (
-                <p className={active === 1 ? "mono" : undefined}>{output}</p>
-              )}
-            </div>
+          <pre className="home-api-code" aria-label={language + " request"}>
+            <code>
+              {lines.map((line, index) => (
+                <span className="home-api-line" key={index}>
+                  <span aria-hidden="true">{index + 1}</span>
+                  <span>
+                    {line.split(codeToken).map((token, index) =>
+                      index % 2 === 0 ? (
+                        token
+                      ) : (
+                        <span
+                          className={token.startsWith('"') ? "home-api-string" : "home-api-keyword"}
+                          key={index}
+                        >
+                          {token}
+                        </span>
+                      ),
+                    )}
+                  </span>
+                </span>
+              ))}
+            </code>
+          </pre>
+        </div>
+        <div className="home-api-response" aria-labelledby="home-api-response-title">
+          <div className="home-api-pane-head">
+            <h3 id="home-api-response-title">Sample response</h3>
+            <button
+              className="button quiet small"
+              type="button"
+              aria-pressed={showJson}
+              onClick={() => setShowJson(!showJson)}
+            >
+              JSON
+            </button>
+          </div>
+          <div className="home-api-result" aria-live="polite">
+            {showJson ? (
+              <pre aria-label="Sample response JSON">
+                <code>{JSON.stringify(sampleResponse, null, 2)}</code>
+              </pre>
+            ) : (
+              <p className={active === 1 ? "mono" : undefined}>{output}</p>
+            )}
+          </div>
+          <div className="home-api-response-footer">
+            <span>{model.name}</span>
             <Link
               className="text-link"
               href={"/console?model=" + encodeURIComponent(model.id)}
               aria-label={"Open " + model.name + " in playground"}
             >
-              Open in playground <ArrowUpRight size={15} />
+              Open in playground <ArrowUpRight size={14} aria-hidden />
             </Link>
           </div>
         </div>
       </div>
-      <p className="home-api-route">
-        Sonnely meters the request. NEAR AI runs the model inside a Private TEE.{" "}
-        <Link href="#request-path" className="text-link">
-          Follow the request <ArrowUpRight size={14} />
-        </Link>
-      </p>
     </section>
   );
 }
