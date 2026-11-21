@@ -47,9 +47,6 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
               <h2>Sonnely</h2>
               <Link href="/blog">Journal</Link>
               <Link href="/contact">Support</Link>
-              <a href="https://app.sonnely.com">
-                Original app <ArrowUpRight size={13} aria-hidden="true" />
-              </a>
             </div>
             <div className="footer-group">
               <h2>Legal</h2>

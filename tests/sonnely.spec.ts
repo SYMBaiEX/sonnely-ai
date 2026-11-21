@@ -199,6 +199,28 @@ test("Sonnely API paths and compatibility routes serve the same model list", asy
   expect(await account.json()).toEqual(await previousAccount.json());
 });
 
+test("the retired Sonnely app sends bookmarks to the current site and rejects legacy API calls", async ({
+  request,
+}) => {
+  const headers = { Host: "app.sonnely.com" };
+  const bookmark = await request.get("/dashboard/api", { headers, maxRedirects: 0 });
+  expect(bookmark.status()).toBe(308);
+  expect(bookmark.headers().location).toBe("https://sonnely.com/console/keys");
+  const oldApp = await request.get("/", { headers, maxRedirects: 0 });
+  expect(oldApp.status()).toBe(308);
+  expect(oldApp.headers().location).toBe("https://sonnely.com/");
+  for (const response of [
+    await request.post("/api/v1/chat/completions", { data: { model: "legacy" }, maxRedirects: 0 }),
+    await request.get("/v1/models", { headers, maxRedirects: 0 }),
+  ]) {
+    expect(response.status()).toBe(410);
+    expect(response.headers().location).toBeUndefined();
+    expect(await response.json()).toMatchObject({
+      error: { code: "legacy_api_retired", base_url: "https://sonnely.com/api/sonnely/v1" },
+    });
+  }
+});
+
 test("published guides link to supported endpoints and workflows", async ({ page }) => {
   await page.goto("/docs");
   await expect(page.getByText("https://sonnely.com/api/sonnely/v1", { exact: true })).toBeVisible();

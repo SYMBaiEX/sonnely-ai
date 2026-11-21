@@ -12,6 +12,7 @@ const sections = [
   ["privacy", "Data handling"],
   ["verification", "Attestation"],
   ["settlement", "Payments and credits"],
+  ["migration", "Migrate from the original app"],
 ] as const;
 
 const errors = [
@@ -257,6 +258,30 @@ export function DeveloperGuide() {
             <Link className="text-link" href="/pricing">
               Read the pricing and settlement guide <ArrowUpRight size={16} />
             </Link>
+          </section>
+          <section id="migration">
+            <h2>Migrate from the original app</h2>
+            <p>
+              The original Sonnely app and API are retired. The current gateway uses Solana wallet sign-in,
+              USDC-funded credits, and its own API keys.
+            </p>
+            <ol>
+              <li>
+                Connect your Solana wallet in the <Link href="/console">console</Link>.
+              </li>
+              <li>
+                Create a new key under <Link href="/console/keys">API keys</Link> and add credits in{" "}
+                <Link href="/console/billing">Billing</Link>.
+              </li>
+              <li>
+                Use the <a href="#api">current API base URL</a> and choose an ID from the{" "}
+                <Link href="/models">model catalog</Link>.
+              </li>
+            </ol>
+            <p>
+              The current API supports non-streaming text completions. Replace any legacy media endpoints or
+              CLI commands with a supported client.
+            </p>
           </section>
         </div>
       </div>
