@@ -26,6 +26,8 @@ Set `CONVEX_URL` and `SONNELY_SERVICE_SECRET` in the deployment environment. Set
 
 The API supports `GET /api/sonnely/v1/models` and non-streaming text `POST /api/sonnely/v1/chat/completions`. The gateway terminates HTTPS and forwards the prompt to NEAR AI. Verify provider evidence with the NEAR AI Verification Center. End-to-end encryption and per-response attestation verification are outside the gateway implementation.
 
+Set `X-Sonnely-Receipt: v1` on a completion request for upstream byte hashes, billing metadata and NEAR signature checks. See the [receipt and marketplace notes](docs/solana-inference-marketplace.md) for the evidence boundary and grant milestones.
+
 Set `SONNELY_ORIGIN` to the deployed site and `SONNELY_API_KEY` to your scoped console key when using the cURL, JavaScript, or Python examples. Current integrations use the OpenAI SDKs with the Sonnely base URL. Existing `/v1` clients and previously issued keys continue to work during the rename.
 
 The Japanese forest artwork switches from winter to the evergreen collection at midnight on January 1, 2027 in America/Chicago. Both collections include dark and light versions for the site and workspace.

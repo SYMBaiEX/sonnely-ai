@@ -24,6 +24,7 @@
     "@wallet-standard/features": "^1.1.1",
     "bs58": "^6.0.0",
     "convex": "^1.51.0",
+    "ethers": "6.17.0",
     "lucide-react": "^1.76.0",
     "next": "^16.4.6",
     "qrcode": "^1.5.4",

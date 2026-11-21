@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import { limits } from "./api-contract";
+import { nearResponseEvidence, receiptVersion, sha256 } from "./inference-receipt";
 import { managedProviderKey, pilotWallet, publicInference } from "./managed-access";
 import { requestCharge } from "./pricing";
 import { providerRequestId } from "./provider-billing";
@@ -26,6 +27,7 @@ const result = z.object({
   id: z.string(),
   object: z.literal("chat.completion"),
   created: z.number(),
+  model: z.string().min(1).max(200).optional().catch(undefined),
   choices: z
     .array(
       z.object({
@@ -45,7 +47,7 @@ const result = z.object({
   }),
 });
 
-export async function infer(raw: unknown, auth: { session?: string; hash?: string }) {
+export async function infer(raw: unknown, auth: { session?: string; hash?: string }, withReceipt = false) {
   const input = completion.parse(raw);
   const model = models.find((item) => item.id === input.model);
   if (!model) throw new SonnelyError("Choose a model from the catalog.", 404);
@@ -55,6 +57,7 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
   const maxTokens = input.max_tokens ?? limits.defaultOutputTokens;
   const bytes = Buffer.byteLength(JSON.stringify(input.messages));
   const reserve = requestCharge(model, bytes + 256, 0, maxTokens);
+  const requestBody = JSON.stringify({ model: input.model, messages: input.messages, max_tokens: maxTokens });
   const { db, secret } = backend();
   const pilot = pilotWallet();
   const id = await db.mutation(api.sonnely.reserve, {
@@ -68,17 +71,24 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
   let status: "complete" | "failed" | "unreported" = "unreported";
   let tokensIn = 0;
   let tokensOut = 0;
+  let cached = 0;
   let cost = 0;
   let providerRequest: string | undefined;
   let providerStatus: number | undefined;
   let outcome = "upstream_transport";
+  let responseBytes: Buffer | undefined;
+  let data: z.infer<typeof result>;
   try {
     let response: Response;
     try {
       response = await fetch("https://cloud-api.near.ai/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + upstreamKey },
-        body: JSON.stringify({ model: input.model, messages: input.messages, max_tokens: maxTokens }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + upstreamKey,
+          ...(withReceipt ? { "x-no-aliasing": "true" } : {}),
+        },
+        body: requestBody,
         cache: "no-store",
         signal: AbortSignal.timeout(45_000),
       });
@@ -95,17 +105,27 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
       throw new SonnelyError("The provider could not complete this request.", 502);
     }
     outcome = "invalid_usage";
-    const parsed = result.safeParse(await response.json().catch(() => null));
+    let body: unknown;
+    try {
+      if (withReceipt) {
+        responseBytes = Buffer.from(await response.arrayBuffer());
+        body = JSON.parse(new TextDecoder().decode(responseBytes));
+      } else {
+        body = await response.json();
+      }
+    } catch {
+      body = null;
+    }
+    const parsed = result.safeParse(body);
     if (!parsed.success) throw new SonnelyError("The provider returned incomplete usage information.", 502);
-    const data = parsed.data;
+    data = parsed.data;
     tokensIn = data.usage.prompt_tokens;
     tokensOut = data.usage.completion_tokens;
-    const cached = Math.min(tokensIn, data.usage.prompt_tokens_details?.cached_tokens ?? 0);
+    cached = Math.min(tokensIn, data.usage.prompt_tokens_details?.cached_tokens ?? 0);
     cost = requestCharge(model, tokensIn, cached, tokensOut);
     providerRequest = providerRequestId(upstreamId, data.id);
     status = "complete";
     outcome = "complete";
-    return { ...data, model: input.model, usage: { ...data.usage, total_tokens: tokensIn + tokensOut } };
   } finally {
     await db.mutation(api.sonnely.settle, {
       secret,
@@ -119,4 +139,26 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
       outcome,
     });
   }
+
+  const reply = { ...data, model: input.model, usage: { ...data.usage, total_tokens: tokensIn + tokensOut } };
+  if (!responseBytes) return reply;
+
+  const requestHash = sha256(requestBody);
+  const responseHash = sha256(responseBytes);
+  return {
+    ...reply,
+    sonnely_receipt: {
+      version: receiptVersion,
+      provider: model.provider,
+      requested_model: input.model,
+      ...(data.model ? { reported_model: data.model } : {}),
+      provider_completion_id: data.id,
+      billing_reference: providerRequest,
+      charged_microusd: Math.min(reserve, cost),
+      cached_input_tokens: cached,
+      upstream_request_sha256: requestHash,
+      upstream_response_sha256: responseHash,
+      evidence: await nearResponseEvidence(upstreamKey, data.id, input.model, requestHash, responseHash),
+    },
+  };
 }

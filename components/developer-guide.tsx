@@ -11,6 +11,7 @@ const sections = [
   ["keys", "Key management"],
   ["privacy", "Data handling"],
   ["verification", "Attestation"],
+  ["receipts", "Completion receipts"],
   ["settlement", "Payments and credits"],
   ["migration", "Migrate from the original app"],
 ] as const;
@@ -229,6 +230,28 @@ export function DeveloperGuide() {
             </p>
             <a className="text-link" href="https://docs.near.ai/cloud/verification">
               NEAR AI verification guide <ArrowUpRight size={16} />
+            </a>
+          </section>
+          <section id="receipts">
+            <h2>Completion receipts</h2>
+            <p>
+              Add <code>X-Sonnely-Receipt: v1</code> to your chat completion request to get a{" "}
+              <code>sonnely_receipt</code> in the response. It includes the provider, requested model, billing
+              reference, charge in millionths of a dollar and SHA-256 hashes of the exact upstream request and
+              response bodies. Those bodies differ from the JSON your client sends and receives.
+            </p>
+            <p>
+              <code>signature_matched</code> means the payload matches those hashes and the signature recovers
+              the signing address reported by NEAR. NEAR identifies its signature as <code>provider_tee</code>{" "}
+              or <code>gateway</code>. Hardware attestation still requires verified preflight evidence that
+              binds the signing key to its deployment.
+            </p>
+            <p>
+              Keep receipts private. Their hashes can help someone confirm a guess about the request or
+              response contents.
+            </p>
+            <a className="text-link" href="/api/openapi">
+              Read the receipt schema <ArrowUpRight size={16} />
             </a>
           </section>
           <section id="settlement">

@@ -1,4 +1,5 @@
 import { apiBasePath, apiOrigin, limits } from "@/lib/api-contract";
+import { receiptHeader, receiptVersion } from "@/lib/inference-receipt";
 import { models } from "@/lib/models";
 
 const jsonSchema = (schema: string) => ({
@@ -50,6 +51,15 @@ const spec = {
           "Use a key from the console with available credits. The JSON body is limited to " +
           limits.bodyBytes +
           " bytes.",
+        parameters: [
+          {
+            in: "header",
+            name: receiptHeader,
+            required: false,
+            description: "Return Sonnely’s private completion receipt and any matching provider evidence.",
+            schema: { const: receiptVersion },
+          },
+        ],
         requestBody: { required: true, content: jsonSchema("CompletionRequest") },
         responses: {
           200: { description: "Text completion and token usage", content: jsonSchema("Completion") },
@@ -120,6 +130,7 @@ const spec = {
           object: { const: "chat.completion" },
           created: { type: "number" },
           model: { type: "string" },
+          sonnely_receipt: { $ref: "#/components/schemas/InferenceReceipt" },
           choices: {
             type: "array",
             items: {
@@ -151,6 +162,63 @@ const spec = {
                 properties: { cached_tokens: { type: ["integer", "null"] } },
               },
             },
+          },
+        },
+      },
+      InferenceReceipt: {
+        type: "object",
+        required: [
+          "version",
+          "provider",
+          "requested_model",
+          "provider_completion_id",
+          "billing_reference",
+          "charged_microusd",
+          "cached_input_tokens",
+          "upstream_request_sha256",
+          "upstream_response_sha256",
+          "evidence",
+        ],
+        properties: {
+          version: { const: receiptVersion },
+          provider: { type: "string" },
+          requested_model: { type: "string" },
+          reported_model: { type: "string", description: "Model label in the upstream response." },
+          provider_completion_id: { type: "string" },
+          billing_reference: { type: "string", description: "Reference used for provider reconciliation." },
+          charged_microusd: { type: "integer", minimum: 0 },
+          cached_input_tokens: { type: "integer", minimum: 0 },
+          upstream_request_sha256: { type: "string", pattern: "^[a-f0-9]{64}$" },
+          upstream_response_sha256: { type: "string", pattern: "^[a-f0-9]{64}$" },
+          evidence: {
+            description:
+              "A matched signature confirms the signed byte hashes and declared signing key. It does not verify hardware attestation or model execution.",
+            oneOf: [
+              {
+                type: "object",
+                required: ["status"],
+                properties: { status: { enum: ["unavailable", "payload_mismatch", "invalid_signature"] } },
+              },
+              {
+                type: "object",
+                required: [
+                  "status",
+                  "signature_kind",
+                  "signing_algo",
+                  "signing_address",
+                  "signature",
+                  "text",
+                ],
+                properties: {
+                  status: { const: "signature_matched" },
+                  signature_kind: { enum: ["provider_tee", "gateway"] },
+                  signing_algo: { const: "ecdsa" },
+                  signing_address: { type: "string" },
+                  signature: { type: "string" },
+                  text: { type: "string" },
+                },
+              },
+            ],
           },
         },
       },
