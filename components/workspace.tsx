@@ -719,13 +719,19 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
                         <button
                           className="button quiet small"
                           type="button"
+                          disabled={!!pending}
                           onClick={() => {
-                            setOrder(null);
-                            setReference(item.reference);
-                            setSignature("");
+                            void run("resume", async () => {
+                              const draft = await request<Payment>(
+                                "payment?reference=" + encodeURIComponent(item.reference),
+                              );
+                              setOrder(draft);
+                              setReference(item.reference);
+                              setSignature("");
+                            });
                           }}
                         >
-                          Enter signature
+                          Resume payment
                         </button>
                       )}
                     </td>

@@ -34,6 +34,25 @@ const inviteCode = z.string().regex(/^[a-f0-9]{16}$/);
 const signatureBytes = (length: number) => z.array(z.number().int().min(0).max(255)).length(length);
 const priceCap = z.number().min(0.01).max(100_000).nullable();
 
+async function paymentDraft(order: {
+  reference: string;
+  recipient: string;
+  mint: string;
+  amount: number;
+  cluster: string;
+}) {
+  const payment = new URLSearchParams({
+    amount: String(order.amount / 1_000_000),
+    "spl-token": order.mint,
+    reference: order.reference,
+    label: "Sonnely",
+    message: "Compute credit top-up",
+  });
+  const uri = "solana:" + order.recipient + "?" + payment.toString();
+  const qr = await QRCode.toDataURL(uri, { margin: 2, width: 220 });
+  return { uri, reference: order.reference, cluster: order.cluster, qr };
+}
+
 export async function GET(request: NextRequest, context: Context) {
   try {
     const { task } = await context.params;
@@ -65,6 +84,12 @@ export async function GET(request: NextRequest, context: Context) {
     if (task === "keys") return json(await db.query(api.sonnely.listKeys, auth));
     if (task === "referrals") return json(await db.query(api.sonnely.referrals, auth));
     if (task === "history") return json(await db.query(api.sonnely.history, auth));
+    if (task === "payment") {
+      const reference = address.parse(request.nextUrl.searchParams.get("reference"));
+      const order = await db.query(api.sonnely.depositDetails, { ...auth, reference });
+      if (order.signature) throw new SonnelyError("This payment is already finalized.", 409);
+      return json(await paymentDraft(order));
+    }
     if (task === "usage") {
       const days = z.coerce
         .number()
@@ -222,26 +247,10 @@ export async function POST(request: NextRequest, context: Context) {
           throw new SonnelyError("Use a wallet other than the treasury wallet.");
         await verifyCluster(rpc, cluster);
         const reference = bs58.encode(randomBytes(32));
-        const payment = new URLSearchParams({
-          amount: String(dollars),
-          "spl-token": mint,
-          reference,
-          label: "Sonnely",
-          message: "Compute credit top-up",
-        });
-        const uri = "solana:" + recipient + "?" + payment.toString();
-        await db.mutation(api.sonnely.createDeposit, {
-          ...auth,
-          reference,
-          recipient,
-          mint,
-          cluster,
-          amount: dollars * 1_000_000,
-        });
-        return json(
-          { uri, reference, cluster, qr: await QRCode.toDataURL(uri, { margin: 2, width: 220 }) },
-          201,
-        );
+        const order = { reference, recipient, mint, cluster, amount: dollars * 1_000_000 };
+        const draft = await paymentDraft(order);
+        await db.mutation(api.sonnely.createDeposit, { ...auth, ...order });
+        return json(draft, 201);
       }
       const { reference, signature } = z
         .object({
