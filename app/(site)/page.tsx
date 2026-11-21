@@ -13,14 +13,14 @@ export const metadata = { alternates: { canonical: "/" } };
 export default function Home() {
   return (
     <>
-      <div className="wrap home">
-        <section className="hero">
-          <Scene variant="hero" />
+      <section className="hero" aria-labelledby="home-hero-heading">
+        <Scene variant="hero" />
+        <div className="wrap hero-inner">
           <div className="hero-content">
             <p className="eyebrow">
               <span className="signal" /> Confidential inference
             </p>
-            <h1>
+            <h1 id="home-hero-heading">
               Private AI,
               <br />
               <em>on your terms.</em>
@@ -39,7 +39,9 @@ export default function Home() {
             </div>
           </div>
           <HomeDemo />
-        </section>
+        </div>
+      </section>
+      <div className="wrap home">
         <div className="strip" aria-label="Platform components">
           <span>
             <Wallet size={17} /> Solana wallet identity
