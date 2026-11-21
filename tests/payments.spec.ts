@@ -146,3 +146,17 @@ test("prepares an unsigned, simulated USDC transfer with an indexed reference", 
     globalThis.fetch = fetchOriginal;
   }
 });
+
+test("USDC checkout accepts fractional amounts without a five-dollar minimum", async () => {
+  const { creditBalance, creditDecimal, parseCreditAmount } = await import("../lib/credit-amount");
+  expect(parseCreditAmount("0.000001")).toBe(1);
+  expect(parseCreditAmount(0.000001)).toBe(1);
+  expect(parseCreditAmount(".125")).toBe(125_000);
+  expect(parseCreditAmount("1000.000001")).toBe(1_000_000_001);
+  expect(parseCreditAmount("0.0000001")).toBeNull();
+  expect(parseCreditAmount("0")).toBeNull();
+  expect(parseCreditAmount("-5")).toBeNull();
+  expect(parseCreditAmount("9007199254.740992")).toBeNull();
+  expect(creditDecimal(1)).toBe("0.000001");
+  expect(creditBalance(4_998_674)).toBe("$4.998674");
+});

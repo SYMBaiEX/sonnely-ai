@@ -420,16 +420,6 @@ form label {
   color: var(--muted);
   font-size: 14px;
 }
-.feature-model {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: start;
-  gap: 12px;
-}
-.feature-model h3 {
-  margin: 2px 0 5px;
-}
-.feature-model:hover,
 .journal-card:hover {
   border-color: var(--accent);
 }
@@ -1322,12 +1312,6 @@ tbody tr:last-child > * {
   .journal-grid {
     gap: 10px;
   }
-  .feature-model {
-    grid-template-columns: 1fr;
-  }
-  .feature-model > svg {
-    display: none;
-  }
   .form-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1392,9 +1376,6 @@ tbody tr:last-child > * {
   .doc-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
-  }
-  .feature-model {
-    grid-template-columns: auto 1fr;
   }
   .doc-nav {
     position: static;
@@ -1704,34 +1685,11 @@ tbody tr:last-child > * {
 .prose .article-lead .eyebrow {
   margin-top: 16px;
 }
-.model-strip {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: min(44%, 515px);
-  gap: 13px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: 4px;
-  padding: 4px 4px 12px;
-  margin-inline: -4px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line) transparent;
-}
-.model-strip .feature-model {
-  scroll-snap-align: start;
-  min-height: 145px;
-  align-content: center;
-}
-.model-strip .feature-model .mono {
-  display: inline-block;
-  margin-top: 9px;
-}
 .panel {
   box-shadow:
     inset 0 1px 0 var(--rim),
     0 7px 24px var(--shadow);
 }
-.feature-model,
 .journal-card,
 .icon-button,
 .rail-nav a {
@@ -1864,7 +1822,6 @@ button {
   }
 }
 @media (hover: hover) and (pointer: fine) {
-  .feature-model:hover,
   .journal-card:hover {
     transform: translateY(-2px);
   }
@@ -1889,14 +1846,6 @@ button {
         opacity: 1;
       }
     }
-  }
-}
-@media (max-width: 930px) {
-  .model-strip {
-    grid-auto-columns: 53%;
-  }
-  .model-strip .feature-model {
-    grid-template-columns: auto minmax(0, 1fr);
   }
 }
 @media (max-width: 720px) {
@@ -1960,12 +1909,6 @@ button {
   }
   .page-lead p {
     font-size: 15px;
-  }
-  .model-strip {
-    grid-auto-columns: min(83%, 400px);
-  }
-  .strip-controls .text-link {
-    margin-right: 8px;
   }
   .nav-scrim {
     display: block;

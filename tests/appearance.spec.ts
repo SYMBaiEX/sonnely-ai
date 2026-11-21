@@ -40,9 +40,6 @@ test("the forest layers move on scroll and honor reduced motion", async ({ page 
         .evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42),
     )
     .toBeGreaterThan(7);
-  await page.getByRole("button", { name: "Next model" }).click();
-  await expect.poll(() => page.locator("#model-strip").evaluate((el) => el.scrollLeft)).toBeGreaterThan(30);
-
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(artwork).toHaveCSS("transform", "none");
   await expect(scene.locator(".scene-embers")).toBeHidden();
@@ -92,6 +89,18 @@ test("the homepage examples show different workflows and real playground links",
   await expect(demo.getByRole("link", { name: "Open GLM 5.3 Flash in playground" })).toHaveAttribute(
     "href",
     "/console?model=z-ai%2Fglm-5.3-flash",
+  );
+  const catalog = page.getByRole("region", { name: "Choose your model." });
+  const list = catalog.getByRole("list");
+  await expect(list.getByRole("listitem")).toHaveCount(3);
+  await expect(list.getByRole("link", { name: /DeepSeek V4.1 Flash/ })).toHaveAttribute(
+    "href",
+    "/console?model=deepseek-ai%2FDeepSeek-V4.1-Flash-1017",
+  );
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect(list.getByRole("link", { name: /Qwen 3.6 35B/ })).toBeVisible();
+  expect(await list.evaluate((element) => element.scrollWidth)).toBe(
+    await list.evaluate((element) => element.clientWidth),
   );
   const previews = page.getByRole("region", { name: "Keys, usage, and credits." });
   await expect(previews.locator("figure")).toHaveCount(3);

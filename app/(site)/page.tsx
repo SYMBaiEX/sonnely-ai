@@ -2,7 +2,7 @@ import { ArrowRight, ArrowUpRight, Fingerprint, Terminal, Wallet } from "lucide-
 import Link from "next/link";
 import { CodeExample } from "@/components/shared";
 import { Scene } from "@/components/scene";
-import { ModelStrip } from "@/components/model-strip";
+import { HomeModelList } from "@/components/home-model-list";
 import { RequestPath } from "@/components/request-path";
 import { HomeCapabilities, HomeResources, HomeWorkloads } from "@/components/home-content";
 import { HomeDemo } from "@/components/home-demo";
@@ -52,7 +52,7 @@ export default function Home() {
           </span>
         </div>
         <HomeCapabilities />
-        <ModelStrip />
+        <HomeModelList />
         <HomeWorkloads />
         <section className="section split code-section">
           <div>

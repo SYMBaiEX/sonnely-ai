@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { FunctionReturnType } from "convex/server";
+import type { api } from "@/convex/_generated/api";
 import { getWallets } from "@wallet-standard/app";
 import { StandardConnect, type StandardConnectFeature } from "@wallet-standard/features";
 import {
@@ -39,9 +41,50 @@ export async function request<T>(task: string, data?: unknown): Promise<T> {
   return payload as T;
 }
 
-export function useSession() {
+type LiveSnapshot = NonNullable<FunctionReturnType<typeof api.sonnely.consoleLive>>;
+export type UsageRow = LiveSnapshot["rows"][number];
+
+export function useSession(liveDays?: number) {
   const [session, setSession] = useState<Session | null>(null);
   const [failure, setFailure] = useState("");
+  const [liveUsage, setLiveUsage] = useState<{ wallet: string; days: number; rows: UsageRow[] }>();
+  const wallet = session?.profile?.wallet;
+
+  useEffect(() => {
+    if (!wallet || liveDays === undefined) return;
+    let source: EventSource | undefined;
+    function listen() {
+      source?.close();
+      if (document.visibilityState === "hidden") return;
+      source = new EventSource("/api/sonnely/live" + (liveDays ? "?days=" + liveDays : ""));
+      source.onmessage = (event) => {
+        const snapshot = JSON.parse(event.data) as LiveSnapshot | null;
+        if (!snapshot) {
+          source?.close();
+          setSession((current) =>
+            current && current.profile?.wallet === wallet
+              ? { ...current, profile: null, billingEnabled: false, inferenceEnabled: false }
+              : current,
+          );
+          setLiveUsage(undefined);
+        } else if (snapshot.wallet === wallet) {
+          setSession((current) =>
+            current?.profile?.wallet === wallet && current.profile.balance !== snapshot.balance
+              ? { ...current, profile: { ...current.profile, balance: snapshot.balance } }
+              : current,
+          );
+          if (liveDays) setLiveUsage({ wallet, days: liveDays, rows: snapshot.rows });
+        }
+      };
+    }
+    listen();
+    document.addEventListener("visibilitychange", listen);
+    return () => {
+      source?.close();
+      document.removeEventListener("visibilitychange", listen);
+    };
+  }, [wallet, liveDays]);
+
   async function refresh() {
     try {
       setSession(await request<Session>("session"));
@@ -58,7 +101,9 @@ export function useSession() {
     }
     void refresh();
   }, []);
-  return { session, failure, refresh };
+  const liveRows =
+    liveUsage && liveUsage.wallet === wallet && liveUsage.days === liveDays ? liveUsage.rows : undefined;
+  return { session, failure, refresh, liveRows };
 }
 
 let mobileRegistration: Promise<void> | undefined;

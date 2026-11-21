@@ -9,11 +9,16 @@ export function serviceSecret() {
   return process.env.SONNELY_SERVICE_SECRET ?? process.env.RELAY_SERVICE_SECRET;
 }
 
-export function backend() {
+export function backendConfig() {
   const secret = serviceSecret();
   const url = process.env.CONVEX_URL;
   if (!url || !secret || secret.length < 32)
     throw new SonnelyError("The account service is unavailable.", 503);
+  return { url, secret };
+}
+
+export function backend() {
+  const { url, secret } = backendConfig();
   return { db: new ConvexHttpClient(url, { logger: false }), secret };
 }
 

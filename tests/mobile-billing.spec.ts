@@ -72,7 +72,7 @@ test("the $5 checkout approves a prepared transfer and refreshes after automatic
       case "history":
         return route.fulfill({ json: [] });
       case "deposit":
-        expect(route.request().postDataJSON()).toEqual({ dollars: 5 });
+        expect(route.request().postDataJSON()).toEqual({ dollars: "5" });
         return route.fulfill({
           json: {
             amount: 5_000_000,

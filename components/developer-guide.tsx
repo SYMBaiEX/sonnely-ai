@@ -192,9 +192,9 @@ export function DeveloperGuide() {
         <section id="settlement">
           <h2>Payments and credits</h2>
           <p>
-            Start in <Link href="/console/billing">Billing</Link>. Eligible accounts can buy credits with a
-            minimum of 5 USDC on Solana. Review the network, amount and recipient before approving. Your
-            wallet pays the SOL network fee and any token account setup.
+            Start in <Link href="/console/billing">Billing</Link>. Eligible accounts can buy credits in any
+            positive USDC amount with up to six decimal places. Review the network, amount and recipient
+            before approving. Your wallet pays the SOL network fee and any token account setup.
           </p>
           <ol>
             <li>

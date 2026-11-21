@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 
 const secret = { secret: v.string() };
@@ -192,36 +193,52 @@ export const revokeKey = mutation({
   },
 });
 
+const usageRow = v.object({
+  time: v.number(),
+  keyName: v.string(),
+  model: v.string(),
+  input: v.number(),
+  output: v.number(),
+  cost: v.number(),
+  status: v.string(),
+});
+
+async function usageRows(ctx: QueryCtx, account: Id<"accounts">, since: number) {
+  const rows = await ctx.db
+    .query("usage")
+    .withIndex("by_account", (q) => q.eq("account", account).gte("_creationTime", since))
+    .order("desc")
+    .take(1000);
+  return rows.map(({ _creationTime, keyName, model, input, output, cost, status }) => ({
+    time: _creationTime,
+    keyName,
+    model,
+    input,
+    output,
+    cost,
+    status,
+  }));
+}
+
 export const usage = query({
   args: { ...auth, since: v.number() },
-  returns: v.array(
-    v.object({
-      time: v.number(),
-      keyName: v.string(),
-      model: v.string(),
-      input: v.number(),
-      output: v.number(),
-      cost: v.number(),
-      status: v.string(),
-    }),
-  ),
+  returns: v.array(usageRow),
   handler: async (ctx, args) => {
     service(args.secret);
     const account = await requireAccount(ctx, args.session);
-    const rows = await ctx.db
-      .query("usage")
-      .withIndex("by_account", (q) => q.eq("account", account._id).gte("_creationTime", args.since))
-      .order("desc")
-      .take(1000);
-    return rows.map(({ _creationTime, keyName, model, input, output, cost, status }) => ({
-      time: _creationTime,
-      keyName,
-      model,
-      input,
-      output,
-      cost,
-      status,
-    }));
+    return usageRows(ctx, account._id, args.since);
+  },
+});
+
+export const consoleLive = query({
+  args: { ...auth, since: v.optional(v.number()) },
+  returns: v.union(v.null(), v.object({ wallet: v.string(), balance: v.number(), rows: v.array(usageRow) })),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await accountFor(ctx, args.session);
+    if (!account) return null;
+    const rows = args.since === undefined ? [] : await usageRows(ctx, account._id, args.since);
+    return { wallet: account.wallet, balance: account.balance, rows };
   },
 });
 

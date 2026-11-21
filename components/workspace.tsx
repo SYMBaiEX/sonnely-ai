@@ -15,9 +15,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
+import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
-import { payWithWallet, request, type Session } from "./wallet";
+import { payWithWallet, request, type Session, type UsageRow } from "./wallet";
 
 type Profile = Session["profile"] | undefined;
 export type Preferences = { theme: Theme; localHistory: boolean; plain: boolean };
@@ -297,23 +298,24 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-type UsageRow = {
-  time: number;
-  keyName: string;
-  model: string;
-  input: number;
-  output: number;
-  cost: number;
-  status: string;
-};
-
-export function Usage({ signedIn, balance }: { signedIn: boolean; balance?: number }) {
-  const [range, setRange] = useState(30);
+export function Usage({
+  signedIn,
+  balance,
+  range,
+  setRange,
+  liveRows,
+}: {
+  signedIn: boolean;
+  balance?: number;
+  range: number;
+  setRange: (range: number) => void;
+  liveRows?: UsageRow[];
+}) {
   const [metric, setMetric] = useState<"Spend" | "Tokens" | "Requests">("Spend");
   const [group, setGroup] = useState<"Model" | "Key">("Model");
   const [view, setView] = useState<"Chart" | "Table">("Chart");
   const { data, error } = useRemote<UsageRow[]>(signedIn, "usage?days=" + range);
-  const rows = signedIn ? (data ?? []) : [];
+  const rows = signedIn ? (liveRows ?? data ?? []) : [];
   const spend = rows.reduce((sum, row) => sum + (row.status === "complete" ? row.cost : 0), 0);
   const held = rows.reduce(
     (sum, row) => sum + (["pending", "unreported"].includes(row.status) ? row.cost : 0),
@@ -352,10 +354,10 @@ export function Usage({ signedIn, balance }: { signedIn: boolean; balance?: numb
           </select>
         </label>
       </Title>
-      <Failure message={error} />
+      <Failure message={liveRows ? "" : error} />
       <div className="stat-grid">
         {[
-          ["Credit balance", balance === undefined ? "—" : usd(balance)],
+          ["Credit balance", balance === undefined ? "—" : creditBalance(balance)],
           ["Spend", signedIn ? usd(spend) : "—"],
           ["Requests", signedIn ? rows.length : "—"],
           ["Tokens", signedIn ? tokens.toLocaleString() : "—"],
@@ -405,7 +407,7 @@ export function Usage({ signedIn, balance }: { signedIn: boolean; balance?: numb
             <BarChart3 size={23} />
             <p>
               {signedIn
-                ? data || error
+                ? liveRows || data || error
                   ? "No activity in this period."
                   : "Loading activity…"
                 : "Connect a wallet to see request activity."}
@@ -594,7 +596,7 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
             <h2>Compute balance</h2>
             <Wallet size={21} />
           </div>
-          <p className="amount">{profile ? usd(profile.balance) : "—"}</p>
+          <p className="amount">{profile ? creditBalance(profile.balance) : "—"}</p>
           <p className="caption">Available for managed inference.</p>
           <Link className="text-link" href="/models">
             View token rates <ArrowUpRight size={16} />
@@ -609,7 +611,7 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
           </div>
           <p className="caption">
             {profile
-              ? "Start with 5 USDC. Your wallet approves the transfer and credits post after finality."
+              ? "Choose an amount in USDC. Credits post after your wallet transfer finalizes."
               : "Connect your Solana wallet in the header to check checkout access."}
           </p>
           <form
@@ -617,17 +619,16 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
             onSubmit={(event) => {
               event.preventDefault();
               void run("deposit", async () => {
-                const amount = Number(dollars);
-                if (order?.amount === amount * 1_000_000) return;
+                const amount = parseCreditAmount(dollars);
+                if (amount === null)
+                  throw new Error("Enter a positive USDC amount with up to six decimal places.");
+                if (order?.amount === amount) return;
                 const existing = data?.find(
-                  (item) =>
-                    !item.signature &&
-                    item.cluster === session?.cluster &&
-                    item.amount === amount * 1_000_000,
+                  (item) => !item.signature && item.cluster === session?.cluster && item.amount === amount,
                 );
                 if (existing) await resumePayment(existing.reference);
                 else {
-                  openPayment(await request<Payment>("deposit", { dollars: amount }));
+                  openPayment(await request<Payment>("deposit", { dollars }));
                   reload();
                 }
               });
@@ -637,8 +638,9 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
               Amount in USDC
               <input
                 type="number"
-                min="5"
-                max="1000"
+                min="0.000001"
+                step="0.000001"
+                inputMode="decimal"
                 required
                 value={dollars}
                 onChange={(e) => setDollars(e.target.value)}
@@ -654,7 +656,7 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
           {order && profile && (
             <section className="checkout" aria-label="Review transfer">
               <div className="between">
-                <h2>Pay {usd(order.amount)} in USDC</h2>
+                <h2>Pay {creditBalance(order.amount)} in USDC</h2>
                 <span className="pill">{order.cluster}</span>
               </div>
               <p className="caption">
@@ -790,7 +792,7 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
                   <tr key={item.reference}>
                     <td>{date(item.time)}</td>
                     <td>{item.cluster}</td>
-                    <td>{usd(item.amount)}</td>
+                    <td>{creditBalance(item.amount)}</td>
                     <td>
                       {item.signature ? (
                         <a

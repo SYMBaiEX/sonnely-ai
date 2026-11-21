@@ -18,7 +18,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { Section } from "@/app/console/[[...section]]/page";
-import { usd } from "@/lib/models";
+import { creditBalance } from "@/lib/credit-amount";
 import { Brand } from "./brand";
 import { CommandMenu } from "./command-menu";
 import { setTheme, ThemeSurface, useTheme } from "./appearance";
@@ -39,7 +39,8 @@ const nav = [
 const defaults: Preferences = { theme: "dark", localHistory: false, plain: true };
 
 export function Console({ section, initialModel }: { section: Section; initialModel: string }) {
-  const { session, failure, refresh } = useSession();
+  const [range, setRange] = useState(30);
+  const { session, failure, refresh, liveRows } = useSession(section === "usage" ? range : 0);
   const [navOpen, setNavOpen] = useState(false);
   const navToggle = useRef<HTMLButtonElement>(null);
   const navPanel = useRef<HTMLElement>(null);
@@ -135,7 +136,7 @@ export function Console({ section, initialModel }: { section: Section; initialMo
           </Link>
           <Link className="balance" href="/console/billing">
             <span>Credit balance</span>
-            <b>{profile ? usd(profile.balance) : "—"}</b>
+            <b>{profile ? creditBalance(profile.balance) : "—"}</b>
           </Link>
         </div>
       </aside>
@@ -201,7 +202,15 @@ export function Console({ section, initialModel }: { section: Section; initialMo
             </>
           )}
           {section === "keys" && <Keys signedIn={signedIn} />}
-          {section === "usage" && <Usage signedIn={signedIn} balance={profile?.balance} />}
+          {section === "usage" && (
+            <Usage
+              signedIn={signedIn}
+              balance={profile?.balance}
+              range={range}
+              setRange={setRange}
+              liveRows={liveRows}
+            />
+          )}
           {section === "billing" && (
             <Billing key={session?.profile?.wallet ?? "guest"} session={session} refresh={refresh} />
           )}

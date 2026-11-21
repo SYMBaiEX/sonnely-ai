@@ -9,6 +9,8 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { address, billing, findMatchingPayment, quote, verifyCluster, verifyPayment } from "@/lib/payments";
 import { preparePayment } from "@/lib/payment-transaction";
+import { creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
+import { usageSince } from "@/lib/usage";
 import { allowedInPilot, managedProviderKey } from "@/lib/managed-access";
 import { infer } from "@/lib/inference";
 import {
@@ -43,7 +45,7 @@ async function paymentDraft(order: {
   cluster: string;
 }) {
   const payment = new URLSearchParams({
-    amount: String(order.amount / 1_000_000),
+    amount: creditDecimal(order.amount),
     "spl-token": order.mint,
     reference: order.reference,
     label: "Sonnely",
@@ -92,12 +94,7 @@ export async function GET(request: NextRequest, context: Context) {
       return json(await paymentDraft(order));
     }
     if (task === "usage") {
-      const days = z.coerce
-        .number()
-        .refine((value) => [7, 30, 90].includes(value))
-        .parse(request.nextUrl.searchParams.get("days") ?? 30);
-      const now = new Date();
-      const since = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days + 1);
+      const since = usageSince(request.nextUrl.searchParams.get("days") ?? "30");
       return json(await db.query(api.sonnely.usage, { ...auth, since }));
     }
     throw new SonnelyError("Unknown route.", 404);
@@ -243,12 +240,17 @@ export async function POST(request: NextRequest, context: Context) {
         if (!allowedInPilot(profile.wallet)) throw new SonnelyError("USDC checkout is unavailable.", 503);
         if (!billingEnabled || !recipient || !rpc)
           throw new SonnelyError("USDC checkout is unavailable.", 503);
-        const { dollars } = z.object({ dollars: z.number().int().min(5).max(1000) }).parse(raw);
+        const { dollars } = z.object({ dollars: z.union([z.string().max(32), z.number()]) }).parse(raw);
+        const amount = parseCreditAmount(dollars);
+        if (amount === null)
+          throw new SonnelyError("Enter a positive USDC amount with up to six decimal places.");
+        if (!Number.isSafeInteger(profile.balance + amount))
+          throw new SonnelyError("This payment would exceed the credit balance limit.");
         if (recipient === profile.wallet)
           throw new SonnelyError("Use a wallet other than the treasury wallet.");
         await verifyCluster(rpc, cluster);
         const reference = bs58.encode(randomBytes(32));
-        const order = { reference, recipient, mint, cluster, amount: dollars * 1_000_000 };
+        const order = { reference, recipient, mint, cluster, amount };
         const draft = await paymentDraft(order);
         await db.mutation(api.sonnely.createDeposit, { ...auth, ...order });
         return json(draft, 201);

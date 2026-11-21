@@ -58,8 +58,8 @@ export default async function Subpage({ params }: Props) {
               <Wallet />
               <h2>USDC credits</h2>
               <p>
-                Start with 5 USDC when checkout is available for your wallet. Credits post automatically when
-                the Solana transfer finalizes.
+                Choose your top-up amount in USDC when checkout is available for your wallet. Credits post
+                automatically when the Solana transfer finalizes.
               </p>
               <Link className="text-link" href="/console/billing">
                 Billing console <ArrowUpRight size={16} />

@@ -1,4 +1,4 @@
-import { generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { test, expect, type BrowserContext } from "@playwright/test";
 import bs58 from "bs58";
 
@@ -194,4 +194,55 @@ test("published guides link to supported endpoints and workflows", async ({ page
   await expect(page.getByRole("heading", { name: "Revoke the old key" })).toBeVisible();
   await page.goto("/contact");
   await expect(page.getByRole("form", { name: "Send a support request" })).toBeVisible();
+});
+
+test("the open Usage page receives Convex balance and usage changes without a reload", async ({
+  page,
+  baseURL,
+}) => {
+  test.skip(!baseURL || new URL(baseURL).hostname !== "127.0.0.1", "Uses a local Convex test account");
+  process.loadEnvFile(".env.local");
+  const { backend, hash } = await import("../lib/server");
+  const { api } = await import("../convex/_generated/api");
+  const { db, secret } = backend();
+  if (!process.env.CONVEX_URL?.startsWith("http://127.0.0.1:"))
+    throw new Error("This test requires a loopback Convex deployment.");
+  await registerWallet(page.context());
+  await page.goto("/console/usage");
+  await page.getByRole("button", { name: "Connect wallet" }).click();
+  const streamOpen = page.waitForRequest((request) => request.url().includes("/api/sonnely/live?days=30"));
+  await page.getByRole("button", { name: "Test Solana Wallet" }).click();
+  expect((await streamOpen).method()).toBe("GET");
+  await expect(page.locator(".stat").filter({ hasText: "Credit balance" })).toContainText("$0.00");
+  const cookies = await page.context().cookies();
+  const token = cookies.find((item) => item.name === "sonnely_session")?.value;
+  if (!token) throw new Error("No local wallet session.");
+  const auth = { secret, session: hash(token) };
+  const reference = randomUUID();
+  await db.mutation(api.sonnely.createDeposit, {
+    ...auth,
+    amount: 5_000_000,
+    cluster: "mainnet",
+    reference,
+    recipient: "fixture",
+    mint: "fixture",
+  });
+  await db.mutation(api.sonnely.confirmDeposit, { ...auth, reference, signature: randomUUID() });
+  await expect(page.locator(".stat").filter({ hasText: "Credit balance" })).toContainText("$5.00");
+  const id = await db.mutation(api.sonnely.reserve, {
+    ...auth,
+    model: "z-ai/glm-5.3-flash",
+    cost: 2_000,
+  });
+  await db.mutation(api.sonnely.settle, {
+    secret,
+    id,
+    input: 111,
+    output: 399,
+    status: "complete",
+    cost: 210,
+  });
+  await expect(page.locator(".stat").filter({ hasText: "Credit balance" })).toContainText("$4.99979");
+  await expect(page.locator(".stat").filter({ hasText: "Spend" })).toContainText("$0.000210");
+  await expect(page.getByRole("row", { name: /GLM 5.3 Flash/ })).toContainText("399");
 });
