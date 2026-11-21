@@ -8,7 +8,7 @@ const workload = {
   General: "Summarize notes or synthesize findings across several short excerpts.",
   Fast: "Extract fields, tag documents, or classify brief requests.",
   Coding: "Explain a function, review a short diff, or draft structured text for a developer workflow.",
-  Reasoning: "Compare alternatives, work through a multi-step problem, or analyze a long document."
+  Reasoning: "Compare alternatives, work through a multi-step problem, or analyze a long document.",
 } as const;
 
 export function ModelGuide() {
@@ -47,11 +47,21 @@ export function CostExample() {
   return (
     <section className="content-section panel cost-example" aria-labelledby="cost-example-heading">
       <h2 id="cost-example-heading">Estimate a request</h2>
-      <p>
-        With {model.name}, {input.toLocaleString("en-US")} uncached input tokens and{" "}
-        {output.toLocaleString("en-US")} output tokens cost about <strong>${estimated}</strong> if they fit
-        the gateway’s request limits.
-      </p>
+      <p>{model.name} · Example request</p>
+      <dl className="cost-example-breakdown">
+        <div>
+          <dt>Uncached input tokens</dt>
+          <dd>{input.toLocaleString("en-US")}</dd>
+        </div>
+        <div>
+          <dt>Output tokens</dt>
+          <dd>{output.toLocaleString("en-US")}</dd>
+        </div>
+        <div>
+          <dt>Estimated charge</dt>
+          <dd>${estimated}</dd>
+        </div>
+      </dl>
       <p>
         Final charges use provider-reported token counts. Cache pricing applies to the input tokens the
         provider reports as cached. Sonnely temporarily reserves an estimated maximum from your balance and

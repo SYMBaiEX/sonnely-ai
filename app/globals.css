@@ -281,8 +281,7 @@ select:focus-visible {
   border-radius: 24px;
   pointer-events: auto;
 }
-.site-nav nav,
-.footer-inner nav {
+.site-nav nav {
   display: flex;
   gap: 26px;
   align-items: center;
@@ -315,20 +314,6 @@ select:focus-visible {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-}
-.strip {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  padding: 22px 10px;
-  color: var(--muted);
-  font: 520 12px var(--mono);
-}
-.strip span {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
 }
 .section {
   padding: 85px 0 0;
@@ -486,14 +471,42 @@ select:focus-visible {
 }
 .site-footer {
   border-top: 1px solid var(--line);
-  padding-bottom: 26px;
+  padding-block: clamp(22px, 4vw, 48px) 25px;
 }
 .footer-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.75fr) minmax(0, 2fr) auto;
+  align-items: start;
+  gap: clamp(14px, 3.1vw, 46px);
+}
+.footer-brand {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+.footer-inner nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
-  min-height: 100px;
+}
+.footer-group {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  font-size: 13px;
+}
+.footer-group h2 {
+  color: var(--ink);
+  font-size: 13px;
+  letter-spacing: 0;
+  margin-bottom: 3px;
+}
+.footer-group a {
+  color: var(--muted);
+}
+.footer-group a svg {
+  vertical-align: -1px;
 }
 .footer-inner p {
   color: var(--muted);
@@ -1294,17 +1307,6 @@ tbody tr:last-child > * {
     font-size: 13px;
     padding-top: 4px;
   }
-  .strip {
-    padding: 14px 0;
-    gap: 6px;
-    font-size: 9px;
-  }
-  .strip span {
-    justify-content: flex-start;
-  }
-  .strip svg {
-    display: none;
-  }
   .model-cards,
   .journal-grid,
   .contact-grid,
@@ -1323,15 +1325,6 @@ tbody tr:last-child > * {
   .section-head {
     align-items: flex-start;
     flex-wrap: wrap;
-  }
-  .footer-inner {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    padding: 18px 0;
-  }
-  .footer-inner nav {
-    flex-basis: 100%;
-    gap: 12px;
   }
   .inner-page {
     padding-block: 34px 56px;

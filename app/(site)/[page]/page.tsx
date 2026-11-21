@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpRight, Fingerprint, KeyRound, Wallet } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Fingerprint, KeyRound, Wallet } from "lucide-react";
 import { ModelGuide, CostExample } from "@/components/model-guide";
 import { NearModelDirectory } from "@/components/near-model-directory";
 import { nearCatalog } from "@/lib/near-catalog";
@@ -23,6 +23,27 @@ const pages = {
 type Page = keyof typeof pages;
 type Props = { params: Promise<{ page: string }> };
 
+const entryActions = {
+  models: {
+    section: "#available-models",
+    label: "Compare live models",
+    next: "/console",
+    action: "Try the playground",
+  },
+  pricing: {
+    section: "#cost-example-heading",
+    label: "Estimate a request",
+    next: "/console/billing",
+    action: "Open billing",
+  },
+  docs: {
+    section: "#quickstart",
+    label: "Send a request",
+    next: "/api/openapi",
+    action: "OpenAPI specification",
+  },
+} as const;
+
 export function generateStaticParams() {
   return Object.keys(pages).map((page) => ({ page }));
 }
@@ -38,19 +59,32 @@ export default async function Subpage({ params }: Props) {
   if (!Object.hasOwn(pages, page)) notFound();
   const [title, description] = pages[page as Page];
   const providerCatalog = page === "models" ? await nearCatalog() : null;
+  const entryAction = Object.hasOwn(entryActions, page)
+    ? entryActions[page as keyof typeof entryActions]
+    : null;
   return (
     <div className={"wrap inner-page page-" + page}>
-      <header className="page-lead">
+      <header className={entryAction ? "page-lead product-lead" : "page-lead"}>
         <Scene />
         <Link href="/" className="eyebrow">
           Sonnely <ArrowUpRight size={13} />
         </Link>
         <h1>{title}</h1>
         <p>{description}</p>
+        {entryAction && (
+          <div className="product-entry-actions">
+            <a href={entryAction.section} className="button accent">
+              {entryAction.label} <ArrowDown size={15} aria-hidden="true" />
+            </a>
+            <Link href={entryAction.next} className="text-link">
+              {entryAction.action} <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          </div>
+        )}
       </header>
       {page === "models" && (
         <>
-          <div className="section-head">
+          <div className="section-head" id="available-models">
             <h2>Available on Sonnely</h2>
             <Link className="text-link" href="#near-directory">
               Browse the NEAR directory
@@ -87,8 +121,8 @@ export default async function Subpage({ params }: Props) {
               <Fingerprint />
               <h2>Token rates</h2>
               <p>Published token rates include a 10% Sonnely markup on provider list rates.</p>
-              <Link className="text-link" href="/models">
-                See rates <ArrowUpRight size={16} />
+              <Link className="text-link" href="/models#available-models">
+                Compare token rates <ArrowUpRight size={16} />
               </Link>
             </article>
           </div>

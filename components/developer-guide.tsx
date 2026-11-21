@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight, BookOpen, Code2, ShieldCheck, Wallet } from "lucide-react";
 import { apiBasePath, apiOrigin, limits } from "@/lib/api-contract";
-import { CodeExample } from "./shared";
+import { CodeExample, CopyButton } from "./shared";
 
 const sections = [
   ["quickstart", "Quickstart"],
@@ -83,9 +83,6 @@ export function DeveloperGuide() {
         <div className="doc-body">
           <section id="quickstart">
             <h2>Quickstart</h2>
-            <a className="text-link" href="/api/openapi">
-              OpenAPI specification
-            </a>
             <ol>
               <li>
                 <Link href="/console">Open the playground</Link> to try a sample or sign in with a Solana
@@ -96,17 +93,24 @@ export function DeveloperGuide() {
                 when it appears.
               </li>
               <li>
-                Set <code>SONNELY_ORIGIN</code> to <code>{apiOrigin}</code> and <code>SONNELY_API_KEY</code>{" "}
-                to your key. Live requests require managed inference and available credits.
+                Add credits under <Link href="/console/billing">Billing</Link> before sending a live request.
+              </li>
+              <li>
+                Set <code>SONNELY_ORIGIN</code> to <code>{apiOrigin}</code>, set <code>SONNELY_API_KEY</code>{" "}
+                to your key, and run an example.
               </li>
             </ol>
             <CodeExample />
           </section>
           <section id="api">
             <h2>API reference</h2>
-            <p>
-              Base URL <code>{apiOrigin + apiBasePath}</code>
-            </p>
+            <div className="doc-endpoint">
+              <div>
+                <p>Base URL</p>
+                <code>{apiOrigin + apiBasePath}</code>
+              </div>
+              <CopyButton value={apiOrigin + apiBasePath} label="Copy base URL" />
+            </div>
             <dl className="reference-list">
               <div>
                 <dt>

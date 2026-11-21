@@ -230,6 +230,14 @@ test("the homepage offers a copyable request and links to the selected model", a
   const catalog = page.getByRole("region", { name: "Choose your model." });
   const list = catalog.getByRole("list");
   await expect(list.getByRole("listitem")).toHaveCount(models.length);
+  await expect(list.getByRole("link", { name: /DeepSeek V4.1 Flash/ })).toContainText("$0.33 / $1.32");
+  await expect(catalog.getByRole("link", { name: "Compare models and pricing" })).toHaveAttribute(
+    "href",
+    "/models#available-models",
+  );
+  await expect(
+    page.getByRole("navigation", { name: "Platform integrations" }).getByRole("link", { name: /NEAR AI/ }),
+  ).toHaveAttribute("href", "/docs#verification");
   await expect(list.getByRole("link", { name: /DeepSeek V4.1 Flash/ })).toHaveAttribute(
     "href",
     "/console?model=deepseek-ai%2FDeepSeek-V4.1-Flash-1017",

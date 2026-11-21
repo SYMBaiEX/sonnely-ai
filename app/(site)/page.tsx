@@ -37,17 +37,32 @@ export default function Home() {
       </section>
       <div className="wrap home">
         <HomeDemo />
-        <div className="strip" aria-label="Platform components">
-          <span>
-            <Wallet size={17} /> Solana wallet identity
-          </span>
-          <span>
-            <Fingerprint size={17} /> NEAR AI Cloud
-          </span>
-          <span>
-            <Terminal size={17} /> OpenAI-compatible API
-          </span>
-        </div>
+        <nav className="home-platform" aria-label="Platform integrations">
+          <Link href="/docs#settlement">
+            <Wallet size={18} aria-hidden="true" />
+            <span>
+              <strong>Solana</strong>
+              <small>Wallet sign-in and USDC funding</small>
+            </span>
+            <ArrowUpRight size={14} aria-hidden="true" />
+          </Link>
+          <Link href="/docs#verification">
+            <Fingerprint size={18} aria-hidden="true" />
+            <span>
+              <strong>NEAR AI Cloud</strong>
+              <small>Private TEE inference</small>
+            </span>
+            <ArrowUpRight size={14} aria-hidden="true" />
+          </Link>
+          <Link href="/docs#api">
+            <Terminal size={18} aria-hidden="true" />
+            <span>
+              <strong>OpenAI-compatible API</strong>
+              <small>Chat Completions</small>
+            </span>
+            <ArrowUpRight size={14} aria-hidden="true" />
+          </Link>
+        </nav>
         <HomeCapabilities />
         <HomeModelList />
         <HomeWorkloads />

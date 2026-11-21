@@ -1,44 +1,57 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { routeLabels } from "@/lib/model-privacy";
 import { models } from "@/lib/models";
+import { formatRate, markedUpRates } from "@/lib/pricing";
 
 export function HomeModelList() {
   return (
     <section className="section" aria-labelledby="home-models-heading">
       <div className="section-head">
-        <div>
-          <p className="eyebrow">From the catalog</p>
-          <h2 id="home-models-heading">Choose your model.</h2>
-        </div>
-        <Link href="/models" className="text-link">
-          Compare models <ArrowUpRight size={18} />
+        <h2 id="home-models-heading">Choose your model.</h2>
+        <Link href="/models#available-models" className="text-link">
+          Compare models and pricing <ArrowRight size={16} aria-hidden="true" />
         </Link>
       </div>
-      <ul className="panel home-model-list" role="list">
-        {models.map((model) => (
-          <li key={model.id}>
-            <Link href={"/console?model=" + encodeURIComponent(model.id)} className="home-model-row">
-              <div className="catalog-identity">
-                <span className={"model-mark " + model.color} aria-hidden="true">
-                  {model.mark}
-                </span>
-                <div>
-                  <h3>{model.name}</h3>
-                  <p>{model.summary}</p>
-                </div>
-              </div>
-              <span className="home-model-spec">
-                <span className="pill">{routeLabels[model.privacyRoute]}</span>
-                <span className="mono">{model.context} context</span>
-              </span>
-              <span className="text-link">
-                Open in chat <ArrowUpRight size={16} />
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <div className="home-model-catalog">
+        <div className="home-model-columns" aria-hidden="true">
+          <span>Model</span>
+          <span>Inference</span>
+          <span>Context window</span>
+          <span>Input / output per 1M</span>
+        </div>
+        <ul className="home-model-list" role="list">
+          {models.map((model) => {
+            const rates = markedUpRates(model);
+            return (
+              <li key={model.id}>
+                <Link href={"/console?model=" + encodeURIComponent(model.id)} className="home-model-row">
+                  <div className="catalog-identity">
+                    <span className={"model-mark " + model.color} aria-hidden="true">
+                      {model.mark}
+                    </span>
+                    <div>
+                      <h3>{model.name}</h3>
+                      <p>{model.summary}</p>
+                    </div>
+                  </div>
+                  <span className="home-model-route">{routeLabels[model.privacyRoute]}</span>
+                  <span className="home-model-context">
+                    {model.context} <span>tokens</span>
+                  </span>
+                  <span className="home-model-rates">
+                    {formatRate(rates.input)} <span>/</span> {formatRate(rates.output)}
+                    <small>input / output per 1M</small>
+                  </span>
+                  <span className="home-model-action">
+                    Try <ArrowUpRight size={15} aria-hidden="true" />
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
   );
 }

@@ -26,18 +26,36 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
       <main id="content">{children}</main>
       <footer className="site-footer">
         <div className="wrap footer-inner">
-          <Brand />
-          <p>Confidential inference workspace on Solana.</p>
+          <div className="footer-brand">
+            <Brand />
+            <p>Confidential inference on Solana.</p>
+          </div>
           <nav aria-label="Footer">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-            <Link href="/status">Status</Link>
-            <Link href="/contact">Support</Link>
-            <Link href="/models">Model catalog</Link>
-            <Link href="/pricing">Pricing</Link>
-            <a href="https://app.sonnely.com">
-              Original Sonnely app <ArrowUpRight size={13} />
-            </a>
+            <div className="footer-group">
+              <h2>Platform</h2>
+              <Link href="/models">Model catalog</Link>
+              <Link href="/pricing">Pricing</Link>
+              <Link href="/console">Playground</Link>
+            </div>
+            <div className="footer-group">
+              <h2>Developers</h2>
+              <Link href="/docs">Documentation</Link>
+              <Link href="/docs#api">API reference</Link>
+              <Link href="/status">Status</Link>
+            </div>
+            <div className="footer-group">
+              <h2>Sonnely</h2>
+              <Link href="/blog">Journal</Link>
+              <Link href="/contact">Support</Link>
+              <a href="https://app.sonnely.com">
+                Original app <ArrowUpRight size={13} aria-hidden="true" />
+              </a>
+            </div>
+            <div className="footer-group">
+              <h2>Legal</h2>
+              <Link href="/privacy">Privacy</Link>
+              <Link href="/terms">Terms</Link>
+            </div>
           </nav>
           <MotionSwitch icon />
         </div>
