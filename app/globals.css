@@ -1869,7 +1869,7 @@ button {
   inset: 0;
   width: 100%;
   height: 100dvh;
-  color: light-dark(#284ac9, #ff4d65);
+  color: light-dark(#1a39a8, #ff4d65);
   pointer-events: none;
 }
 .console .ambient-visualizer {

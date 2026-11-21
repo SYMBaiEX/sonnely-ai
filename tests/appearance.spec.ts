@@ -27,11 +27,19 @@ test("the theme follows the user across the site and all console pages", async (
   await expect(site).toHaveAttribute("data-theme", "dark");
 });
 
-test("the forest layers move on scroll and honor reduced motion", async ({ page }) => {
+test("the forest layers respond to scroll, pointer movement, and motion preferences", async ({ page }) => {
   await page.goto("/");
   const scene = page.locator(".scene-hero");
   const artwork = scene.locator(".scene-image");
-  await page.locator(".request-stage").evaluate((el) => {
+  const stage = page.locator(".request-stage");
+  await stage.hover({ position: { x: 70, y: 90 } });
+  const horizontal = await artwork.evaluate(async (el) => {
+    await new Promise(requestAnimationFrame);
+    await Promise.all(el.getAnimations().map((animation) => animation.finished));
+    return new DOMMatrixReadOnly(getComputedStyle(el).transform).m41;
+  });
+  expect(horizontal).toBe(0);
+  await stage.evaluate((el) => {
     window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY + 120, behavior: "instant" });
   });
   await expect

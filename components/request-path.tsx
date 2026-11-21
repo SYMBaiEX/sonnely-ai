@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Cpu, Pause, Play, Radio, Terminal } from "lucide-react";
 import { useAmbientMotion } from "./ambient-motion";
@@ -111,20 +111,6 @@ export function RequestPath() {
     setActive(index);
   }
 
-  function pan(event: PointerEvent<HTMLDivElement>) {
-    if (!motion || event.pointerType !== "mouse") return;
-    const stage = event.currentTarget;
-    const bounds = stage.getBoundingClientRect();
-    stage.style.setProperty(
-      "--landscape-x",
-      `${(0.5 - (event.clientX - bounds.left) / bounds.width) * 16}px`,
-    );
-    stage.style.setProperty(
-      "--landscape-y",
-      `${(0.5 - (event.clientY - bounds.top) / bounds.height) * 12}px`,
-    );
-  }
-
   return (
     <section ref={map} className="request-landscape" id="request-path" aria-labelledby="request-path-title">
       <div
@@ -138,11 +124,6 @@ export function RequestPath() {
             "--station-y": `${y}%`,
           } as CSSProperties
         }
-        onPointerMove={pan}
-        onPointerLeave={(event) => {
-          event.currentTarget.style.removeProperty("--landscape-x");
-          event.currentTarget.style.removeProperty("--landscape-y");
-        }}
       >
         <div role="img" aria-label="Illustration of a Japanese forest village">
           <Scene variant="hero" />

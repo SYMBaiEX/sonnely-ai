@@ -97,8 +97,13 @@ export function AmbientVisualizer({ motion, theme }: { motion: boolean; theme: T
     let lastPaint = 0;
     let lastScroll = -10_000;
     let scrollPosition = window.scrollY;
-    let direction = 1;
+    let scrollPane: HTMLElement | null = null;
+    let scrollImpulse = 0;
+    let movement = 0;
+    let drift = 0;
+    let edgePhase = 0;
     let tint = "";
+    let light = false;
 
     function queue() {
       if (!frame && !document.hidden && !contrast.matches) frame = requestAnimationFrame(paint);
@@ -112,14 +117,24 @@ export function AmbientVisualizer({ motion, theme }: { motion: boolean; theme: T
       field.height = Math.round(height * ratio);
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       tint = getComputedStyle(field).color;
+      light = theme === "light" || (theme === "system" && systemLight.matches);
       queue();
     }
 
-    function onScroll() {
-      const next = window.scrollY;
-      direction = Math.sign(next - scrollPosition) || direction;
+    function onScroll(event: Event) {
+      const pane =
+        event.target instanceof HTMLElement && event.target !== document.documentElement
+          ? event.target
+          : null;
+      const next = pane?.scrollTop ?? window.scrollY;
+      const delta = pane === scrollPane ? next - scrollPosition : 0;
+      scrollPane = pane;
       scrollPosition = next;
-      lastScroll = performance.now();
+      if (!delta) return;
+      const now = performance.now();
+      const speed = delta / Math.min(50, Math.max(12, now - lastScroll));
+      scrollImpulse = Math.sign(speed) * unit((Math.abs(speed) - 0.04) / 1.65);
+      lastScroll = now;
       queue();
     }
 
@@ -137,10 +152,17 @@ export function AmbientVisualizer({ motion, theme }: { motion: boolean; theme: T
         queue();
         return;
       }
+      const elapsed = Math.min(42, now - lastPaint);
       lastPaint = now;
       const scroll = window.scrollY;
-      const top = unit(1 - scroll / (height * 0.94)) ** 1.45;
-      const movement = unit(1 - (now - lastScroll) / 660) ** 1.65;
+      const top = unit(1 - scroll / (height * 0.94)) ** 1.55;
+      const tail = unit(1 - (now - lastScroll - 74) / 390);
+      const velocity = scrollImpulse * tail * tail * (3 - 2 * tail);
+      const target = Math.abs(velocity);
+      // Filter both amplitude and direction so wheel ticks or reversals never snap the field.
+      movement += (target - movement) * (1 - Math.exp(-elapsed / (target > movement ? 235 : 310)));
+      drift += (velocity - drift) * (1 - Math.exp(-elapsed / 260));
+      edgePhase += drift * elapsed * 0.008;
       const footerBounds = footer?.getBoundingClientRect();
       const footerTop = footerBounds?.top ?? height;
       const footerVisible = unit((height - footerTop) / Math.max(1, footerBounds?.height ?? 1));
@@ -150,48 +172,73 @@ export function AmbientVisualizer({ motion, theme }: { motion: boolean; theme: T
       if (top < 0.012 && movement < 0.012 && bass < 0.012) return;
 
       const step = width < 600 ? 5 : 7;
-      const dot = width < 600 ? 1.15 : 1.45;
-      const margin = Math.min(138, width * 0.15);
+      const dot = (width < 600 ? 1.12 : 1.38) + (light ? 0.24 : 0);
+      const margin = Math.min(135, width * 0.15);
       const time = now / 1000;
-      const crest = ((time * 67 + height * 0.29) % (height + 380)) - 95;
+      const crest = time * 54 + height * 0.26 - 87;
       const footerDepth = Math.min(118, height - footerTop);
       const columns = Array.from({ length: Math.ceil((width - 2) / step) }, (_, col) => {
         const x = 2 + col * step;
+        const horizontal = x / width;
         const edge = unit(1 - Math.min(x, width - x) / margin);
         const fold =
-          Math.sin((x / width) * 7.4 + time * 0.48) * 71 + Math.sin((x / width) * 18 - time * 0.76) * 27;
+          Math.sin(horizontal * 7.4 + time * 0.41) * 68 + Math.sin(horizontal * 17 - time * 0.63) * 26;
         const footerWave = 0.5 + 0.5 * Math.sin(x * 0.012 - time * 1.1);
         const spectrum = 0.5 + 0.5 * Math.sin(x * 0.053 + time * 2 + footerWave);
         const barHeight = Math.max(1, footerDepth * (0.16 + footerWave * 0.34 + spectrum * 0.39));
-        return { x, edge, fold, barHeight, side: movement * edge ** 1.55 };
+        return { x, edge, fold, barHeight };
       });
-      const tones = [new Path2D(), new Path2D(), new Path2D()];
+      const ribbon = [new Path2D(), new Path2D(), new Path2D()];
+      const echo = new Path2D();
+      const edges = new Path2D();
+      const floor = new Path2D();
       for (let y = 2, row = 0; y < height; y += step, row++) {
-        const upper = top * unit(1 - y / (height * 0.82)) ** 1.1;
-        const base = y >= footerTop ? bass : 0;
-        if (upper + base + movement < 0.045) continue;
+        const upper = top * unit(1 - y / (height * 0.8)) ** 1.2;
+        const isFooter = bass > 0.012 && y >= footerTop;
+        if (upper < 0.045 && !isFooter && movement < 0.012) continue;
+
         for (let col = 0; col < columns.length; col++) {
-          const { x, edge, fold, barHeight, side } = columns[col];
-          if (upper + base + side < 0.045) continue;
-          const distance = y - crest + fold;
-          const phase = ((distance % 350) + 350) % 350;
-          const ribbon = unit(1 - Math.min(phase, 350 - phase) / 105) ** 1.7;
-          const echo = unit(1 - Math.abs(phase - 104) / 62) ** 2;
-          const topSignal = upper * (0.09 + ribbon * 1.06 + echo * 0.46);
-          const edgeBeat = Math.sin(y * 0.048 - time * 6 * direction + edge * 5) * 0.5 + 0.5;
-          const sideSignal = side * (0.08 + 0.86 * edgeBeat ** 2.5);
-          const floorSignal = base * unit(1 - (height - y) / barHeight) * (0.41 + 0.51 * edge);
-          const strength = Math.max(topSignal, sideSignal, floorSignal);
-          if (strength < (bayer[(row % 4) * 4 + (col % 4)] + 1) / 19) continue;
-          const tone = strength > 0.62 ? 2 : strength > 0.32 ? 1 : 0;
-          tones[tone].rect(x, y, dot + tone * 0.25, dot + tone * 0.25);
+          const { x, edge, fold, barHeight } = columns[col];
+          const threshold = (bayer[(row % 4) * 4 + (col % 4)] + 1) / 18;
+          if (upper >= 0.045) {
+            const distance = y - crest + fold;
+            const phase = ((distance % 360) + 360) % 360;
+            const primary = unit(1 - Math.min(phase, 360 - phase) / 86) ** 1.55;
+            const afterimage = unit(1 - Math.abs(phase - 111) / 52) ** 1.9;
+            const strength = upper * primary * (light ? 1.36 : 1.11);
+            if (strength > threshold) {
+              const tone = strength > 0.62 ? 2 : strength > 0.29 ? 1 : 0;
+              const size = dot + tone * 0.16;
+              const dash = tone === 2 && (col + row) % 5 === 0 ? 1.65 : 1;
+              ribbon[tone].rect(x, y, size * dash, size);
+            } else if (upper * afterimage * (light ? 0.71 : 0.48) > threshold) {
+              echo.rect(x, y, dot, dot);
+            }
+          }
+          if (movement >= 0.012 && edge > 0) {
+            const sweep = Math.sin(y * 0.033 - edgePhase + edge * 4.3) * 0.5 + 0.5;
+            if (edge ** 1.75 * (0.1 + sweep ** 2.4 * 0.76) > threshold) {
+              edges.rect(x, y, dot + 0.25, dot);
+            }
+          }
+          if (isFooter && unit(1 - (height - y) / barHeight) * (0.41 + 0.51 * edge) > threshold) {
+            floor.rect(x, y, dot, dot);
+          }
         }
       }
+      ctx.fillStyle = light ? "#5876e2" : "#f17c68";
+      ctx.globalAlpha = light ? 0.29 : 0.2;
+      ctx.fill(echo);
       ctx.fillStyle = tint;
-      tones.forEach((tone, index) => {
-        ctx.globalAlpha = [0.14, 0.3, 0.54][index];
+      const levels = light ? [0.22, 0.45, 0.69] : [0.12, 0.27, 0.48];
+      ribbon.forEach((tone, index) => {
+        ctx.globalAlpha = levels[index];
         ctx.fill(tone);
       });
+      ctx.globalAlpha = movement * (light ? 0.53 : 0.46);
+      ctx.fill(edges);
+      ctx.globalAlpha = bass * (light ? 0.3 : 0.28);
+      ctx.fill(floor);
       ctx.globalAlpha = 1;
       queue();
     }

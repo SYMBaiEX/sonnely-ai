@@ -115,12 +115,7 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
 @media (prefers-reduced-motion: no-preference) {
   .request-stage .scene-image {
     inset-block: -9%;
-    transform: translate3d(
-        var(--landscape-x, 0px),
-        calc(var(--scene-offset) * 0.075 + var(--landscape-y, 0px)),
-        0
-      )
-      scale(1.035);
+    transform: translateY(calc(var(--scene-offset) * 0.075)) scale(1.035);
     transition: transform 220ms var(--ease-out);
   }
 }
