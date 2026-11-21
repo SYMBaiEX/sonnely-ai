@@ -247,7 +247,7 @@ export function Chat({
             )}
           </div>
         )}
-        <form className="composer panel" onSubmit={send}>
+        <form className="composer glass" onSubmit={send}>
           <textarea
             rows={3}
             value={text}

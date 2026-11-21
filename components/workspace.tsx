@@ -16,10 +16,11 @@ import {
 import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 import { CopyButton } from "./shared";
+import type { Theme } from "@/lib/appearance";
 import { request, type Session } from "./wallet";
 
 type Profile = Session["profile"] | undefined;
-export type Preferences = { theme: "dark" | "light" | "system"; localHistory: boolean; plain: boolean };
+export type Preferences = { theme: Theme; localHistory: boolean; plain: boolean };
 
 const date = (time: number) =>
   new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(

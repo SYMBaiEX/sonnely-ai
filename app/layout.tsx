@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { themeBeforePaint } from "@/lib/appearance";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import "@fontsource/instrument-serif/400-italic.css";
@@ -13,7 +14,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBeforePaint }} />
+      </head>
       <body>{children}</body>
     </html>
   );

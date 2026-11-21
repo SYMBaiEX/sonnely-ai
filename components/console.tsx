@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +20,7 @@ import {
 import type { Section } from "@/app/console/[[...section]]/page";
 import { usd } from "@/lib/models";
 import { Brand } from "./brand";
+import { setTheme, ThemeSurface, useTheme } from "./appearance";
 import { Chat } from "./chat";
 import { ModelCatalog } from "./shared";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
@@ -39,8 +40,11 @@ const defaults: Preferences = { theme: "dark", localHistory: false, plain: true 
 export function Console({ section, initialModel }: { section: Section; initialModel: string }) {
   const { session, failure, refresh } = useSession();
   const [navOpen, setNavOpen] = useState(false);
+  const navToggle = useRef<HTMLButtonElement>(null);
+  const navPanel = useRef<HTMLElement>(null);
   const [palette, setPalette] = useState(false);
   const [prefs, setPrefs] = useState(defaults);
+  const theme = useTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -65,9 +69,23 @@ export function Console({ section, initialModel }: { section: Section; initialMo
     if (palette && !dialog?.open) dialog?.showModal();
     if (!palette && dialog?.open) dialog.close();
   }, [palette]);
+  function closeNavigation() {
+    setNavOpen(false);
+    navToggle.current?.focus();
+  }
+  useEffect(() => {
+    if (!navOpen) return;
+    navPanel.current?.querySelector<HTMLAnchorElement>("[aria-current='page']")?.focus();
+    function dismiss(event: KeyboardEvent) {
+      if (event.key === "Escape") closeNavigation();
+    }
+    document.addEventListener("keydown", dismiss);
+    return () => document.removeEventListener("keydown", dismiss);
+  }, [navOpen]);
 
   function change(next: Preferences) {
     setPrefs(next);
+    setTheme(next.theme);
     localStorage.setItem("fathom.preferences", JSON.stringify(next));
     if (!next.localHistory) {
       for (const key of Object.keys(localStorage))
@@ -92,11 +110,12 @@ export function Console({ section, initialModel }: { section: Section; initialMo
     ));
 
   return (
-    <div className="console" data-theme={prefs.theme}>
+    <ThemeSurface className="console">
+      <div className="console-world" aria-hidden="true" />
       <a href="#console-content" className="skip">
         Skip to workspace
       </a>
-      <aside className={"rail" + (navOpen ? " rail-open" : "")}>
+      <aside id="console-navigation" className={"rail glass" + (navOpen ? " rail-open" : "")}>
         <div className="rail-top">
           <Brand />
           <p className="mono rail-caption">Developer console</p>
@@ -120,13 +139,24 @@ export function Console({ section, initialModel }: { section: Section; initialMo
           </Link>
         </div>
       </aside>
+      {navOpen && (
+        <button
+          type="button"
+          className="nav-scrim"
+          tabIndex={-1}
+          aria-label="Close navigation"
+          onClick={closeNavigation}
+        />
+      )}
       <div className="console-stage">
-        <header className="console-bar">
+        <header className="console-bar glass">
           <div className="crumb">
             <button
+              ref={navToggle}
               className="icon-button nav-toggle"
               type="button"
               aria-expanded={navOpen}
+              aria-controls="console-navigation"
               aria-label="Toggle navigation"
               onClick={() => setNavOpen(!navOpen)}
             >
@@ -199,10 +229,15 @@ export function Console({ section, initialModel }: { section: Section; initialMo
           {section === "billing" && <Billing session={session} refresh={refresh} />}
           {section === "referrals" && <Referrals profile={profile} />}
           {section === "settings" && (
-            <SettingsPanel profile={profile} refresh={refresh} preferences={prefs} change={change} />
+            <SettingsPanel
+              profile={profile}
+              refresh={refresh}
+              preferences={{ ...prefs, theme }}
+              change={change}
+            />
           )}
         </main>
       </div>
-    </div>
+    </ThemeSurface>
   );
 }

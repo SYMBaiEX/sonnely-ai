@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Brand } from "@/components/brand";
+import { ThemeSurface, ThemeSwitch } from "@/components/appearance";
 
 export default function SiteLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="site">
+    <ThemeSurface className="site">
       <a href="#content" className="skip">
         Skip to content
       </a>
       <header className="site-header">
-        <div className="wrap site-nav">
+        <div className="wrap site-nav glass">
           <Brand />
           <nav aria-label="Main navigation">
             <Link href="/models">Models</Link>
@@ -18,9 +19,12 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/blog">Journal</Link>
             <Link href="/contact">Contact</Link>
           </nav>
-          <Link href="/console" className="button ink">
-            Open console <ArrowUpRight size={15} />
-          </Link>
+          <div className="site-actions">
+            <ThemeSwitch />
+            <Link href="/console" className="button accent">
+              Open console <ArrowUpRight size={15} />
+            </Link>
+          </div>
         </div>
       </header>
       <main id="content">{children}</main>
@@ -35,6 +39,6 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
           </nav>
         </div>
       </footer>
-    </div>
+    </ThemeSurface>
   );
 }

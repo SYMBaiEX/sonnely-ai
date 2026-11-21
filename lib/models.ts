@@ -8,7 +8,7 @@ export const models = [
     output: 1.2,
     cache: 0.006,
     mark: "D",
-    color: "blue",
+    color: "pearl",
     summary: "General-purpose reasoning and long document workflows.",
   },
   {
@@ -20,7 +20,7 @@ export const models = [
     output: 0.5,
     cache: 0.012,
     mark: "G",
-    color: "green",
+    color: "signal-mark",
     summary: "Fast classification, extraction and short replies.",
   },
   {
@@ -32,7 +32,7 @@ export const models = [
     output: 1.1,
     cache: 0.056,
     mark: "Q",
-    color: "violet",
+    color: "smoke",
     summary: "Code explanation, structured output and multilingual text.",
   },
 ] as const;

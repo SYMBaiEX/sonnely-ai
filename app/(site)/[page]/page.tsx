@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight, BookOpen, Fingerprint, KeyRound, Wallet } from "lucide-react";
 import { CodeExample, ModelCatalog } from "@/components/shared";
 import { Contact } from "@/components/contact";
+import { Scene } from "@/components/scene";
 import { articles } from "@/lib/journal";
 
 const pages = {
@@ -34,6 +35,7 @@ export default async function Subpage({ params }: Props) {
   return (
     <div className="wrap inner-page">
       <header className="page-lead">
+        <Scene />
         <Link href="/" className="eyebrow">
           Fathom Relay <ArrowUpRight size={13} />
         </Link>

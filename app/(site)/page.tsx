@@ -1,15 +1,15 @@
 import { ArrowRight, ArrowUpRight, BadgeCheck, Fingerprint, Radio, Terminal, Wallet } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { CodeExample } from "@/components/shared";
-import { models } from "@/lib/models";
+import { Scene } from "@/components/scene";
+import { ModelStrip } from "@/components/model-strip";
 
 export default function Home() {
   return (
     <>
       <div className="wrap">
         <section className="hero">
-          <Image src="/enclave.webp" alt="" fill priority sizes="(max-width: 768px) 100vw, 1320px" />
+          <Scene variant="hero" />
           <div className="hero-content">
             <p className="eyebrow">
               <span className="signal" /> Confidential inference
@@ -32,7 +32,7 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <div className="hero-meta">
+          <div className="hero-meta glass">
             <span>
               <Radio size={15} /> Execution layer
             </span>
@@ -50,33 +50,7 @@ export default function Home() {
             <Terminal size={17} /> OpenAI-compatible API
           </span>
         </div>
-        <section className="section">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">From the catalog</p>
-              <h2>Choose your model.</h2>
-            </div>
-            <Link href="/models" className="text-link">
-              Compare models <ArrowUpRight size={18} />
-            </Link>
-          </div>
-          <div className="model-cards">
-            {models.map((model) => (
-              <Link
-                href={"/console?model=" + encodeURIComponent(model.id)}
-                className="panel model-card feature-model"
-                key={model.id}
-              >
-                <span className={"model-mark " + model.color}>{model.mark}</span>
-                <div>
-                  <h3>{model.name}</h3>
-                  <p>{model.summary}</p>
-                </div>
-                <ArrowUpRight size={17} />
-              </Link>
-            ))}
-          </div>
-        </section>
+        <ModelStrip />
         <section className="section split code-section">
           <div>
             <p className="eyebrow">Developer quickstart</p>
@@ -136,6 +110,7 @@ export default function Home() {
           </div>
         </section>
         <section className="closing">
+          <Scene />
           <div>
             <h2>Start in the console.</h2>
             <p>Explore a local sample or connect a Solana wallet.</p>

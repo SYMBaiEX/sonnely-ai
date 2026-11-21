@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { articles } from "@/lib/journal";
+import { Scene } from "@/components/scene";
 
 export function generateStaticParams() {
   return articles.map(({ slug }) => ({ slug }));
@@ -12,12 +13,15 @@ export default async function Article({ params }: { params: Promise<{ slug: stri
   if (!article) notFound();
   return (
     <article className="wrap inner-page prose">
-      <Link href="/blog" className="text-link">
-        ← Field notes
-      </Link>
-      <p className="eyebrow">{article.category}</p>
-      <h1>{article.title}</h1>
-      <p className="lead-text">{article.summary}</p>
+      <header className="page-lead article-lead">
+        <Scene />
+        <Link href="/blog" className="text-link">
+          ← Field notes
+        </Link>
+        <p className="eyebrow">{article.category}</p>
+        <h1>{article.title}</h1>
+        <p className="lead-text">{article.summary}</p>
+      </header>
       {article.body.map((text) => (
         <p key={text}>{text}</p>
       ))}
