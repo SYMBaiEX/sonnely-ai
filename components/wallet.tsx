@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { getWallets } from "@wallet-standard/app";
 import { StandardConnect, type StandardConnectFeature } from "@wallet-standard/features";
-import { SolanaSignMessage, type SolanaSignMessageFeature } from "@solana/wallet-standard-features";
+import {
+  SolanaSignAndSendTransaction,
+  SolanaSignMessage,
+  type SolanaSignAndSendTransactionFeature,
+  type SolanaSignMessageFeature,
+} from "@solana/wallet-standard-features";
+import bs58 from "bs58";
 import { Wallet as WalletIcon, ChevronDown } from "lucide-react";
 import { shorten } from "@/lib/models";
 
@@ -55,6 +61,54 @@ export function useSession() {
   return { session, failure, refresh };
 }
 
+let mobileRegistration: Promise<void> | undefined;
+
+function registerMobileWallet() {
+  if (!window.isSecureContext || !/Android/i.test(navigator.userAgent)) return;
+  mobileRegistration ??= import("@solana-mobile/wallet-standard-mobile")
+    .then(({ registerMwa, createDefaultAuthorizationCache, createDefaultChainSelector }) => {
+      registerMwa({
+        appIdentity: { name: "Sonnely", uri: window.location.origin, icon: "/mark.png" },
+        chains: ["solana:mainnet", "solana:devnet"],
+        authorizationCache: createDefaultAuthorizationCache(),
+        chainSelector: createDefaultChainSelector(),
+      });
+    })
+    .catch(() => {
+      mobileRegistration = undefined;
+    });
+}
+
+export async function payWithWallet(walletAddress: string, reference: string, cluster: string) {
+  if (cluster !== "mainnet" && cluster !== "devnet") throw new Error("Unsupported Solana network.");
+  const chain = `solana:${cluster}` as const;
+  for (const wallet of getWallets().get()) {
+    const account = wallet.accounts.find(
+      (item) => item.address === walletAddress && item.chains.includes(chain),
+    );
+    const feature = (wallet.features as Partial<SolanaSignAndSendTransactionFeature>)[
+      SolanaSignAndSendTransaction
+    ];
+    if (!account || !feature || !account.features.includes(SolanaSignAndSendTransaction)) continue;
+    const versions = feature.supportedTransactionVersions;
+    const version = versions.includes("legacy") ? "legacy" : versions.includes(0) ? 0 : undefined;
+    if (version === undefined) continue;
+    const { transaction } = await request<{ transaction: string }>("payment-transaction", {
+      reference,
+      version,
+    });
+    const [sent] = await feature.signAndSendTransaction({
+      account,
+      chain,
+      transaction: Uint8Array.from(atob(transaction), (byte) => byte.charCodeAt(0)),
+      options: { preflightCommitment: "confirmed", skipPreflight: false },
+    });
+    if (!sent) throw new Error("The wallet did not return a signature. Check the payment status.");
+    return bs58.encode(sent.signature);
+  }
+  throw new Error("Reconnect your signed-in wallet from the console header, or use the Solana Pay link.");
+}
+
 export function WalletControl({
   session,
   refresh,
@@ -69,6 +123,7 @@ export function WalletControl({
 
   useEffect(() => {
     const registry = getWallets();
+    registerMobileWallet();
     const update = () =>
       setWallets(
         registry
@@ -95,6 +150,12 @@ export function WalletControl({
     try {
       const features = wallet.features as StandardConnectFeature & SolanaSignMessageFeature;
       const { accounts } = await features[StandardConnect].connect();
+      if (session?.profile) {
+        if (!accounts.some((item) => item.address === session.profile?.wallet))
+          throw new Error("Select the same address you used to sign in.");
+        setOpen(false);
+        return;
+      }
       const account = accounts.find((item) => item.chains.some((chain) => chain.startsWith("solana:")));
       if (!account) throw new Error("No Solana account is available in this wallet.");
       const { message } = await request<{ message: string }>("challenge", { wallet: account.address });
@@ -149,13 +210,9 @@ export function WalletControl({
       </button>
       {open && (
         <div className="wallet-pop panel">
-          {session?.profile ? (
-            <button className="button quiet full" type="button" disabled={busy} onClick={disconnect}>
-              Sign out
-            </button>
-          ) : session?.enabled ? (
+          {session?.enabled ? (
             <>
-              <strong>Solana wallets</strong>
+              <strong>{session.profile ? "Reconnect for payments" : "Solana wallets"}</strong>
               {wallets.length ? (
                 wallets.map((wallet) => (
                   <button
@@ -165,11 +222,16 @@ export function WalletControl({
                     onClick={() => connect(wallet)}
                     disabled={busy}
                   >
-                    <span>{wallet.name}</span>
+                    {wallet.name === "Mobile Wallet Adapter" ? "Solana mobile wallet" : wallet.name}
                   </button>
                 ))
               ) : (
-                <p>Open this page in a Solana wallet browser or install a compatible wallet extension.</p>
+                <p>On Seeker, open in Chrome. You can also use a Solana wallet browser or extension.</p>
+              )}
+              {session.profile && (
+                <button className="button quiet full" type="button" disabled={busy} onClick={disconnect}>
+                  Sign out
+                </button>
               )}
             </>
           ) : (

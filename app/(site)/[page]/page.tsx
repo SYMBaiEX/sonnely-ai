@@ -58,8 +58,8 @@ export default async function Subpage({ params }: Props) {
               <Wallet />
               <h2>USDC credits</h2>
               <p>
-                Top up using Solana Pay when checkout is enabled. The billing console lists pending and
-                finalized payments.
+                Start with 5 USDC when checkout is available for your wallet. Credits post automatically when
+                the Solana transfer finalizes.
               </p>
               <Link className="text-link" href="/console/billing">
                 Billing console <ArrowUpRight size={16} />
@@ -85,6 +85,13 @@ export default async function Subpage({ params }: Props) {
           <CostExample />
           <section className="faq">
             <h2>Billing questions</h2>
+            <details>
+              <summary>What do I need to buy credits?</summary>
+              <p>
+                Use a compatible wallet with USDC on Solana and enough SOL for network fees and token account
+                setup if needed. Sign in with the wallet that will pay and approve the transfer from Billing.
+              </p>
+            </details>
             <details>
               <summary>How do API key budgets work?</summary>
               <p>
@@ -119,19 +126,25 @@ export default async function Subpage({ params }: Props) {
       )}
       {page === "docs" && <DeveloperGuide />}
       {page === "blog" && (
-        <div className="journal-grid">
-          {articles.map((item) => (
-            <Link key={item.slug} href={"/blog/" + item.slug} className="panel benefit journal-card">
-              <BookOpen />
-              <p className="eyebrow">{item.category}</p>
-              <h2>{item.title}</h2>
-              <p>{item.summary}</p>
-              <span className="text-link">
-                Read article <ArrowRight size={16} />
-              </span>
-            </Link>
-          ))}
-        </div>
+        <section aria-label="Journal articles">
+          <p className="journal-intro">
+            Start with the request path, then follow a guide to choose a model, manage keys, or reconcile a
+            charge.
+          </p>
+          <div className="journal-grid">
+            {articles.map((item) => (
+              <Link key={item.slug} href={"/blog/" + item.slug} className="panel benefit journal-card">
+                <BookOpen />
+                <p className="eyebrow">{item.category}</p>
+                <h2>{item.title}</h2>
+                <p>{item.summary}</p>
+                <span className="text-link">
+                  Read article <ArrowRight size={16} />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
       {page === "contact" && <Contact />}
     </div>

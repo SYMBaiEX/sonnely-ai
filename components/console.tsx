@@ -202,7 +202,9 @@ export function Console({ section, initialModel }: { section: Section; initialMo
           )}
           {section === "keys" && <Keys signedIn={signedIn} />}
           {section === "usage" && <Usage signedIn={signedIn} balance={profile?.balance} />}
-          {section === "billing" && <Billing session={session} refresh={refresh} />}
+          {section === "billing" && (
+            <Billing key={session?.profile?.wallet ?? "guest"} session={session} refresh={refresh} />
+          )}
           {section === "referrals" && <Referrals profile={profile} />}
           {section === "settings" && (
             <SettingsPanel

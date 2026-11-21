@@ -32,7 +32,9 @@ export function ModelCatalog() {
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState("featured");
   const displayed = models.filter((model) =>
-    (model.name + " " + model.type + " " + model.id).toLowerCase().includes(filter.toLowerCase().trim()),
+    (model.name + " " + model.type + " " + model.id + " " + model.summary)
+      .toLowerCase()
+      .includes(filter.toLowerCase().trim()),
   );
   if (sort === "input") displayed.sort((a, b) => a.input - b.input);
   if (sort === "output") displayed.sort((a, b) => a.output - b.output);
@@ -58,42 +60,72 @@ export function ModelCatalog() {
       <p className="catalog-count caption" role="status">
         {displayed.length} {displayed.length === 1 ? "model" : "models"}
       </p>
-      <div className="model-cards catalog-cards">
-        {displayed.map((model) => (
-          <article key={model.id} className="panel model-card">
-            <div className="between">
-              <span className={"model-mark " + model.color}>{model.mark}</span>
-              <span className="mono subtle">{model.type}</span>
-            </div>
-            <h3>{model.name}</h3>
-            <p>{model.summary}</p>
-            <dl>
-              <div>
-                <dt>Provider context</dt>
-                <dd>{model.context}</dd>
-              </div>
-              <div>
-                <dt>Input / 1M</dt>
-                <dd>${model.input.toFixed(2)}</dd>
-              </div>
-              <div>
-                <dt>Output / 1M</dt>
-                <dd>${model.output.toFixed(2)}</dd>
-              </div>
-              <div>
-                <dt>Cached / 1M</dt>
-                <dd>${model.cache}</dd>
-              </div>
-            </dl>
-            <div className="between model-actions">
-              <CopyButton value={model.id} label="Copy model ID" />
-              <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
-                Open in chat <ArrowUpRight size={15} />
-              </Link>
-            </div>
-          </article>
-        ))}
-      </div>
+      {displayed.length > 0 && (
+        <div className="panel catalog-list" id="model-rates">
+          <table aria-label="Model rates and provider context" role="table">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th role="columnheader" scope="col">
+                  Model
+                </th>
+                <th role="columnheader" scope="col">
+                  Provider context
+                </th>
+                <th role="columnheader" scope="col">
+                  Input / 1M
+                </th>
+                <th role="columnheader" scope="col">
+                  Cached / 1M
+                </th>
+                <th role="columnheader" scope="col">
+                  Output / 1M
+                </th>
+                <th role="columnheader" scope="col">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              {displayed.map((model) => (
+                <tr role="row" key={model.id}>
+                  <th role="rowheader" scope="row">
+                    <div className="catalog-identity">
+                      <span aria-hidden="true" className={"model-mark " + model.color}>
+                        {model.mark}
+                      </span>
+                      <div>
+                        <h3>{model.name}</h3>
+                        <p>{model.summary}</p>
+                      </div>
+                    </div>
+                  </th>
+                  {(
+                    [
+                      ["Provider context", model.context],
+                      ["Input / 1M", "$" + model.input.toFixed(2)],
+                      ["Cached / 1M", "$" + model.cache],
+                      ["Output / 1M", "$" + model.output.toFixed(2)],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <td role="cell" key={label} className="catalog-value">
+                      <span className="catalog-mobile-label" aria-hidden="true">
+                        {label}
+                      </span>
+                      <span>{value}</span>
+                    </td>
+                  ))}
+                  <td role="cell" className="catalog-actions">
+                    <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
+                      Open in chat <ArrowUpRight size={15} />
+                    </Link>
+                    <CopyButton value={model.id} label="Copy model ID" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {!displayed.length && (
         <p className="empty" role="status">
           No models match your search.

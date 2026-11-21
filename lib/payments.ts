@@ -55,7 +55,7 @@ const transaction = z.object({
   }),
 });
 
-async function rpcCall(rpc: string, method: string, params: unknown[]) {
+export async function rpcCall(rpc: string, method: string, params: unknown[]) {
   let response: Response;
   try {
     response = await fetch(rpc, {
@@ -84,20 +84,33 @@ export async function verifyCluster(rpc: string, cluster: string) {
     throw new SonnelyError("The configured Solana RPC is on a different network.", 503);
 }
 
+export async function findPaymentSignatures(
+  rpc: string,
+  reference: string,
+  commitment: "confirmed" | "finalized",
+) {
+  const result = await rpcCall(rpc, "getSignaturesForAddress", [reference, { commitment, limit: 20 }]);
+  const parsed = z.array(z.object({ signature: z.string(), err: z.unknown() })).safeParse(result);
+  if (!parsed.success) throw new SonnelyError("Solana RPC could not check the payment history.", 503);
+  return parsed.data.filter((entry) => entry.err === null).map((entry) => entry.signature);
+}
+
 export async function verifyPayment(
   rpc: string,
   signature: string,
   wallet: string,
   order: { reference: string; recipient: string; mint: string; amount: number; cluster: string },
+  commitment: "confirmed" | "finalized" = "finalized",
+  verifyNetwork = true,
 ) {
-  await verifyCluster(rpc, order.cluster);
+  if (verifyNetwork) await verifyCluster(rpc, order.cluster);
   const result = await rpcCall(rpc, "getTransaction", [
     signature,
-    { commitment: "finalized", encoding: "jsonParsed", maxSupportedTransactionVersion: 0 },
+    { commitment, encoding: "jsonParsed", maxSupportedTransactionVersion: 0 },
   ]);
   const tx = transaction.safeParse(result);
   if (!tx.success || tx.data.meta.err !== null)
-    throw new SonnelyError("No finalized successful payment was found.");
+    throw new SonnelyError("No successful payment was found at the required confirmation level.");
   const {
     meta,
     transaction: { message },
@@ -120,6 +133,24 @@ export async function verifyPayment(
   if (changeFor(order.recipient) !== BigInt(order.amount) || changeFor(wallet) !== -BigInt(order.amount)) {
     throw new SonnelyError("The finalized USDC transfer does not match the requested amount.");
   }
+}
+
+export async function findMatchingPayment(
+  rpc: string,
+  wallet: string,
+  order: Parameters<typeof verifyPayment>[3],
+  commitment: "confirmed" | "finalized",
+) {
+  const signatures = await findPaymentSignatures(rpc, order.reference, commitment);
+  for (const signature of signatures) {
+    try {
+      await verifyPayment(rpc, signature, wallet, order, commitment, false);
+      return signature;
+    } catch (error) {
+      if (!(error instanceof SonnelyError) || error.status !== 400) throw error;
+    }
+  }
+  return null;
 }
 
 export async function quote(wallet: string, sol: number) {

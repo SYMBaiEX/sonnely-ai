@@ -192,9 +192,26 @@ export function DeveloperGuide() {
         <section id="settlement">
           <h2>Payments and credits</h2>
           <p>
-            When checkout is enabled, review the network, amount, and recipient before approving a Solana Pay
-            request. Submit the finalized signature to match the payment with its request. Verified mainnet
-            payments create spendable credits. NEAR Intents provides informational quotes.
+            Start in <Link href="/console/billing">Billing</Link>. Eligible accounts can buy credits with a
+            minimum of 5 USDC on Solana. Review the network, amount and recipient before approving. Your
+            wallet pays the SOL network fee and any token account setup.
+          </p>
+          <ol>
+            <li>
+              On Seeker, open Sonnely in Android Chrome and select <strong>Solana mobile wallet</strong> when
+              you connect. Select the account you use for Sonnely.
+            </li>
+            <li>
+              Continue to payment and choose <strong>Pay with connected wallet</strong>. Approve the transfer
+              in your wallet. You can also use a Solana Pay link or scan the QR on another device.
+            </li>
+            <li>
+              Credits post automatically after the transfer finalizes. To continue later, choose{" "}
+              <strong>Resume payment</strong> in Billing. If needed, check a transaction signature manually.
+            </li>
+          </ol>
+          <p>
+            Verified mainnet payments create spendable credits. NEAR Intents provides informational quotes.
           </p>
           <Link className="text-link" href="/pricing">
             Read the pricing and settlement guide <ArrowUpRight size={16} />

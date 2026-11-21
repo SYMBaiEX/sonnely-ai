@@ -71,7 +71,9 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   await expect(page.getByRole("link", { name: "Attestation guide" })).toBeVisible();
   await page.goto("/models");
   await page.getByRole("combobox", { name: "Sort models" }).selectOption("input");
-  await expect(page.locator(".catalog-cards h3").first()).toHaveText("GLM 5.3 Flash");
+  await expect(
+    page.getByRole("table", { name: "Model rates and provider context" }).getByRole("heading").first(),
+  ).toHaveText("GLM 5.3 Flash");
   await page.goto("/console");
   await page.getByRole("button", { name: "Quick navigation" }).click();
   await page.getByRole("searchbox", { name: "Find a workspace page" }).fill("usage");

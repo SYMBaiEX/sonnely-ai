@@ -17,34 +17,14 @@ export function ModelGuide() {
         All models accept and return text through Sonnely. Start with one representative prompt and compare
         the output before committing a budget.
       </p>
-      <div className="content-table">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Model</th>
-              <th scope="col">Good starting point</th>
-              <th scope="col">Provider context</th>
-              <th scope="col">Input / 1M</th>
-              <th scope="col">Cached / 1M</th>
-              <th scope="col">Output / 1M</th>
-            </tr>
-          </thead>
-          <tbody>
-            {models.map((model) => (
-              <tr key={model.id}>
-                <th scope="row">
-                  <Link href={"/console?model=" + encodeURIComponent(model.id)}>{model.name}</Link>
-                </th>
-                <td>{workload[model.type]}</td>
-                <td>{model.context}</td>
-                <td>${model.input.toFixed(2)}</td>
-                <td>${model.cache}</td>
-                <td>${model.output.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <dl className="reference-list">
+        {models.map((model) => (
+          <div key={model.id}>
+            <dt>{model.name}</dt>
+            <dd>{workload[model.type]}</dd>
+          </div>
+        ))}
+      </dl>
       <p>
         The provider context window describes the underlying model. Sonnely currently accepts up to{" "}
         {limits.bodyBytes.toLocaleString("en-US")} bytes per request and returns up to{" "}
@@ -75,7 +55,7 @@ export function CostExample() {
         provider reports as cached. Sonnely temporarily reserves an estimated maximum from your balance and
         key budget before the request runs.
       </p>
-      <Link className="text-link" href="/models#compare-models-heading">
+      <Link className="text-link" href="/models#model-rates">
         Compare current rates <ArrowUpRight size={16} />
       </Link>
     </section>

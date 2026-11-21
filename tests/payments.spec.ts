@@ -81,7 +81,9 @@ test("payment verification requires the exact network, finalized transfer, signe
     received -= 1;
     await expect(verifyPayment(rpc, "example-signature", payer, order)).rejects.toThrow("requested amount");
     finalized = false;
-    await expect(verifyPayment(rpc, "example-signature", payer, order)).rejects.toThrow("No finalized");
+    await expect(verifyPayment(rpc, "example-signature", payer, order)).rejects.toThrow(
+      "No successful payment",
+    );
   } finally {
     globalThis.fetch = fetchOriginal;
   }
@@ -108,5 +110,39 @@ test("production requires an explicit launch mode and restricts the pilot to one
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     });
+  }
+});
+
+test("prepares an unsigned, simulated USDC transfer with an indexed reference", async () => {
+  const { preparePayment } = await import("../lib/payment-transaction");
+  const { address, getTransactionDecoder, getCompiledTransactionMessageDecoder } =
+    await import("@solana/kit");
+  const fetchOriginal = globalThis.fetch;
+  try {
+    globalThis.fetch = async (_url, init) => {
+      const request = JSON.parse(String(init?.body));
+      if (request.method === "getLatestBlockhash")
+        return Response.json({ result: { value: { blockhash: payer, lastValidBlockHeight: 123 } } });
+      expect(request.method).toBe("simulateTransaction");
+      expect(request.params[1]).toMatchObject({ sigVerify: false, encoding: "base64" });
+      return Response.json({ result: { value: { err: null } } });
+    };
+    for (const version of ["legacy", 0] as const) {
+      const encoded = await preparePayment(rpc, payer, order, version);
+      const tx = getTransactionDecoder().decode(Buffer.from(encoded, "base64"));
+      expect(Object.entries(tx.signatures)).toEqual([[payer, null]]);
+      const message = getCompiledTransactionMessageDecoder().decode(tx.messageBytes);
+      if (message.version !== version) throw new Error("Unexpected transaction version");
+      const [createAta, transfer] = message.instructions;
+      expect(Array.from(createAta.data ?? [])).toEqual([1]);
+      expect(Array.from(transfer.data ?? [])).toEqual([12, 64, 75, 76, 0, 0, 0, 0, 0, 6]);
+      const referenceIndex = message.staticAccounts.indexOf(address(order.reference));
+      expect(transfer.accountIndices?.at(-1)).toBe(referenceIndex);
+      expect(referenceIndex).toBeGreaterThanOrEqual(
+        message.staticAccounts.length - message.header.numReadonlyNonSignerAccounts,
+      );
+    }
+  } finally {
+    globalThis.fetch = fetchOriginal;
   }
 });

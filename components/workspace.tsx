@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowUpRight,
   BarChart3,
@@ -17,7 +17,7 @@ import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
-import { request, type Session } from "./wallet";
+import { payWithWallet, request, type Session } from "./wallet";
 
 type Profile = Session["profile"] | undefined;
 export type Preferences = { theme: Theme; localHistory: boolean; plain: boolean };
@@ -498,13 +498,14 @@ export function Usage({ signedIn, balance }: { signedIn: boolean; balance?: numb
   );
 }
 
-type Payment = { uri: string; reference: string; cluster: string; qr: string };
+type Payment = { uri: string; reference: string; cluster: string; amount: number; qr: string };
+type Confirmation = { ok: boolean; cluster: string };
 type Receipt = { reference: string; cluster: string; amount: number; signature?: string; time: number };
 
 export function Billing({ session, refresh }: { session: Session | null; refresh: () => Promise<void> }) {
   const profile = session?.profile;
   const { data, error, reload } = useRemote<Receipt[]>(Boolean(profile), "history");
-  const [dollars, setDollars] = useState("25");
+  const [dollars, setDollars] = useState("5");
   const [sol, setSol] = useState("1");
   const [intent, setIntent] = useState<{
     amountOut: string;
@@ -512,11 +513,58 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
     timeEstimate?: number;
   } | null>(null);
   const [order, setOrder] = useState<Payment | null>(null);
-  const [reference, setReference] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [signature, setSignature] = useState("");
   const [pending, setPending] = useState("");
   const [failure, setFailure] = useState("");
   const [status, setStatus] = useState("");
+
+  const reference = order?.reference;
+  const wallet = profile?.wallet;
+
+  async function finishPayment(cluster: string) {
+    setStatus(cluster === "mainnet" ? "Payment confirmed. Credits added." : "Devnet payment verified.");
+    setFailure("");
+    setOrder(null);
+    setSignature("");
+    setSubmitted(false);
+    reload();
+    await refresh();
+  }
+
+  const reportFinality = useEffectEvent(finishPayment);
+  useEffect(() => {
+    if (!wallet || !reference || !session?.paymentVerificationEnabled) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function check() {
+      try {
+        const result = await request<Confirmation>("confirm", { reference });
+        if (!stopped && result.ok) {
+          await reportFinality(result.cluster);
+          return;
+        }
+      } catch {
+        // Keep the draft available if RPC finality checks are temporarily unavailable.
+      }
+      if (!stopped) timer = setTimeout(check, 8_000);
+    }
+    void check();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [reference, session?.paymentVerificationEnabled, wallet]);
+
+  function openPayment(payment: Payment) {
+    setOrder(payment);
+    setSignature("");
+    setSubmitted(false);
+  }
+
+  async function resumePayment(reference: string) {
+    openPayment(await request<Payment>("payment?reference=" + encodeURIComponent(reference)));
+  }
 
   async function run(name: string, action: () => Promise<void>) {
     setPending(name);
@@ -552,24 +600,36 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
             View token rates <ArrowUpRight size={16} />
           </Link>
         </section>
-        <section className="panel stack-panel">
+        <section className="panel stack-panel buy-credits">
           <div className="between">
-            <h2>Solana Pay</h2>
-            <span className="pill">{session?.billingEnabled ? session.cluster : "Setup pending"}</span>
+            <h2>Buy credits</h2>
+            <span className="pill">
+              {session?.billingEnabled ? session.cluster : profile ? "Pilot access" : "Solana Pay"}
+            </span>
           </div>
           <p className="caption">
-            Create a USDC transfer request. Confirm it with the resulting transaction signature.
+            {profile
+              ? "Start with 5 USDC. Your wallet approves the transfer and credits post after finality."
+              : "Connect your Solana wallet in the header to check checkout access."}
           </p>
           <form
             className="inline-form"
             onSubmit={(event) => {
               event.preventDefault();
               void run("deposit", async () => {
-                const payment = await request<Payment>("deposit", { dollars: Number(dollars) });
-                setOrder(payment);
-                setReference(payment.reference);
-                setSignature("");
-                reload();
+                const amount = Number(dollars);
+                if (order?.amount === amount * 1_000_000) return;
+                const existing = data?.find(
+                  (item) =>
+                    !item.signature &&
+                    item.cluster === session?.cluster &&
+                    item.amount === amount * 1_000_000,
+                );
+                if (existing) await resumePayment(existing.reference);
+                else {
+                  openPayment(await request<Payment>("deposit", { dollars: amount }));
+                  reload();
+                }
               });
             }}
           >
@@ -584,10 +644,93 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
                 onChange={(e) => setDollars(e.target.value)}
               />
             </label>
-            <button className="button accent" disabled={!profile || !session?.billingEnabled || !!pending}>
-              Create payment
+            <button
+              className="button accent"
+              disabled={!profile || !session?.billingEnabled || !!pending || submitted}
+            >
+              {pending === "deposit" ? "Preparing…" : "Continue to payment"}
             </button>
           </form>
+          {order && profile && (
+            <section className="checkout" aria-label="Review transfer">
+              <div className="between">
+                <h2>Pay {usd(order.amount)} in USDC</h2>
+                <span className="pill">{order.cluster}</span>
+              </div>
+              <p className="caption">
+                Your wallet shows the transfer before you approve. A small SOL fee and token account setup may
+                apply.
+              </p>
+              {submitted ? (
+                <p role="status" className="status">
+                  Payment submitted. Waiting for Solana finality…
+                </p>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="button accent"
+                    disabled={!session?.billingEnabled || !!pending}
+                    onClick={() =>
+                      void run("pay", async () => {
+                        const sent = await payWithWallet(profile.wallet, order.reference, order.cluster);
+                        setSignature(sent);
+                        setSubmitted(true);
+                      })
+                    }
+                  >
+                    {pending === "pay" ? "Waiting for wallet…" : "Pay with connected wallet"}
+                  </button>
+                  <details>
+                    <summary>Use a Solana Pay link or QR code</summary>
+                    <div className="payment-qr">
+                      <img src={order.qr} width={176} height={176} alt="Scan with a Solana Pay wallet" />
+                      <div>
+                        <p>Open the payment in a compatible wallet on {order.cluster}.</p>
+                        <a className="button quiet" href={order.uri}>
+                          Open in wallet <ArrowUpRight size={16} />
+                        </a>
+                        <CopyButton value={order.uri} label="Copy payment link" />
+                      </div>
+                    </div>
+                  </details>
+                </>
+              )}
+              <details>
+                <summary>Check payment status</summary>
+                <form
+                  className="inline-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void run("confirm", async () => {
+                      const result = await request<Confirmation>("confirm", {
+                        reference: order.reference,
+                        signature: signature.trim() || undefined,
+                      });
+                      if (result.ok) await finishPayment(result.cluster);
+                      else setStatus("Waiting for a matching, finalized payment.");
+                    });
+                  }}
+                >
+                  <label>
+                    Transaction signature (optional)
+                    <input
+                      minLength={64}
+                      maxLength={88}
+                      value={signature}
+                      onChange={(event) => setSignature(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="button quiet"
+                    disabled={!session?.paymentVerificationEnabled || !!pending}
+                  >
+                    {pending === "confirm" ? "Checking…" : "Check now"}
+                  </button>
+                </form>
+              </details>
+            </section>
+          )}
         </section>
         <section className="panel stack-panel">
           <div className="between">
@@ -629,61 +772,6 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
           )}
         </section>
       </div>
-      {reference && (
-        <section className="panel stack-panel">
-          <h2>Confirm payment</h2>
-          {order && (
-            <div className="payment-qr">
-              <img src={order.qr} width={176} height={176} alt="Scan with a Solana Pay wallet" />
-              <div>
-                <p>
-                  Use a Solana Pay wallet on <strong>{order.cluster}</strong>.
-                </p>
-                <a className="button quiet" href={order.uri}>
-                  Open in wallet <ArrowUpRight size={16} />
-                </a>
-                <CopyButton value={order.uri} label="Copy payment link" />
-              </div>
-            </div>
-          )}
-          <form
-            className="inline-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void run("confirm", async () => {
-                const result = await request<{ cluster: string }>("confirm", {
-                  reference,
-                  signature: signature.trim(),
-                });
-                setStatus(
-                  result.cluster === "mainnet"
-                    ? "Payment confirmed. Credits added."
-                    : "Devnet payment verified.",
-                );
-                setOrder(null);
-                setReference("");
-                setSignature("");
-                reload();
-                await refresh();
-              });
-            }}
-          >
-            <label>
-              Transaction signature
-              <input
-                required
-                minLength={64}
-                maxLength={88}
-                value={signature}
-                onChange={(e) => setSignature(e.target.value)}
-              />
-            </label>
-            <button className="button accent" disabled={!session?.paymentVerificationEnabled || !!pending}>
-              {pending === "confirm" ? "Checking…" : "Confirm transaction"}
-            </button>
-          </form>
-        </section>
-      )}
       <section className="panel breakdown">
         <h2>Payment history</h2>
         {profile && data?.length ? (
@@ -721,14 +809,8 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
                           type="button"
                           disabled={!!pending}
                           onClick={() => {
-                            void run("resume", async () => {
-                              const draft = await request<Payment>(
-                                "payment?reference=" + encodeURIComponent(item.reference),
-                              );
-                              setOrder(draft);
-                              setReference(item.reference);
-                              setSignature("");
-                            });
+                            if (order?.reference !== item.reference)
+                              void run("resume", () => resumePayment(item.reference));
                           }}
                         >
                           Resume payment

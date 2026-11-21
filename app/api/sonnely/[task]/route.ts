@@ -7,7 +7,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { address, billing, quote, verifyCluster, verifyPayment } from "@/lib/payments";
+import { address, billing, findMatchingPayment, quote, verifyCluster, verifyPayment } from "@/lib/payments";
+import { preparePayment } from "@/lib/payment-transaction";
 import { allowedInPilot, managedProviderKey } from "@/lib/managed-access";
 import { infer } from "@/lib/inference";
 import {
@@ -50,7 +51,7 @@ async function paymentDraft(order: {
   });
   const uri = "solana:" + order.recipient + "?" + payment.toString();
   const qr = await QRCode.toDataURL(uri, { margin: 2, width: 220 });
-  return { uri, reference: order.reference, cluster: order.cluster, qr };
+  return { uri, reference: order.reference, cluster: order.cluster, amount: order.amount, qr };
 }
 
 export async function GET(request: NextRequest, context: Context) {
@@ -236,7 +237,7 @@ export async function POST(request: NextRequest, context: Context) {
       await db.mutation(api.sonnely.throttleQuote, auth);
       return json(await quote(profile.wallet, sol));
     }
-    if (task === "deposit" || task === "confirm") {
+    if (task === "deposit" || task === "confirm" || task === "payment-transaction") {
       const { billingEnabled, paymentVerificationEnabled, cluster, mint, recipient, rpc } = billing();
       if (task === "deposit") {
         if (!allowedInPilot(profile.wallet)) throw new SonnelyError("USDC checkout is unavailable.", 503);
@@ -252,9 +253,10 @@ export async function POST(request: NextRequest, context: Context) {
         await db.mutation(api.sonnely.createDeposit, { ...auth, ...order });
         return json(draft, 201);
       }
-      const { reference, signature } = z
+      const { reference, signature, version } = z
         .object({
           reference: address,
+          version: z.union([z.literal("legacy"), z.literal(0)]).optional(),
           signature: z
             .string()
             .min(64)
@@ -265,11 +267,13 @@ export async function POST(request: NextRequest, context: Context) {
               } catch {
                 return false;
               }
-            }),
+            })
+            .optional(),
         })
         .parse(raw);
       const order = await db.query(api.sonnely.depositDetails, { ...auth, reference });
-      if (order.signature === signature) return json({ ok: true, cluster: order.cluster });
+      if (order.signature && task === "confirm" && (!signature || order.signature === signature))
+        return json({ ok: true, cluster: order.cluster });
       if (!paymentVerificationEnabled || !rpc)
         throw new SonnelyError(
           "USDC payment verification is unavailable. Retry with the same signature.",
@@ -282,8 +286,19 @@ export async function POST(request: NextRequest, context: Context) {
         order.mint !== mint
       )
         throw new SonnelyError("This payment cannot be matched with the configured treasury.");
-      await verifyPayment(rpc, signature, profile.wallet, order);
-      await db.mutation(api.sonnely.confirmDeposit, { ...auth, reference, signature });
+      await verifyCluster(rpc, cluster);
+      if (task === "payment-transaction") {
+        if (!billingEnabled || !allowedInPilot(profile.wallet))
+          throw new SonnelyError("USDC checkout is unavailable.", 503);
+        if (version === undefined) throw new SonnelyError("Choose a supported wallet transaction version.");
+        if (await findMatchingPayment(rpc, profile.wallet, order, "confirmed"))
+          throw new SonnelyError("This payment is on chain. Wait for finality before trying again.", 409);
+        return json({ transaction: await preparePayment(rpc, profile.wallet, order, version) });
+      }
+      if (signature) await verifyPayment(rpc, signature, profile.wallet, order, "finalized", false);
+      const finalized = signature ?? (await findMatchingPayment(rpc, profile.wallet, order, "finalized"));
+      if (!finalized) return json({ ok: false, cluster: order.cluster });
+      await db.mutation(api.sonnely.confirmDeposit, { ...auth, reference, signature: finalized });
       return json({ ok: true, cluster: order.cluster });
     }
     throw new SonnelyError("Unknown route.", 404);

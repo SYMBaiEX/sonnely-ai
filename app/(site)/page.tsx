@@ -4,6 +4,7 @@ import { CodeExample } from "@/components/shared";
 import { Scene } from "@/components/scene";
 import { ModelStrip } from "@/components/model-strip";
 import { RequestPath } from "@/components/request-path";
+import { HomeCapabilities, HomeResources, HomeWorkloads } from "@/components/home-content";
 import { HomeDemo } from "@/components/home-demo";
 import { WorkspacePreview } from "@/components/workspace-preview";
 
@@ -50,7 +51,9 @@ export default function Home() {
             <Terminal size={17} /> OpenAI-compatible API
           </span>
         </div>
+        <HomeCapabilities />
         <ModelStrip />
+        <HomeWorkloads />
         <section className="section split code-section">
           <div>
             <p className="eyebrow">Developer quickstart</p>
@@ -73,6 +76,7 @@ export default function Home() {
         </section>
         <RequestPath />
         <WorkspacePreview />
+        <HomeResources />
         <section className="closing">
           <Scene />
           <div>
