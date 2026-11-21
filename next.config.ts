@@ -3,6 +3,36 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
   devIndicators: false,
+  async redirects() {
+    return [
+      ...[
+        "/signin",
+        "/account",
+        "/dashboard/:path*",
+        "/chat",
+        "/developers",
+        "/compare",
+        "/how-it-works",
+        "/about",
+        "/learn/:path*",
+        "/roadmap",
+        "/privacy",
+        "/terms",
+        "/status",
+        "/methodology",
+        "/calculator",
+        "/alternatives",
+        "/install.sh",
+        "/cli/:path*",
+        "/api/health",
+        "/api/openapi",
+      ].map((source) => ({
+        source,
+        destination: "https://app.sonnely.com" + source,
+        permanent: false,
+      })),
+    ];
+  },
   async rewrites() {
     return [
       { source: "/v1/:path*", destination: "/api/sonnely/v1/:path*" },

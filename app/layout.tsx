@@ -9,6 +9,7 @@ import "./experience.css";
 export const viewport: Viewport = { viewportFit: "cover" };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sonnely.com"),
   title: { default: "Sonnely | Private AI on Solana", template: "%s | Sonnely" },
   description:
     "A Solana-native workspace for confidential inference, model discovery, and metered API access.",
