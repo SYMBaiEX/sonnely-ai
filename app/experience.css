@@ -994,52 +994,6 @@ html[data-initial-theme="light"] .theme-root,
   display: none;
 }
 
-.console-drift,
-.console-sparks {
-  position: absolute;
-  inset: -12%;
-  pointer-events: none;
-}
-.console-drift {
-  background:
-    radial-gradient(ellipse at 58% 44%, var(--haze), transparent 44%),
-    radial-gradient(ellipse at 89% 16%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 31%);
-  mix-blend-mode: screen;
-  animation: forest-drift 26s ease-in-out infinite alternate;
-}
-.console-sparks {
-  background-image:
-    radial-gradient(circle at 26% 28%, var(--rim) 1px, transparent 2px),
-    radial-gradient(circle at 76% 38%, var(--accent) 1px, transparent 2px),
-    radial-gradient(circle at 84% 22%, var(--rim) 1px, transparent 2px),
-    radial-gradient(circle at 54% 32%, var(--rim) 1px, transparent 2px),
-    radial-gradient(circle at 62% 45%, var(--accent) 1px, transparent 2px);
-  animation: forest-sparks 17s linear infinite;
-}
-@keyframes forest-drift {
-  from {
-    transform: translate3d(-4%, -4%, 0) scale(1);
-    opacity: 0.52;
-  }
-  to {
-    transform: translate3d(6%, 4%, 0) scale(1.12);
-    opacity: 1;
-  }
-}
-@keyframes forest-sparks {
-  0% {
-    transform: translate3d(0, 7%, 0);
-    opacity: 0;
-  }
-  32%,
-  65% {
-    opacity: 0.65;
-  }
-  100% {
-    transform: translate3d(3%, -5%, 0);
-    opacity: 0;
-  }
-}
 .model-tier {
   display: inline-block;
   margin-top: 5px;
@@ -1273,11 +1227,6 @@ html[data-initial-theme="light"] .theme-root,
   }
   .site-header .brand-wordmark {
     width: 65px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .console-sparks {
-    display: none;
   }
 }
 

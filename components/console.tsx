@@ -127,10 +127,7 @@ export function Console({
 
   return (
     <ThemeSurface className="console">
-      <div className="console-world" aria-hidden="true">
-        <div className="console-drift" />
-        <div className="console-sparks" />
-      </div>
+      <div className="console-world" aria-hidden="true" />
       <a href="#console-content" className="skip">
         Skip to workspace
       </a>

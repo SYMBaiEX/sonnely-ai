@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Cpu, Play, Radio, RotateCcw, Square, Terminal } from "lucide-react";
+import { ArrowUpRight, Cpu, Pause, Play, Radio, Terminal } from "lucide-react";
+import { useAmbientMotion } from "./ambient-motion";
 import { Scene } from "./scene";
 
 const points = [
@@ -54,52 +55,64 @@ const steps = [
 
 export function RequestPath() {
   const [active, setActive] = useState(0);
-  const [tour, setTour] = useState<"idle" | "running" | "finished">("idle");
+  const [paused, setPaused] = useState(false);
+  const motion = useAmbientMotion();
+  const map = useRef<HTMLElement>(null);
+  const looping = motion && !paused;
   const previous = useRef(0);
   const pulse = useRef<HTMLSpanElement>(null);
   const step = steps[active];
   const [x, y] = points[step.point];
 
   useEffect(() => {
-    if (tour !== "running") return;
-    const timer = window.setTimeout(() => {
-      if (active < steps.length - 1) setActive(active + 1);
-      else setTour("finished");
-    }, 4000);
-    return () => window.clearTimeout(timer);
-  }, [active, tour]);
+    const element = map.current;
+    if (!looping || !element) return;
+    let visible = false;
+    let timer = 0;
+
+    function sync() {
+      window.clearInterval(timer);
+      if (visible && !document.hidden) {
+        timer = window.setInterval(() => setActive((step) => (step + 1) % steps.length), 3600);
+      }
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      sync();
+    });
+    observer.observe(element);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      observer.disconnect();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [looping]);
 
   useEffect(() => {
     const from = steps[previous.current].point;
     const to = steps[active].point;
     previous.current = active;
-    if (from >= to || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const frames = points.slice(from, to + 1).map(([x, y]) => ({ left: `${x}%`, top: `${y}%`, opacity: 1 }));
+    if (!motion || from === to) return;
+    const path = from < to ? points.slice(from, to + 1) : points.slice(to, from + 1).reverse();
+    const frames = path.map(([x, y]) => ({ left: `${x}%`, top: `${y}%`, opacity: 1 }));
     frames[0].opacity = 0;
     frames[frames.length - 1].opacity = 0;
     const animation = pulse.current?.animate(frames, {
-      duration: 210 * (to - from),
+      duration: 185 * Math.abs(to - from),
       easing: "linear",
     });
     return () => animation?.cancel();
-  }, [active]);
+  }, [active, motion]);
 
   function select(index: number) {
-    setTour("idle");
+    setPaused(true);
     setActive(index);
   }
 
-  function toggleTour() {
-    if (tour === "running") {
-      setTour("idle");
-      return;
-    }
-    setActive(0);
-    setTour("running");
-  }
-
   function pan(event: PointerEvent<HTMLDivElement>) {
-    if (event.pointerType !== "mouse") return;
+    if (!motion || event.pointerType !== "mouse") return;
     const stage = event.currentTarget;
     const bounds = stage.getBoundingClientRect();
     stage.style.setProperty(
@@ -113,7 +126,7 @@ export function RequestPath() {
   }
 
   return (
-    <section className="request-landscape" id="request-path" aria-labelledby="request-path-title">
+    <section ref={map} className="request-landscape" id="request-path" aria-labelledby="request-path-title">
       <div
         className="request-stage"
         data-step={active}
@@ -168,7 +181,7 @@ export function RequestPath() {
             Step {active + 1} of {steps.length}
           </span>
         </div>
-        <div id="request-path-detail" aria-live="polite" aria-atomic="true">
+        <div id="request-path-detail" aria-live={looping ? "off" : "polite"} aria-atomic="true">
           <p key={step.label}>
             <strong>{step.label}.</strong> {step.description}
           </p>
@@ -177,15 +190,14 @@ export function RequestPath() {
           <Link href={step.link} className="text-link">
             {step.action} <ArrowUpRight size={15} />
           </Link>
-          <button type="button" className="button quiet request-tour-button" onClick={toggleTour}>
-            {tour === "running" ? (
-              <Square size={14} />
-            ) : tour === "finished" ? (
-              <RotateCcw size={15} />
-            ) : (
-              <Play size={15} />
-            )}
-            {tour === "running" ? "Stop trace" : tour === "finished" ? "Replay trace" : "Trace request"}
+          <button
+            type="button"
+            className="button quiet request-tour-button"
+            disabled={!motion}
+            onClick={() => setPaused(!paused)}
+          >
+            {looping ? <Pause size={15} /> : <Play size={15} />}
+            {!motion ? "Motion off" : looping ? "Pause trace" : "Resume trace"}
           </button>
         </div>
       </div>

@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
+import { MotionSwitch } from "./ambient-motion";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
 import { usernameHelp } from "@/lib/username";
@@ -1077,6 +1078,13 @@ export function SettingsPanel({
               </button>
             ))}
           </div>
+        </div>
+        <div className="settings-row">
+          <div>
+            <strong>Ambient motion</strong>
+            <p>Animate the background and the homepage request trace.</p>
+          </div>
+          <MotionSwitch />
         </div>
         <div className="settings-row">
           <div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { MotionSwitch } from "@/components/ambient-motion";
 import { Brand } from "@/components/brand";
 import { ThemeSurface, ThemeSwitch } from "@/components/appearance";
 import { SiteLinks } from "@/components/site-links";
@@ -38,6 +39,7 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
               Original Sonnely app <ArrowUpRight size={13} />
             </a>
           </nav>
+          <MotionSwitch icon />
         </div>
       </footer>
     </ThemeSurface>

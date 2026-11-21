@@ -5,6 +5,8 @@ import { Moon, Sun } from "lucide-react";
 
 import { readTheme, themeKey, type Theme } from "@/lib/appearance";
 
+import { AmbientVisualizer, useAmbientMotion } from "./ambient-motion";
+
 const changeEvent = "sonnely:theme";
 
 function subscribe(onChange: () => void) {
@@ -27,12 +29,14 @@ export function setTheme(theme: Theme) {
 
 export function ThemeSurface({ children, className }: { children: ReactNode; className: string }) {
   const theme = useTheme();
+  const motion = useAmbientMotion();
   useEffect(() => {
     if (theme === readTheme()) delete document.documentElement.dataset.initialTheme;
   }, [theme]);
   return (
-    <div className={"theme-root " + className} data-theme={theme}>
+    <div className={"theme-root " + className} data-theme={theme} data-motion={motion ? "on" : "off"}>
       {children}
+      <AmbientVisualizer motion={motion} theme={theme} />
     </div>
   );
 }

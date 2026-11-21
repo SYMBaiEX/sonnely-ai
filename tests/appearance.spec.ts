@@ -88,38 +88,86 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   await expect(page).toHaveURL(/\/console\/usage$/);
 });
 
-test("the guided request trace can stop, restart and reach the enclave", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
+test("the request trace loops automatically and can be paused at any stop", async ({ page }) => {
   await page.clock.install();
   await page.goto("/");
   const map = page.getByRole("region", { name: "Follow the request" });
   const gateway = map.getByRole("button", { name: "Sonnely gateway" });
   const enclave = map.getByRole("button", { name: "NEAR AI enclave" });
+  const pause = map.getByRole("button", { name: "Pause trace" });
+  const resume = map.getByRole("button", { name: "Resume trace" });
 
-  await map.getByRole("button", { name: "Trace request" }).click();
+  await expect(pause).toBeVisible();
+  await page.clock.runFor(120);
   await expect(map.getByText("Step 1 of 3")).toBeVisible();
-  await page.clock.fastForward(4100);
+  await page.clock.fastForward(3600);
   await expect(gateway).toHaveAttribute("aria-pressed", "true");
-  await map.getByRole("button", { name: "Stop trace" }).click();
-  await page.clock.fastForward(12_400);
+  await pause.click();
+  await page.clock.fastForward(10_800);
   await expect(gateway).toHaveAttribute("aria-pressed", "true");
 
-  await map.getByRole("button", { name: "Trace request" }).click();
-  await expect(map.getByText("Step 1 of 3")).toBeVisible();
-  await page.clock.fastForward(4100);
-  await expect(gateway).toHaveAttribute("aria-pressed", "true");
-  await page.clock.fastForward(4100);
+  await resume.click();
+  await page.clock.runFor(120);
+  await page.clock.fastForward(3600);
   await expect(enclave).toHaveAttribute("aria-pressed", "true");
   await expect(map.getByRole("link", { name: "Attestation guide" })).toHaveAttribute(
     "href",
     "/docs#verification",
   );
-  await page.clock.fastForward(4100);
-  await map.getByRole("button", { name: "Replay trace" }).click();
+  await page.clock.fastForward(3600);
   await expect(map.getByText("Step 1 of 3")).toBeVisible();
   await enclave.click();
-  await expect(map.getByRole("button", { name: "Trace request" })).toBeVisible();
+  await expect(resume).toBeVisible();
   await expect(enclave).toHaveAttribute("aria-pressed", "true");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(map.getByRole("button", { name: "Motion off" })).toBeDisabled();
+});
+
+test("the visualizer fades while reading, plays at the footer and shares its setting with the console", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+  await page.goto("/");
+  const canvas = page.locator("canvas.ambient-visualizer");
+  const pixels = (region: "all" | "left" | "center" | "bottom") =>
+    canvas.evaluate((node, region) => {
+      const canvas = node as HTMLCanvasElement;
+      const ctx = canvas.getContext("2d")!;
+      const { width, height } = canvas;
+      const edge = Math.floor(width / 7);
+      const box = {
+        all: [0, 0, width, height],
+        left: [0, 0, edge, height],
+        center: [edge, 0, width - 2 * edge, height],
+        bottom: [0, height - 90, width, 90],
+      }[region];
+      const { data } = ctx.getImageData(box[0], box[1], box[2], box[3]);
+      let total = 0;
+      for (let i = 3; i < data.length; i += 4) total += data[i];
+      return total;
+    }, region);
+
+  await expect.poll(() => pixels("all")).toBeGreaterThan(300);
+  const initial = await pixels("all");
+  await expect.poll(() => pixels("all")).not.toBe(initial);
+  await page.evaluate(() => scrollTo({ top: innerHeight * 2, behavior: "instant" }));
+  await expect.poll(() => pixels("left"), { intervals: [40, 60, 80] }).toBeGreaterThan(100);
+  await expect.poll(() => pixels("center")).toBe(0);
+  await expect.poll(() => pixels("all")).toBe(0);
+
+  await page.evaluate(() => scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+  await expect.poll(() => pixels("bottom")).toBeGreaterThan(100);
+  const motion = page.getByRole("switch", { name: "Ambient motion" });
+  await motion.click();
+  await expect(motion).toHaveAttribute("aria-checked", "false");
+  await expect.poll(() => pixels("all")).toBe(0);
+  await page.goto("/console/settings");
+  await expect(motion).toHaveAttribute("aria-checked", "false");
+  await motion.click();
+  await expect.poll(() => pixels("all")).toBeGreaterThan(300);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(motion).toBeDisabled();
+  await expect.poll(() => pixels("all")).toBe(0);
 });
 
 test("the homepage offers a copyable request and links to the selected model", async ({ page, context }) => {
