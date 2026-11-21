@@ -41,8 +41,9 @@ export default function TermsPage() {
           processed by NEAR AI are subject to applicable restrictions in the{" "}
           <a href="https://near.ai/acceptable-use-policy">NEAR AI Acceptable Use Policy</a> and{" "}
           <a href="https://near.ai/terms-of-service">NEAR AI Cloud Terms</a>. Requests you route to Phala are
-          subject to <a href="https://phala.com/terms">Phala’s terms</a>. Sonnely may limit or suspend access
-          for misuse or where a provider, network, or law requires it.
+          subject to <a href="https://phala.com/terms">Phala’s terms</a>. Requests you route to Tinfoil are
+          subject to <a href="https://tinfoil.sh/terms">Tinfoil’s terms</a>. Sonnely may limit or suspend
+          access for misuse or where a provider, network, or law requires it.
         </p>
         <h2>Model output and availability</h2>
         <p>

@@ -20,12 +20,13 @@ Set `CONVEX_URL` and `SONNELY_SERVICE_SECRET` in the deployment environment. Set
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | `NEAR_AI_API_KEY`        | Managed text completions through NEAR AI. Install a dedicated, funded project key with a restricted upstream spending limit. |
 | `PHALA_AI_API_KEY`       | Optional Phala Private AI inference key. Enables the explicit Phala route for DeepSeek V4.1 Flash 1017.                      |
+| `TINFOIL_API_KEY`        | Optional Tinfoil inference key. Enables the attested DeepSeek V4.1 Flash 1017 route.                                         |
 | `SOLANA_TREASURY`        | Public wallet address for USDC transfers.                                                                                    |
 | `SOLANA_RPC_URL`         | Solana RPC matching the billing cluster.                                                                                     |
 | `SOLANA_BILLING_CLUSTER` | Defaults to `devnet`. Mainnet checkout also requires an inference key. Devnet receipts never create spendable credits.       |
 | `NEAR_INTENTS_API_KEY`   | Optional 1Click credential. The integration requests dry quotes only.                                                        |
 
-The API supports `GET /api/sonnely/v1/models` and non-streaming text `POST /api/sonnely/v1/chat/completions`. The gateway terminates HTTPS and forwards the prompt to the selected provider. Choose Phala with `provider: { only: ["phala"] }` where the catalog lists it. Set `max_cost_microusd` to refuse a request whose credit reservation would exceed the limit. See the [provider rollout and comparison](docs/inference-providers.md) for verification and accounting details.
+The API supports `GET /api/sonnely/v1/models` and `POST /api/sonnely/v1/chat/completions`. Choose an available provider with `provider.only`. Set `stream: true` for SSE and `stream_options.include_usage: true` to receive the final token totals. Sonnely settles reported usage before emitting `[DONE]`. The provider may finish and incur a charge after a client disconnects. `max_cost_microusd` caps the credit reservation before inference. Use Node 22.23.4 or newer in the Node 22 line to run the Tinfoil SDK. See the [provider comparison](docs/inference-providers.md) for evidence and accounting details.
 
 Set `X-Sonnely-Receipt: v1` on a completion request for upstream byte hashes, billing metadata and NEAR signature checks. See the [receipt and marketplace notes](docs/solana-inference-marketplace.md) for the evidence boundary and grant milestones.
 

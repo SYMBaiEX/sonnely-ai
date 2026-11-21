@@ -15,13 +15,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { models } from "@/lib/models";
-import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
+import { providerNames, providerRoute, type ProviderId } from "@/lib/provider-catalog";
+import { readSse } from "@/lib/sse";
 import { CopyButton } from "./shared";
-import { request, type Session } from "./wallet";
+import { type Session } from "./wallet";
 
 type Message = { role: "user" | "assistant"; content: string; model?: string };
 type Thread = { id: string; model: string; provider?: ProviderId; messages: Message[] };
-type Reply = { choices: { message: { content: string | null } }[] };
 
 const samples = [
   {
@@ -50,7 +50,7 @@ const samples = [
 export function Chat({
   initialModel,
   initialProvider,
-  phala,
+  availableProviders,
   session,
   refresh,
   localHistory,
@@ -58,7 +58,7 @@ export function Chat({
 }: {
   initialModel: string;
   initialProvider: ProviderId;
-  phala: boolean;
+  availableProviders: ProviderId[];
   session: Session | null;
   refresh: () => Promise<void>;
   localHistory: boolean;
@@ -68,7 +68,7 @@ export function Chat({
   const [model, setModel] = useState(initialModel);
   const [provider, setProvider] = useState(initialProvider);
   const modelEntry = models.find((item) => item.id === model);
-  const canUsePhala = Boolean(phala && modelEntry && providerRoute(modelEntry, "phala"));
+  const routes = availableProviders.filter((id) => modelEntry && providerRoute(modelEntry, id));
   const [threads, setThreads] = useState<Thread[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [sample, setSample] = useState<number | null>(null);
@@ -135,8 +135,8 @@ export function Chat({
     const requestMessages = plain
       ? [{ role: "system", content: "Use concise, clear language." }, ...payload.slice(-31)]
       : payload.slice(-32);
-    if (provider === "phala" && !canUsePhala) {
-      setError("Phala is unavailable for this model. Choose NEAR AI to continue.");
+    if (!routes.includes(provider)) {
+      setError(providerNames[provider] + " is unavailable for this model. Choose an available provider.");
       return;
     }
     const selectedProvider = provider;
@@ -144,7 +144,8 @@ export function Chat({
       model,
       messages: requestMessages,
       max_tokens: 1024,
-      ...(selectedProvider === "phala" ? { provider: { only: [selectedProvider] } } : {}),
+      stream: true,
+      ...(selectedProvider !== "near-ai" ? { provider: { only: [selectedProvider] } } : {}),
     };
     if (new TextEncoder().encode(JSON.stringify(input)).byteLength > 36_000) {
       setError("This conversation is too long for the gateway. Start a new chat or shorten your message.");
@@ -157,17 +158,47 @@ export function Chat({
     setText("");
     setThreads([{ id, model, provider: selectedProvider, messages: history }, ...rest]);
     try {
-      const result = await request<Reply>("chat", input);
-      const content = result.choices[0]?.message.content || "The provider returned no text.";
-      save([
+      const response = await fetch("/api/sonnely/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(input),
+      });
+      if (
+        !response.ok ||
+        !response.body ||
+        !response.headers.get("content-type")?.startsWith("text/event-stream")
+      ) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error ?? "The request did not return a stream.");
+      }
+      let content = "";
+      let complete = false;
+      const reply = (text: string): Thread[] => [
         {
           id,
           model,
           provider: selectedProvider,
-          messages: [...history, { role: "assistant", content, model }],
+          messages: [...history, { role: "assistant", content: text, model }],
         },
         ...rest,
-      ]);
+      ];
+      for await (const event of readSse(response.body)) {
+        if (event === "[DONE]") {
+          complete = true;
+          break;
+        }
+        const chunk = JSON.parse(event);
+        if (chunk.error) throw new Error(chunk.error.message);
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (typeof delta === "string" && delta) {
+          content += delta;
+          setThreads(reply(content));
+        }
+      }
+      if (!complete)
+        throw new Error("The stream ended before billing was finalized. Check Usage before retrying.");
+      save(reply(content || "The provider returned no text."));
       await refresh();
     } catch (error) {
       setThreads(previous);
@@ -341,18 +372,24 @@ export function Chat({
                 ))}
               </select>
             </label>
-            {(canUsePhala || provider === "phala") && (
+            {(routes.length > 1 || !routes.includes(provider)) && (
               <label className="model-select">
                 <select
                   aria-label="Inference provider"
                   value={provider}
-                  onChange={(e) => setProvider(e.target.value === "phala" ? "phala" : "near-ai")}
+                  onChange={(e) => setProvider(e.target.value as ProviderId)}
                   disabled={busy}
                 >
-                  <option value="near-ai">NEAR AI</option>
-                  <option value="phala" disabled={!canUsePhala}>
-                    {canUsePhala ? "Phala" : "Phala unavailable"}
-                  </option>
+                  {routes.map((id) => (
+                    <option key={id} value={id}>
+                      {providerNames[id]}
+                    </option>
+                  ))}
+                  {!routes.includes(provider) && (
+                    <option value={provider} disabled>
+                      {providerNames[provider]} unavailable
+                    </option>
+                  )}
                 </select>
               </label>
             )}

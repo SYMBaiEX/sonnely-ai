@@ -49,13 +49,13 @@ export function Console({
   section,
   initialModel,
   initialProvider,
-  phala,
+  availableProviders,
   providerCatalog,
 }: {
   section: Section;
   initialModel: string;
   initialProvider: ProviderId;
-  phala: boolean;
+  availableProviders: ProviderId[];
   providerCatalog?: Awaited<ReturnType<typeof nearCatalog>>;
 }) {
   const [range, setRange] = useState(30);
@@ -215,7 +215,7 @@ export function Console({
               session={session}
               initialModel={initialModel}
               initialProvider={initialProvider}
-              phala={phala}
+              availableProviders={availableProviders}
               refresh={refresh}
               localHistory={prefs.localHistory}
               plain={prefs.plain}
@@ -230,7 +230,7 @@ export function Console({
                   Browse the full NEAR directory <ArrowUpRight size={15} />
                 </Link>
               </header>
-              <ModelCatalog phala={phala} />
+              <ModelCatalog availableProviders={availableProviders} />
               {providerCatalog && <NearModelDirectory {...providerCatalog} />}
             </>
           )}

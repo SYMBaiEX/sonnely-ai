@@ -25,11 +25,13 @@
     "bs58": "^6.0.0",
     "convex": "^1.51.0",
     "ethers": "6.17.0",
+    "eventsource-parser": "3.1.1",
     "lucide-react": "^1.76.0",
     "next": "^16.4.6",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "tinfoil": "1.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

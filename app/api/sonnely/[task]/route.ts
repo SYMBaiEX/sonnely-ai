@@ -4,7 +4,7 @@ import { createSignInMessageText, verifySignIn } from "@solana/wallet-standard-u
 import type { SolanaSignInInput } from "@solana/wallet-standard-features";
 import bs58 from "bs58";
 import QRCode from "qrcode";
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -209,7 +209,10 @@ export async function POST(request: NextRequest, context: Context) {
       await db.mutation(api.sonnely.acceptTerms, { ...auth, version });
       return json({ ok: accepted });
     }
-    if (task === "chat") return json(await infer(raw, { session }));
+    if (task === "chat") {
+      const result = await infer(raw, { session }, false, (finished) => after(() => finished));
+      return result instanceof Response ? result : json(result);
+    }
     if (task === "profile") {
       const profile = z
         .object({ name: z.string().trim().max(60), username: z.string().trim().max(24).optional() })

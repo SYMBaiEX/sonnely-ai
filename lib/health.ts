@@ -36,6 +36,7 @@ export async function serviceHealth() {
     accountService,
     providerConfigured: Boolean(managedProviderKey()),
     phalaConfigured: Boolean(managedProviderKey("phala")),
+    tinfoilConfigured: Boolean(managedProviderKey("tinfoil")),
     mainnetPaymentsConfigured: mainnet,
     depositRecovery,
   };

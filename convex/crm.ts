@@ -35,7 +35,7 @@ const trace = v.object({
   input: v.number(),
   output: v.number(),
   providerRequest: v.optional(v.string()),
-  provider: v.union(v.literal("near-ai"), v.literal("phala")),
+  provider: v.union(v.literal("near-ai"), v.literal("phala"), v.literal("tinfoil")),
   providerCostNano: v.optional(v.number()),
   providerReportedCostNano: v.optional(v.number()),
   providerStatus: v.optional(v.number()),

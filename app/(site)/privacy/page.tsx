@@ -17,12 +17,13 @@ export default function PrivacyPage() {
         <h2>Prompts and model responses</h2>
         <p>
           Sonnely’s HTTPS gateway receives your prompt and forwards it to the selected inference provider,
-          NEAR AI or Phala. The gateway does not provide end-to-end encryption from your device to the model
-          enclave. The Sonnely usage ledger stores request metadata, such as model, token counts, charge,
-          status, and provider request ID. It does not store prompt or response bodies. Optional console chat
-          history is stored in your browser. See the{" "}
-          <a href="https://near.ai/privacy-policy">NEAR AI Privacy Policy</a> and{" "}
-          <a href="https://phala.com/privacy">Phala Privacy Policy</a> for provider data handling.
+          NEAR AI, Phala, or Tinfoil. The gateway does not provide end-to-end encryption from your device to
+          the model enclave. The Sonnely usage ledger stores request metadata, such as model, token counts,
+          charge, status, and provider request ID. It does not store prompt or response bodies. Optional
+          console chat history is stored in your browser. See the{" "}
+          <a href="https://near.ai/privacy-policy">NEAR AI Privacy Policy</a>,{" "}
+          <a href="https://phala.com/privacy">Phala Privacy Policy</a>, and{" "}
+          <a href="https://tinfoil.sh/privacy">Tinfoil Privacy Policy</a> for provider data handling.
         </p>
         <h2>Wallets, accounts, and payments</h2>
         <p>

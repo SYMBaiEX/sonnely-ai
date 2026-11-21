@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import { infer } from "@/lib/inference";
 import { receiptHeader, receiptVersion } from "@/lib/inference-receipt";
 import { errorResponse, hash, json, readBody, SonnelyError } from "@/lib/server";
@@ -14,7 +14,13 @@ export async function POST(request: NextRequest) {
     const receipt = request.headers.get(receiptHeader);
     if (receipt !== null && receipt !== receiptVersion)
       throw new SonnelyError("Unsupported evidence receipt version. Use " + receiptHeader + ": v1.", 400);
-    return json(await infer(await readBody(request), { hash: hash(bearer) }, receipt === receiptVersion));
+    const result = await infer(
+      await readBody(request),
+      { hash: hash(bearer) },
+      receipt === receiptVersion,
+      (finished) => after(() => finished),
+    );
+    return result instanceof Response ? result : json(result);
   } catch (error) {
     return errorResponse(error, true);
   }

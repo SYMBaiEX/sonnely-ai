@@ -29,7 +29,7 @@ const spec = {
     title: "Sonnely Inference API",
     version: "1.0.0",
     description:
-      "Confidential text inference through NEAR AI or Phala, metered in compute credits funded with Solana mainnet USDC.",
+      "Confidential text inference through NEAR AI, Phala or Tinfoil, metered in compute credits funded with Solana mainnet USDC.",
   },
   servers: [
     { url: apiOrigin + apiBasePath },
@@ -46,7 +46,7 @@ const spec = {
     "/chat/completions": {
       post: {
         operationId: "createChatCompletion",
-        summary: "Generate a non-streaming text completion",
+        summary: "Generate a text completion with optional streaming",
         security: [{ SonnelyKey: [] }],
         description:
           "Use a key from the console with available credits. The JSON body is limited to " +
@@ -63,7 +63,17 @@ const spec = {
         ],
         requestBody: { required: true, content: jsonSchema("CompletionRequest") },
         responses: {
-          200: { description: "Text completion and token usage", content: jsonSchema("Completion") },
+          200: {
+            description: "Text completion or an OpenAI-compatible event stream.",
+            content: {
+              ...jsonSchema("Completion"),
+              "text/event-stream": {
+                schema: { type: "string" },
+                description:
+                  "Completion chunks, optional final usage and receipt, and [DONE] after settlement. Missing final provider usage produces an error event and can leave a reservation held.",
+              },
+            },
+          },
           ...errors,
         },
       },
@@ -139,7 +149,13 @@ const spec = {
             maximum: limits.maxOutputTokens,
             default: limits.defaultOutputTokens,
           },
-          stream: { const: false },
+          stream: { type: "boolean", default: false },
+          stream_options: {
+            type: "object",
+            additionalProperties: false,
+            properties: { include_usage: { type: "boolean", default: false } },
+            description: "For stream: true, request that the final settled usage be included in the stream.",
+          },
           provider: {
             type: "object",
             additionalProperties: false,
@@ -274,6 +290,15 @@ const spec = {
                   aci_keyset_digest: { type: "string" },
                   operator_route: { type: "string" },
                   upstream_session_id: { type: "string" },
+                },
+              },
+              {
+                type: "object",
+                required: ["status", "config_repo", "release_digest"],
+                properties: {
+                  status: { const: "attested_router" },
+                  config_repo: { type: "string" },
+                  release_digest: { type: "string" },
                 },
               },
             ],

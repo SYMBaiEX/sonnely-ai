@@ -30,6 +30,7 @@ const outcomes: Record<string, string> = {
   upstream_http: "Provider HTTP error",
   upstream_transport: "Provider transport error",
   invalid_usage: "Invalid provider response",
+  stream_incomplete: "Stream ended without terminal usage",
   phala_unavailable: "Phala receipt unavailable",
   phala_payload_mismatch: "Phala receipt payload mismatch",
   phala_route_mismatch: "Phala serving route mismatch",

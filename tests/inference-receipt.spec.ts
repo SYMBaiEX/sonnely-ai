@@ -7,6 +7,8 @@ import { POST } from "../app/api/sonnely/v1/chat/completions/route";
 import { api } from "../convex/_generated/api";
 import { models } from "../lib/models";
 import { requestCharge } from "../lib/pricing";
+import { infer } from "../lib/inference";
+import { readSse } from "../lib/sse";
 import { backend, hash } from "../lib/server";
 
 const model = models[0];
@@ -184,6 +186,127 @@ test("opt-in receipts match wire bytes and the settled Convex charge", async ({ 
   } finally {
     providerFetch.mock.restore();
     process.env = originalEnv;
+  }
+});
+
+test("streams settle once from terminal usage, including after disconnect", async ({ baseURL }) => {
+  const { db, auth, apiKey, balance } = await fundedKey(baseURL);
+  const previous = process.env;
+  process.env = {
+    ...previous,
+    NEAR_AI_API_KEY: "fixture-key",
+    VERCEL_ENV: "",
+    SONNELY_PUBLIC_INFERENCE: "false",
+    SONNELY_PILOT_WALLET: "",
+  };
+  const encode = new TextEncoder();
+  const originalFetch = globalThis.fetch;
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const mockProvider = mock.method(
+    globalThis,
+    "fetch",
+    async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url) !== "https://cloud-api.near.ai/v1/chat/completions") return originalFetch(url, init);
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        stream: true,
+        stream_options: { include_usage: true },
+      });
+      return new Response(
+        new ReadableStream({
+          start(value) {
+            controller = value;
+          },
+        }),
+        {
+          headers: { "Content-Type": "text/event-stream", "inference-id": randomUUID() },
+        },
+      );
+    },
+  );
+  const tokenUsage = {
+    prompt_tokens: 50,
+    completion_tokens: 10,
+    prompt_tokens_details: { cached_tokens: 25 },
+  };
+  const cost = requestCharge(model, 50, 25, 10);
+  const frame = (payload: object) =>
+    "data: " +
+    JSON.stringify({
+      id: completionId,
+      object: "chat.completion.chunk",
+      created: 1,
+      model: "vendor-alias",
+      ...payload,
+    }) +
+    "\r\n\r\n";
+  const send = (value: string) => controller.enqueue(encode.encode(value));
+  let finished: Promise<void>;
+  async function begin(include_usage: boolean) {
+    const response = await infer(
+      {
+        model: model.id,
+        messages,
+        stream: true,
+        stream_options: { include_usage },
+        max_tokens: 40,
+      },
+      { hash: hash(apiKey) },
+      false,
+      (job) => {
+        finished = job;
+      },
+    );
+    if (!(response instanceof Response) || !response.body) throw new Error("Expected a response stream.");
+    return readSse(response.body);
+  }
+  const readRemaining = async (stream: AsyncGenerator<string>) => {
+    const frames = [];
+    for await (const value of stream) frames.push(value);
+    return frames;
+  };
+  try {
+    const response = await begin(true);
+    const chunk = encode.encode(frame({ choices: [{ index: 0, delta: { content: "雪" } }] }));
+    const split = chunk.indexOf(0xe9) + 1;
+    controller.enqueue(chunk.subarray(0, split));
+    controller.enqueue(chunk.subarray(split));
+    const initial = await response.next();
+    expect(JSON.parse(initial.value!)).toMatchObject({
+      model: model.id,
+      choices: [{ delta: { content: "雪" } }],
+      usage: null,
+    });
+    const pending = await db.query(api.sonnely.consoleLive, { ...auth, since: 0 });
+    expect(pending?.rows[0].status).toBe("pending");
+    send(frame({ choices: [], usage: tokenUsage }) + "data: [DONE]\r\n\r\n");
+    controller.close();
+    const rest = await readRemaining(response);
+    expect(rest).toHaveLength(2);
+    expect(JSON.parse(rest[0])).toMatchObject({ usage: { ...tokenUsage, total_tokens: 60 } });
+    expect(rest[1]).toBe("[DONE]");
+    expect((await db.query(api.sonnely.consoleLive, { ...auth }))?.balance).toBe(balance - cost);
+
+    const interrupted = await begin(false);
+    send(frame({ choices: [{ index: 0, delta: { content: "First" }, finish_reason: null }] }));
+    expect(JSON.parse((await interrupted.next()).value!)).not.toHaveProperty("usage");
+    await interrupted.return(undefined);
+    send(frame({ choices: [], usage: tokenUsage }) + "data: [DONE]\n\n");
+    controller.close();
+    await finished!;
+    expect((await db.query(api.sonnely.consoleLive, { ...auth }))?.balance).toBe(balance - cost * 2);
+
+    const incomplete = await begin(true);
+    send(frame({ choices: [{ index: 0, delta: { content: "Partial" }, finish_reason: null }] }));
+    controller.close();
+    const frames = await readRemaining(incomplete);
+    expect(frames).not.toContain("[DONE]");
+    expect(JSON.parse(frames.at(-1)!)).toHaveProperty("error");
+    const state = await db.query(api.sonnely.consoleLive, { ...auth, since: 0 });
+    expect(state?.rows.filter((row) => row.status === "complete")).toHaveLength(2);
+    expect(state?.rows.find((row) => row.status === "unreported")).toMatchObject({ input: 0, output: 0 });
+  } finally {
+    mockProvider.mock.restore();
+    process.env = previous;
   }
 });
 

@@ -52,7 +52,7 @@ export default defineSchema({
     input: v.number(),
     output: v.number(),
     cost: v.number(),
-    provider: v.optional(v.literal("phala")),
+    provider: v.optional(v.union(v.literal("phala"), v.literal("tinfoil"))),
     providerRequest: v.optional(v.string()),
     providerStatus: v.optional(v.number()),
     outcome: v.optional(v.string()),

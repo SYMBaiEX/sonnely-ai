@@ -36,6 +36,10 @@ export default async function StatusPage() {
             <dd>{health.checks.phalaConfigured ? "Configured" : "Unavailable"}</dd>
           </div>
           <div>
+            <dt>Tinfoil</dt>
+            <dd>{health.checks.tinfoilConfigured ? "Configured" : "Unavailable"}</dd>
+          </div>
+          <div>
             <dt>Mainnet USDC</dt>
             <dd>{health.checks.mainnetPaymentsConfigured ? "Configured" : "Unavailable"}</dd>
           </div>

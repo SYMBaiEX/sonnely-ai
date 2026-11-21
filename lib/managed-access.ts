@@ -1,4 +1,4 @@
-import type { ProviderId } from "./provider-catalog";
+import { providerIds, type ProviderId } from "./provider-catalog";
 
 export function publicInference() {
   return process.env.SONNELY_PUBLIC_INFERENCE === "true";
@@ -17,7 +17,11 @@ export function managedProviderKey(provider: ProviderId = "near-ai") {
   if (process.env.VERCEL_ENV === "production" && !pilotWallet() && !publicInference()) {
     return undefined;
   }
-  return provider === "phala"
-    ? process.env.PHALA_AI_API_KEY?.trim() || undefined
-    : process.env.NEAR_AI_API_KEY;
+  if (provider === "phala") return process.env.PHALA_AI_API_KEY?.trim() || undefined;
+  if (provider === "tinfoil") return process.env.TINFOIL_API_KEY?.trim() || undefined;
+  return process.env.NEAR_AI_API_KEY;
+}
+
+export function configuredProviders() {
+  return providerIds.filter((provider) => provider === "near-ai" || Boolean(managedProviderKey(provider)));
 }

@@ -4,7 +4,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Fingerprint, KeyRound, Wallet } fr
 import { ModelGuide, CostExample } from "@/components/model-guide";
 import { NearModelDirectory } from "@/components/near-model-directory";
 import { nearCatalog } from "@/lib/near-catalog";
-import { managedProviderKey } from "@/lib/managed-access";
+import { configuredProviders } from "@/lib/managed-access";
 import { ModelCatalog } from "@/components/shared";
 import { DeveloperGuide } from "@/components/developer-guide";
 import { Contact } from "@/components/contact";
@@ -91,7 +91,7 @@ export default async function Subpage({ params }: Props) {
               Browse the NEAR directory
             </Link>
           </div>
-          <ModelCatalog phala={Boolean(managedProviderKey("phala"))} />
+          <ModelCatalog availableProviders={configuredProviders()} />
           {providerCatalog && <NearModelDirectory {...providerCatalog} />}
           <ModelGuide />
         </>

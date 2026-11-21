@@ -7,6 +7,7 @@ const sections = [
   ["quickstart", "Quickstart"],
   ["api", "API reference"],
   ["providers", "Provider selection"],
+  ["streaming", "Streaming and usage"],
   ["limits", "Request limits"],
   ["errors", "Errors and recovery"],
   ["keys", "Key management"],
@@ -130,29 +131,43 @@ export function DeveloperGuide() {
                 </dt>
                 <dd>
                   Send JSON with <code>Authorization: Bearer $SONNELY_API_KEY</code>. Pass <code>model</code>,{" "}
-                  <code>messages</code>, and optionally <code>max_tokens</code> and <code>stream: false</code>
-                  .
+                  <code>messages</code>, and optionally <code>max_tokens</code> and <code>stream: true</code>.
                 </dd>
               </div>
             </dl>
             <p>
               Read text from <code>choices[0].message.content</code> and token counts from <code>usage</code>.
-              Use clients that support non-streaming Chat Completions with text messages. Streaming, tool
-              calls, multimodal inputs and the Responses API are outside this API’s current contract.
+              Use clients that support Chat Completions with text messages. Tool calls, multimodal inputs and
+              the Responses API are outside this API’s current contract.
             </p>
           </section>
           <section id="providers">
             <h2>Provider selection</h2>
             <p>
               Read <code>routes</code> on each model in <code>GET /v1/models</code> to compare providers and
-              their marked-up prices per million tokens. NEAR AI is the default. When Phala is listed for the
-              model, set <code>{'{"provider":{"only":["phala"]}}'}</code> in the completion body to select it
-              explicitly. Sonnely keeps each request on the selected route.
+              their marked-up prices per million tokens. NEAR AI is the default. Set{" "}
+              <code>{'{"provider":{"only":["phala"]}}'}</code> or{" "}
+              <code>{'{"provider":{"only":["tinfoil"]}}'}</code> to select another available route. Sonnely
+              keeps each request on the selected route.
             </p>
             <p>
               Set <code>max_cost_microusd</code> to cap the credit reservation before the provider receives
               the request. One dollar is one million micro-USD. The final charge uses reported tokens and is
               capped at the reservation.
+            </p>
+          </section>
+          <section id="streaming">
+            <h2>Streaming and usage</h2>
+            <p>
+              Set <code>stream: true</code> to receive text deltas over Server-Sent Events. Add{" "}
+              <code>{'stream_options: {"include_usage": true}'}</code> to receive final token totals. If you
+              request a receipt, the final chunk also carries <code>sonnely_receipt</code>.
+            </p>
+            <p>
+              Treat deltas as provisional until <code>[DONE]</code>. Sonnely settles the reported usage before
+              sending that marker. If the connection drops, the provider may still finish and incur a charge.
+              Check Usage before retrying. A missing final provider report keeps the reservation open for
+              reconciliation.
             </p>
           </section>
           <section id="limits">
@@ -240,7 +255,9 @@ export function DeveloperGuide() {
             <p>
               The default NEAR AI routes use its Private TEE tier. Phala routes require a matching ACI receipt
               for a Phala-operated route with upstream verification reported by Phala. Sonnely’s HTTPS gateway
-              reads the input and output. Independent hardware and model verification is a separate step.
+              reads the input and output. The Tinfoil SDK verifies its router and encrypts requests from
+              Sonnely to that router. Comparing served model weights across providers requires separate
+              evidence.
             </p>
             <a className="text-link" href="https://docs.near.ai/cloud/verification">
               NEAR AI verification guide <ArrowUpRight size={16} />
@@ -272,6 +289,11 @@ export function DeveloperGuide() {
             <p>
               Keep receipts private. Their hashes can help someone confirm a guess about the request or
               response contents.
+            </p>
+            <p>
+              Tinfoil receipts report <code>attested_router</code> and identify the verified router release.
+              Their hashes cover the cleartext request supplied to the SDK and the decrypted response it
+              returns.
             </p>
             <a className="text-link" href="/api/openapi">
               Read the receipt schema <ArrowUpRight size={16} />
@@ -325,8 +347,8 @@ export function DeveloperGuide() {
               </li>
             </ol>
             <p>
-              The current API supports non-streaming text completions. Replace any legacy media endpoints or
-              CLI commands with a supported client.
+              The current API supports streamed and non-streamed text completions. Replace any legacy media
+              endpoints or CLI commands with a supported client.
             </p>
           </section>
         </div>

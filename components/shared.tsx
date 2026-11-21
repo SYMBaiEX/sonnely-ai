@@ -7,7 +7,7 @@ import { apiBasePath } from "@/lib/api-contract";
 import { formatRate, markedUpRates } from "@/lib/pricing";
 import { routeLabels } from "@/lib/model-privacy";
 import { models } from "@/lib/models";
-import { providerRoute } from "@/lib/provider-catalog";
+import { providerNames, providerRoute, type ProviderId } from "@/lib/provider-catalog";
 
 export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
   const [status, setStatus] = useState("");
@@ -31,7 +31,7 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
   );
 }
 
-export function ModelCatalog({ phala = false }: { phala?: boolean }) {
+export function ModelCatalog({ availableProviders }: { availableProviders: ProviderId[] }) {
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState("featured");
   const displayed = models.filter((model) =>
@@ -89,56 +89,64 @@ export function ModelCatalog({ phala = false }: { phala?: boolean }) {
               </tr>
             </thead>
             <tbody role="rowgroup">
-              {displayed.map((model) => (
-                <tr role="row" key={model.id}>
-                  <th role="rowheader" scope="row">
-                    <div className="catalog-identity">
-                      <span aria-hidden="true" className={"model-mark " + model.color}>
-                        {model.mark}
-                      </span>
-                      <div>
-                        <h3>{model.name}</h3>
-                        <p>{model.summary}</p>
-                        <span className="model-tier">{routeLabels[model.privacyRoute]} · Confidential</span>
-                        {phala && providerRoute(model, "phala") && (
-                          <p className="caption">NEAR AI and Phala</p>
-                        )}
+              {displayed.map((model) => {
+                const extraRoutes = availableProviders.filter(
+                  (id) => id !== "near-ai" && providerRoute(model, id),
+                );
+                return (
+                  <tr role="row" key={model.id}>
+                    <th role="rowheader" scope="row">
+                      <div className="catalog-identity">
+                        <span aria-hidden="true" className={"model-mark " + model.color}>
+                          {model.mark}
+                        </span>
+                        <div>
+                          <h3>{model.name}</h3>
+                          <p>{model.summary}</p>
+                          <span className="model-tier">{routeLabels[model.privacyRoute]} · Confidential</span>
+                          {extraRoutes.length > 0 && (
+                            <p className="caption">
+                              {["NEAR AI", ...extraRoutes.map((id) => providerNames[id])].join(" · ")}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </th>
-                  {(
-                    [
-                      ["Provider context", model.context],
-                      ["Input / 1M", formatRate(markedUpRates(model).input)],
-                      ["Cached / 1M", formatRate(markedUpRates(model).cache)],
-                      ["Output / 1M", formatRate(markedUpRates(model).output)],
-                    ] as const
-                  ).map(([label, value]) => (
-                    <td role="cell" key={label} className="catalog-value">
-                      <span className="catalog-mobile-label" aria-hidden="true">
-                        {label}
-                      </span>
-                      <span>{value}</span>
-                    </td>
-                  ))}
-                  <td role="cell" className="catalog-actions">
-                    <div className="catalog-row-actions">
-                      <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
-                        Open in chat <ArrowUpRight size={15} />
-                      </Link>
-                      {phala && providerRoute(model, "phala") && (
-                        <Link
-                          href={"/console?provider=phala&model=" + encodeURIComponent(model.id)}
-                          className="text-link"
-                        >
-                          Open with Phala <ArrowUpRight size={15} />
+                    </th>
+                    {(
+                      [
+                        ["Provider context", model.context],
+                        ["Input / 1M", formatRate(markedUpRates(model).input)],
+                        ["Cached / 1M", formatRate(markedUpRates(model).cache)],
+                        ["Output / 1M", formatRate(markedUpRates(model).output)],
+                      ] as const
+                    ).map(([label, value]) => (
+                      <td role="cell" key={label} className="catalog-value">
+                        <span className="catalog-mobile-label" aria-hidden="true">
+                          {label}
+                        </span>
+                        <span>{value}</span>
+                      </td>
+                    ))}
+                    <td role="cell" className="catalog-actions">
+                      <div className="catalog-row-actions">
+                        <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
+                          Open in chat <ArrowUpRight size={15} />
                         </Link>
-                      )}
-                      <CopyButton value={model.id} label="Copy model ID" />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {extraRoutes.map((id) => (
+                          <Link
+                            key={id}
+                            href={"/console?provider=" + id + "&model=" + encodeURIComponent(model.id)}
+                            className="text-link"
+                          >
+                            Open with {providerNames[id]} <ArrowUpRight size={15} />
+                          </Link>
+                        ))}
+                        <CopyButton value={model.id} label="Copy model ID" />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
