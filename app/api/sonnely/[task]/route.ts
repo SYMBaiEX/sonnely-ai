@@ -1,3 +1,4 @@
+import { adminAction, adminOverview } from "@/lib/admin-api";
 import { randomBytes } from "node:crypto";
 import { createSignInMessageText, verifySignIn } from "@solana/wallet-standard-util";
 import type { SolanaSignInInput } from "@solana/wallet-standard-features";
@@ -85,6 +86,7 @@ export async function GET(request: NextRequest, context: Context) {
     const { db, secret } = backend();
     const auth = { secret, session };
     if (task === "keys") return json(await db.query(api.sonnely.listKeys, auth));
+    if (task === "admin") return await adminOverview(auth, db, usageSince("30"));
     if (task === "referrals") return json(await db.query(api.sonnely.referrals, auth));
     if (task === "history") return json(await db.query(api.sonnely.history, auth));
     if (task === "payment") {
@@ -229,6 +231,10 @@ export async function POST(request: NextRequest, context: Context) {
     }
     const profile = await db.query(api.sonnely.profile, auth);
     if (!profile) throw new SonnelyError("Sign in with a Solana wallet.", 401);
+    if (task.startsWith("admin-")) {
+      if (profile.role !== "admin") throw new SonnelyError("Administrator access required.", 403);
+      return await adminAction(task, raw, auth, db);
+    }
     if (task === "quote") {
       const { sol } = z.object({ sol: z.number().min(0.01).max(1000) }).parse(raw);
       await db.mutation(api.sonnely.throttleQuote, auth);

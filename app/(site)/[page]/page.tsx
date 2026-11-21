@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, BookOpen, Fingerprint, KeyRound, Wallet } from "lucide-react";
+import { ArrowUpRight, Fingerprint, KeyRound, Wallet } from "lucide-react";
 import { ModelGuide, CostExample } from "@/components/model-guide";
 import { ModelCatalog } from "@/components/shared";
 import { DeveloperGuide } from "@/components/developer-guide";
 import { Contact } from "@/components/contact";
 import { Scene } from "@/components/scene";
-import { articles } from "@/lib/journal";
+import { JournalIndex } from "@/components/journal-index";
 
 const pages = {
   models: ["Model catalog", "Compare text models by task, context window, and token pricing."],
@@ -76,7 +76,7 @@ export default async function Subpage({ params }: Props) {
             <article className="panel benefit">
               <Fingerprint />
               <h2>Token rates</h2>
-              <p>Review input, cached input and output rates per million tokens in the model catalog.</p>
+              <p>Published token rates include a 10% Sonnely markup on provider list rates.</p>
               <Link className="text-link" href="/models">
                 See rates <ArrowUpRight size={16} />
               </Link>
@@ -125,27 +125,7 @@ export default async function Subpage({ params }: Props) {
         </>
       )}
       {page === "docs" && <DeveloperGuide />}
-      {page === "blog" && (
-        <section aria-label="Journal articles">
-          <p className="journal-intro">
-            Start with the request path, then follow a guide to choose a model, manage keys, or reconcile a
-            charge.
-          </p>
-          <div className="journal-grid">
-            {articles.map((item) => (
-              <Link key={item.slug} href={"/blog/" + item.slug} className="panel benefit journal-card">
-                <BookOpen />
-                <p className="eyebrow">{item.category}</p>
-                <h2>{item.title}</h2>
-                <p>{item.summary}</p>
-                <span className="text-link">
-                  Read article <ArrowRight size={16} />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      {page === "blog" && <JournalIndex />}
       {page === "contact" && <Contact />}
     </div>
   );

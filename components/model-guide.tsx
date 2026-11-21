@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { limits } from "@/lib/api-contract";
+import { requestCharge } from "@/lib/pricing";
 import { models } from "@/lib/models";
 
 const workload = {
@@ -41,7 +42,7 @@ export function CostExample() {
   const model = models[0];
   const input = 10_000;
   const output = 1_000;
-  const estimated = ((input * model.input + output * model.output) / 1_000_000).toFixed(4);
+  const estimated = (requestCharge(model, input, 0, output) / 1_000_000).toFixed(4);
   return (
     <section className="content-section panel cost-example" aria-labelledby="cost-example-heading">
       <h2 id="cost-example-heading">Estimate a request</h2>

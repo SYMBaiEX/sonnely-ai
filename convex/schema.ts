@@ -48,13 +48,39 @@ export default defineSchema({
     input: v.number(),
     output: v.number(),
     cost: v.number(),
+    providerRequest: v.optional(v.string()),
+    providerCostNano: v.optional(v.number()),
+    reconciliation: v.optional(v.union(v.literal("pending"), v.literal("reconciled"))),
     status: v.union(
       v.literal("pending"),
       v.literal("complete"),
       v.literal("failed"),
       v.literal("unreported"),
     ),
-  }).index("by_account", ["account"]),
+  })
+    .index("by_account", ["account"])
+    .index("by_reconciliation", ["reconciliation"])
+    .index("by_status", ["status"])
+    .index("by_provider_request", ["providerRequest"]),
+  finance: defineTable({
+    reconciled: v.number(),
+    customerMicros: v.number(),
+    providerNano: v.number(),
+    paidMicros: v.number(),
+    pendingPayout: v.optional(v.id("payouts")),
+  }),
+  payouts: defineTable({
+    reference: v.string(),
+    amount: v.number(),
+    recipient: v.string(),
+    treasury: v.string(),
+    mint: v.string(),
+    cluster: v.literal("mainnet"),
+    createdBy: v.id("accounts"),
+    signature: v.optional(v.string()),
+    transaction: v.optional(v.string()),
+    lastValidBlockHeight: v.optional(v.number()),
+  }).index("by_reference", ["reference"]),
   deposits: defineTable({
     account: v.id("accounts"),
     reference: v.string(),

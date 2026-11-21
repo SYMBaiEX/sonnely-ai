@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Search,
   Settings,
+  ShieldCheck,
   Users,
   Wallet,
 } from "lucide-react";
@@ -21,7 +22,8 @@ import type { Section } from "@/app/console/[[...section]]/page";
 import { creditBalance } from "@/lib/credit-amount";
 import { Brand } from "./brand";
 import { CommandMenu } from "./command-menu";
-import { setTheme, ThemeSurface, useTheme } from "./appearance";
+import { setTheme, ThemeSurface, ThemeSwitch, useTheme } from "./appearance";
+import { Admin } from "./admin";
 import { Chat } from "./chat";
 import { ModelCatalog } from "./shared";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
@@ -34,6 +36,7 @@ const nav = [
   { id: "usage", title: "Usage", path: "/console/usage", Icon: Activity },
   { id: "billing", title: "Billing", path: "/console/billing", Icon: Wallet },
   { id: "referrals", title: "Referrals", path: "/console/referrals", Icon: Users },
+  { id: "admin", title: "Admin", path: "/console/admin", Icon: ShieldCheck },
   { id: "settings", title: "Settings", path: "/console/settings", Icon: Settings },
 ] as const;
 const defaults: Preferences = { theme: "dark", localHistory: false, plain: true };
@@ -96,6 +99,7 @@ export function Console({ section, initialModel }: { section: Section; initialMo
 
   const profile = session?.profile;
   const signedIn = Boolean(profile);
+  const visibleNav = nav.filter((item) => item.id !== "admin" || profile?.role === "admin");
   const selected = nav.find((item) => item.id === section)!;
   const sidebar = (items: (typeof nav)[number][]) =>
     items.map(({ id, title, path, Icon }) => (
@@ -112,7 +116,10 @@ export function Console({ section, initialModel }: { section: Section; initialMo
 
   return (
     <ThemeSurface className="console">
-      <div className="console-world" aria-hidden="true" />
+      <div className="console-world" aria-hidden="true">
+        <div className="console-drift" />
+        <div className="console-sparks" />
+      </div>
       <a href="#console-content" className="skip">
         Skip to workspace
       </a>
@@ -125,9 +132,12 @@ export function Console({ section, initialModel }: { section: Section; initialMo
           <p className="mono">Compute</p>
           {sidebar([...nav.slice(0, 4)])}
           <p className="mono">Workspace</p>
-          {sidebar([...nav.slice(4)])}
+          {sidebar(visibleNav.slice(4))}
         </nav>
         <div className="rail-bottom">
+          <span className="rail-theme">
+            <ThemeSwitch />
+          </span>
           <Link href="/docs">
             <BookOpen size={17} /> Documentation <ArrowUpRight size={13} />
           </Link>
@@ -172,10 +182,13 @@ export function Console({ section, initialModel }: { section: Section; initialMo
                 <Command size={12} /> K
               </kbd>
             </button>
+            <span className="console-theme">
+              <ThemeSwitch />
+            </span>
             <WalletControl session={session} refresh={refresh} />
           </div>
         </header>
-        <CommandMenu open={palette} onClose={() => setPalette(false)} pages={nav} />
+        <CommandMenu open={palette} onClose={() => setPalette(false)} pages={visibleNav} />
         <main id="console-content" className={section === "chat" ? "console-chat" : "console-content"}>
           {failure && (
             <p role="alert" className="error">
@@ -201,6 +214,7 @@ export function Console({ section, initialModel }: { section: Section; initialMo
               <ModelCatalog />
             </>
           )}
+          {section === "admin" && <Admin session={session} />}
           {section === "keys" && <Keys signedIn={signedIn} />}
           {section === "usage" && (
             <Usage

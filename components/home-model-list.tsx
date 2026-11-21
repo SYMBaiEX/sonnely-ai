@@ -28,7 +28,7 @@ export function HomeModelList() {
                 </div>
               </div>
               <span className="home-model-spec">
-                <span className="pill">{model.type}</span>
+                <span className="pill">Confidential</span>
                 <span className="mono">{model.context} context</span>
               </span>
               <span className="text-link">

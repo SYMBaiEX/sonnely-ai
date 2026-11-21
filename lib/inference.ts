@@ -2,6 +2,8 @@ import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import { limits } from "./api-contract";
 import { managedProviderKey, pilotWallet } from "./managed-access";
+import { requestCharge } from "./pricing";
+import { providerRequestId } from "./provider-billing";
 import { models } from "./models";
 import { backend, SonnelyError } from "./server";
 
@@ -52,7 +54,7 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
 
   const maxTokens = input.max_tokens ?? limits.defaultOutputTokens;
   const bytes = Buffer.byteLength(JSON.stringify(input.messages));
-  const reserve = Math.ceil((bytes + 256) * model.input + maxTokens * model.output);
+  const reserve = requestCharge(model, bytes + 256, 0, maxTokens);
   const { db, secret } = backend();
   const pilot = pilotWallet();
   const id = await db.mutation(api.sonnely.reserve, {
@@ -66,6 +68,7 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
   let tokensIn = 0;
   let tokensOut = 0;
   let cost = 0;
+  let providerRequest: string | undefined;
   try {
     let response: Response;
     try {
@@ -89,10 +92,19 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
     tokensIn = data.usage.prompt_tokens;
     tokensOut = data.usage.completion_tokens;
     const cached = Math.min(tokensIn, data.usage.prompt_tokens_details?.cached_tokens ?? 0);
-    cost = Math.ceil((tokensIn - cached) * model.input + cached * model.cache + tokensOut * model.output);
+    cost = requestCharge(model, tokensIn, cached, tokensOut);
+    providerRequest = providerRequestId(response.headers.get("inference-id"), data.id);
     status = "complete";
     return { ...data, model: input.model, usage: { ...data.usage, total_tokens: tokensIn + tokensOut } };
   } finally {
-    await db.mutation(api.sonnely.settle, { secret, id, status, input: tokensIn, output: tokensOut, cost });
+    await db.mutation(api.sonnely.settle, {
+      secret,
+      id,
+      status,
+      input: tokensIn,
+      output: tokensOut,
+      cost,
+      ...(providerRequest ? { providerRequest } : {}),
+    });
   }
 }

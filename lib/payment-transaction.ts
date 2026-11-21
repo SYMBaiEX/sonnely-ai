@@ -29,7 +29,7 @@ const latestBlockhash = z.object({
 });
 const simulation = z.object({ value: z.object({ err: z.unknown() }) });
 
-export async function preparePayment(
+export async function preparePaymentEnvelope(
   rpc: string,
   wallet: string,
   order: { amount: number; mint: string; reference: string; recipient: string },
@@ -87,5 +87,9 @@ export async function preparePayment(
     throw new SonnelyError(
       "This transfer did not pass simulation. Check your wallet’s USDC and SOL balances.",
     );
-  return transaction;
+  return { transaction, lastValidBlockHeight: value.lastValidBlockHeight };
+}
+
+export async function preparePayment(...args: Parameters<typeof preparePaymentEnvelope>) {
+  return (await preparePaymentEnvelope(...args)).transaction;
 }

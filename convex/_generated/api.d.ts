@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as access from "../access.js";
+import type * as finance from "../finance.js";
 import type * as relay from "../relay.js";
 import type * as sonnely from "../sonnely.js";
 
@@ -18,6 +20,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
+  finance: typeof finance;
   relay: typeof relay;
   sonnely: typeof sonnely;
 }>;

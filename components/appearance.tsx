@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Moon, Sun } from "lucide-react";
 
 import { readTheme, themeKey, type Theme } from "@/lib/appearance";
@@ -39,20 +39,27 @@ export function ThemeSurface({ children, className }: { children: ReactNode; cla
 
 export function ThemeSwitch() {
   const theme = useTheme();
-  function cycle() {
-    const isLight =
-      theme === "light" || (theme === "system" && matchMedia("(prefers-color-scheme: light)").matches);
-    setTheme(isLight ? "dark" : "light");
-  }
+  const [systemLight, setSystemLight] = useState(false);
+  useEffect(() => {
+    const media = matchMedia("(prefers-color-scheme: light)");
+    const update = () => setSystemLight(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const light = theme === "light" || (theme === "system" && systemLight);
   return (
     <button
-      className="icon-button theme-switch"
+      className="theme-switch"
       type="button"
-      onClick={cycle}
+      role="switch"
+      aria-checked={light}
+      data-light={light}
+      onClick={() => setTheme(light ? "dark" : "light")}
       aria-label="Switch color theme"
     >
-      <Sun className="theme-sun" size={18} aria-hidden />
-      <Moon className="theme-moon" size={18} aria-hidden />
+      <Moon size={15} aria-hidden />
+      <Sun size={15} aria-hidden />
     </button>
   );
 }

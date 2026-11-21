@@ -16,7 +16,13 @@ import { Wallet as WalletIcon, ChevronDown } from "lucide-react";
 import { shorten } from "@/lib/models";
 
 export type Session = {
-  profile: { wallet: string; name: string; balance: number; referral: string } | null;
+  profile: {
+    wallet: string;
+    name: string;
+    balance: number;
+    referral: string;
+    role?: "admin" | "member";
+  } | null;
   enabled: boolean;
   billingEnabled: boolean;
   paymentVerificationEnabled: boolean;
@@ -124,7 +130,12 @@ function registerMobileWallet() {
     });
 }
 
-export async function payWithWallet(walletAddress: string, reference: string, cluster: string) {
+export async function payWithWallet(
+  walletAddress: string,
+  reference: string,
+  cluster: string,
+  task = "payment-transaction",
+) {
   if (cluster !== "mainnet" && cluster !== "devnet") throw new Error("Unsupported Solana network.");
   const chain = `solana:${cluster}` as const;
   for (const wallet of getWallets().get()) {
@@ -137,8 +148,8 @@ export async function payWithWallet(walletAddress: string, reference: string, cl
     if (!account || !feature || !account.features.includes(SolanaSignAndSendTransaction)) continue;
     const versions = feature.supportedTransactionVersions;
     const version = versions.includes("legacy") ? "legacy" : versions.includes(0) ? 0 : undefined;
-    if (version === undefined) continue;
-    const { transaction } = await request<{ transaction: string }>("payment-transaction", {
+    if (version === undefined || (task === "admin-payout-transaction" && version !== "legacy")) continue;
+    const { transaction } = await request<{ transaction: string }>(task, {
       reference,
       version,
     });

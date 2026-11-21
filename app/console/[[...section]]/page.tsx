@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Console } from "@/components/console";
 import { models } from "@/lib/models";
 
-const sections = ["chat", "models", "keys", "usage", "billing", "referrals", "settings"] as const;
+const sections = ["chat", "models", "keys", "usage", "billing", "referrals", "settings", "admin"] as const;
 export type Section = (typeof sections)[number];
 type Props = { params: Promise<{ section?: string[] }>; searchParams: Promise<{ model?: string }> };
 

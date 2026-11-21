@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Check, Copy, Search } from "lucide-react";
 import { apiBasePath } from "@/lib/api-contract";
+import { formatRate, markedUpRates } from "@/lib/pricing";
 import { models } from "@/lib/models";
 
 export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
@@ -96,15 +97,16 @@ export function ModelCatalog() {
                       <div>
                         <h3>{model.name}</h3>
                         <p>{model.summary}</p>
+                        <span className="model-tier">Confidential · NEAR AI</span>
                       </div>
                     </div>
                   </th>
                   {(
                     [
                       ["Provider context", model.context],
-                      ["Input / 1M", "$" + model.input.toFixed(2)],
-                      ["Cached / 1M", "$" + model.cache],
-                      ["Output / 1M", "$" + model.output.toFixed(2)],
+                      ["Input / 1M", formatRate(markedUpRates(model).input)],
+                      ["Cached / 1M", formatRate(markedUpRates(model).cache)],
+                      ["Output / 1M", formatRate(markedUpRates(model).output)],
                     ] as const
                   ).map(([label, value]) => (
                     <td role="cell" key={label} className="catalog-value">
@@ -132,8 +134,8 @@ export function ModelCatalog() {
         </p>
       )}
       <p className="caption">
-        NEAR AI lists these models in its Private TEE tier. Sonnely accepts text requests with smaller limits.{" "}
-        <a href="https://near.ai/models">Provider catalog ↗</a>
+        Rates include Sonnely’s 10% markup. Confidential models run in NEAR AI’s Private TEE tier. Sonnely
+        accepts text requests within gateway limits. <a href="https://near.ai/models">Provider catalog ↗</a>
       </p>
     </>
   );

@@ -4,7 +4,7 @@ test("the theme follows the user across the site and all console pages", async (
   await page.clock.setFixedTime(new Date("2027-01-02T12:00:00Z"));
   await page.goto("/");
   const site = page.locator(".theme-root");
-  const switcher = page.getByRole("button", { name: "Switch color theme" });
+  const switcher = page.getByRole("switch", { name: "Switch color theme" });
   await expect(site).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /forest-night\.webp/);
 
@@ -52,7 +52,7 @@ test("winter artwork switches across the site and the console at Chicago midnigh
   const feature = page.locator(".request-scene .scene-image");
   await expect(art).toHaveCSS("background-image", /winter-night\.webp/);
   await expect(feature).toHaveCSS("background-image", /winter-sanctuary-night\.webp/);
-  await page.getByRole("button", { name: "Switch color theme" }).click();
+  await page.getByRole("switch", { name: "Switch color theme" }).click();
   await expect(art).toHaveCSS("background-image", /winter-day\.webp/);
   await expect(feature).toHaveCSS("background-image", /winter-sanctuary-day\.webp/);
   await page.clock.fastForward(120_000);
@@ -116,4 +116,22 @@ test("the homepage examples show different workflows and real playground links",
         ),
     )
     .toBe(true);
+});
+
+test("journal filtering, contact topics and mobile navigation remain usable", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 760 });
+  await page.goto("/blog");
+  await page.getByRole("button", { name: "Billing", exact: true }).click();
+  await expect(page.getByRole("link", { name: /How wallet funding works/ })).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search the journal" }).fill("unmatched search");
+  await expect(page.getByRole("status")).toContainText("No articles match");
+  await page.goto("/contact");
+  await page.getByRole("button", { name: /Billing USDC/ }).click();
+  await expect(page.getByRole("combobox", { name: "Topic" })).toHaveValue("Billing");
+  await page.goto("/models");
+  await expect(page.getByRole("table").getByText("$0.0066", { exact: true })).toBeVisible();
+  for (const path of ["/", "/docs", "/blog", "/contact", "/console/admin"]) {
+    await page.goto(path);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  }
 });

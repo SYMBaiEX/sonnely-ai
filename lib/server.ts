@@ -46,11 +46,13 @@ export function errorResponse(error: unknown, openai = false) {
     message = error.data;
     status = /Invalid|Sign in|Unauthorized/.test(message)
       ? 401
-      : /limit|Wait a minute/.test(message)
-        ? 429
-        : /budget|credits/.test(message)
-          ? 402
-          : 400;
+      : /Administrator access required|Only the treasury wallet/.test(message)
+        ? 403
+        : /limit|Wait a minute/.test(message)
+          ? 429
+          : /budget|credits/.test(message)
+            ? 402
+            : 400;
   }
   return json({ error: openai ? { message, type: "sonnely_error", code: status } : message }, status);
 }

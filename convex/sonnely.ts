@@ -2,33 +2,10 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 
-const secret = { secret: v.string() };
-const auth = { ...secret, session: v.string() };
+import { accountFor, auth, requireAccount, secret, service, walletRole } from "./access";
+
 const optionalNumber = v.union(v.number(), v.null());
 const sessionLife = 7 * 86400_000;
-
-function service(input: string) {
-  const expected = process.env.SONNELY_SERVICE_SECRET ?? process.env.RELAY_SERVICE_SECRET;
-  let mismatch = 0;
-  if (!expected || expected.length < 32 || input.length !== expected.length)
-    throw new ConvexError("Unauthorized.");
-  for (let i = 0; i < expected.length; i++) mismatch |= expected.charCodeAt(i) ^ input.charCodeAt(i);
-  if (mismatch !== 0) throw new ConvexError("Unauthorized.");
-}
-
-async function accountFor(ctx: QueryCtx, session: string) {
-  const row = await ctx.db
-    .query("sessions")
-    .withIndex("by_hash", (q) => q.eq("hash", session))
-    .unique();
-  return row && row.expires > Date.now() ? await ctx.db.get(row.account) : null;
-}
-
-async function requireAccount(ctx: QueryCtx, session: string) {
-  const account = await accountFor(ctx, session);
-  if (!account) throw new ConvexError("Sign in with a Solana wallet.");
-  return account;
-}
 
 export const signIn = mutation({
   args: {
@@ -97,14 +74,20 @@ export const profile = query({
   args: auth,
   returns: v.union(
     v.null(),
-    v.object({ wallet: v.string(), name: v.string(), balance: v.number(), referral: v.string() }),
+    v.object({
+      wallet: v.string(),
+      name: v.string(),
+      balance: v.number(),
+      referral: v.string(),
+      role: v.union(v.literal("admin"), v.literal("member")),
+    }),
   ),
   handler: async (ctx, args) => {
     service(args.secret);
     const account = await accountFor(ctx, args.session);
     if (!account) return null;
     const { wallet, name, balance, referral } = account;
-    return { wallet, name, balance, referral };
+    return { wallet, name, balance, referral, role: walletRole(wallet) };
   },
 });
 
@@ -311,6 +294,7 @@ export const settle = mutation({
     input: v.number(),
     output: v.number(),
     cost: v.number(),
+    providerRequest: v.optional(v.string()),
     status: v.union(v.literal("complete"), v.literal("failed"), v.literal("unreported")),
   },
   returns: v.null(),
@@ -334,7 +318,13 @@ export const settle = mutation({
         await ctx.db.patch(key._id, { lifetime: key.lifetime - refund });
       }
     }
-    await ctx.db.patch(row._id, { input: args.input, output: args.output, cost, status: args.status });
+    await ctx.db.patch(row._id, {
+      input: args.input,
+      output: args.output,
+      cost,
+      status: args.status,
+      ...(args.providerRequest ? { providerRequest: args.providerRequest, reconciliation: "pending" } : {}),
+    });
     return null;
   },
 });

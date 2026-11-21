@@ -2,6 +2,8 @@ export const models = [
   {
     id: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
     name: "DeepSeek V4.1 Flash",
+    tier: "confidential",
+    provider: "near-ai",
     type: "General",
     context: "1.05M",
     input: 0.3,
@@ -14,6 +16,8 @@ export const models = [
   {
     id: "z-ai/glm-5.3-flash",
     name: "GLM 5.3 Flash",
+    tier: "confidential",
+    provider: "near-ai",
     type: "Fast",
     context: "1.05M",
     input: 0.08,
@@ -26,6 +30,8 @@ export const models = [
   {
     id: "Qwen/Qwen3.6-35B-A3B-FP8",
     name: "Qwen 3.6 35B",
+    tier: "confidential",
+    provider: "near-ai",
     type: "Coding",
     context: "262K",
     input: 0.17,

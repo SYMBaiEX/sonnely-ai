@@ -1516,27 +1516,6 @@ tbody tr:last-child > * {
 .theme-switch {
   border-radius: 999px;
 }
-.theme-switch {
-  width: 43px;
-  height: 43px;
-}
-.theme-switch .theme-moon {
-  display: none;
-}
-.theme-root[data-theme="light"] .theme-switch .theme-sun {
-  display: none;
-}
-.theme-root[data-theme="light"] .theme-switch .theme-moon {
-  display: block;
-}
-@media (prefers-color-scheme: light) {
-  .theme-root[data-theme="system"] .theme-switch .theme-sun {
-    display: none;
-  }
-  .theme-root[data-theme="system"] .theme-switch .theme-moon {
-    display: block;
-  }
-}
 .scene {
   --scene-offset: 0px;
   position: absolute;
@@ -1871,10 +1850,6 @@ button {
   .site-actions .button {
     padding-inline: 10px;
     font-size: 12px;
-  }
-  .theme-switch {
-    width: 40px;
-    height: 40px;
   }
   .site-actions {
     gap: 5px;
