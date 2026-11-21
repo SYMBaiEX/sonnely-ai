@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { models } from "../lib/models";
+import { apiBasePath, apiOrigin } from "../lib/api-contract";
 
 test("the theme follows the user across the site and all console pages", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2027-01-02T12:00:00Z"));
@@ -81,12 +82,33 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   await expect(page).toHaveURL(/\/console\/usage$/);
 });
 
-test("the homepage examples show different workflows and real playground links", async ({ page }) => {
+test("the homepage offers a copyable request and links to the selected model", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
-  const demo = page.getByRole("region", { name: "Sample request preview" });
-  await expect(demo.getByText("Turn these handoff notes into a brief.")).toBeVisible();
+  const hero = page.getByRole("region", { name: "Confidential inference." });
+  const demo = page.getByRole("region", { name: "Your first API request." });
+  await expect(hero.getByRole("img", { name: /forest village/ })).toBeVisible();
+  await hero.getByRole("link", { name: "API quickstart" }).click();
+  await expect(page).toHaveURL(/#quickstart$/);
+  await expect(demo.locator("pre")).toContainText("Turn these handoff notes into a brief.");
   await demo.getByRole("button", { name: "Extract", exact: true }).click();
   await expect(demo.getByText('{ "owner": "Rin", "due": "Friday" }')).toBeVisible();
+  await demo.getByRole("button", { name: "Copy request" }).click();
+  await expect(demo.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
+  const command = await page.evaluate(() => navigator.clipboard.readText());
+  expect(command).toContain(apiOrigin + apiBasePath + "/chat/completions");
+  expect(command).toContain("Bearer $SONNELY_API_KEY");
+  const payload = command.match(/-d '([\s\S]+)'$/)?.[1];
+  expect(payload).toBeDefined();
+  expect(JSON.parse(payload!)).toEqual({
+    model: models[1].id,
+    messages: [
+      {
+        role: "user",
+        content: "Extract the owner and due date as JSON.\n\nRin will deliver the revised plan on Friday.",
+      },
+    ],
+  });
   await expect(demo.getByRole("link", { name: "Open GLM 5.3 Flash in playground" })).toHaveAttribute(
     "href",
     "/console?model=z-ai%2Fglm-5.3-flash",

@@ -1,47 +1,41 @@
-import { ArrowRight, ArrowUpRight, Fingerprint, Terminal, Wallet } from "lucide-react";
+import { ArrowDown, ArrowUpRight, Fingerprint, Terminal, Wallet } from "lucide-react";
 import Link from "next/link";
-import { CodeExample } from "@/components/shared";
 import { Scene } from "@/components/scene";
 import { HomeModelList } from "@/components/home-model-list";
 import { RequestPath } from "@/components/request-path";
 import { HomeCapabilities, HomeResources, HomeWorkloads } from "@/components/home-content";
 import { HomeDemo } from "@/components/home-demo";
 import { WorkspacePreview } from "@/components/workspace-preview";
+import "./home.css";
 
 export const metadata = { alternates: { canonical: "/" } };
 
 export default function Home() {
   return (
     <>
-      <section className="hero" aria-labelledby="home-hero-heading">
-        <Scene variant="hero" />
-        <div className="wrap hero-inner">
-          <div className="hero-content">
-            <p className="eyebrow">
-              <span className="signal" /> Confidential inference
-            </p>
-            <h1 id="home-hero-heading">
-              Private AI,
-              <br />
-              <em>on your terms.</em>
-            </h1>
-            <p className="hero-description">
-              Run models in confidential compute environments. Sign in with Solana and manage your API keys,
-              usage, and credits in one workspace.
-            </p>
-            <div className="actions">
-              <Link href="/console" className="button accent">
-                Open console <ArrowUpRight size={17} />
-              </Link>
-              <Link href="/docs" className="button hero-secondary">
-                Read the docs <ArrowRight size={16} />
-              </Link>
-            </div>
+      <section className="wrap hero" aria-labelledby="home-hero-heading">
+        <div className="hero-content">
+          <h1 id="home-hero-heading">
+            Confidential <em>inference.</em>
+          </h1>
+          <p className="hero-description">
+            Run NEAR Private TEE models in your apps through an OpenAI-compatible API.
+          </p>
+          <div className="actions">
+            <Link href="/console" className="button accent">
+              Open console <ArrowUpRight size={17} />
+            </Link>
+            <a href="#quickstart" className="button quiet">
+              API quickstart <ArrowDown size={16} />
+            </a>
           </div>
-          <HomeDemo />
+        </div>
+        <div className="hero-art" role="img" aria-label="An illustrated Japanese forest village">
+          <Scene variant="hero" />
         </div>
       </section>
       <div className="wrap home">
+        <HomeDemo />
         <div className="strip" aria-label="Platform components">
           <span>
             <Wallet size={17} /> Solana wallet identity
@@ -56,26 +50,6 @@ export default function Home() {
         <HomeCapabilities />
         <HomeModelList />
         <HomeWorkloads />
-        <section className="section split code-section">
-          <div>
-            <p className="eyebrow">Developer quickstart</p>
-            <h2>
-              Your SDK.
-              <br />A different endpoint.
-            </h2>
-            <p>
-              Use the client you already have. Create a workspace key, set a budget, and send a text
-              completion.
-            </p>
-            <Link className="text-link" href="/docs">
-              Integration guide <ArrowUpRight size={17} />
-            </Link>
-          </div>
-          <div className="code-visual">
-            <img src="/homepage/quickstart.webp" alt="" width={960} height={640} loading="lazy" />
-            <CodeExample />
-          </div>
-        </section>
         <RequestPath />
         <WorkspacePreview />
         <HomeResources />
