@@ -121,7 +121,7 @@ function registerMobileWallet() {
   mobileRegistration ??= import("@solana-mobile/wallet-standard-mobile")
     .then(({ registerMwa, createDefaultAuthorizationCache, createDefaultChainSelector }) => {
       registerMwa({
-        appIdentity: { name: "Sonnely", uri: window.location.origin, icon: "/mark.png" },
+        appIdentity: { name: "Sonnely", uri: window.location.origin, icon: "/brand/sonnely-crimson-192.png" },
         chains: ["solana:mainnet", "solana:devnet"],
         authorizationCache: createDefaultAuthorizationCache(),
         chainSelector: createDefaultChainSelector(),

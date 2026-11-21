@@ -258,11 +258,7 @@ select:focus-visible {
   width: 34px;
   height: 34px;
   margin-right: 3px;
-  color: var(--accent);
-  background: var(--active-fill);
-  border: 1px solid var(--line);
-  box-shadow: inset 0 1px 0 var(--rim);
-  border-radius: 11px;
+  flex-shrink: 0;
 }
 .site-header {
   position: sticky;
@@ -1816,7 +1812,12 @@ button {
 }
 @media (max-width: 350px) {
   .site-nav .brand-icon {
-    display: none;
+    width: 25px;
+    height: 25px;
+    margin-right: 0;
+  }
+  .site-nav .brand {
+    gap: 5px;
   }
   .site-nav nav {
     font-size: 12px;

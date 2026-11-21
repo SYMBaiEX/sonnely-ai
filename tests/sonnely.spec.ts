@@ -84,6 +84,17 @@ test("public routes and console work across desktop and mobile", async ({ page }
     expect(response?.status()).toBe(200);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   }
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto("/");
+  await expect(page.locator(".site-nav .brand-icon img")).toBeVisible();
+  await expect(page.locator(".site-nav .brand-icon img")).toHaveAttribute(
+    "src",
+    "/brand/sonnely-crimson-192.png",
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await page.goto("/console");
+  await expect(page.locator(".compact-brand img")).toBeVisible();
+  await expect(page.locator(".compact-brand img")).toHaveAttribute("src", "/brand/sonnely-crimson-192.png");
 });
 
 test("wallet account workflow scopes keys, referrals, and support requests", async ({
