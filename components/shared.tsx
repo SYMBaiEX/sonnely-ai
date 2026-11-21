@@ -7,6 +7,7 @@ import { apiBasePath } from "@/lib/api-contract";
 import { formatRate, markedUpRates } from "@/lib/pricing";
 import { routeLabels } from "@/lib/model-privacy";
 import { models } from "@/lib/models";
+import { providerRoute } from "@/lib/provider-catalog";
 
 export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
   const [status, setStatus] = useState("");
@@ -30,7 +31,7 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
   );
 }
 
-export function ModelCatalog() {
+export function ModelCatalog({ phala = false }: { phala?: boolean }) {
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState("featured");
   const displayed = models.filter((model) =>
@@ -99,6 +100,9 @@ export function ModelCatalog() {
                         <h3>{model.name}</h3>
                         <p>{model.summary}</p>
                         <span className="model-tier">{routeLabels[model.privacyRoute]} · Confidential</span>
+                        {phala && providerRoute(model, "phala") && (
+                          <p className="caption">NEAR AI and Phala</p>
+                        )}
                       </div>
                     </div>
                   </th>
@@ -122,6 +126,14 @@ export function ModelCatalog() {
                       <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
                         Open in chat <ArrowUpRight size={15} />
                       </Link>
+                      {phala && providerRoute(model, "phala") && (
+                        <Link
+                          href={"/console?provider=phala&model=" + encodeURIComponent(model.id)}
+                          className="text-link"
+                        >
+                          Open with Phala <ArrowUpRight size={15} />
+                        </Link>
+                      )}
                       <CopyButton value={model.id} label="Copy model ID" />
                     </div>
                   </td>
@@ -137,8 +149,8 @@ export function ModelCatalog() {
         </p>
       )}
       <p className="caption">
-        Rates include Sonnely’s 10% markup. These models run in NEAR AI’s Private TEE tier. Sonnely accepts
-        text requests and forwards them through its HTTPS gateway.{" "}
+        Displayed rates are for NEAR AI and include Sonnely’s 10% markup. The API catalog lists rates for each
+        available provider. Sonnely forwards text requests through its HTTPS gateway.{" "}
         <Link href="/docs#privacy">Read how data is handled ↗</Link>
       </p>
     </>

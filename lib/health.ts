@@ -35,6 +35,7 @@ export async function serviceHealth() {
   const checks = {
     accountService,
     providerConfigured: Boolean(managedProviderKey()),
+    phalaConfigured: Boolean(managedProviderKey("phala")),
     mainnetPaymentsConfigured: mainnet,
     depositRecovery,
   };

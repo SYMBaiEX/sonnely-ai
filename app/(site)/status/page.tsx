@@ -28,8 +28,12 @@ export default async function StatusPage() {
             <dd>{health.checks.accountService ? "Connected" : "Unavailable"}</dd>
           </div>
           <div>
-            <dt>Inference provider</dt>
+            <dt>NEAR AI</dt>
             <dd>{health.checks.providerConfigured ? "Configured" : "Unavailable"}</dd>
+          </div>
+          <div>
+            <dt>Phala</dt>
+            <dd>{health.checks.phalaConfigured ? "Configured" : "Unavailable"}</dd>
           </div>
           <div>
             <dt>Mainnet USDC</dt>

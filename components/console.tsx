@@ -28,6 +28,7 @@ import { Admin } from "./admin";
 import { Chat } from "./chat";
 import { NearModelDirectory } from "./near-model-directory";
 import { ModelCatalog } from "./shared";
+import type { ProviderId } from "@/lib/provider-catalog";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
 import { TermsAcceptance } from "./terms-acceptance";
 import { useSession, WalletControl } from "./wallet";
@@ -47,10 +48,14 @@ const defaults: Preferences = { theme: "dark", localHistory: false, plain: true 
 export function Console({
   section,
   initialModel,
+  initialProvider,
+  phala,
   providerCatalog,
 }: {
   section: Section;
   initialModel: string;
+  initialProvider: ProviderId;
+  phala: boolean;
   providerCatalog?: Awaited<ReturnType<typeof nearCatalog>>;
 }) {
   const [range, setRange] = useState(30);
@@ -206,9 +211,11 @@ export function Console({
           {session?.termsRequired && <TermsAcceptance refresh={refresh} />}
           {section === "chat" && (
             <Chat
-              key={(profile?.wallet ?? "guest") + ":" + initialModel}
+              key={(profile?.wallet ?? "guest") + ":" + initialModel + ":" + initialProvider}
               session={session}
               initialModel={initialModel}
+              initialProvider={initialProvider}
+              phala={phala}
               refresh={refresh}
               localHistory={prefs.localHistory}
               plain={prefs.plain}
@@ -223,7 +230,7 @@ export function Console({
                   Browse the full NEAR directory <ArrowUpRight size={15} />
                 </Link>
               </header>
-              <ModelCatalog />
+              <ModelCatalog phala={phala} />
               {providerCatalog && <NearModelDirectory {...providerCatalog} />}
             </>
           )}

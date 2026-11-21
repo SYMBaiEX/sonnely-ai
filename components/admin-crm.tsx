@@ -6,6 +6,7 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { creditBalance } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
+import { providerNames } from "@/lib/provider-catalog";
 import { CopyButton } from "./shared";
 import { request } from "./wallet";
 
@@ -29,6 +30,9 @@ const outcomes: Record<string, string> = {
   upstream_http: "Provider HTTP error",
   upstream_transport: "Provider transport error",
   invalid_usage: "Invalid provider response",
+  phala_unavailable: "Phala receipt unavailable",
+  phala_payload_mismatch: "Phala receipt payload mismatch",
+  phala_route_mismatch: "Phala serving route mismatch",
 };
 
 function useCrm<T>(route: string, revision: number) {
@@ -72,7 +76,7 @@ function TraceList({ rows, open }: { rows: Trace[]; open?: (id: string) => void 
             <span>
               <strong>{models.find((item) => item.id === row.model)?.name ?? row.model}</strong>
               <span className="caption">
-                {localTime(row.started)} · {row.keyName}
+                {localTime(row.started)} · {row.keyName} · {providerNames[row.provider] ?? "NEAR AI"}
               </span>
             </span>
             <span className="crm-state">{traceStates[row.status]}</span>
@@ -97,6 +101,12 @@ function TraceList({ rows, open }: { rows: Trace[]; open?: (id: string) => void 
                 {row.providerStatus ? " · HTTP " + row.providerStatus : ""}
               </dd>
             </div>
+            {row.providerReportedCostNano !== undefined && (
+              <div>
+                <dt>Upstream-reported cost</dt>
+                <dd>${(row.providerReportedCostNano / 1e9).toFixed(9)}</dd>
+              </div>
+            )}
             <div>
               <dt>Time to settlement</dt>
               <dd>

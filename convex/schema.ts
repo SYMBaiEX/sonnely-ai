@@ -52,11 +52,13 @@ export default defineSchema({
     input: v.number(),
     output: v.number(),
     cost: v.number(),
+    provider: v.optional(v.literal("phala")),
     providerRequest: v.optional(v.string()),
     providerStatus: v.optional(v.number()),
     outcome: v.optional(v.string()),
     settledAt: v.optional(v.number()),
     providerCostNano: v.optional(v.number()),
+    providerReportedCostNano: v.optional(v.number()),
     reconciliation: v.optional(v.union(v.literal("pending"), v.literal("reconciled"))),
     status: v.union(
       v.literal("pending"),

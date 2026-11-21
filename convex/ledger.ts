@@ -12,6 +12,7 @@ export async function settleUsage(
     output: number;
     providerRequest?: string;
     providerStatus?: number;
+    providerReportedCostNano?: number;
     outcome?: string;
   },
 ) {
@@ -40,7 +41,12 @@ export async function settleUsage(
     ...(args.providerStatus === undefined ? {} : { providerStatus: args.providerStatus }),
     ...(args.outcome ? { outcome: args.outcome } : {}),
     ...(args.providerRequest ? { providerRequest: args.providerRequest } : {}),
-    ...(args.status === "complete" && args.providerRequest ? { reconciliation: "pending" } : {}),
+    ...(row.provider === "phala" && args.providerReportedCostNano !== undefined
+      ? { providerReportedCostNano: args.providerReportedCostNano }
+      : {}),
+    ...(row.provider !== "phala" && args.status === "complete" && args.providerRequest
+      ? { reconciliation: "pending" }
+      : {}),
   });
 }
 

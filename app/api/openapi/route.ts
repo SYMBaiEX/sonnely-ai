@@ -1,6 +1,7 @@
 import { apiBasePath, apiOrigin, limits } from "@/lib/api-contract";
 import { receiptHeader, receiptVersion } from "@/lib/inference-receipt";
 import { models } from "@/lib/models";
+import { providerIds } from "@/lib/provider-catalog";
 
 const jsonSchema = (schema: string) => ({
   "application/json": { schema: { $ref: "#/components/schemas/" + schema } },
@@ -28,7 +29,7 @@ const spec = {
     title: "Sonnely Inference API",
     version: "1.0.0",
     description:
-      "Confidential text inference through NEAR AI, metered in compute credits funded with Solana mainnet USDC.",
+      "Confidential text inference through NEAR AI or Phala, metered in compute credits funded with Solana mainnet USDC.",
   },
   servers: [
     { url: apiOrigin + apiBasePath },
@@ -88,7 +89,26 @@ const spec = {
                 owned_by: { type: "string" },
                 tier: { const: "confidential" },
                 privacy_route: { const: "private-tee" },
+                routes: { type: "array", items: { $ref: "#/components/schemas/ModelRoute" } },
               },
+            },
+          },
+        },
+      },
+      ModelRoute: {
+        type: "object",
+        required: ["provider", "provider_name", "upstream_model", "price_usd_per_million"],
+        properties: {
+          provider: { enum: providerIds },
+          provider_name: { type: "string" },
+          upstream_model: { type: "string" },
+          price_usd_per_million: {
+            type: "object",
+            required: ["input", "cache", "output"],
+            properties: {
+              input: { type: "number", minimum: 0 },
+              cache: { type: "number", minimum: 0 },
+              output: { type: "number", minimum: 0 },
             },
           },
         },
@@ -120,6 +140,27 @@ const spec = {
             default: limits.defaultOutputTokens,
           },
           stream: { const: false },
+          provider: {
+            type: "object",
+            additionalProperties: false,
+            required: ["only"],
+            properties: {
+              only: {
+                type: "array",
+                minItems: 1,
+                maxItems: 1,
+                items: { enum: providerIds },
+              },
+            },
+            description: "Pin the request to one provider. The default is NEAR AI. There is no fallback.",
+          },
+          max_cost_microusd: {
+            type: "integer",
+            minimum: 1,
+            maximum: Number.MAX_SAFE_INTEGER,
+            description:
+              "Reject the request before sending it upstream if the credit reservation exceeds this limit.",
+          },
         },
       },
       Completion: {
@@ -216,6 +257,23 @@ const spec = {
                   signing_address: { type: "string" },
                   signature: { type: "string" },
                   text: { type: "string" },
+                },
+              },
+              {
+                type: "object",
+                required: [
+                  "status",
+                  "aci_receipt_id",
+                  "aci_keyset_digest",
+                  "operator_route",
+                  "upstream_session_id",
+                ],
+                properties: {
+                  status: { const: "aci_payload_matched" },
+                  aci_receipt_id: { type: "string" },
+                  aci_keyset_digest: { type: "string" },
+                  operator_route: { type: "string" },
+                  upstream_session_id: { type: "string" },
                 },
               },
             ],

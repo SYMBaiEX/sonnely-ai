@@ -35,7 +35,9 @@ const trace = v.object({
   input: v.number(),
   output: v.number(),
   providerRequest: v.optional(v.string()),
+  provider: v.union(v.literal("near-ai"), v.literal("phala")),
   providerCostNano: v.optional(v.number()),
+  providerReportedCostNano: v.optional(v.number()),
   providerStatus: v.optional(v.number()),
   outcome: v.optional(v.string()),
 });
@@ -77,7 +79,9 @@ function traceDoc(row: Doc<"usage">) {
     input: row.input,
     output: row.output,
     providerRequest: row.providerRequest,
+    provider: row.provider ?? ("near-ai" as const),
     providerCostNano: row.providerCostNano,
+    providerReportedCostNano: row.providerReportedCostNano,
     providerStatus: row.providerStatus,
     outcome: row.outcome,
   };

@@ -216,6 +216,7 @@ const usageRow = v.object({
   time: v.number(),
   keyName: v.string(),
   model: v.string(),
+  provider: v.union(v.literal("near-ai"), v.literal("phala")),
   input: v.number(),
   output: v.number(),
   cost: v.number(),
@@ -228,10 +229,11 @@ async function usageRows(ctx: QueryCtx, account: Id<"accounts">, since: number) 
     .withIndex("by_account", (q) => q.eq("account", account).gte("_creationTime", since))
     .order("desc")
     .take(1000);
-  return rows.map(({ _creationTime, keyName, model, input, output, cost, status }) => ({
+  return rows.map(({ _creationTime, keyName, model, provider, input, output, cost, status }) => ({
     time: _creationTime,
     keyName,
     model,
+    provider: provider ?? ("near-ai" as const),
     input,
     output,
     cost,
@@ -269,6 +271,7 @@ export const reserve = mutation({
     pilotWallet: v.optional(v.string()),
     requireTerms: v.optional(v.boolean()),
     model: v.string(),
+    provider: v.optional(v.literal("phala")),
     cost: v.number(),
   },
   returns: v.id("usage"),
@@ -318,6 +321,7 @@ export const reserve = mutation({
       keyName: key?.name ?? "Console",
       keyDay: key ? day : undefined,
       model: args.model,
+      ...(args.provider ? { provider: args.provider } : {}),
       input: 0,
       output: 0,
       cost: args.cost,
@@ -335,6 +339,7 @@ export const settle = mutation({
     cost: v.number(),
     providerRequest: v.optional(v.string()),
     providerStatus: v.optional(v.number()),
+    providerReportedCostNano: v.optional(v.number()),
     outcome: v.optional(v.string()),
     status: v.union(v.literal("complete"), v.literal("failed"), v.literal("unreported")),
   },

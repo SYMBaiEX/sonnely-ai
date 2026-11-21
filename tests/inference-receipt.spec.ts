@@ -27,7 +27,7 @@ const body =
   ) + "\n";
 const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 
-test("opt-in receipts match wire bytes and the settled Convex charge", async ({ baseURL }) => {
+async function fundedKey(baseURL: string | undefined) {
   test.skip(!baseURL || new URL(baseURL).hostname !== "127.0.0.1", "Local Convex fixture");
   process.loadEnvFile(".env.local");
   if (!process.env.CONVEX_URL?.startsWith("http://127.0.0.1:")) throw new Error("Local Convex required");
@@ -62,6 +62,11 @@ test("opt-in receipts match wire bytes and the settled Convex charge", async ({ 
     dailyCap: null,
     expires: null,
   });
+  return { db, auth, apiKey, balance };
+}
+
+test("opt-in receipts match wire bytes and the settled Convex charge", async ({ baseURL }) => {
+  const { db, auth, apiKey, balance } = await fundedKey(baseURL);
 
   const originalEnv = process.env;
   process.env = {
@@ -178,6 +183,126 @@ test("opt-in receipts match wire bytes and the settled Convex charge", async ({ 
     );
   } finally {
     providerFetch.mock.restore();
+    process.env = originalEnv;
+  }
+});
+
+test("Phala is pinned, fail-closed, and metered separately in Convex", async ({ baseURL }) => {
+  const { db, auth, apiKey, balance } = await fundedKey(baseURL);
+  const originalEnv = process.env;
+  process.env = {
+    ...originalEnv,
+    NEAR_AI_API_KEY: "near-test-key",
+    PHALA_AI_API_KEY: "phala-test-key",
+    VERCEL_ENV: "",
+    SONNELY_PUBLIC_INFERENCE: "false",
+    SONNELY_PILOT_WALLET: "",
+  };
+  const originalFetch = globalThis.fetch;
+  const upstreamModel = "deepseek/deepseek-v4.1-flash-1017";
+  const receiptId = "rcpt-fixture";
+  const phalaBody = JSON.stringify({
+    ...JSON.parse(body),
+    model: upstreamModel,
+    usage: { prompt_tokens: 50, completion_tokens: 10, cost: 0.000027 },
+  });
+  let sent = "";
+  let target = "phala-777";
+  let calls = 0;
+  let nearCalls = 0;
+  const mocked = mock.method(
+    globalThis,
+    "fetch",
+    async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      if (url.origin === "https://cloud-api.near.ai") {
+        nearCalls++;
+        return new Response(null, { status: 500 });
+      }
+      if (url.origin !== "https://inference.phala.com") return originalFetch(input, init);
+      if (url.pathname === "/v1/chat/completions") {
+        calls++;
+        sent = String(init?.body);
+        return new Response(phalaBody, { headers: { "x-receipt-id": receiptId } });
+      }
+      expect(url.pathname).toBe("/v1/aci/receipts/" + receiptId);
+      return Response.json({
+        api_version: "aci/1",
+        receipt_id: receiptId,
+        chat_id: completionId,
+        model: upstreamModel,
+        workload_keyset_digest: "sha256:" + "a".repeat(64),
+        event_log: [
+          { type: "request.received", body_hash: "sha256:" + sha(sent) },
+          { type: "route.selected", target_route_id: target + ":" + upstreamModel },
+          {
+            type: "upstream.verified",
+            result: "verified",
+            required: true,
+            session_id: "fixture",
+            model_id: upstreamModel,
+          },
+          { type: "response.returned", body_hash: "sha256:" + sha(phalaBody) },
+        ],
+      });
+    },
+  );
+
+  function submit(overrides: Record<string, unknown> = {}) {
+    return POST(
+      new NextRequest("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + apiKey,
+          "X-Sonnely-Receipt": "v1",
+        },
+        body: JSON.stringify({
+          messages,
+          model: model.id,
+          max_tokens: 32,
+          provider: { only: ["phala"] },
+          ...overrides,
+        }),
+      }),
+    );
+  }
+
+  try {
+    expect((await submit({ max_cost_microusd: 1 })).status).toBe(400);
+    expect((await submit({ model: models[1].id })).status).toBe(404);
+    expect(calls).toBe(0);
+    const ok = await submit({ max_cost_microusd: 1_000 });
+    expect(ok.status).toBe(200);
+    expect(JSON.parse(sent)).toMatchObject({
+      model: upstreamModel,
+      provider: { only: ["phala"], allow_fallbacks: false, aci_verified: true },
+    });
+    const cost = requestCharge(model, 50, 0, 10);
+    const result = await ok.json();
+    expect(result.usage).not.toHaveProperty("cost");
+    expect(result.sonnely_receipt).toMatchObject({
+      provider: "phala",
+      requested_model: model.id,
+      charged_microusd: cost,
+      billing_reference: "phala:" + receiptId,
+      evidence: { status: "aci_payload_matched", operator_route: "phala-777:" + upstreamModel },
+    });
+
+    target = "near-ai-777";
+    expect((await submit()).status).toBe(502);
+    expect(nearCalls).toBe(0);
+    const account = await db.query(api.sonnely.consoleLive, { ...auth, since: 0 });
+    expect(account?.balance).toBe(balance - cost);
+    expect(account?.rows).toHaveLength(2);
+    expect(account?.rows).toContainEqual(
+      expect.objectContaining({ provider: "phala", status: "complete", cost }),
+    );
+    expect(account?.rows).toContainEqual(
+      expect.objectContaining({ provider: "phala", status: "failed", cost: 0 }),
+    );
+  } finally {
+    mocked.mock.restore();
     process.env = originalEnv;
   }
 });

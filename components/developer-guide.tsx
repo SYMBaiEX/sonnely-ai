@@ -6,6 +6,7 @@ import { CodeExample, CopyButton } from "./shared";
 const sections = [
   ["quickstart", "Quickstart"],
   ["api", "API reference"],
+  ["providers", "Provider selection"],
   ["limits", "Request limits"],
   ["errors", "Errors and recovery"],
   ["keys", "Key management"],
@@ -140,6 +141,20 @@ export function DeveloperGuide() {
               calls, multimodal inputs and the Responses API are outside this API’s current contract.
             </p>
           </section>
+          <section id="providers">
+            <h2>Provider selection</h2>
+            <p>
+              Read <code>routes</code> on each model in <code>GET /v1/models</code> to compare providers and
+              their marked-up prices per million tokens. NEAR AI is the default. When Phala is listed for the
+              model, set <code>{'{"provider":{"only":["phala"]}}'}</code> in the completion body to select it
+              explicitly. Sonnely keeps each request on the selected route.
+            </p>
+            <p>
+              Set <code>max_cost_microusd</code> to cap the credit reservation before the provider receives
+              the request. One dollar is one million micro-USD. The final charge uses reported tokens and is
+              capped at the reservation.
+            </p>
+          </section>
           <section id="limits">
             <h2>Request limits</h2>
             <dl className="reference-list">
@@ -211,9 +226,9 @@ export function DeveloperGuide() {
             <h2>Data handling</h2>
             <p>
               HTTPS protects requests in transit to the Sonnely gateway. The gateway reads prompts for
-              validation and forwards them to NEAR AI Cloud. Account and usage records include the wallet
-              identity, model, key label, token counts, request status and charges. The ledger excludes prompt
-              and response text.
+              validation and forwards them to the selected provider. Account and usage records include the
+              wallet identity, model, key label, token counts, request status and charges. The ledger excludes
+              prompt and response text.
             </p>
             <p>
               Optional chat history is stored in this browser. Manage it in{" "}
@@ -223,13 +238,15 @@ export function DeveloperGuide() {
           <section id="verification">
             <h2>Attestation</h2>
             <p>
-              All models currently available on Sonnely use NEAR AI’s Private TEE route. The
-              <Link href="/models#near-directory"> NEAR directory</Link> also lists third-party attested and
-              Incognito routes. Those are provider listings. Sonnely’s HTTPS gateway does not provide
-              end-to-end encryption to the enclave or verify the attestation for each response.
+              The default NEAR AI routes use its Private TEE tier. Phala routes require a matching ACI receipt
+              for a Phala-operated route with upstream verification reported by Phala. Sonnely’s HTTPS gateway
+              reads the input and output. Independent hardware and model verification is a separate step.
             </p>
             <a className="text-link" href="https://docs.near.ai/cloud/verification">
               NEAR AI verification guide <ArrowUpRight size={16} />
+            </a>
+            <a className="text-link" href="https://phala.com/confidential-ai-models/verification">
+              Phala verification guide <ArrowUpRight size={16} />
             </a>
           </section>
           <section id="receipts">
@@ -245,6 +262,12 @@ export function DeveloperGuide() {
               the signing address reported by NEAR. NEAR identifies its signature as <code>provider_tee</code>{" "}
               or <code>gateway</code>. Hardware attestation still requires verified preflight evidence that
               binds the signing key to its deployment.
+            </p>
+            <p>
+              On Phala, <code>aci_payload_matched</code> includes the receipt ID, keyset digest, operator
+              route, and upstream session ID. Sonnely compares the hashes and reported route with the HTTPS
+              response from Phala. Use Phala’s verifier to check the receipt signature and its hardware
+              evidence.
             </p>
             <p>
               Keep receipts private. Their hashes can help someone confirm a guess about the request or

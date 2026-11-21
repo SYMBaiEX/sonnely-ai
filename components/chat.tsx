@@ -15,11 +15,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { models } from "@/lib/models";
+import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
 import { CopyButton } from "./shared";
 import { request, type Session } from "./wallet";
 
 type Message = { role: "user" | "assistant"; content: string; model?: string };
-type Thread = { id: string; model: string; messages: Message[] };
+type Thread = { id: string; model: string; provider?: ProviderId; messages: Message[] };
 type Reply = { choices: { message: { content: string | null } }[] };
 
 const samples = [
@@ -48,12 +49,16 @@ const samples = [
 
 export function Chat({
   initialModel,
+  initialProvider,
+  phala,
   session,
   refresh,
   localHistory,
   plain,
 }: {
   initialModel: string;
+  initialProvider: ProviderId;
+  phala: boolean;
   session: Session | null;
   refresh: () => Promise<void>;
   localHistory: boolean;
@@ -61,6 +66,9 @@ export function Chat({
 }) {
   const [text, setText] = useState("");
   const [model, setModel] = useState(initialModel);
+  const [provider, setProvider] = useState(initialProvider);
+  const modelEntry = models.find((item) => item.id === model);
+  const canUsePhala = Boolean(phala && modelEntry && providerRoute(modelEntry, "phala"));
   const [threads, setThreads] = useState<Thread[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [sample, setSample] = useState<number | null>(null);
@@ -127,7 +135,17 @@ export function Chat({
     const requestMessages = plain
       ? [{ role: "system", content: "Use concise, clear language." }, ...payload.slice(-31)]
       : payload.slice(-32);
-    const input = { model, messages: requestMessages, max_tokens: 1024 };
+    if (provider === "phala" && !canUsePhala) {
+      setError("Phala is unavailable for this model. Choose NEAR AI to continue.");
+      return;
+    }
+    const selectedProvider = provider;
+    const input = {
+      model,
+      messages: requestMessages,
+      max_tokens: 1024,
+      ...(selectedProvider === "phala" ? { provider: { only: [selectedProvider] } } : {}),
+    };
     if (new TextEncoder().encode(JSON.stringify(input)).byteLength > 36_000) {
       setError("This conversation is too long for the gateway. Start a new chat or shorten your message.");
       return;
@@ -137,11 +155,19 @@ export function Chat({
     setSample(null);
     setActive(id);
     setText("");
-    setThreads([{ id, model, messages: history }, ...rest]);
+    setThreads([{ id, model, provider: selectedProvider, messages: history }, ...rest]);
     try {
       const result = await request<Reply>("chat", input);
       const content = result.choices[0]?.message.content || "The provider returned no text.";
-      save([{ id, model, messages: [...history, { role: "assistant", content, model }] }, ...rest]);
+      save([
+        {
+          id,
+          model,
+          provider: selectedProvider,
+          messages: [...history, { role: "assistant", content, model }],
+        },
+        ...rest,
+      ]);
       await refresh();
     } catch (error) {
       setThreads(previous);
@@ -182,6 +208,7 @@ export function Chat({
                     setActive(thread.id);
                     setSample(null);
                     setModel(thread.model);
+                    setProvider(thread.provider ?? "near-ai");
                     setShowHistory(false);
                     setError("");
                   }}
@@ -301,7 +328,10 @@ export function Chat({
               <select
                 aria-label="Inference model"
                 value={model}
-                onChange={(e) => setModel(e.target.value)}
+                onChange={(e) => {
+                  setModel(e.target.value);
+                  setProvider("near-ai");
+                }}
                 disabled={busy}
               >
                 {models.map((item) => (
@@ -311,6 +341,21 @@ export function Chat({
                 ))}
               </select>
             </label>
+            {(canUsePhala || provider === "phala") && (
+              <label className="model-select">
+                <select
+                  aria-label="Inference provider"
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value === "phala" ? "phala" : "near-ai")}
+                  disabled={busy}
+                >
+                  <option value="near-ai">NEAR AI</option>
+                  <option value="phala" disabled={!canUsePhala}>
+                    {canUsePhala ? "Phala" : "Phala unavailable"}
+                  </option>
+                </select>
+              </label>
+            )}
             <button
               className="button accent icon-send"
               type="submit"

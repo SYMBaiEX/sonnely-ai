@@ -192,6 +192,30 @@ test("wallet roles, tenant isolation and payout reconciliation are enforced in C
   await expect(
     db.mutation(api.finance.confirmPayout, { ...admin, reference, signature }),
   ).resolves.toBeNull();
+  const phalaReference = "phala:rcpt-" + randomUUID();
+  const phala = await db.mutation(api.sonnely.reserve, {
+    ...member,
+    model: model.id,
+    provider: "phala",
+    cost: 1000,
+  });
+  await db.mutation(api.sonnely.settle, {
+    secret,
+    id: phala,
+    input: 20,
+    output: 20,
+    cost: 110,
+    status: "complete",
+    providerRequest: phalaReference,
+    providerReportedCostNano: 100_000,
+  });
+  expect(await db.query(api.finance.pendingCosts, admin)).not.toContain(phalaReference);
+  await expect(
+    db.mutation(api.finance.reconcile, {
+      ...admin,
+      costs: [{ requestId: phalaReference, costNanoUsd: 100_000 }],
+    }),
+  ).resolves.toBe(0);
   await expect(
     db.mutation(api.finance.confirmPayout, { ...admin, reference, signature }),
   ).resolves.toBeNull();

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
+import { providerNames } from "@/lib/provider-catalog";
 import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
 import { MotionSwitch } from "./ambient-motion";
 import { CopyButton } from "./shared";
@@ -324,7 +325,7 @@ export function Usage({
   liveRows?: UsageRow[];
 }) {
   const [metric, setMetric] = useState<"Spend" | "Tokens" | "Requests">("Spend");
-  const [group, setGroup] = useState<"Model" | "Key">("Model");
+  const [group, setGroup] = useState<"Model" | "Provider" | "Key">("Model");
   const [view, setView] = useState<"Chart" | "Table">("Chart");
   const { data, error } = useRemote<UsageRow[]>(signedIn, "usage?days=" + range);
   const rows = signedIn ? (liveRows ?? data ?? []) : [];
@@ -334,7 +335,11 @@ export function Usage({
     0,
   );
   const tokens = rows.reduce((sum, row) => sum + row.input + row.output, 0);
-  const grouped = Map.groupBy(rows, (row) => (group === "Model" ? row.model : row.keyName));
+  const grouped = Map.groupBy(rows, (row) => {
+    if (group === "Model") return models.find((model) => model.id === row.model)?.name ?? row.model;
+    if (group === "Provider") return providerNames[row.provider] ?? "NEAR AI";
+    return row.keyName;
+  });
   const daily = Map.groupBy(rows, (row) => day(row.time));
   const series = Array.from({ length: range }, (_, i) => {
     const time = Date.now() - (range - i - 1) * 86400_000;
@@ -468,7 +473,7 @@ export function Usage({
         <div className="between controls">
           <h2>Request breakdown</h2>
           <div className="segmented" aria-label="Group usage">
-            {(["Model", "Key"] as const).map((value) => (
+            {(["Model", "Provider", "Key"] as const).map((value) => (
               <button
                 type="button"
                 key={value}
@@ -493,7 +498,7 @@ export function Usage({
               <tbody>
                 {Array.from(grouped, ([label, groupRows]) => (
                   <tr key={label}>
-                    <th scope="row">{models.find((model) => model.id === label)?.name ?? label}</th>
+                    <th scope="row">{label}</th>
                     <td>{groupRows.length}</td>
                     <td>{groupRows.filter((row) => row.status === "failed").length}</td>
                     <td>{groupRows.reduce((n, r) => n + r.input, 0)}</td>

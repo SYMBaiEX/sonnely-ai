@@ -183,7 +183,8 @@ export const reconcile = mutation({
         .query("usage")
         .withIndex("by_provider_request", (q) => q.eq("providerRequest", cost.requestId))
         .unique();
-      if (!row || row.status !== "complete" || row.reconciliation !== "pending") continue;
+      if (!row || row.provider === "phala" || row.status !== "complete" || row.reconciliation !== "pending")
+        continue;
       await ctx.db.patch(row._id, { reconciliation: "reconciled", providerCostNano: cost.costNanoUsd });
       ledger.reconciled++;
       ledger.customerMicros += row.cost;
