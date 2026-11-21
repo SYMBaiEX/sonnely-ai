@@ -1564,3 +1564,32 @@ html[data-initial-theme="light"] .theme-root,
 .recovery-form code {
   overflow-wrap: anywhere;
 }
+
+.near-directory {
+  scroll-margin-top: 7rem;
+  margin-block: clamp(4rem, 9vw, 8rem);
+}
+
+.near-directory .section-head p {
+  max-width: 55ch;
+}
+
+.near-route-guide {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1.5rem;
+  margin-block: 1.5rem 2rem;
+}
+
+.near-route-guide dt {
+  font-weight: 600;
+}
+
+.near-route-guide dd {
+  margin: 0.3rem 0 0;
+}
+
+.near-model-id {
+  overflow-wrap: anywhere;
+  margin-block: 0.2rem;
+}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, Check, Copy, Search } from "lucide-react";
 import { apiBasePath } from "@/lib/api-contract";
 import { formatRate, markedUpRates } from "@/lib/pricing";
+import { routeLabels } from "@/lib/model-privacy";
 import { models } from "@/lib/models";
 
 export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
@@ -97,7 +98,7 @@ export function ModelCatalog() {
                       <div>
                         <h3>{model.name}</h3>
                         <p>{model.summary}</p>
-                        <span className="model-tier">Confidential · NEAR AI</span>
+                        <span className="model-tier">{routeLabels[model.privacyRoute]} · Confidential</span>
                       </div>
                     </div>
                   </th>
@@ -134,8 +135,9 @@ export function ModelCatalog() {
         </p>
       )}
       <p className="caption">
-        Rates include Sonnely’s 10% markup. Confidential models run in NEAR AI’s Private TEE tier. Sonnely
-        accepts text requests within gateway limits. <a href="https://near.ai/models">Provider catalog ↗</a>
+        Rates include Sonnely’s 10% markup. These models run in NEAR AI’s Private TEE tier. Sonnely accepts
+        text requests and forwards them through its HTTPS gateway.{" "}
+        <Link href="/docs#privacy">Read how data is handled ↗</Link>
       </p>
     </>
   );

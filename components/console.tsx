@@ -211,7 +211,10 @@ export function Console({ section, initialModel }: { section: Section; initialMo
             <>
               <header className="console-title">
                 <h1>Models</h1>
-                <p>Compare NEAR AI models by workload and token cost.</p>
+                <p>Compare models available on Sonnely by workload and token cost.</p>
+                <Link href="/models#near-directory" className="text-link">
+                  Browse the full NEAR directory <ArrowUpRight size={15} />
+                </Link>
               </header>
               <ModelCatalog />
             </>

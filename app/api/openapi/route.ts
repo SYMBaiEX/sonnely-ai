@@ -70,13 +70,14 @@ const spec = {
             type: "array",
             items: {
               type: "object",
-              required: ["id", "object", "created", "owned_by", "tier"],
+              required: ["id", "object", "created", "owned_by", "tier", "privacy_route"],
               properties: {
                 id: { type: "string" },
                 object: { const: "model" },
                 created: { type: "integer" },
                 owned_by: { type: "string" },
                 tier: { const: "confidential" },
+                privacy_route: { const: "private-tee" },
               },
             },
           },

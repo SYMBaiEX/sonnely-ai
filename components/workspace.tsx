@@ -605,14 +605,14 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
         <section className="panel stack-panel buy-credits">
           <div className="between">
             <h2>Buy credits</h2>
-            <span className="pill">
-              {session?.billingEnabled ? session.cluster : profile ? "Pilot access" : "Solana Pay"}
-            </span>
+            <span className="pill">{session?.billingEnabled ? session.cluster : "Solana Pay"}</span>
           </div>
           <p className="caption">
-            {profile
-              ? "Choose an amount in USDC. Credits post after your wallet transfer finalizes."
-              : "Connect your Solana wallet in the header to check checkout access."}
+            {session?.termsRequired
+              ? "Accept the current terms above to buy credits."
+              : profile
+                ? "Choose an amount in USDC. Credits post after your wallet transfer finalizes."
+                : "Connect your Solana wallet in the header to buy credits."}
           </p>
           <form
             className="inline-form"

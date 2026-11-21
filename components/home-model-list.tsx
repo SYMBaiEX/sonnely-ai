@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { routeLabels } from "@/lib/model-privacy";
 import { models } from "@/lib/models";
 
 export function HomeModelList() {
@@ -28,7 +29,7 @@ export function HomeModelList() {
                 </div>
               </div>
               <span className="home-model-spec">
-                <span className="pill">Confidential</span>
+                <span className="pill">{routeLabels[model.privacyRoute]}</span>
                 <span className="mono">{model.context} context</span>
               </span>
               <span className="text-link">

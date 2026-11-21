@@ -9,6 +9,7 @@ export function GET() {
       created: 0,
       owned_by: model.provider,
       tier: model.tier,
+      privacy_route: model.privacyRoute,
     })),
   });
 }

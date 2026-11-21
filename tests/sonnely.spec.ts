@@ -189,7 +189,9 @@ test("published guides link to supported endpoints and workflows", async ({ page
     .click();
   await expect(page.locator("#errors")).toContainText("A reservation may still be held.");
   await page.goto("/models");
-  await expect(page.getByRole("table")).toContainText("Qwen 3.6 35B");
+  await expect(page.getByRole("table", { name: "Model rates and provider context" })).toContainText(
+    "Qwen 3.6 35B",
+  );
   await page.goto("/blog/rotate-api-keys");
   await expect(page.getByRole("heading", { name: "Revoke the old key" })).toBeVisible();
   await page.goto("/contact");
@@ -271,4 +273,27 @@ test("launch endpoints describe this Solana workspace and its actual API", async
   expect(spec.components.schemas.CompletionRequest.properties.model.enum).toEqual(
     modelList.data.map((item: { id: string }) => item.id),
   );
+});
+
+test("the NEAR directory distinguishes privacy routes and Sonnely availability", async ({ page }) => {
+  await page.goto("/models");
+  const directory = page.getByRole("region", { name: "NEAR AI model directory" });
+  const table = directory.getByRole("table");
+  expect(await table.getByRole("row").count()).toBeGreaterThan(4);
+  await expect(table.getByText("Available on Sonnely", { exact: true })).toHaveCount(3);
+  const search = directory.getByRole("searchbox");
+  const privacy = directory.getByRole("combobox", { name: "NEAR privacy tier" });
+  await search.fill("deepseek-ai/DeepSeek-V4.1-Flash-1017-abliterated");
+  await privacy.selectOption("private-tee");
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await expect(table.getByText("NEAR catalog only", { exact: true })).toBeVisible();
+  await privacy.selectOption("incognito");
+  await expect(directory.getByText("No provider models match these filters.")).toBeVisible();
+  await search.fill("openai/gpt-6.2-sol");
+  await expect(table.getByText("Incognito", { exact: true })).toBeVisible();
+  await search.fill("moonshotai/kimi-k3");
+  await privacy.selectOption("private-3p-tee");
+  await expect(table.getByText("Private 3P TEE", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 });

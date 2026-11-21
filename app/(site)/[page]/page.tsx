@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowUpRight, Fingerprint, KeyRound, Wallet } from "lucide-react";
 import { ModelGuide, CostExample } from "@/components/model-guide";
+import { NearModelDirectory } from "@/components/near-model-directory";
+import { nearCatalog } from "@/lib/near-catalog";
 import { ModelCatalog } from "@/components/shared";
 import { DeveloperGuide } from "@/components/developer-guide";
 import { Contact } from "@/components/contact";
@@ -9,7 +11,7 @@ import { Scene } from "@/components/scene";
 import { JournalIndex } from "@/components/journal-index";
 
 const pages = {
-  models: ["Model catalog", "Compare text models by task, context window, and token pricing."],
+  models: ["Model catalog", "Compare live Sonnely models and browse the NEAR AI directory by privacy tier."],
   pricing: [
     "Pay for what you run",
     "Metered inference with a wallet-funded balance and optional per-key budgets.",
@@ -35,6 +37,7 @@ export default async function Subpage({ params }: Props) {
   const { page } = await params;
   if (!Object.hasOwn(pages, page)) notFound();
   const [title, description] = pages[page as Page];
+  const providerCatalog = page === "models" ? await nearCatalog() : null;
   return (
     <div className={"wrap inner-page page-" + page}>
       <header className="page-lead">
@@ -47,7 +50,14 @@ export default async function Subpage({ params }: Props) {
       </header>
       {page === "models" && (
         <>
+          <div className="section-head">
+            <h2>Available on Sonnely</h2>
+            <Link className="text-link" href="#near-directory">
+              Browse the NEAR directory
+            </Link>
+          </div>
           <ModelCatalog />
+          {providerCatalog && <NearModelDirectory {...providerCatalog} />}
           <ModelGuide />
         </>
       )}
@@ -58,8 +68,8 @@ export default async function Subpage({ params }: Props) {
               <Wallet />
               <h2>USDC credits</h2>
               <p>
-                Choose your top-up amount in USDC when checkout is available for your wallet. Credits post
-                automatically when the Solana transfer finalizes.
+                Choose your top-up amount in USDC after signing in and accepting the current terms. Credits
+                post automatically when the Solana transfer finalizes.
               </p>
               <Link className="text-link" href="/console/billing">
                 Billing console <ArrowUpRight size={16} />

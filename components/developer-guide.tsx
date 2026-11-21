@@ -217,9 +217,10 @@ export function DeveloperGuide() {
           <section id="verification">
             <h2>Attestation</h2>
             <p>
-              NEAR AI publishes hardware evidence for its Private TEE model tier. Check the provider’s
-              evidence and assess the Sonnely gateway separately. Through this gateway, clients do not receive
-              end-to-end encryption or per-response attestation verification.
+              All models currently available on Sonnely use NEAR AI’s Private TEE route. The
+              <Link href="/models#near-directory"> NEAR directory</Link> also lists third-party attested and
+              Incognito routes. Those are provider listings. Sonnely’s HTTPS gateway does not provide
+              end-to-end encryption to the enclave or verify the attestation for each response.
             </p>
             <a className="text-link" href="https://docs.near.ai/cloud/verification">
               NEAR AI verification guide <ArrowUpRight size={16} />
