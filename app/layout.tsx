@@ -14,7 +14,6 @@ export const metadata: Metadata = {
   title: { default: "Sonnely | Private AI on Solana", template: "%s | Sonnely" },
   description:
     "A Solana-native workspace for confidential inference, model discovery, and metered API access.",
-  icons: { icon: "/mark.png" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

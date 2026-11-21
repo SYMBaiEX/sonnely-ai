@@ -1,8 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
-  <defs><linearGradient id="flare" x1="0" x2="1" y1="0" y2="1" gradientUnits="objectBoundingBox">
-    <stop stop-color="#ff9a83"/><stop offset=".52" stop-color="#ff455b"/><stop offset="1" stop-color="#b91236"/>
-  </linearGradient></defs>
-  <path d="M52 10 82 25 79 44 48 62 26 53 30 41 54 29 48 25 22 39 19 26Z" fill="url(#flare)"/>
-  <path d="M44 86 14 71 17 52 48 34 70 43 66 55 42 67 48 71 74 57 77 70Z" fill="url(#flare)"/>
-  <path d="M75 11v12m-6-6h12" stroke="#ffd0c1" stroke-width="2.6" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="188 188 648 648">
+  <defs>
+    <linearGradient id="body" gradientUnits="userSpaceOnUse" x1="310" y1="210" x2="649" y2="812">
+      <stop stop-color="#ff766d"/>
+      <stop offset=".37" stop-color="#ff493e"/>
+      <stop offset=".66" stop-color="#eb233e"/>
+      <stop offset="1" stop-color="#ff5554"/>
+    </linearGradient>
+    <linearGradient id="fold" gradientUnits="userSpaceOnUse" x1="321" y1="444" x2="697" y2="568">
+      <stop stop-color="#ab102b"/>
+      <stop offset=".48" stop-color="#ed2940"/>
+      <stop offset="1" stop-color="#ff6359"/>
+    </linearGradient>
+    <linearGradient id="return" gradientUnits="userSpaceOnUse" x1="390" y1="687" x2="486" y2="802">
+      <stop stop-color="#b41332"/>
+      <stop offset="1" stop-color="#ff514d"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#body)" d="M783 219 684 358H430c-44 0-64 12-64 37 0 21 19 34 61 42l172 35c123 25 179 76 179 164 0 101-78 168-205 168H241l99-138h237c43 0 66-13 66-38 0-23-18-35-61-44l-172-36c-124-25-180-73-180-160 0-104 78-169 205-169Z"/>
+  <path fill="url(#fold)" d="M366 395c0 21 19 34 61 42l172 35c123 25 179 76 179 164 0 20-3 39-9 56-6-64-58-93-187-119l-178-37c-99-20-154-51-170-107 29 27 78 14 132-34Z"/>
+  <path fill="url(#return)" d="M241 804 340 666h237c43 0 66-13 66-38 24 15 28 46 10 69-17 22-53 33-101 33H294Z"/>
 </svg>

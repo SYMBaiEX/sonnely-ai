@@ -1,19 +1,16 @@
 {
   "fill": {
-    "linear-gradient": ["extended-srgb:0.24706,0.07843,0.13333,1.00000", "extended-srgb:0.05294,0.03529,0.06471,1.00000"]
+    "linear-gradient": [
+      "extended-srgb:0.17255,0.06667,0.10588,1.00000",
+      "extended-srgb:0.03922,0.03137,0.05098,1.00000"
+    ]
   },
   "groups": [
     {
-      "name": "Ribbon",
+      "name": "Crimson glass",
       "layers": [
-        { "name": "Folded ribbon", "image-name": "Ribbon.png", "glass": true }
-      ],
-      "specular": true
-    },
-    {
-      "name": "Light",
-      "layers": [
-        { "name": "Glint", "image-name": "Glint.png", "glass": true }
+        { "name": "S ribbon", "image-name": "Ribbon.svg", "glass": true },
+        { "name": "Beveled reflections", "image-name": "Reflections.svg", "glass": false }
       ],
       "specular": true
     }
