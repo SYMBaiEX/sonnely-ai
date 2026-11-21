@@ -8,11 +8,11 @@ test("the theme follows the user across the site and all console pages", async (
   const site = page.locator(".theme-root");
   const switcher = page.getByRole("switch", { name: "Switch color theme" });
   await expect(site).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /forest-night\.webp/);
+  await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-night\.webp/);
 
   await switcher.click();
   await expect(site).toHaveAttribute("data-theme", "light");
-  await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /forest-day\.webp/);
+  await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-day\.webp/);
   for (const route of ["", "/models", "/keys", "/usage", "/billing", "/referrals", "/settings"]) {
     await page.goto("/console" + route);
     await expect(site).toHaveAttribute("data-theme", "light");
@@ -31,7 +31,9 @@ test("the forest layers move on scroll and honor reduced motion", async ({ page 
   await page.goto("/");
   const scene = page.locator(".scene-hero");
   const artwork = scene.locator(".scene-image");
-  await page.evaluate(() => window.scrollTo(0, 320));
+  await page.locator(".request-stage").evaluate((el) => {
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY + 120, behavior: "instant" });
+  });
   await expect
     .poll(async () => artwork.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42))
     .toBeGreaterThan(2);
@@ -51,22 +53,26 @@ test("winter artwork switches across the site and the console at Chicago midnigh
   await page.clock.install({ time: new Date("2027-01-01T05:58:00Z") });
   await page.goto("/");
   const art = page.locator(".hero .scene-image");
-  const feature = page.locator(".request-scene .scene-image");
-  await expect(art).toHaveCSS("background-image", /winter-night\.webp/);
-  await expect(feature).toHaveCSS("background-image", /winter-sanctuary-night\.webp/);
+  const closing = page.locator(".closing .scene-image");
+  await expect(art).toHaveCSS("background-image", /signal-night-winter\.webp/);
+  await expect(closing).toHaveCSS("background-image", /winter-night\.webp/);
   await page.getByRole("switch", { name: "Switch color theme" }).click();
-  await expect(art).toHaveCSS("background-image", /winter-day\.webp/);
-  await expect(feature).toHaveCSS("background-image", /winter-sanctuary-day\.webp/);
+  await expect(art).toHaveCSS("background-image", /signal-day-winter\.webp/);
+  await expect(closing).toHaveCSS("background-image", /winter-day\.webp/);
   await page.clock.fastForward(120_000);
-  await expect(art).toHaveCSS("background-image", /forest-day\.webp/);
-  await expect(feature).toHaveCSS("background-image", /sanctuary-day\.webp/);
+  await expect(art).toHaveCSS("background-image", /signal-day\.webp/);
+  await expect(closing).toHaveCSS("background-image", /forest-day\.webp/);
   await page.goto("/console");
   await expect(page.locator(".console-world")).toHaveCSS("background-image", /forest-day\.webp/);
 });
 
 test("request stages, catalog ordering and keyboard navigation work", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "NEAR AI enclave" }).click();
+  const station = page.getByRole("button", { name: "NEAR AI enclave" });
+  await station.focus();
+  await page.keyboard.press("Enter");
+  await expect(station).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#request-path-detail")).toContainText("hardware-isolated environment");
   await expect(page.getByRole("link", { name: "Attestation guide" })).toBeVisible();
   await page.goto("/models");
   await page.getByRole("combobox", { name: "Sort models" }).selectOption("input");
@@ -85,7 +91,7 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
 test("the homepage offers a copyable request and links to the selected model", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
-  const hero = page.getByRole("region", { name: "Confidential inference." });
+  const hero = page.getByRole("region", { name: "Private AI." });
   const demo = page.getByRole("region", { name: "Your first API request." });
   await expect(hero.getByRole("img", { name: /forest village/ })).toBeVisible();
   await hero.getByRole("link", { name: "API quickstart" }).click();

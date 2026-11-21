@@ -50,7 +50,7 @@ async function registerWallet(context: BrowserContext) {
 
 test("public routes and console work across desktop and mobile", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Confidential inference.", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Private AI.", level: 1 })).toBeVisible();
   await page
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Models" })
