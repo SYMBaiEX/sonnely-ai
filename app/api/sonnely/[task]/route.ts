@@ -37,7 +37,7 @@ export async function GET(request: NextRequest, context: Context) {
   try {
     const { task } = await context.params;
     if (task === "session") {
-      const { billingEnabled, cluster } = billing();
+      const { billingEnabled, paymentVerificationEnabled, cluster } = billing();
       const enabled = Boolean(process.env.CONVEX_URL && serviceSecret());
       const token = sessionToken(request);
       const connection = enabled && token ? backend() : null;
@@ -53,6 +53,7 @@ export async function GET(request: NextRequest, context: Context) {
         enabled,
         inferenceEnabled: enabled && Boolean(process.env.NEAR_AI_API_KEY),
         billingEnabled: enabled && billingEnabled,
+        paymentVerificationEnabled: enabled && paymentVerificationEnabled,
         cluster,
       });
     }
@@ -209,10 +210,10 @@ export async function POST(request: NextRequest, context: Context) {
       return json(await quote(profile.wallet, sol));
     }
     if (task === "deposit" || task === "confirm") {
-      const { billingEnabled, cluster, mint, recipient, rpc } = billing();
-      if (!billingEnabled || !recipient || !rpc)
-        throw new SonnelyError("USDC payments are awaiting treasury setup.", 503);
+      const { billingEnabled, paymentVerificationEnabled, cluster, mint, recipient, rpc } = billing();
       if (task === "deposit") {
+        if (!billingEnabled || !recipient || !rpc)
+          throw new SonnelyError("USDC checkout is unavailable.", 503);
         const { dollars } = z.object({ dollars: z.number().int().min(5).max(1000) }).parse(raw);
         if (recipient === profile.wallet)
           throw new SonnelyError("Use a wallet other than the treasury wallet.");
@@ -257,6 +258,11 @@ export async function POST(request: NextRequest, context: Context) {
         .parse(raw);
       const order = await db.query(api.sonnely.depositDetails, { ...auth, reference });
       if (order.signature === signature) return json({ ok: true, cluster: order.cluster });
+      if (!paymentVerificationEnabled || !rpc)
+        throw new SonnelyError(
+          "USDC payment verification is unavailable. Retry with the same signature.",
+          503,
+        );
       if (
         order.signature ||
         order.cluster !== cluster ||

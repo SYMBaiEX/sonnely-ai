@@ -20,12 +20,13 @@ export function billing() {
   const cluster = process.env.SOLANA_BILLING_CLUSTER ?? "devnet";
   const treasury = address.safeParse(process.env.SOLANA_TREASURY);
   const rpc = process.env.SOLANA_RPC_URL;
+  const paymentVerificationEnabled =
+    treasury.success && Boolean(rpc) && (cluster === "devnet" || cluster === "mainnet");
   const billingEnabled =
-    treasury.success &&
-    Boolean(rpc) &&
-    (cluster === "devnet" || (cluster === "mainnet" && Boolean(process.env.NEAR_AI_API_KEY)));
+    paymentVerificationEnabled && (cluster === "devnet" || Boolean(process.env.NEAR_AI_API_KEY));
   return {
     billingEnabled,
+    paymentVerificationEnabled,
     cluster,
     recipient: treasury.data,
     rpc,
@@ -74,9 +75,11 @@ async function rpcCall(rpc: string, method: string, params: unknown[]) {
 
 export async function verifyCluster(rpc: string, cluster: string) {
   const expected =
-    cluster === "mainnet" ? "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" : "EtWTRABZaYq6iMfeYKouRu166VU2xqa1";
+    cluster === "mainnet"
+      ? "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+      : "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
   const result = await rpcCall(rpc, "getGenesisHash", []);
-  if (typeof result !== "string" || !result.startsWith(expected))
+  if (result !== expected)
     throw new SonnelyError("The configured Solana RPC is on a different network.", 503);
 }
 

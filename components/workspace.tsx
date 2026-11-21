@@ -678,7 +678,7 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
                 onChange={(e) => setSignature(e.target.value)}
               />
             </label>
-            <button className="button accent" disabled={!session?.billingEnabled || !!pending}>
+            <button className="button accent" disabled={!session?.paymentVerificationEnabled || !!pending}>
               {pending === "confirm" ? "Checking…" : "Confirm transaction"}
             </button>
           </form>

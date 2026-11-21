@@ -11,6 +11,7 @@ export type Session = {
   profile: { wallet: string; name: string; balance: number; referral: string } | null;
   enabled: boolean;
   billingEnabled: boolean;
+  paymentVerificationEnabled: boolean;
   inferenceEnabled: boolean;
   cluster: string;
 };
