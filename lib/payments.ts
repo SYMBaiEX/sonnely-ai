@@ -1,5 +1,6 @@
 import { z } from "zod";
 import bs58 from "bs58";
+import { managedProviderKey } from "./managed-access";
 import { SonnelyError } from "./server";
 
 export const address = z
@@ -23,7 +24,7 @@ export function billing() {
   const paymentVerificationEnabled =
     treasury.success && Boolean(rpc) && (cluster === "devnet" || cluster === "mainnet");
   const billingEnabled =
-    paymentVerificationEnabled && (cluster === "devnet" || Boolean(process.env.NEAR_AI_API_KEY));
+    paymentVerificationEnabled && (cluster === "devnet" || Boolean(managedProviderKey()));
   return {
     billingEnabled,
     paymentVerificationEnabled,

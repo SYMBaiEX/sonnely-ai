@@ -8,6 +8,7 @@ import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { address, billing, quote, verifyCluster, verifyPayment } from "@/lib/payments";
+import { allowedInPilot, managedProviderKey } from "@/lib/managed-access";
 import { infer } from "@/lib/inference";
 import {
   backend,
@@ -48,11 +49,12 @@ export async function GET(request: NextRequest, context: Context) {
               session: hash(token),
             })
           : null;
+      const eligible = allowedInPilot(profile?.wallet);
       return json({
         profile,
         enabled,
-        inferenceEnabled: enabled && Boolean(process.env.NEAR_AI_API_KEY),
-        billingEnabled: enabled && billingEnabled,
+        inferenceEnabled: enabled && eligible && Boolean(managedProviderKey()),
+        billingEnabled: enabled && eligible && billingEnabled,
         paymentVerificationEnabled: enabled && paymentVerificationEnabled,
         cluster,
       });
@@ -212,6 +214,7 @@ export async function POST(request: NextRequest, context: Context) {
     if (task === "deposit" || task === "confirm") {
       const { billingEnabled, paymentVerificationEnabled, cluster, mint, recipient, rpc } = billing();
       if (task === "deposit") {
+        if (!allowedInPilot(profile.wallet)) throw new SonnelyError("USDC checkout is unavailable.", 503);
         if (!billingEnabled || !recipient || !rpc)
           throw new SonnelyError("USDC checkout is unavailable.", 503);
         const { dollars } = z.object({ dollars: z.number().int().min(5).max(1000) }).parse(raw);

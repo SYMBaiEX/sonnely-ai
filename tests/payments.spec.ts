@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { allowedInPilot, managedProviderKey } from "../lib/managed-access";
 import { billing, mainnetMint, verifyCluster, verifyPayment } from "../lib/payments";
 
 const rpc = "https://rpc.example.test";
@@ -83,5 +84,29 @@ test("payment verification requires the exact network, finalized transfer, signe
     await expect(verifyPayment(rpc, "example-signature", payer, order)).rejects.toThrow("No finalized");
   } finally {
     globalThis.fetch = fetchOriginal;
+  }
+});
+
+test("production requires an explicit launch mode and restricts the pilot to one wallet", () => {
+  const keys = ["VERCEL_ENV", "SONNELY_PUBLIC_INFERENCE", "SONNELY_PILOT_WALLET", "NEAR_AI_API_KEY"] as const;
+  const previous = keys.map((key) => process.env[key]);
+  try {
+    process.env.VERCEL_ENV = "production";
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    delete process.env.SONNELY_PILOT_WALLET;
+    delete process.env.SONNELY_PUBLIC_INFERENCE;
+    expect(managedProviderKey()).toBeUndefined();
+
+    process.env.SONNELY_PILOT_WALLET = payer;
+    expect(allowedInPilot()).toBe(false);
+    expect(allowedInPilot(order.recipient)).toBe(false);
+    expect(allowedInPilot(payer)).toBe(true);
+    expect(managedProviderKey()).toBe("test-provider-key");
+  } finally {
+    keys.forEach((key, index) => {
+      const value = previous[index];
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    });
   }
 });

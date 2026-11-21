@@ -230,6 +230,7 @@ export const reserve = mutation({
     ...secret,
     session: v.optional(v.string()),
     hash: v.optional(v.string()),
+    pilotWallet: v.optional(v.string()),
     model: v.string(),
     cost: v.number(),
   },
@@ -247,6 +248,8 @@ export const reserve = mutation({
     if (hash && (!key || key.revoked || (key.expires !== null && key.expires <= now)))
       throw new ConvexError("Invalid or expired API key.");
     const account = key ? await ctx.db.get(key.account) : await requireAccount(ctx, args.session ?? "");
+    if (args.pilotWallet && account?.wallet !== args.pilotWallet)
+      throw new ConvexError("Managed inference is unavailable for this account.");
     if (!account || account.balance < args.cost) throw new ConvexError("Insufficient compute credits.");
     const recent = await ctx.db
       .query("usage")

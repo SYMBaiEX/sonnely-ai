@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import { limits } from "./api-contract";
+import { managedProviderKey, pilotWallet } from "./managed-access";
 import { models } from "./models";
 import { backend, SonnelyError } from "./server";
 
@@ -46,14 +47,21 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
   const input = completion.parse(raw);
   const model = models.find((item) => item.id === input.model);
   if (!model) throw new SonnelyError("Choose a model from the catalog.", 404);
-  const upstreamKey = process.env.NEAR_AI_API_KEY;
+  const upstreamKey = managedProviderKey();
   if (!upstreamKey) throw new SonnelyError("Managed inference is awaiting provider activation.", 503);
 
   const maxTokens = input.max_tokens ?? limits.defaultOutputTokens;
   const bytes = Buffer.byteLength(JSON.stringify(input.messages));
   const reserve = Math.ceil((bytes + 256) * model.input + maxTokens * model.output);
   const { db, secret } = backend();
-  const id = await db.mutation(api.sonnely.reserve, { secret, ...auth, model: input.model, cost: reserve });
+  const pilot = pilotWallet();
+  const id = await db.mutation(api.sonnely.reserve, {
+    secret,
+    ...auth,
+    ...(pilot ? { pilotWallet: pilot } : {}),
+    model: input.model,
+    cost: reserve,
+  });
   let status: "complete" | "failed" | "unreported" = "unreported";
   let tokensIn = 0;
   let tokensOut = 0;
