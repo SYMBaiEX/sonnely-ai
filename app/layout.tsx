@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { apiOrigin } from "@/lib/api-contract";
 import { seasonBeforePaint, themeBeforePaint } from "@/lib/appearance";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
@@ -9,7 +10,7 @@ import "./experience.css";
 export const viewport: Viewport = { viewportFit: "cover" };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://sonnely.com"),
+  metadataBase: new URL(apiOrigin),
   title: { default: "Sonnely | Private AI on Solana", template: "%s | Sonnely" },
   description:
     "A Solana-native workspace for confidential inference, model discovery, and metered API access.",

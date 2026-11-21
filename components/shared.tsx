@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Check, Copy, Search } from "lucide-react";
+import { apiBasePath } from "@/lib/api-contract";
 import { models } from "@/lib/models";
 
 export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
@@ -111,7 +112,7 @@ export function CodeExample() {
   const model = models[0].id;
   const scripts = {
     cURL: [
-      'curl "$SONNELY_ORIGIN/api/sonnely/v1/chat/completions" ' + String.fromCharCode(92),
+      'curl "$SONNELY_ORIGIN@BASE@/chat/completions" ' + String.fromCharCode(92),
       '  -H "Authorization: Bearer $SONNELY_API_KEY" ' + String.fromCharCode(92),
       '  -H "Content-Type: application/json" ' + String.fromCharCode(92),
       "  -d '{",
@@ -120,14 +121,15 @@ export function CodeExample() {
       "  }'",
     ].join("\n"),
     JavaScript:
-      'import OpenAI from "openai";\n\nconst sonnely = new OpenAI({\n  baseURL: process.env.SONNELY_ORIGIN + "/api/sonnely/v1",\n  apiKey: process.env.SONNELY_API_KEY,\n});\n\nconst reply = await sonnely.chat.completions.create({\n  model: "' +
+      'import OpenAI from "openai";\n\nconst sonnely = new OpenAI({\n  baseURL: process.env.SONNELY_ORIGIN + "@BASE@",\n  apiKey: process.env.SONNELY_API_KEY,\n});\n\nconst reply = await sonnely.chat.completions.create({\n  model: "' +
       model +
       '",\n  messages: [{ role: "user", content: "Summarize this design." }],\n});',
     Python:
-      'import os\nfrom openai import OpenAI\n\nsonnely = OpenAI(\n    base_url=os.environ["SONNELY_ORIGIN"] + "/api/sonnely/v1",\n    api_key=os.environ["SONNELY_API_KEY"],\n)\n\nreply = sonnely.chat.completions.create(\n    model="' +
+      'import os\nfrom openai import OpenAI\n\nsonnely = OpenAI(\n    base_url=os.environ["SONNELY_ORIGIN"] + "@BASE@",\n    api_key=os.environ["SONNELY_API_KEY"],\n)\n\nreply = sonnely.chat.completions.create(\n    model="' +
       model +
       '",\n    messages=[{"role": "user", "content": "Summarize this design."}],\n)',
   };
+  const code = scripts[tab].replace("@BASE@", apiBasePath);
   return (
     <div className="code-sample">
       <div className="between">
@@ -138,11 +140,11 @@ export function CodeExample() {
             </button>
           ))}
         </div>
-        <CopyButton value={scripts[tab]} label="Copy code" />
+        <CopyButton value={code} label="Copy code" />
       </div>
       <pre>
         <code>
-          {scripts[tab].split("\n").map((line, index) => (
+          {code.split("\n").map((line, index) => (
             <span className="code-line" key={index}>
               <span className="code-line-number" aria-hidden="true">
                 {index + 1}

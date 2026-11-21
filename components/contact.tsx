@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { ArrowUpRight, Inbox } from "lucide-react";
 import { request, useSession, WalletControl } from "./wallet";
@@ -36,8 +37,28 @@ export function Contact() {
         </p>
         <WalletControl session={session} refresh={refresh} />
         {failure && <p role="alert">{failure}</p>}
+        <div className="contact-resources">
+          <h3>Before you submit</h3>
+          <p>
+            For API issues, include the status code, model ID and approximate time. For billing, include the
+            payment reference or public transaction signature. Keep API keys, wallet recovery phrases and
+            private prompt text out of the request.
+          </p>
+          <Link className="text-link" href="/docs#errors">
+            API troubleshooting <ArrowUpRight size={16} />
+          </Link>
+          <Link className="text-link" href="/console/billing">
+            Billing history <ArrowUpRight size={16} />
+          </Link>
+        </div>
       </aside>
-      <form className="panel contact-form" onSubmit={submit}>
+      <form className="panel contact-form" onSubmit={submit} aria-labelledby="support-request">
+        <div>
+          <h2 id="support-request">Send a support request</h2>
+          <p className="caption">
+            Connect a wallet to submit. Save the reference after the request is recorded.
+          </p>
+        </div>
         <label>
           Email
           <input

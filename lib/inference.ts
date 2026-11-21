@@ -1,16 +1,20 @@
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
+import { limits } from "./api-contract";
 import { models } from "./models";
 import { backend, SonnelyError } from "./server";
 
 const message = z
-  .object({ role: z.enum(["system", "user", "assistant"]), content: z.string().min(1).max(12_000) })
+  .object({
+    role: z.enum(["system", "user", "assistant"]),
+    content: z.string().min(1).max(limits.charactersPerMessage),
+  })
   .strict();
 const completion = z
   .object({
     model: z.string().min(1).max(100),
-    messages: z.array(message).min(1).max(32),
-    max_tokens: z.number().int().min(1).max(2048).optional(),
+    messages: z.array(message).min(1).max(limits.messages),
+    max_tokens: z.number().int().min(1).max(limits.maxOutputTokens).optional(),
     stream: z.literal(false).optional(),
   })
   .strict();
@@ -45,7 +49,7 @@ export async function infer(raw: unknown, auth: { session?: string; hash?: strin
   const upstreamKey = process.env.NEAR_AI_API_KEY;
   if (!upstreamKey) throw new SonnelyError("Managed inference is awaiting provider activation.", 503);
 
-  const maxTokens = input.max_tokens ?? 512;
+  const maxTokens = input.max_tokens ?? limits.defaultOutputTokens;
   const bytes = Buffer.byteLength(JSON.stringify(input.messages));
   const reserve = Math.ceil((bytes + 256) * model.input + maxTokens * model.output);
   const { db, secret } = backend();

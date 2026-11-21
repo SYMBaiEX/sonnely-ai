@@ -179,3 +179,19 @@ test("Sonnely API paths and compatibility routes serve the same model list", asy
   expect(previousAccount.ok()).toBeTruthy();
   expect(await account.json()).toEqual(await previousAccount.json());
 });
+
+test("published guides link to supported endpoints and workflows", async ({ page }) => {
+  await page.goto("/docs");
+  await expect(page.getByText("https://sonnely.com/api/sonnely/v1", { exact: true })).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "On this page" })
+    .getByRole("link", { name: "Errors and recovery" })
+    .click();
+  await expect(page.locator("#errors")).toContainText("A reservation may still be held.");
+  await page.goto("/models");
+  await expect(page.getByRole("table")).toContainText("Qwen 3.6 35B");
+  await page.goto("/blog/rotate-api-keys");
+  await expect(page.getByRole("heading", { name: "Revoke the old key" })).toBeVisible();
+  await page.goto("/contact");
+  await expect(page.getByRole("form", { name: "Send a support request" })).toBeVisible();
+});

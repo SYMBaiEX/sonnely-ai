@@ -32,4 +32,86 @@ export const articles = [
       "NEAR Intents provides a separate SOL-to-USDC estimate. The quote preview neither initiates a swap nor funds an account.",
     ],
   },
+  {
+    slug: "choose-a-model",
+    title: "Choose a model with a small evaluation",
+    category: "Guide",
+    summary: "Compare the same text workload across models before giving one a production budget.",
+    body: [
+      {
+        heading: "Build a small set",
+        paragraphs: [
+          "Collect a few representative prompts and define what a useful answer looks like. Include one ambiguous request, one long request that fits the gateway limits and one request with an output format to follow. Use examples that are appropriate to share with a model provider.",
+        ],
+      },
+      {
+        heading: "Keep the test comparable",
+        paragraphs: [
+          "Keep the messages and output-token cap identical across models. Run the same test for each candidate and record format compliance, errors and output length. Use a separate key for evaluation so you can review usage afterward.",
+        ],
+      },
+      {
+        heading: "Make the tradeoff explicit",
+        paragraphs: [
+          "Start with the catalog’s workload suggestions. Evaluate the cheapest candidate that meets your acceptance criteria, and keep a second model in your test set for the cases it misses. Compare actual charges after the run, including cached input when reported.",
+        ],
+      },
+    ],
+    related: ["/models", "Compare models"],
+  },
+  {
+    slug: "rotate-api-keys",
+    title: "Rotate an API key without stopping a workload",
+    category: "Guide",
+    summary: "Replace a key safely and keep each app’s budget and usage visible.",
+    body: [
+      {
+        heading: "Create the replacement first",
+        paragraphs: [
+          "Identify the caller and current key label in Usage. Create a replacement with an identifiable name and set its daily cap, lifetime budget and expiry. Copy the secret to your secrets manager when the console displays it.",
+        ],
+      },
+      {
+        heading: "Verify the deployment",
+        paragraphs: [
+          "Update the caller’s secret and redeploy it. When live inference is available, send a small request and review its status and key label in Usage. Roll back the caller configuration while both keys are valid if the replacement fails.",
+        ],
+      },
+      {
+        heading: "Revoke the old key",
+        paragraphs: [
+          "Revoke the old key once every caller uses its replacement. If a key has been exposed, revoke it immediately, then review requests and charges for its label.",
+        ],
+      },
+    ],
+    related: ["/docs#keys", "Key management guide"],
+  },
+  {
+    slug: "read-a-request-receipt",
+    title: "Read the usage ledger after an API request",
+    category: "Billing",
+    summary:
+      "Understand the difference between an estimate, a settled charge and a reservation still awaiting usage.",
+    body: [
+      {
+        heading: "Before a completion runs",
+        paragraphs: [
+          "The gateway reserves an estimated maximum charge from your balance and applicable key budget. That reservation is based on request size and the maximum output tokens allowed for the request.",
+        ],
+      },
+      {
+        heading: "After the provider responds",
+        paragraphs: [
+          "A complete request settles against provider-reported usage. For a provider rejection classified as failed, the reservation can be released. Timeouts or missing usage can leave a reservation awaiting reconciliation.",
+        ],
+      },
+      {
+        heading: "Before sending it again",
+        paragraphs: [
+          "Check the latest usage entry and its status. A transport timeout alone cannot tell you whether a completion ran upstream. Include the approximate time and model ID if you need help reconciling an entry.",
+        ],
+      },
+    ],
+    related: ["/docs#errors", "Errors and recovery"],
+  },
 ];

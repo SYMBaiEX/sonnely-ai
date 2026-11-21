@@ -396,3 +396,98 @@ html[data-initial-theme="light"] .theme-root,
     height: 25px;
   }
 }
+
+.content-section {
+  display: grid;
+  gap: 14px;
+  margin-block: 44px;
+}
+.content-section h2,
+.contact-form h2 {
+  font-size: clamp(23px, 4vw, 39px);
+}
+.content-section p,
+.reference-list dd,
+.contact-resources p {
+  color: var(--muted);
+}
+.content-section p {
+  max-width: 75ch;
+}
+.content-table {
+  overflow-x: auto;
+  max-width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.content-table table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.content-table th,
+.content-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.content-table th {
+  font-weight: 600;
+}
+.content-table thead th {
+  background: var(--raised);
+  min-width: 94px;
+}
+.content-table tr:last-child > * {
+  border-bottom: 0;
+}
+.content-table thead tr:last-child > * {
+  border-bottom: 1px solid var(--line);
+}
+.content-table a,
+.doc-body ol a,
+.doc-body p a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.reference-list {
+  display: grid;
+  gap: 9px;
+  margin-block: 15px;
+}
+.reference-list > div {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+.reference-list dt {
+  font-weight: 600;
+}
+.reference-list dd {
+  margin-top: 4px;
+}
+.doc-body code {
+  overflow-wrap: anywhere;
+}
+.cost-example {
+  padding: clamp(16px, 4vw, 32px);
+}
+.contact-resources {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  display: grid;
+  gap: 9px;
+}
+.prose > section {
+  margin-block: 24px;
+}
+
+.footer-inner nav {
+  flex-wrap: wrap;
+}
+.content-section,
+.content-section h2 {
+  scroll-margin-top: 110px;
+}

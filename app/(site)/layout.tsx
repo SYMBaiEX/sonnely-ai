@@ -31,6 +31,10 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/docs#privacy">Data handling</Link>
             <Link href="/contact">Support</Link>
             <Link href="/models">Model catalog</Link>
+            <Link href="/pricing">Pricing</Link>
+            <a href="https://app.sonnely.com">
+              Original Sonnely app <ArrowUpRight size={13} />
+            </a>
           </nav>
         </div>
       </footer>

@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, BookOpen, Fingerprint, KeyRound, Wallet } from "lucide-react";
-import { CodeExample, ModelCatalog } from "@/components/shared";
+import { ModelGuide, CostExample } from "@/components/model-guide";
+import { ModelCatalog } from "@/components/shared";
+import { DeveloperGuide } from "@/components/developer-guide";
 import { Contact } from "@/components/contact";
 import { Scene } from "@/components/scene";
 import { articles } from "@/lib/journal";
@@ -25,7 +27,8 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props) {
   const { page } = await params;
-  return { title: pages[page as Page]?.[0] };
+  const info = pages[page as Page];
+  return info ? { title: info[0], description: info[1], alternates: { canonical: "/" + page } } : {};
 }
 
 export default async function Subpage({ params }: Props) {
@@ -42,7 +45,12 @@ export default async function Subpage({ params }: Props) {
         <h1>{title}</h1>
         <p>{description}</p>
       </header>
-      {page === "models" && <ModelCatalog />}
+      {page === "models" && (
+        <>
+          <ModelCatalog />
+          <ModelGuide />
+        </>
+      )}
       {page === "pricing" && (
         <>
           <div className="model-cards price-cards">
@@ -74,6 +82,7 @@ export default async function Subpage({ params }: Props) {
               </Link>
             </article>
           </div>
+          <CostExample />
           <section className="faq">
             <h2>Billing questions</h2>
             <details>
@@ -92,6 +101,13 @@ export default async function Subpage({ params }: Props) {
               </p>
             </details>
             <details>
+              <summary>Where can I see what a request cost?</summary>
+              <p>
+                Open Usage in the console to review token counts, request status and charges. Billing lists
+                payment receipts separately.
+              </p>
+            </details>
+            <details>
               <summary>Do devnet payments create credits?</summary>
               <p>
                 Devnet payments verify the checkout path. Spendable credits require a verified mainnet
@@ -101,74 +117,7 @@ export default async function Subpage({ params }: Props) {
           </section>
         </>
       )}
-      {page === "docs" && (
-        <div className="doc-grid">
-          <nav aria-label="On this page" className="doc-nav">
-            <a href="#quickstart">Quickstart</a>
-            <a href="#api">API reference</a>
-            <a href="#privacy">Data handling</a>
-            <a href="#verification">Attestation</a>
-            <a href="#settlement">Solana payments</a>
-          </nav>
-          <div className="doc-body">
-            <section id="quickstart">
-              <h2>Quickstart</h2>
-              <ol>
-                <li>Open the console and sign in with a Solana wallet.</li>
-                <li>
-                  Create an API key and save it to a secrets manager. Sonnely displays the full key once.
-                </li>
-                <li>
-                  Set <code>SONNELY_ORIGIN</code> to the base URL of this site and{" "}
-                  <code>SONNELY_API_KEY</code> to your key. Live requests require credits and an active model
-                  provider.
-                </li>
-              </ol>
-              <CodeExample />
-            </section>
-            <section id="api">
-              <h2>API reference</h2>
-              <p>
-                <code>GET /api/sonnely/v1/models</code> lists the available model IDs.{" "}
-                <code>POST /api/sonnely/v1/chat/completions</code> accepts non-streaming text completions with
-                a bearer key.
-              </p>
-              <p>
-                Include <code>model</code> and <code>messages</code>. Each message has a <code>role</code> of
-                user, assistant, or system and a string <code>content</code>. Optional <code>max_tokens</code>{" "}
-                defaults to 512 and accepts up to 2,048. The body limit is 36 KB and up to 32 messages.
-              </p>
-            </section>
-            <section id="privacy">
-              <h2>Data handling</h2>
-              <p>
-                HTTPS protects transit to the web gateway. The gateway can read request content and forwards
-                it to NEAR AI Cloud. The account database stores wallet and usage metadata. The console stores
-                chats on this device only when local history is enabled.
-              </p>
-            </section>
-            <section id="verification">
-              <h2>Attestation</h2>
-              <p>
-                NEAR AI publishes hardware evidence for its Private TEE model tier. You can inspect the model
-                evidence using its Verification Center. The Sonnely gateway does not verify each response or
-                provide client-to-model encryption.
-              </p>
-              <a className="text-link" href="https://docs.near.ai/cloud/verification">
-                NEAR AI verification guide <ArrowUpRight size={16} />
-              </a>
-            </section>
-            <section id="settlement">
-              <h2>Solana payments</h2>
-              <p>
-                Checkout shows the network, amount, and wallet request. Submit the resulting transaction
-                signature after the transfer finalizes. NEAR Intents estimates are available separately in
-                Billing.
-              </p>
-            </section>
-          </div>
-        </div>
-      )}
+      {page === "docs" && <DeveloperGuide />}
       {page === "blog" && (
         <div className="journal-grid">
           {articles.map((item) => (

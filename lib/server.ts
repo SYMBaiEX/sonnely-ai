@@ -3,6 +3,7 @@ import { ConvexHttpClient } from "convex/browser";
 import { ConvexError } from "convex/values";
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { limits } from "./api-contract";
 
 export function serviceSecret() {
   return process.env.SONNELY_SERVICE_SECRET ?? process.env.RELAY_SERVICE_SECRET;
@@ -49,7 +50,7 @@ export function errorResponse(error: unknown, openai = false) {
   return json({ error: openai ? { message, type: "sonnely_error", code: status } : message }, status);
 }
 
-export async function readBody(request: NextRequest, limit = 36_000): Promise<unknown> {
+export async function readBody(request: NextRequest, limit: number = limits.bodyBytes): Promise<unknown> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
     throw new SonnelyError("Send JSON with Content-Type application/json.", 415);
   const reader = request.body?.getReader();
