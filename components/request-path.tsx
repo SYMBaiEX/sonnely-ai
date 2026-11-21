@@ -53,6 +53,15 @@ export function RequestPath() {
       <div className="request-grid">
         <div className="request-scene">
           <Scene variant="feature" />
+          <ol className="request-diagram glass" aria-label="Request path diagram">
+            {steps.map(({ label, icon: Icon }, index) => (
+              <li key={label} aria-current={active === index ? "step" : undefined}>
+                <Icon size={17} aria-hidden />
+                <span>{label}</span>
+                {index < steps.length - 1 && <span className="request-connector" aria-hidden />}
+              </li>
+            ))}
+          </ol>
         </div>
         <div className="panel request-panel">
           <div className="request-steps" role="group" aria-label="Request stages">

@@ -491,3 +491,295 @@ html[data-initial-theme="light"] .theme-root,
 .content-section h2 {
   scroll-margin-top: 110px;
 }
+
+.hero-demo {
+  position: absolute;
+  right: clamp(16px, 3vw, 42px);
+  bottom: clamp(16px, 3vw, 42px);
+  z-index: 1;
+  width: min(36%, 355px);
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  border-radius: 18px;
+  animation: settle-in 0.65s 0.22s var(--ease-out) both;
+}
+.hero-demo-top,
+.hero-demo-bottom,
+.preview-data figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hero-demo-top > span:first-child,
+.hero-demo-bottom > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.hero-demo-top > span:first-child {
+  font-weight: 600;
+}
+.hero-demo-top svg,
+.preview-data figcaption svg {
+  color: var(--accent);
+}
+.hero-demo-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 4px;
+}
+.hero-demo-choices button {
+  min-height: 34px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 550;
+}
+.hero-demo-choices button:is(:hover, [aria-pressed="true"]) {
+  color: var(--ink);
+  background: var(--active-fill);
+  border-color: var(--line);
+}
+.hero-demo-output {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 86px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--card);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.hero-demo-output p:not(.hero-demo-prompt),
+.hero-demo-bottom {
+  color: var(--muted);
+}
+.hero-demo-prompt {
+  font-weight: 600;
+}
+.hero-demo-bottom {
+  font-size: 12px;
+}
+.hero-demo-bottom .text-link {
+  font-size: 12px;
+}
+
+.code-visual,
+.workspace-visual {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+}
+.code-visual {
+  min-width: 0;
+  padding: clamp(9px, 2vw, 24px);
+}
+.code-visual .code-sample {
+  background: var(--glass-solid);
+}
+.code-visual > img,
+.workspace-visual > img {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.code-visual::before,
+.workspace-visual::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(155deg, var(--haze), color-mix(in srgb, var(--surface) 38%, transparent));
+}
+.workspace-previews {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 2.15vw, 28px);
+}
+.workspace-preview {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  align-items: start;
+  gap: 9px;
+  min-width: 0;
+}
+.workspace-preview h3 {
+  font-size: clamp(20px, 2vw, 25px);
+}
+.workspace-preview > p {
+  color: var(--muted);
+}
+.workspace-preview > .text-link {
+  margin-top: 7px;
+}
+.workspace-visual {
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 2vw, 24px);
+  margin-bottom: 8px;
+  min-height: 246px;
+}
+.workspace-visual > img {
+  transition: transform 450ms var(--ease-out);
+}
+@media (hover: hover) {
+  .workspace-preview:hover .workspace-visual > img {
+    transform: scale(1.055);
+  }
+}
+.preview-data {
+  width: min(100%, 310px);
+  margin: 0;
+  padding: 13px;
+  border-radius: 15px;
+}
+.preview-data figcaption {
+  justify-content: start;
+  font-size: 13px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.preview-data figcaption small {
+  margin-inline-start: auto;
+  color: var(--muted);
+}
+.preview-name {
+  padding: 10px 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.preview-data dl {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.preview-data dl div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.preview-data dt {
+  color: var(--muted);
+}
+.preview-data dd {
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+}
+.preview-usage-bar {
+  display: flex;
+  gap: 3px;
+  margin: 1px 0 8px;
+  height: 5px;
+}
+.preview-usage-bar span:first-child {
+  width: 87%;
+  border-radius: 5px;
+  background: var(--action);
+}
+.preview-usage-bar span:last-child {
+  flex: 1;
+  border-radius: 5px;
+  background: var(--line);
+}
+
+.request-scene {
+  display: grid;
+  place-items: end stretch;
+  padding: clamp(10px, 2vw, 22px);
+}
+.request-diagram {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  border-radius: 15px;
+  padding: 6px;
+  margin: 0;
+  list-style: none;
+}
+.request-diagram li {
+  display: grid;
+  position: relative;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  padding: 8px 4px;
+  text-align: center;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.request-diagram li[aria-current] {
+  background: var(--active-fill);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.request-diagram li[aria-current] svg {
+  color: var(--accent);
+}
+.request-connector {
+  position: absolute;
+  right: -6px;
+  width: 7px;
+  height: 1px;
+  background: var(--line);
+}
+
+@media (max-width: 900px) {
+  .home .hero {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: space-between;
+    min-height: 660px;
+  }
+  .hero-demo {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    align-self: end;
+    width: min(355px, calc(100% - 30px));
+    margin: 0 15px 15px;
+  }
+}
+@media (max-width: 720px) {
+  .home .hero {
+    min-height: 590px;
+  }
+  .hero-demo {
+    align-self: stretch;
+    width: auto;
+  }
+  .workspace-previews {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+  .workspace-visual {
+    min-height: 215px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-preview:hover .workspace-visual > img {
+    transform: none;
+  }
+}

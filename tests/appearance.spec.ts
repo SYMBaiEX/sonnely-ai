@@ -80,3 +80,29 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/console\/usage$/);
 });
+
+test("the homepage examples show different workflows and real playground links", async ({ page }) => {
+  await page.goto("/");
+  const demo = page.getByRole("region", { name: "Sample request preview" });
+  await expect(demo.getByText("Turn these handoff notes into a brief.")).toBeVisible();
+  await demo.getByRole("button", { name: "Extract", exact: true }).click();
+  await expect(demo.getByText('{ "owner": "Rin", "due": "Friday" }')).toBeVisible();
+  await expect(demo.getByRole("link", { name: "Open GLM 5.3 Flash in playground" })).toHaveAttribute(
+    "href",
+    "/console?model=z-ai%2Fglm-5.3-flash",
+  );
+  const previews = page.getByRole("region", { name: "Keys, usage, and credits." });
+  await expect(previews.locator("figure")).toHaveCount(3);
+  await previews.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() =>
+      previews
+        .locator("img")
+        .evaluateAll((images) =>
+          images.every(
+            (image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+          ),
+        ),
+    )
+    .toBe(true);
+});

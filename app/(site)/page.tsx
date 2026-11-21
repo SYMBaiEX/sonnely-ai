@@ -1,9 +1,11 @@
-import { ArrowRight, ArrowUpRight, Fingerprint, KeyRound, Radio, Terminal, Wallet } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Fingerprint, Terminal, Wallet } from "lucide-react";
 import Link from "next/link";
 import { CodeExample } from "@/components/shared";
 import { Scene } from "@/components/scene";
 import { ModelStrip } from "@/components/model-strip";
 import { RequestPath } from "@/components/request-path";
+import { HomeDemo } from "@/components/home-demo";
+import { WorkspacePreview } from "@/components/workspace-preview";
 
 export const metadata = { alternates: { canonical: "/" } };
 
@@ -35,14 +37,7 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <Link className="hero-meta glass" href="#request-path">
-            <span>
-              <Radio size={15} /> Execution layer
-            </span>
-            <strong>
-              NEAR AI · Private TEE <ArrowUpRight size={13} />
-            </strong>
-          </Link>
+          <HomeDemo />
         </section>
         <div className="strip" aria-label="Platform components">
           <span>
@@ -71,51 +66,13 @@ export default function Home() {
               Integration guide <ArrowUpRight size={17} />
             </Link>
           </div>
-          <CodeExample />
+          <div className="code-visual">
+            <img src="/homepage/quickstart.webp" alt="" width={960} height={640} loading="lazy" />
+            <CodeExample />
+          </div>
         </section>
         <RequestPath />
-        <section className="section" aria-labelledby="workspace-title">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">Workspace controls</p>
-              <h2 id="workspace-title">Know where each request goes.</h2>
-            </div>
-            <Link className="text-link" href="/pricing">
-              See pricing <ArrowUpRight size={16} />
-            </Link>
-          </div>
-          <div className="model-cards workspace-features">
-            <article className="panel benefit">
-              <KeyRound />
-              <h3>Give each app its own key</h3>
-              <p>
-                Set a daily cap, lifetime budget, or expiration from one account. Revoke a key as soon as you
-                stop using it.
-              </p>
-              <Link className="text-link" href="/console/keys">
-                Manage keys <ArrowUpRight size={16} />
-              </Link>
-            </article>
-            <article className="panel benefit">
-              <Terminal />
-              <h3>Trace spend back to a request</h3>
-              <p>See model, key label, token counts and charges in the usage ledger.</p>
-              <Link className="text-link" href="/console/usage">
-                View usage <ArrowUpRight size={16} />
-              </Link>
-            </article>
-            <article className="panel benefit">
-              <Wallet />
-              <h3>Fund from a Solana wallet</h3>
-              <p>
-                When checkout is enabled, fund credits with USDC and follow the payment through finalization.
-              </p>
-              <Link className="text-link" href="/docs#settlement">
-                See how settlement works <ArrowUpRight size={16} />
-              </Link>
-            </article>
-          </div>
-        </section>
+        <WorkspacePreview />
         <section className="closing">
           <Scene />
           <div>
