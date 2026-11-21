@@ -9,6 +9,10 @@
  */
 
 import type * as access from "../access.js";
+import type * as compute from "../compute.js";
+import type * as computeProvider from "../computeProvider.js";
+import type * as computeValidators from "../computeValidators.js";
+import type * as computeWorker from "../computeWorker.js";
 import type * as creditRecovery from "../creditRecovery.js";
 import type * as crm from "../crm.js";
 import type * as crons from "../crons.js";
@@ -28,6 +32,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  compute: typeof compute;
+  computeProvider: typeof computeProvider;
+  computeValidators: typeof computeValidators;
+  computeWorker: typeof computeWorker;
   creditRecovery: typeof creditRecovery;
   crm: typeof crm;
   crons: typeof crons;

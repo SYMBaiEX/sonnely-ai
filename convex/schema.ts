@@ -1,7 +1,36 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { computeProgress, kind, spec } from "./computeValidators";
 
 export default defineSchema({
+  computeRuns: defineTable({
+    account: v.id("accounts"),
+    kind,
+    spec,
+    reference: v.string(),
+    active: v.boolean(),
+    minutes: v.number(),
+    reserve: v.number(),
+    hourlyBase: v.number(),
+    unitSeconds: v.number(),
+    markup: v.number(),
+    fixedFee: v.number(),
+    charged: v.optional(v.number()),
+    base: v.optional(v.number()),
+    fee: v.optional(v.number()),
+    seconds: v.optional(v.number()),
+    nextAt: v.number(),
+    lease: v.optional(v.number()),
+    stopRequested: v.optional(v.boolean()),
+    purgeAt: v.optional(v.number()),
+    ...computeProgress,
+  })
+    .index("by_account_kind", ["account", "kind"])
+    .index("by_account_reference", ["account", "reference"])
+    .index("by_account_active", ["account", "active"])
+    .index("by_kind_active", ["kind", "active"])
+    .index("by_ready", ["active", "nextAt"])
+    .index("by_purge", ["purgeAt"]),
   accounts: defineTable({
     wallet: v.string(),
     name: v.string(),

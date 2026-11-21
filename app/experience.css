@@ -1416,3 +1416,24 @@ html[data-initial-theme="light"] .theme-root,
   padding: 8px 0;
   border-top: 1px solid var(--line);
 }
+
+.workspace-compute-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .65rem 1.35rem;
+  padding: 1.15rem 1.3rem;
+  margin-top: 1rem;
+}
+
+.workspace-compute-links h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.workspace-compute-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .86rem;
+}

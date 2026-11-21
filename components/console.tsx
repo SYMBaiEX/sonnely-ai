@@ -6,6 +6,8 @@ import {
   Activity,
   ArrowUpRight,
   BookOpen,
+  Box,
+  Container,
   CircleHelp,
   Command,
   Cpu,
@@ -22,6 +24,7 @@ import type { nearCatalog } from "@/lib/near-catalog";
 import type { Section } from "@/app/console/[[...section]]/page";
 import { creditBalance } from "@/lib/credit-amount";
 import { Brand } from "./brand";
+import { Compute } from "./compute";
 import { CommandMenu } from "./command-menu";
 import { setTheme, ThemeSurface, ThemeSwitch, useTheme } from "./appearance";
 import { Admin } from "./admin";
@@ -38,6 +41,8 @@ const nav = [
   { id: "models", title: "Models", path: "/console/models", Icon: Cpu },
   { id: "keys", title: "API keys", path: "/console/keys", Icon: KeyRound },
   { id: "usage", title: "Usage", path: "/console/usage", Icon: Activity },
+  { id: "blackboxes", title: "Blackboxes", path: "/console/blackboxes", Icon: Box },
+  { id: "dry-docks", title: "Dry Docks", path: "/console/dry-docks", Icon: Container },
   { id: "billing", title: "Billing", path: "/console/billing", Icon: Wallet },
   { id: "referrals", title: "Referrals", path: "/console/referrals", Icon: Users },
   { id: "admin", title: "Admin", path: "/console/admin", Icon: ShieldCheck },
@@ -143,9 +148,9 @@ export function Console({
         </div>
         <nav aria-label="Workspace navigation" className="rail-nav">
           <p className="mono">Compute</p>
-          {sidebar([...nav.slice(0, 4)])}
+          {sidebar([...nav.slice(0, 6)])}
           <p className="mono">Workspace</p>
-          {sidebar(visibleNav.slice(4))}
+          {sidebar(visibleNav.slice(6))}
         </nav>
         <div className="rail-bottom">
           <span className="rail-theme">
@@ -234,16 +239,30 @@ export function Console({
               {providerCatalog && <NearModelDirectory {...providerCatalog} />}
             </>
           )}
+          {(section === "blackboxes" || section === "dry-docks") && (
+            <Compute key={section + (profile?.wallet ?? "guest")} kind={section} session={session} />
+          )}
           {section === "admin" && <Admin session={session} />}
           {section === "keys" && <Keys signedIn={signedIn} />}
           {section === "usage" && (
-            <Usage
-              signedIn={signedIn}
-              balance={profile?.balance}
-              range={range}
-              setRange={setRange}
-              liveRows={liveRows}
-            />
+            <>
+              <Usage
+                signedIn={signedIn}
+                balance={profile?.balance}
+                range={range}
+                setRange={setRange}
+                liveRows={liveRows}
+              />
+              <section className="panel workspace-compute-links" aria-label="Compute usage">
+                <h2>Compute usage</h2>
+                <Link href="/console/blackboxes">
+                  Blackbox rentals <ArrowUpRight size={15} />
+                </Link>
+                <Link href="/console/dry-docks">
+                  Dry Dock builds <ArrowUpRight size={15} />
+                </Link>
+              </section>
+            </>
           )}
           {section === "billing" && (
             <Billing key={session?.profile?.wallet ?? "guest"} session={session} refresh={refresh} />

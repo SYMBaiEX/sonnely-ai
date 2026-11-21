@@ -1,21 +1,35 @@
-# Sonnely compute products
+# Sonnely compute
 
-## Sonnely Blackboxes
+## Blackboxes
 
-**Deploy inside attested compute. Verify what started before you send a secret.**
+Blackboxes rent Phala TDX compute in 15, 30, 60 or 120 minute windows. Each rental has 1 vCPU, 2 GB RAM and 20 GB disk. A customer supplies a public OCI image pinned by digest and the image’s HTTP port. Sonnely creates a measured Docker Compose configuration, sets a provider deletion deadline, verifies the hardware quote with Phala, and replays the RTMR3 event log to match the Compose, app, and instance measurements before showing the HTTPS endpoint.
 
-A Blackbox is a customer-scoped confidential VM backed by Phala. A customer deploys a measured Docker Compose template and receives an endpoint and an attestation record for the workload. Give them the image digests, measured configuration, and verification result so they can inspect the evidence.
+Phala’s verifier checks the hardware quote. The downloadable evidence contains the quote, provider verification result and compose hashes. Customers can independently verify the workload measurements. Phala can publish attestation metadata. Application logs and system information are private. Use application authentication for sensitive traffic. The pilot has no secret injection or persistent disks.
 
-Start with one small CPU VM per customer, one signed worker image, private logs, a fixed TTL, and customer-side encryption for secrets. Admit each run against a quote that includes CPU and persistent disk. Stop on expiry, and make deletion and retained storage visible and separately controllable. Test quote, provision, attest, run, stop, and reconcile as one lifecycle. Use a workspace-scoped server credential held outside the browser. GPU reservations can follow a separate pilot because they have different minimum periods and billing behavior. [Phala CVM lifecycle](https://docs.phala.com/phala-cloud/references/cloud-js-sdk/cvm-lifecycle) · [Phala pricing and quotas](https://cloud.phala.com/about/pricing)
+## Dry Docks
 
-Phala’s pricing documentation says gifted credits apply to CVMs and GPU instances. Confirm the workspace’s grant terms and eligibility before pricing or selling customer capacity. Plan recurring pricing around the paid rates and the disk lifecycle so the product remains viable after promotional credits. [Phala billing policy](https://phala.com/pricing) · [Phala terms](https://phala.com/terms)
+Dry Docks run public GitHub builds under a full commit SHA in a new Boat Linux VM. The build runs `npm ci` and `npm run build`. The console polls the detached command for live output. An archive of the first matching output directory (`dist`, `build`, `out`, or `.next`) is downloadable up to 5 MiB. Logs and downloadable files expire seven days after teardown.
 
-## Sonnely Dry Docks
+Boat starts the VM without account environment variables, credentials, or snapshots, and auto-stops it at the time limit. Sonnely stops the VM, reads the final Boat meter and requests permanent deletion. The build receipt settles once deletion is confirmed. No inbound endpoint is provisioned.
 
-**A clean Linux machine for every run. Keep the artifacts and retire the environment.**
+## Charges
 
-A Dry Dock is a short-lived, dedicated Linux VM inside a Sonnely workflow. Start with a repository test or reproducible build. Take a project snapshot, start one VM per run, stream build logs, return results or artifacts, and retire the VM on success, failure, or timeout. Keep snapshots opt-in and enforce account-level concurrency and spend ceilings.
+Both products hold the maximum quote from a signed-in wallet’s Sonnely balance. A billed run costs the provider rate plus a 25% markup and a $0.01 run fee. The final receipt records runtime, base cost, fee and total. Unused held credits return to the wallet’s Sonnely balance. A Blackbox that never delivers evidence and a Boat start with zero metered usage are released without charge. Compute receipts stay outside the inference payout ledger.
 
-Boat supplies full Ubuntu VMs with Docker, SSH, and snapshot forking. Its list price starts at $0.018/hour for 2 vCPU and 4 GB, with a $20 monthly minimum. A stopped Boat VM retains its disk, so attach deletion to the retirement flow when the customer chooses ephemeral mode. Disable public service URLs unless requested, and disclose the provider’s network and retention boundary. Market Dry Docks as VM isolation. Attach confidential-compute claims to configurations with actual hardware attestation. [Boat pricing](https://docs.boat.dev/pricing) · [Boat limits](https://docs.boat.dev/limits)
+| Product    |      Base rate | Meter                                                                |
+| ---------- | -------------: | -------------------------------------------------------------------- |
+| Blackboxes | $0.060780/hour | CPU and storage, rounded up to a minute, capped by the rental window |
+| Dry Docks  |    $0.018/hour | Boat’s reported small VM usage, by the second                        |
 
-Boat’s Terms distinguish embedded sandboxes in a customer product from resale of plain compute. A managed test or build workflow fits the product direction. Get written approval before offering raw Boat VMs as rentals. Keep Boat credentials server-side and meter each job as a Sonnely product action. [Boat Terms, TOS-7 and TOS-8](https://boat.dev/terms)
+## Operations
+
+Store `PHALA_CLOUD_API_KEY` and `BOAT_API_KEY` in the Convex deployment. The Phala credential manages CVMs and is separate from inference credentials. Configure `SONNELY_BLACKBOX_RENTALS=true` or `SONNELY_DRY_DOCKS=true` to accept new jobs after the corresponding provider account is ready. Both switches default off. Set `SONNELY_BLACKBOX_PILOT=true` for paid admin-wallet trials. Disabling starts leaves teardown enabled for existing jobs.
+
+Keep Boat on a paid plan with paid start overages disabled. The worker checks current capacity and rejects starts when Boat reports an overage fee. Confirm Phala’s terms and grant terms before selling customer rentals. Keep gifted credits restricted to the authorized pilot until their commercial eligibility is confirmed.
+
+- [Phala pricing](https://cloud.phala.com/about/pricing)
+- [Phala attestation verification](https://docs.phala.com/phala-cloud/attestation/verification-guide)
+- [Phala Cloud terms](https://phala.com/terms)
+- [Boat pricing](https://docs.boat.dev/pricing)
+- [Boat sandbox usage](https://docs.boat.dev/api/reference/sandboxes/get-sandbox-usage)
+- [Boat embedded product terms](https://boat.dev/terms#end-users)

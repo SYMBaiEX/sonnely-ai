@@ -5,6 +5,7 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { AdminCrm, type CrmView } from "./admin-crm";
 import { CreditRecovery } from "./credit-recovery";
+import { computePlans } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
 import { payWithWallet, request, type Session } from "./wallet";
@@ -13,6 +14,7 @@ type Overview = FunctionReturnType<typeof api.finance.overview> & {
   creditRecovery: FunctionReturnType<typeof api.creditRecovery.queue> | null;
   creditLiability: number | null;
   treasuryMicros: number | null;
+  compute?: FunctionReturnType<typeof api.compute.adminSummary> | null;
 };
 
 export function Admin({ session }: { session: Session | null }) {
@@ -156,6 +158,53 @@ export function Admin({ session }: { session: Session | null }) {
               </p>
             )}
           </section>
+          {data.compute && (
+            <section className="panel stack-panel">
+              <h2>Compute over 30 days</h2>
+              {(["blackboxes", "dry-docks"] as const).map((kind) => {
+                const row = data.compute![kind];
+                return (
+                  <div key={kind}>
+                    <h3>{computePlans[kind].title}</h3>
+                    <dl className="admin-metrics">
+                      <div>
+                        <dt>Runs</dt>
+                        <dd>{row.runs}</dd>
+                      </div>
+                      <div>
+                        <dt>Active</dt>
+                        <dd>{row.active}</dd>
+                      </div>
+                      <div>
+                        <dt>Pending deletion</dt>
+                        <dd>{row.teardown}</dd>
+                      </div>
+                      <div>
+                        <dt>Credits held</dt>
+                        <dd>{creditBalance(row.held)}</dd>
+                      </div>
+                      <div>
+                        <dt>Customer charges</dt>
+                        <dd>{creditBalance(row.charged)}</dd>
+                      </div>
+                      <div>
+                        <dt>Metered base</dt>
+                        <dd>{creditBalance(row.base)}</dd>
+                      </div>
+                      <div>
+                        <dt>Platform fees</dt>
+                        <dd>{creditBalance(row.fee)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                );
+              })}
+              <p className="caption">
+                Fees are gross revenue before provider plan charges or invoice adjustments.
+              </p>
+              {data.compute.truncated && <p className="caption">Showing totals for the latest 100 runs.</p>}
+            </section>
+          )}
           <section className="panel stack-panel">
             <h2>Treasury</h2>
             <dl className="admin-metrics">

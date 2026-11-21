@@ -44,16 +44,18 @@ export async function adminOverview(
 ) {
   const data = await db.query(api.finance.overview, { ...auth, since });
   const { rpc, cluster, recipient } = billing();
-  const [creditLiability, treasury, recovery] = await Promise.allSettled([
+  const [creditLiability, treasury, recovery, compute] = await Promise.allSettled([
     db.query(api.finance.payoutCoverage, auth),
     rpc && recipient && cluster === "mainnet"
       ? verifyCluster(rpc, cluster).then(() => treasuryBalance(rpc, recipient))
       : Promise.resolve(null),
     db.query(api.creditRecovery.queue, { ...auth, now: Date.now() }),
+    db.query(api.compute.adminSummary, { ...auth, since }),
   ]);
   const treasuryMicros = treasury.status === "fulfilled" ? Number(treasury.value ?? NaN) : NaN;
   return json({
     ...data,
+    compute: compute.status === "fulfilled" ? compute.value : null,
     creditRecovery: recovery.status === "fulfilled" ? recovery.value : null,
     creditLiability: creditLiability.status === "fulfilled" ? creditLiability.value : null,
     treasuryMicros: Number.isSafeInteger(treasuryMicros) ? treasuryMicros : null,

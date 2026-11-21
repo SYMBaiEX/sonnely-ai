@@ -204,7 +204,7 @@ export const payoutCoverage = query({
   returns: v.union(v.null(), v.number()),
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
-    const [accounts, pending, unreported] = await Promise.all([
+    const [accounts, pending, unreported, compute] = await Promise.all([
       ctx.db.query("accounts").take(2_001),
       ctx.db
         .query("usage")
@@ -214,12 +214,18 @@ export const payoutCoverage = query({
         .query("usage")
         .withIndex("by_status", (q) => q.eq("status", "unreported"))
         .take(1_001),
+      ctx.db
+        .query("computeRuns")
+        .withIndex("by_ready", (q) => q.eq("active", true))
+        .take(17),
     ]);
-    if (accounts.length > 2_000 || pending.length > 1_000 || unreported.length > 1_000) return null;
+    if (compute.length > 16 || accounts.length > 2_000 || pending.length > 1_000 || unreported.length > 1_000)
+      return null;
     return (
       accounts.reduce((sum, row) => sum + row.balance, 0) +
       pending.reduce((sum, row) => sum + row.cost, 0) +
-      unreported.reduce((sum, row) => sum + row.cost, 0)
+      unreported.reduce((sum, row) => sum + row.cost, 0) +
+      compute.reduce((sum, row) => sum + row.reserve, 0)
     );
   },
 });

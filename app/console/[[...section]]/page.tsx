@@ -1,10 +1,22 @@
 import { notFound } from "next/navigation";
 import { Console } from "@/components/console";
 import { nearCatalog } from "@/lib/near-catalog";
+import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
 import { configuredProviders } from "@/lib/managed-access";
 
-const sections = ["chat", "models", "keys", "usage", "billing", "referrals", "settings", "admin"] as const;
+const sections = [
+  "chat",
+  "models",
+  "keys",
+  "usage",
+  "blackboxes",
+  "dry-docks",
+  "billing",
+  "referrals",
+  "settings",
+  "admin",
+] as const;
 export type Section = (typeof sections)[number];
 type Props = {
   params: Promise<{ section?: string[] }>;
@@ -14,6 +26,7 @@ type Props = {
 export async function generateMetadata({ params }: Props) {
   const { section } = await params;
   const name = section?.[0] ?? "chat";
+  if (name === "blackboxes" || name === "dry-docks") return { title: computePlans[name].title + " Console" };
   return {
     title: sections.includes(name as Section)
       ? name[0].toUpperCase() + name.slice(1) + " Console"
