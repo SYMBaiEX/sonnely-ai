@@ -12,6 +12,8 @@ test("10% rate card retains fractional cached prices and backs the charge", () =
   expect(markedUpRates(models[0])).toEqual({ input: 0.33, cache: 0.0066, output: 1.32 });
   expect(markedUpRates(models[1])).toEqual({ input: 0.088, cache: 0.0132, output: 0.55 });
   expect(markedUpRates(models[2])).toEqual({ input: 0.187, cache: 0.0616, output: 1.21 });
+  expect(markedUpRates(models[3])).toEqual({ input: 0.044, cache: 0.0198, output: 1.485 });
+  expect(markedUpRates(models[4])).toEqual({ input: 0.165, cache: 0.033, output: 0.605 });
   expect(requestCharge(models[0], 100_000, 50_000, 10_000)).toBe(30_030);
 });
 

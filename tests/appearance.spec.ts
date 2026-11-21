@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { models } from "../lib/models";
 
 test("the theme follows the user across the site and all console pages", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2027-01-02T12:00:00Z"));
@@ -70,7 +71,7 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   await page.getByRole("combobox", { name: "Sort models" }).selectOption("input");
   await expect(
     page.getByRole("table", { name: "Model rates and provider context" }).getByRole("heading").first(),
-  ).toHaveText("GLM 5.3 Flash");
+  ).toHaveText("Qwen 3.8 27B");
   await page.goto("/console");
   await page.getByRole("button", { name: "Quick navigation" }).click();
   await page.getByRole("searchbox", { name: "Find a workspace page" }).fill("usage");
@@ -92,7 +93,7 @@ test("the homepage examples show different workflows and real playground links",
   );
   const catalog = page.getByRole("region", { name: "Choose your model." });
   const list = catalog.getByRole("list");
-  await expect(list.getByRole("listitem")).toHaveCount(3);
+  await expect(list.getByRole("listitem")).toHaveCount(models.length);
   await expect(list.getByRole("link", { name: /DeepSeek V4.1 Flash/ })).toHaveAttribute(
     "href",
     "/console?model=deepseek-ai%2FDeepSeek-V4.1-Flash-1017",

@@ -8,6 +8,7 @@ const workload = {
   General: "Summarize notes or synthesize findings across several short excerpts.",
   Fast: "Extract fields, tag documents, or classify brief requests.",
   Coding: "Explain a function, review a short diff, or draft structured text for a developer workflow.",
+  Reasoning: "Compare alternatives, work through a multi-step problem, or analyze a long document."
 } as const;
 
 export function ModelGuide() {

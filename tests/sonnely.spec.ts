@@ -1,6 +1,7 @@
 import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { test, expect, type BrowserContext } from "@playwright/test";
 import bs58 from "bs58";
+import { models } from "../lib/models";
 
 function createWallet() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -57,7 +58,11 @@ test("public routes and console work across desktop and mobile", async ({ page }
   await page.getByRole("searchbox", { name: "Find a model" }).fill("Qwen");
   await expect(page.getByRole("heading", { name: "Qwen 3.6 35B" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "DeepSeek V4.1 Flash" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Open in chat" }).click();
+  await page
+    .getByRole("row")
+    .filter({ has: page.getByRole("heading", { name: "Qwen 3.6 35B", exact: true }) })
+    .getByRole("link", { name: "Open in chat" })
+    .click();
   await expect(page.getByRole("combobox", { name: "Inference model" })).toHaveValue(
     "Qwen/Qwen3.6-35B-A3B-FP8",
   );
@@ -162,7 +167,7 @@ test("wallet challenges reject wrong origins, invalid signatures, and replay", a
   const replay = await request.post(verifyRoute, { data: body, headers: { origin, cookie } });
   expect(replay.status()).toBe(400);
   const list = await request.get("/api/sonnely/v1/models");
-  expect((await list.json()).data).toHaveLength(3);
+  expect((await list.json()).data).toHaveLength(models.length);
   const unauthorized = await request.post("/api/sonnely/v1/chat/completions", { data: {} });
   expect(unauthorized.status()).toBe(401);
 });
@@ -279,8 +284,8 @@ test("the NEAR directory distinguishes privacy routes and Sonnely availability",
   await page.goto("/models");
   const directory = page.getByRole("region", { name: "NEAR AI model directory" });
   const table = directory.getByRole("table");
-  expect(await table.getByRole("row").count()).toBeGreaterThan(4);
-  await expect(table.getByText("Available on Sonnely", { exact: true })).toHaveCount(3);
+  expect(await table.getByRole("row").count()).toBeGreaterThan(models.length + 1);
+  await expect(table.getByText("Available on Sonnely", { exact: true })).toHaveCount(models.length);
   const search = directory.getByRole("searchbox");
   const privacy = directory.getByRole("combobox", { name: "NEAR privacy tier" });
   await search.fill("deepseek-ai/DeepSeek-V4.1-Flash-1017-abliterated");

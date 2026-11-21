@@ -330,11 +330,13 @@ export function Chat({
           <BadgeCheck size={15} />
           {!session?.profile
             ? "Connect a wallet to run live inference."
-            : !session.inferenceEnabled
-              ? "Live inference is awaiting provider activation."
-              : localHistory
-                ? "History stays in this browser."
-                : "Conversation history is off."}
+            : session.termsRequired
+              ? "Accept the current terms to run live inference."
+              : !session.inferenceEnabled
+                ? "Live inference is temporarily unavailable."
+                : localHistory
+                  ? "History stays in this browser."
+                  : "Conversation history is off."}
         </p>
       </section>
     </div>
