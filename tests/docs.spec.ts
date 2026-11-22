@@ -35,6 +35,7 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   await expect(page.getByRole("heading", { name: "SDKs", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await expect(page.getByText("npm install @sonnely/sdk", { exact: true })).toBeVisible();
+  await expect(page.getByText("python -m pip install sonnely-sdk", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open Search", exact: true }).click();
   await page.getByRole("dialog").getByRole("combobox").fill("Blackboxes");
   await page.getByRole("option").filter({ hasText: "Blackboxes" }).first().click();
