@@ -8,14 +8,54 @@ import {
   deleteDock,
   dockUsage,
   ProviderError,
+  prepareBlackbox,
   startBuild,
   stopDock,
 } from "../convex/computeProvider";
-import { computeQuote } from "../lib/compute";
+import { computePrice, computeQuote, imagePattern } from "../lib/compute";
+import { blackboxHourlyBase, blackboxPresets } from "../lib/blackbox-options";
 
 test("compute quotes reserve provider cost and the platform fee in microdollars", () => {
   expect(computeQuote("blackboxes", 15)).toEqual({ base: 15195, fee: 13799, total: 28994 });
   expect(computeQuote("dry-docks", 10)).toEqual({ base: 3000, fee: 10750, total: 13750 });
+  expect(computePrice(blackboxHourlyBase("tdx.medium", 80), 60, 30 * 60)).toEqual({
+    base: 63560,
+    fee: 25890,
+    total: 89450,
+  });
+  for (const preset of Object.values(blackboxPresets)) expect(preset.image).toMatch(imagePattern);
+});
+
+test("Phala prepares the selected machine and SSD with the pinned preset", async () => {
+  const preset = blackboxPresets.whoami;
+  const run = {
+    _id: "ks7fixture",
+    kind: "blackboxes",
+    spec: { kind: "blackboxes", image: preset.image, port: preset.port, machine: "tdx.large", disk: 80 },
+  } as Doc<"computeRuns">;
+  const key = process.env.PHALA_CLOUD_API_KEY;
+  process.env.PHALA_CLOUD_API_KEY = "fixture";
+  const provider = mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
+    expect(url).toBe("https://cloud-api.phala.com/api/v1/cvms");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(String(init.body));
+    expect(body).toMatchObject({
+      instance_type: "tdx.large",
+      disk_size: 80,
+      listed: false,
+      compose_file: { gateway_enabled: true, kms_enabled: true, public_logs: false, public_sysinfo: false },
+    });
+    expect(body.compose_file.docker_compose_file).toContain(preset.image);
+    expect(body.compose_file.docker_compose_file).toContain('"80:80"');
+    return Response.json({ token: "prepare-fixture", compose_hash: "fixture-hash" });
+  });
+  try {
+    await expect(prepareBlackbox(run)).resolves.toMatchObject({ compose_hash: "fixture-hash" });
+  } finally {
+    provider.mock.restore();
+    if (key === undefined) delete process.env.PHALA_CLOUD_API_KEY;
+    else process.env.PHALA_CLOUD_API_KEY = key;
+  }
 });
 
 test("Boat capacity rejects unpaid starts and the paid adapter isolates builds and tears them down", async () => {
@@ -116,15 +156,38 @@ test("both products show responsive paid quotes in both themes", async ({ page }
   await page.route("**/api/sonnely/compute?**", (route) =>
     route.fulfill({ json: { enabled: true, runs: [], log: "" } }),
   );
+  let opened = false;
+  await page.route("**/api/sonnely/compute", async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      action: "open",
+      minutes: 120,
+      spec: {
+        kind: "blackboxes",
+        image: blackboxPresets.whoami.image,
+        port: blackboxPresets.whoami.port,
+        machine: "tdx.medium",
+        disk: 40,
+      },
+    });
+    opened = true;
+    await route.fulfill({ json: { id: "ks7ctestw6m50r22c5ktfgxmwec6jv6w" }, status: 202 });
+  });
   await page.goto("/console/blackboxes");
   await expect(page.getByRole("heading", { name: "Blackboxes" })).toBeVisible();
-  await page.getByRole("button", { name: "New rental" }).click();
+  await page.getByRole("button", { name: /^Request inspector/ }).click();
   await expect(page.getByRole("dialog", { name: "Configure a Blackbox" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /^Request inspector/ })).toBeChecked();
+  await expect(page.getByLabel("Public OCI image digest")).toHaveCount(0);
   const rentalOrder = page.getByRole("button", { name: /Rent Blackbox.*0\.028994/ });
   await expect(rentalOrder).toBeEnabled();
   await expect(rentalOrder).toBeInViewport();
   await page.getByRole("radio", { name: "2 hr", exact: true }).check();
   await expect(page.getByRole("button", { name: /Rent Blackbox.*0\.16195/ })).toBeEnabled();
+  await page.getByRole("radio", { name: /^Medium/ }).check();
+  await page.getByRole("radio", { name: "40 GB", exact: true }).check();
+  await page.getByRole("button", { name: /Rent Blackbox.*0\.3139/ }).click();
+  await expect(page.getByRole("dialog", { name: "Configure a Blackbox" })).toBeHidden();
+  expect(opened).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
 
   await page.evaluate(() => localStorage.setItem("sonnely.preferences", JSON.stringify({ theme: "light" })));
@@ -364,4 +427,57 @@ test("Blackbox rentals expose controls, attestation and final charges on mobile"
   await expect(page.getByRole("dialog", { name: "Configure a Blackbox" })).toBeHidden();
   await expect(page.getByRole("heading", { name: "docker.io/library/httpd" })).toBeVisible();
   expect(openRequests).toBe(1);
+});
+
+test("agent framework presets guide a configured image through the rental form", async ({ page }) => {
+  const image = "ghcr.io/example/eliza@sha256:" + "a".repeat(64);
+  let submitted: unknown;
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: {
+        profile: { wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk", balance: 1_000_000 },
+        enabled: true,
+        cluster: "mainnet",
+      },
+    }),
+  );
+  await page.route("**/api/sonnely/compute**", (route) => {
+    if (route.request().method() === "POST") {
+      submitted = route.request().postDataJSON();
+      return route.fulfill({ status: 409, json: { error: "Rental fixture" } });
+    }
+    return route.fulfill({ json: { enabled: true, runs: [], log: "" } });
+  });
+  await page.goto("/console/blackboxes");
+  await page.getByRole("button", { name: /Hermes Agent/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Configure a Blackbox" });
+  const port = dialog.getByLabel("Container HTTP port");
+  await expect(dialog.getByRole("radio", { name: /Hermes Agent/ })).toBeChecked();
+  await expect(port).toHaveValue("8642");
+  await expect(dialog.getByRole("radio", { name: /Medium/ })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: "40 GB" })).toBeChecked();
+  await expect(dialog.getByRole("link", { name: "Hermes Agent setup guide" })).toBeVisible();
+
+  for (const [name, expectedPort] of [
+    ["OpenClaw", "18789"],
+    ["Mastra", "4111"],
+    ["Pydantic AI", "8000"],
+    ["ElizaOS", "3000"],
+  ]) {
+    await dialog.getByRole("radio", { name: new RegExp(name) }).check();
+    await expect(port).toHaveValue(expectedPort);
+  }
+
+  const submit = dialog.getByRole("button", { name: /Rent Blackbox/ });
+  await submit.click();
+  expect(submitted).toBeUndefined();
+  await dialog.getByLabel("Public OCI image digest").fill(image);
+  await submit.click();
+  await expect
+    .poll(() => submitted)
+    .toMatchObject({
+      action: "open",
+      minutes: 15,
+      spec: { kind: "blackboxes", image, port: 3000, machine: "tdx.medium", disk: 40 },
+    });
 });

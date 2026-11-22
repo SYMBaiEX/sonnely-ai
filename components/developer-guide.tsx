@@ -345,9 +345,10 @@ export function DeveloperGuide() {
           <section id="blackboxes">
             <h2>Blackbox rentals</h2>
             <p>
-              Eligible pilot accounts can rent Phala confidential VMs using a supported image pinned by
-              digest. Review the credit reservation before launch and check the workload attestation after
-              provisioning.
+              Eligible accounts can start with an NGINX, HTTP playground, or request inspector preset, or
+              enter a public image pinned by digest and its HTTP port. Choose a Phala TDX machine, temporary
+              SSD size, and rental duration. Review the credit hold before launch and download attestation
+              after provisioning.
             </p>
             <Link className="text-link" href="/blackboxes">
               Read the Blackboxes overview <ArrowUpRight size={16} aria-hidden="true" />

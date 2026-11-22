@@ -463,7 +463,7 @@
 }
 
 .search,
-.fields input:not([type="radio"]) {
+.fields input:not([type="radio"], [type="hidden"]) {
   display: flex;
   align-items: center;
   gap: 0.42rem;
@@ -564,7 +564,7 @@
 }
 
 .dialog {
-  width: min(calc(100% - 1.5rem), 48rem);
+  width: min(calc(100% - 1.5rem), 54rem);
   max-height: calc(100dvh - 1.5rem);
   padding: clamp(1rem, 3vw, 1.6rem);
   background: var(--glass-solid);
@@ -615,7 +615,7 @@
   font-weight: 620;
 }
 
-.fields label input:not([type="radio"]) {
+.fields label input:not([type="radio"], [type="hidden"]) {
   width: 100%;
   min-width: 0;
   font-size: 0.86rem;
@@ -825,4 +825,227 @@
   .dialogFooter .danger {
     width: 100%;
   }
+}
+
+.quickstart,
+.presetGrid,
+.machineGrid {
+  display: grid;
+  gap: 0.52rem;
+}
+
+.quickstart,
+.machineGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.presetGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.choice {
+  display: grid;
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.choice input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.presetCard,
+.machineGrid .choice > span {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.72rem;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.presetCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.57rem;
+  padding: 0.75rem;
+  text-align: start;
+  font: inherit;
+}
+
+button.presetCard {
+  cursor: pointer;
+  align-items: center;
+}
+
+.presetCard > svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.presetCard > svg:last-child {
+  margin-inline-start: auto;
+  color: var(--muted);
+}
+
+.presetCard strong,
+.presetCard small,
+.machineGrid strong,
+.machineGrid small {
+  display: block;
+}
+
+.presetCard strong,
+.machineGrid strong {
+  font-size: 0.85rem;
+}
+
+.presetCard small,
+.machineGrid small {
+  margin-top: 0.23rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 450;
+  line-height: 1.35;
+}
+
+.machineGrid .choice > span {
+  padding: 0.57rem 0.5rem;
+  text-align: center;
+}
+
+.choice input:checked + span,
+button.presetCard:hover {
+  background: var(--active-fill);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+}
+
+.choice input:focus-visible + span {
+  outline: 2px solid var(--muted);
+  outline-offset: 2px;
+}
+
+.choice input:disabled {
+  cursor: default;
+}
+
+.presetDetails {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.presetDetails summary {
+  width: fit-content;
+  min-height: 2rem;
+  padding: 0.4rem 0;
+  cursor: pointer;
+}
+
+.presetDetails code {
+  overflow-wrap: anywhere;
+}
+
+.customFields {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.placement {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.8rem 0;
+  font-size: 0.79rem;
+}
+
+.placement dt {
+  color: var(--muted);
+}
+
+.placement dd {
+  font-weight: 580;
+}
+
+@media (max-width: 680px) {
+  .quickstart {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .presetCard {
+    gap: 0.4rem;
+    padding: 0.6rem;
+  }
+}
+
+.agentQuickstart {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.35rem;
+}
+
+.agentQuickstart h3,
+.agentSetup h3 {
+  font-size: 0.89rem;
+  font-weight: 630;
+}
+
+.workloadGroups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  width: fit-content;
+  margin-bottom: 0.65rem;
+  padding: 0.24rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface);
+}
+
+.workloadGroups button {
+  min-height: 2rem;
+  padding: 0.34rem 0.68rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workloadGroups button[aria-pressed="true"] {
+  background: var(--active-fill);
+  color: var(--ink);
+}
+
+.agentSetup {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.72rem;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.agentSetup h3 {
+  color: var(--ink);
+}
+
+.agentSetup a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: fit-content;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }

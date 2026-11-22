@@ -176,7 +176,7 @@ export default async function Subpage({ params }: Props) {
           <section id="compute-pricing" className="panel stack-panel">
             <h2>Compute pricing</h2>
             <p>
-              A 15-minute Blackbox pilot rental is estimated at{" "}
+              A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
               {creditBalance(computeQuote("blackboxes", 15).total)}. The console shows the full reservation,
               including provider cost and Sonnely’s service fee, before you start.
             </p>

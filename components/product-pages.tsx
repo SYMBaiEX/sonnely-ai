@@ -261,14 +261,14 @@ function Blackboxes() {
     <>
       <ProductSection id="rental" title="Rent an attested VM.">
         <p>
-          Blackboxes are paid, time-limited CVMs running on Phala Cloud. Start with a public Docker Hub or
-          GHCR image pinned by digest, choose an application port and rental term, then review the reservation
-          in the console.
+          Blackboxes are paid, time-limited CVMs on Phala Cloud. Start from an NGINX, HTTP playground, or
+          request inspector preset, or bring a public image pinned by digest. Choose your TDX machine,
+          temporary SSD size, and rental term before reviewing the credit hold.
         </p>
         <ProductSample label="Blackbox pilot configuration">
           <dl className={styles.sampleStats}>
             <div>
-              <dt>Resources</dt>
+              <dt>Starting configuration</dt>
               <dd>{plan.size}</dd>
             </div>
             <div>

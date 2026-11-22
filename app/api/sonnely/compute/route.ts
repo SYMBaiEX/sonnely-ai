@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
+import { blackboxDiskSizes, blackboxMachineIds } from "@/lib/blackbox-options";
 import {
   backend,
   ensureSameOrigin,
@@ -20,7 +21,13 @@ const requestSchema = z.discriminatedUnion("action", [
     reference: z.string(),
     minutes: z.number(),
     spec: z.discriminatedUnion("kind", [
-      z.object({ kind: z.literal("blackboxes"), image: z.string(), port: z.number() }),
+      z.object({
+        kind: z.literal("blackboxes"),
+        image: z.string(),
+        port: z.number(),
+        machine: z.enum(blackboxMachineIds).optional(),
+        disk: z.literal(blackboxDiskSizes).optional(),
+      }),
       z.object({ kind: z.literal("dry-docks"), repository: z.string(), revision: z.string() }),
     ]),
   }),

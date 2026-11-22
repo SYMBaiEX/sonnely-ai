@@ -3,6 +3,11 @@ import Link from "next/link";
 import {
   ArrowRight,
   ArrowUpRight,
+  Bot,
+  Braces,
+  Globe2,
+  Network,
+  Terminal,
   Box,
   CircleCheck,
   Clock3,
@@ -16,8 +21,32 @@ import {
   Square,
   Wallet,
   X,
+  type LucideIcon,
 } from "lucide-react";
-import { computeFee, computeMarkup, computePlans, computeQuote, imagePattern } from "@/lib/compute";
+import {
+  computeFee,
+  computeMarkup,
+  computePlans,
+  computePrice,
+  computeQuote,
+  imagePattern,
+} from "@/lib/compute";
+import {
+  blackboxAgentPresets,
+  blackboxDiskHourlyRate,
+  blackboxDiskSizes,
+  blackboxHourlyBase,
+  blackboxMachineIds,
+  blackboxMachines,
+  blackboxPresets,
+  blackboxSize,
+  defaultBlackboxDisk,
+  defaultBlackboxMachine,
+  type BlackboxAgentPreset,
+  type BlackboxDisk,
+  type BlackboxMachine,
+  type BlackboxPreset,
+} from "@/lib/blackbox-options";
 import { creditBalance } from "@/lib/credit-amount";
 import type { ComputeRun, ComputeSnapshot } from "./compute";
 import { CopyButton } from "./shared";
@@ -25,6 +54,40 @@ import type { Session } from "./wallet";
 import styles from "./blackboxes.module.css";
 
 const plan = computePlans.blackboxes;
+const presetIds = Object.keys(blackboxPresets) as BlackboxPreset[];
+const agentPresetIds = Object.keys(blackboxAgentPresets) as BlackboxAgentPreset[];
+type Workload = BlackboxPreset | BlackboxAgentPreset | "custom";
+
+function isAgentPreset(preset: Workload): preset is BlackboxAgentPreset {
+  return Object.hasOwn(blackboxAgentPresets, preset);
+}
+
+const presetIcons = { nginx: Globe2, httpbin: Braces, whoami: Network } as const;
+function WorkloadOption({
+  option,
+  icon: Icon,
+  selected,
+  onSelect,
+}: {
+  option: { title: string; description: string };
+  icon: LucideIcon;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <label className={styles.choice}>
+      <input type="radio" name="preset" checked={selected} onChange={onSelect} />
+      <span className={styles.presetCard}>
+        <Icon size={18} aria-hidden="true" />
+        <span>
+          <strong>{option.title}</strong>
+          <small>{option.description}</small>
+        </span>
+      </span>
+    </label>
+  );
+}
+
 type Rental = ComputeRun & { spec: Extract<ComputeRun["spec"], { kind: "blackboxes" }> };
 type Filter = "All rentals" | "Active" | "Past";
 const filters: Filter[] = ["All rentals", "Active", "Past"];
@@ -167,6 +230,9 @@ export function Blackboxes({
   const active = rentals.find((item) => item.active);
   const [filter, setFilter] = useState<Filter>("All rentals");
   const [search, setSearch] = useState("");
+  const [preset, setPreset] = useState<Workload>("nginx");
+  const [machine, setMachine] = useState<BlackboxMachine>(defaultBlackboxMachine);
+  const [disk, setDisk] = useState<BlackboxDisk>(defaultBlackboxDisk);
   const [minutes, setMinutes] = useState<number>(plan.minutes[0]);
   const [image, setImage] = useState("");
   const [port, setPort] = useState("8080");
@@ -176,7 +242,10 @@ export function Blackboxes({
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const owner = Boolean(session?.profile);
   const balance = session?.profile?.balance ?? 0;
-  const quote = computeQuote("blackboxes", minutes);
+  const agentPreset = isAgentPreset(preset) ? blackboxAgentPresets[preset] : undefined;
+  const selectedPreset = preset === "custom" || isAgentPreset(preset) ? undefined : blackboxPresets[preset];
+  const hourlyRate = blackboxHourlyBase(machine, disk);
+  const quote = computePrice(hourlyRate, plan.unitSeconds, minutes * 60);
   const held = rentals.reduce((sum, item) => sum + (item.active ? item.reserve : 0), 0);
   const charged = rentals.reduce((sum, item) => sum + (item.charged ?? 0), 0);
   const matched = rentals.filter(
@@ -204,18 +273,41 @@ export function Blackboxes({
     requestAnimationFrame(() => detailHeading.current?.focus());
   }
 
-  function configure(from?: Rental) {
+  function selectWorkload(next: Workload, resetSizing = false) {
+    const agent = isAgentPreset(next) ? blackboxAgentPresets[next] : undefined;
+    setPreset(next);
+    setImage("");
+    setPort(String(agent?.port ?? 8080));
+    if (resetSizing || Boolean(agent) !== Boolean(agentPreset)) {
+      setMachine(agent ? "tdx.medium" : defaultBlackboxMachine);
+      setDisk(agent ? 40 : defaultBlackboxDisk);
+    }
+    setFormError("");
+  }
+
+  function configure(from?: Rental, initialPreset: Workload = "nginx") {
     onClearError();
     setFormError("");
-    setImage(from?.spec.image ?? "");
-    setPort(String(from?.spec.port ?? 8080));
+    const savedPreset =
+      from &&
+      presetIds.find((id) => {
+        const option = blackboxPresets[id];
+        return from.spec.image === option.image && from.spec.port === option.port;
+      });
+    selectWorkload(from ? (savedPreset ?? "custom") : initialPreset, true);
+    if (from) {
+      setImage(from.spec.image);
+      setPort(String(from.spec.port));
+      setMachine(from.spec.machine ?? defaultBlackboxMachine);
+      setDisk(from.spec.disk ?? defaultBlackboxDisk);
+    }
     setMinutes(from?.minutes ?? plan.minutes[0]);
     composer.current?.showModal();
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!imagePattern.test(image.trim())) {
+    if (!selectedPreset && !imagePattern.test(image.trim())) {
       setFormError(
         "Enter a Docker Hub or GHCR image pinned with @sha256: followed by its 64-character digest.",
       );
@@ -236,7 +328,7 @@ export function Blackboxes({
           </span>
           <div>
             <h1>Blackboxes</h1>
-            <p>Rent and manage attested confidential VMs on Phala Cloud.</p>
+            <p>Start from a container preset or bring your own image to a Phala confidential VM.</p>
           </div>
         </div>
         <div className={styles.actions}>
@@ -252,7 +344,7 @@ export function Blackboxes({
             <dt>
               <Cpu size={16} aria-hidden="true" /> Resources
             </dt>
-            <dd>{plan.size}</dd>
+            <dd>1–4 vCPU · 2–8 GB RAM</dd>
           </div>
           <div>
             <dt>
@@ -342,6 +434,10 @@ export function Blackboxes({
                 <ShieldCheck size={17} aria-hidden="true" /> Workload and evidence
               </h3>
               <dl className={styles.details}>
+                <div>
+                  <dt>Machine and disk</dt>
+                  <dd>{blackboxSize(rental.spec.machine, rental.spec.disk)}</dd>
+                </div>
                 <div>
                   <dt>Container port</dt>
                   <dd>{rental.spec.port}</dd>
@@ -463,7 +559,7 @@ export function Blackboxes({
             </section>
           </div>
         </section>
-      ) : (
+      ) : snapshot?.enabled && !rentals.length && !selectionPending && !selectionUnavailable ? null : (
         <section className={styles.empty} aria-labelledby="blackboxes-empty">
           <span className={styles.mark}>
             <Box size={24} aria-hidden="true" />
@@ -501,6 +597,64 @@ export function Blackboxes({
                             ? "Start a rental with a digest-pinned image and choose how long the VM should run."
                             : "Checking the rental history for your connected wallet."}
             </p>
+          </div>
+        </section>
+      )}
+
+      {snapshot?.enabled && !rentals.length && !selectionPending && !selectionUnavailable && (
+        <section className={styles.panel} aria-labelledby="blackbox-quickstart">
+          <div className={styles.panelHead}>
+            <div>
+              <h2 id="blackbox-quickstart">Start from a preset</h2>
+              <p className={styles.muted}>Choose a container, then review the machine and rental price.</p>
+            </div>
+          </div>
+          <div className={styles.quickstart}>
+            {presetIds.map((id) => {
+              const Icon = presetIcons[id];
+              const option = blackboxPresets[id];
+              return (
+                <button
+                  className={styles.presetCard}
+                  type="button"
+                  key={id}
+                  onClick={() => configure(undefined, id)}
+                >
+                  <Icon size={19} aria-hidden="true" />
+                  <span>
+                    <strong>{option.title}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                  <ArrowRight size={16} aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+          <div className={styles.agentQuickstart}>
+            <h3>Agent frameworks</h3>
+            <p className={styles.muted}>
+              Start with suggested Phala settings and bring your configured image.
+            </p>
+            <div className={styles.quickstart}>
+              {agentPresetIds.map((id) => {
+                const option = blackboxAgentPresets[id];
+                return (
+                  <button
+                    className={styles.presetCard}
+                    type="button"
+                    key={id}
+                    onClick={() => configure(undefined, id)}
+                  >
+                    <Bot size={18} aria-hidden="true" />
+                    <span>
+                      <strong>{option.title}</strong>
+                      <small>{option.description}</small>
+                    </span>
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
       )}
@@ -605,9 +759,7 @@ export function Blackboxes({
         <div className={styles.dialogHead}>
           <div>
             <h2 id="blackbox-configure">Configure a Blackbox</h2>
-            <p className={styles.muted}>
-              {plan.provider} · {plan.size}
-            </p>
+            <p className={styles.muted}>Pick a workload, then size your Phala confidential VM.</p>
           </div>
           <button
             type="button"
@@ -623,48 +775,169 @@ export function Blackboxes({
           <div className={styles.formBody}>
             <div className={styles.formGrid}>
               <div className={styles.fields}>
-                <label>
-                  Public OCI image digest
-                  <input
-                    name="image"
-                    required
-                    maxLength={240}
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    placeholder="ghcr.io/owner/image@sha256:…"
-                    value={image}
-                    aria-invalid={formError ? true : undefined}
-                    aria-describedby={formError ? "blackbox-image-error" : "blackbox-image-help"}
-                    onChange={(event) => {
-                      setImage(event.target.value);
-                      setFormError("");
-                    }}
-                    disabled={pending}
-                  />
-                </label>
-                <p id="blackbox-image-help" className={styles.hint}>
-                  Use a public Docker Hub or GHCR image pinned by SHA-256 digest.
-                </p>
-                {formError && (
-                  <p id="blackbox-image-error" className={styles.error} role="alert">
-                    {formError}
-                  </p>
+                <fieldset disabled={pending}>
+                  <legend>Workload</legend>
+                  <div className={styles.workloadGroups} role="group" aria-label="Workload type">
+                    <button
+                      type="button"
+                      aria-pressed={!agentPreset}
+                      onClick={() => agentPreset && selectWorkload("nginx")}
+                    >
+                      Containers
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={Boolean(agentPreset)}
+                      onClick={() => !agentPreset && selectWorkload("hermes")}
+                    >
+                      Agent frameworks
+                    </button>
+                  </div>
+                  <div className={styles.presetGrid}>
+                    {agentPreset ? (
+                      agentPresetIds.map((id) => (
+                        <WorkloadOption
+                          key={id}
+                          option={blackboxAgentPresets[id]}
+                          icon={Bot}
+                          selected={preset === id}
+                          onSelect={() => selectWorkload(id)}
+                        />
+                      ))
+                    ) : (
+                      <>
+                        {presetIds.map((id) => (
+                          <WorkloadOption
+                            key={id}
+                            option={blackboxPresets[id]}
+                            icon={presetIcons[id]}
+                            selected={preset === id}
+                            onSelect={() => selectWorkload(id)}
+                          />
+                        ))}
+                        <WorkloadOption
+                          option={{
+                            title: "Custom container",
+                            description: "Deploy a public Docker Hub or GHCR image.",
+                          }}
+                          icon={Terminal}
+                          selected={preset === "custom"}
+                          onSelect={() => selectWorkload("custom")}
+                        />
+                      </>
+                    )}
+                  </div>
+                </fieldset>
+                {selectedPreset ? (
+                  <>
+                    <input type="hidden" name="image" value={selectedPreset.image} />
+                    <input type="hidden" name="port" value={selectedPreset.port} />
+                    <details className={styles.presetDetails}>
+                      <summary>View pinned image · port {selectedPreset.port}</summary>
+                      <code>{selectedPreset.image}</code>
+                    </details>
+                  </>
+                ) : (
+                  <div className={styles.customFields}>
+                    {agentPreset && (
+                      <div className={styles.agentSetup}>
+                        <h3>Prepare your {agentPreset.title} image</h3>
+                        <p>{agentPreset.setup}</p>
+                        <p>
+                          Bring a configured Linux amd64 image. Blackboxes gives it a public HTTPS endpoint
+                          and currently has no runtime secret injection. Keep credentials out of the image.
+                        </p>
+                        <a href={agentPreset.docs} target="_blank" rel="noreferrer">
+                          {agentPreset.title} setup guide <ArrowUpRight size={13} aria-hidden="true" />
+                        </a>
+                      </div>
+                    )}
+                    <label>
+                      Public OCI image digest
+                      <input
+                        name="image"
+                        required
+                        maxLength={240}
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        placeholder="ghcr.io/owner/image@sha256:…"
+                        value={image}
+                        aria-invalid={formError ? true : undefined}
+                        aria-describedby={formError ? "blackbox-image-error" : "blackbox-image-help"}
+                        onChange={(event) => {
+                          setImage(event.target.value);
+                          setFormError("");
+                        }}
+                        disabled={pending}
+                      />
+                    </label>
+                    <p className={styles.hint} id="blackbox-image-help">
+                      Pin your public image to a SHA-256 digest.
+                    </p>
+                    {formError && (
+                      <p id="blackbox-image-error" className={styles.error} role="alert">
+                        {formError}
+                      </p>
+                    )}
+                    <label>
+                      Container HTTP port
+                      <input
+                        name="port"
+                        type="number"
+                        inputMode="numeric"
+                        required
+                        min={1}
+                        max={65535}
+                        step={1}
+                        value={port}
+                        onChange={(event) => setPort(event.target.value)}
+                        disabled={pending}
+                      />
+                    </label>
+                  </div>
                 )}
-                <label>
-                  Container HTTP port
-                  <input
-                    name="port"
-                    type="number"
-                    inputMode="numeric"
-                    required
-                    min={1}
-                    max={65535}
-                    step={1}
-                    value={port}
-                    onChange={(event) => setPort(event.target.value)}
-                    disabled={pending}
-                  />
-                </label>
+                <fieldset disabled={pending}>
+                  <legend>Phala machine</legend>
+                  <div className={styles.machineGrid}>
+                    {blackboxMachineIds.map((id) => {
+                      const option = blackboxMachines[id];
+                      return (
+                        <label key={id} className={styles.choice}>
+                          <input
+                            type="radio"
+                            name="machine"
+                            value={id}
+                            checked={machine === id}
+                            onChange={() => setMachine(id)}
+                          />
+                          <span>
+                            <strong>{option.name}</strong>
+                            <small>
+                              {option.cpu} vCPU · {option.ram} GB RAM
+                            </small>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+                <fieldset disabled={pending}>
+                  <legend>Temporary SSD</legend>
+                  <div className={styles.machineGrid}>
+                    {blackboxDiskSizes.map((value) => (
+                      <label key={value} className={styles.choice}>
+                        <input
+                          type="radio"
+                          name="disk"
+                          value={value}
+                          checked={disk === value}
+                          onChange={() => setDisk(value)}
+                        />
+                        <span>{value} GB</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 <fieldset disabled={pending}>
                   <legend>Rental window</legend>
                   <div className={styles.windows}>
@@ -682,16 +955,12 @@ export function Blackboxes({
                     ))}
                   </div>
                 </fieldset>
-                <p className={styles.hint}>
-                  Phala publishes this port over public HTTPS after attestation. The VM and disk are deleted
-                  after the rental ends.
-                </p>
               </div>
               <aside className={styles.quote} aria-label="Rental quote">
                 <h3>Maximum hold</h3>
                 <strong className={styles.price}>{creditBalance(quote.total)}</strong>
                 <p className={styles.hint}>
-                  {minutes} min · {creditBalance(plan.hourlyBase)}/hr provider rate including disk
+                  {minutes} min · {creditBalance(hourlyRate)}/hr for machine and SSD
                 </p>
                 <dl className={styles.details}>
                   <div>
@@ -709,10 +978,28 @@ export function Blackboxes({
                     </div>
                   )}
                 </dl>
+                <dl className={styles.placement}>
+                  <div>
+                    <dt>Placement</dt>
+                    <dd>Automatic · Phala Cloud</dd>
+                  </div>
+                  <div>
+                    <dt>Workload access</dt>
+                    <dd>Public HTTPS after attestation</dd>
+                  </div>
+                </dl>
                 <p className={styles.hint}>
-                  The fee is {computeMarkup}% of provider cost plus {creditBalance(computeFee)} for a billed
-                  run. Runtime is rounded up to the minute. Unused credits return after teardown.
+                  Phala selects an available Intel TDX node. The VM and SSD are deleted at the end of the
+                  rental.
                 </p>
+                <details className={styles.presetDetails}>
+                  <summary>How pricing works</summary>
+                  <p className={styles.hint}>
+                    The fee is {computeMarkup}% of provider cost plus {creditBalance(computeFee)} for a billed
+                    run. SSD usage costs {creditBalance(blackboxDiskHourlyRate)} per GB per hour. Runtime is
+                    rounded up to the minute, and unused credits return after teardown.
+                  </p>
+                </details>
               </aside>
             </div>
             {!owner ? (
