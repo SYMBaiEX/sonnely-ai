@@ -12,6 +12,7 @@ const requestShape = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("gateway_alerts") }),
   z.strictObject({
     kind: z.literal("alert_email"),
+    id: z.string().regex(/^[a-z0-9]{20,64}$/),
     subject: z.string().max(180),
     text: z.string().max(1200),
   }),
@@ -28,7 +29,8 @@ export async function POST(request: NextRequest) {
       throw new SonnelyError("Unauthorized.", 401);
     const payload = requestShape.parse(await readBody(request, 8192));
     if (payload.kind === "near_costs") return json(await getProviderCosts(payload.requestIds));
-    if (payload.kind === "alert_email") return json(await sendOperationsEmail(payload.subject, payload.text));
+    if (payload.kind === "alert_email")
+      return json(await sendOperationsEmail(payload.id, payload.subject, payload.text));
     const today = new Date().toISOString().slice(0, 10);
     const report = await readGatewayOperations(today, today);
     return json({

@@ -285,7 +285,7 @@ export const dispatch = internalAction({
     const items = await ctx.runMutation(internal.operations.claimEmails, {});
     await Promise.all(
       items.map(async ({ id, subject, text, attempts }) => {
-        const result = await bridge({ kind: "alert_email", subject, text })
+        const result = await bridge({ kind: "alert_email", id, subject, text })
           .then((raw) => emailReply.parse(raw))
           .catch(() => ({ state: "unconfirmed" as const, messageId: undefined, code: undefined }));
         await ctx.runMutation(internal.operations.finishEmail, {

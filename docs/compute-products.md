@@ -97,7 +97,8 @@ UsageMax alert opens and resolutions are queued for delivery when the
 operations email destination has been configured. In **Admin → Inference
 ops**, the operations panel reports synchronization and email status and can
 queue a test message. The email includes the provider, alert type, and a link
-to Admin.
+to Admin. The configured Sonnely inbox transport records delivery after the
+message is stored and deduplicates retries by alert ID.
 
 ### Crypto funding
 

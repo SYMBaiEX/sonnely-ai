@@ -9,9 +9,6 @@ export default {
     if (!validOperationsToken(token, env.SONNELY_MAIL_BRIDGE_TOKEN)) {
       return new Response(null, { status: 401 });
     }
-    if (!env.SONNELY_MAIL_TO) {
-      return Response.json({ state: "failed", code: "E_RECIPIENT_NOT_CONFIGURED" });
-    }
     const raw = await request.text();
     if (raw.length > 2048) return new Response(null, { status: 413 });
     let message;
@@ -22,6 +19,8 @@ export default {
     }
     if (
       !message ||
+      typeof message.id !== "string" ||
+      !/^[a-z0-9]{20,64}$/.test(message.id) ||
       typeof message.subject !== "string" ||
       !message.subject.startsWith("[Sonnely] ") ||
       message.subject.length > 180 ||
@@ -30,6 +29,17 @@ export default {
       message.text.length > 1200
     ) {
       return new Response(null, { status: 400 });
+    }
+    if (env.SONNELY_INBOX_TOKEN) {
+      const { id, subject, text } = message;
+      try {
+        return Response.json(await env.SONNELY_INBOX.deliver(env.SONNELY_INBOX_TOKEN, { id, subject, text }));
+      } catch {
+        return Response.json({ state: "retry", code: "E_INBOX_TEMPORARY" });
+      }
+    }
+    if (!env.SONNELY_MAIL_TO) {
+      return Response.json({ state: "failed", code: "E_RECIPIENT_NOT_CONFIGURED" });
     }
     try {
       const result = await env.EMAIL.send({
