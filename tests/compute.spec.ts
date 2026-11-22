@@ -118,8 +118,12 @@ test("both products show responsive paid quotes in both themes", async ({ page }
   );
   await page.goto("/console/blackboxes");
   await expect(page.getByRole("heading", { name: "Blackboxes" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Rent Blackbox.*0\.028994/ })).toBeEnabled();
-  await page.getByRole("combobox", { name: "Rental window" }).selectOption("120");
+  await page.getByRole("button", { name: "New rental" }).click();
+  await expect(page.getByRole("dialog", { name: "Configure a Blackbox" })).toBeVisible();
+  const rentalOrder = page.getByRole("button", { name: /Rent Blackbox.*0\.028994/ });
+  await expect(rentalOrder).toBeEnabled();
+  await expect(rentalOrder).toBeInViewport();
+  await page.getByRole("radio", { name: "2 hr", exact: true }).check();
   await expect(page.getByRole("button", { name: /Rent Blackbox.*0\.16195/ })).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
 
@@ -224,4 +228,140 @@ test("Dry Docks shows Coming soon without a build form while starts are paused",
   await expect(page.getByRole("heading", { name: "Coming soon" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Start paid build/ })).toHaveCount(0);
   await expect(page.getByRole("textbox", { name: "Public GitHub repository" })).toHaveCount(0);
+});
+
+test("Blackbox rentals expose controls, attestation and final charges on mobile", async ({ page }) => {
+  const now = Date.now();
+  const id = "kx7cvmrunw6m50r22c5ktfgxmwec6jv6";
+  const pastId = "kx7cvmrunw6m50r22c5ktfgxmwec6jv7";
+  const image = "ghcr.io/sonnely/workload@sha256:" + "a".repeat(64);
+  const endpoint = "https://workload.example.com";
+  const spec = { kind: "blackboxes", image, port: 8443 };
+  let stopped = false;
+  let stopRequests = 0;
+  let openRequests = 0;
+  const newId = "kx7cvmrunw6m50r22c5ktfgxmwec6jv8";
+  const active = {
+    id,
+    spec,
+    phase: "running",
+    active: true,
+    createdAt: now - 60_000,
+    startedAt: now - 60_000,
+    expiresAt: now + 840_000,
+    evidenceAt: now - 45_000,
+    hasEvidence: true,
+    endpoint,
+    composeHash: "b".repeat(64),
+    minutes: 15,
+    reserve: 28_994,
+  };
+  const past = {
+    ...active,
+    id: pastId,
+    createdAt: now - 180_000,
+    startedAt: now - 180_000,
+    evidenceAt: now - 175_000,
+    spec: { ...spec, image: "docker.io/library/httpd@sha256:" + "c".repeat(64) },
+    phase: "settled",
+    result: "stopped",
+    active: false,
+    endpoint: undefined,
+    expiresAt: undefined,
+    settledAt: now - 90_000,
+    purgeAt: now + 7 * 86_400_000,
+    charged: 12_500,
+    base: 2_000,
+    fee: 10_500,
+    seconds: 91,
+  };
+
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: {
+        profile: { wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk", balance: 1_000_000 },
+        cluster: "mainnet",
+        enabled: true,
+      },
+    }),
+  );
+  await page.route("**/api/sonnely/compute?**", (route) => {
+    const queued = {
+      id: newId,
+      spec: past.spec,
+      createdAt: now,
+      phase: "queued",
+      active: true,
+      hasEvidence: false,
+      reserve: active.reserve,
+      minutes: 15,
+    };
+    const runs = [...(openRequests ? [queued] : []), stopped ? { ...past, id, spec } : active, past];
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get("file") === "evidence") {
+      expect(params.get("id")).toBe(id);
+      return route.fulfill({
+        json: { capturedAt: now },
+        headers: { "Content-Disposition": 'attachment; filename="blackbox-attestation.json"' },
+      });
+    }
+    return route.fulfill({
+      json: { enabled: true, runs, detail: runs.find((run) => run.id === params.get("id")) },
+    });
+  });
+  await page.route("**/api/sonnely/compute", async (route) => {
+    const body = route.request().postDataJSON();
+    if (body.action === "open") {
+      expect(body).toMatchObject({ action: "open", spec: past.spec, minutes: 15 });
+      expect(body.reference).toMatch(/^[a-f0-9]{32}$/);
+      openRequests++;
+      await route.fulfill({ json: { id: newId }, status: 202 });
+    } else {
+      expect(body).toEqual({ action: "stop", id });
+      stopRequests++;
+      stopped = true;
+      await route.fulfill({ json: { ok: true } });
+    }
+  });
+
+  await page.goto("/console/blackboxes");
+  await expect(page.getByRole("link", { name: "Open workload" })).toHaveAttribute("href", endpoint);
+  await expect(page.getByRole("progressbar", { name: "Rental time used" })).toBeVisible();
+  const attestation = page.getByRole("link", { name: "Download attestation" });
+  await expect(attestation).toHaveAttribute("href", "/api/sonnely/compute?id=" + id + "&file=evidence");
+  const downloaded = page.waitForEvent("download");
+  await attestation.click();
+  expect((await downloaded).suggestedFilename()).toBe("blackbox-attestation.json");
+
+  await page.getByRole("button", { name: "End rental", exact: true }).click();
+  const confirmation = page.getByRole("dialog", { name: "End this rental?" });
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole("button", { name: "Keep rental" }).click();
+  expect(stopRequests).toBe(0);
+  await page.getByRole("button", { name: "End rental", exact: true }).click();
+  await confirmation.getByRole("button", { name: "End rental", exact: true }).click();
+  await expect(confirmation).toBeHidden();
+  await expect(page.getByRole("link", { name: "Open workload" })).toHaveCount(0);
+  expect(stopRequests).toBe(1);
+  await expect(page.getByText("Returned credits", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Past", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Search rentals" }).fill("httpd");
+  await page.getByRole("button", { name: /docker\.io\/library\/httpd/ }).click();
+  await expect(page.getByRole("heading", { name: "docker.io/library/httpd" })).toBeVisible();
+  await page.getByRole("button", { name: "Rent this image again" }).click();
+  await expect(page.getByLabel("Public OCI image digest")).toHaveValue(past.spec.image);
+  await expect(page.getByLabel("Container HTTP port")).toHaveValue("8443");
+  await expect(page.getByRole("radio", { name: "15 min", exact: true })).toBeChecked();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
+  const start = page.getByRole("button", { name: /Rent Blackbox.*0\.028994/ });
+  await page.getByLabel("Public OCI image digest").fill("docker.io/library/httpd:latest");
+  await start.click();
+  await expect(page.getByText(/Enter a Docker Hub or GHCR image pinned with/)).toBeVisible();
+  expect(openRequests).toBe(0);
+  await page.getByLabel("Public OCI image digest").fill(past.spec.image);
+  await start.click();
+  await expect(page.getByRole("dialog", { name: "Configure a Blackbox" })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "docker.io/library/httpd" })).toBeVisible();
+  expect(openRequests).toBe(1);
 });
