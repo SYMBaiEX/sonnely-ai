@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Activity,
   ArrowUpRight,
@@ -52,23 +53,24 @@ const nav = [
 ] as const;
 const defaults: Preferences = { theme: "dark", localHistory: false, plain: true };
 
-export function Console({
-  section,
-  initialModel,
-  initialProvider,
-  initialRun,
-  availableProviders,
-  providerCatalog,
-}: {
-  section: Section;
-  initialModel: string;
-  initialProvider: ProviderId;
-  initialRun?: string;
-  availableProviders: ProviderId[];
-  providerCatalog?: Awaited<ReturnType<typeof nearCatalog>>;
-}) {
+const ConsoleContext = createContext<
+  | (ReturnType<typeof useSession> & {
+      range: number;
+      setRange: (days: number) => void;
+      preferences: Preferences;
+      change: (preferences: Preferences) => void;
+    })
+  | null
+>(null);
+
+export function ConsoleShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const selected = nav.find((item) => item.path === pathname) ?? nav[0];
+  const section = selected.id;
   const [range, setRange] = useState(30);
-  const { session, failure, refresh, liveRows } = useSession(section === "usage" ? range : 0);
+  const account = useSession(section === "usage" ? range : 0);
+  const { session, failure, refresh } = account;
+  const checkingAccount = !session && !failure;
   const [navOpen, setNavOpen] = useState(false);
   const navToggle = useRef<HTMLButtonElement>(null);
   const navPanel = useRef<HTMLElement>(null);
@@ -123,9 +125,7 @@ export function Console({
   }
 
   const profile = session?.profile;
-  const signedIn = Boolean(profile);
   const visibleNav = nav.filter((item) => item.id !== "admin" || profile?.role === "admin");
-  const selected = nav.find((item) => item.id === section)!;
   const PageIcon = selected.Icon;
   const sidebar = (items: (typeof nav)[number][]) =>
     items.map(({ id, title, path, Icon }) => (
@@ -239,7 +239,7 @@ export function Console({
             <span className="console-theme">
               <ThemeSwitch />
             </span>
-            <WalletControl session={session} refresh={refresh} />
+            <WalletControl session={session} refresh={refresh} checkingAccount={checkingAccount} />
           </div>
         </header>
         <CommandMenu open={palette} onClose={() => setPalette(false)} pages={visibleNav} />
@@ -250,77 +250,9 @@ export function Console({
             </p>
           )}
           {session?.termsRequired && <TermsAcceptance refresh={refresh} />}
-          {section === "chat" && (
-            <Chat
-              key={(profile?.wallet ?? "guest") + ":" + initialModel + ":" + initialProvider}
-              session={session}
-              initialModel={initialModel}
-              initialProvider={initialProvider}
-              availableProviders={availableProviders}
-              refresh={refresh}
-              localHistory={prefs.localHistory}
-              plain={prefs.plain}
-            />
-          )}
-          {section === "models" && (
-            <>
-              <WorkspaceHeading
-                icon={Cpu}
-                title="Models"
-                description="Compare models, inference providers, and token rates."
-              >
-                <Link href="#near-directory" className="text-link">
-                  Browse the full NEAR directory <ArrowUpRight size={15} />
-                </Link>
-              </WorkspaceHeading>
-              <ModelCatalog availableProviders={availableProviders} />
-              {providerCatalog && <NearModelDirectory {...providerCatalog} />}
-            </>
-          )}
-          {(section === "blackboxes" || section === "dry-docks") && (
-            <Compute
-              key={section + (profile?.wallet ?? "guest")}
-              kind={section}
-              session={session}
-              initialRun={initialRun}
-              refreshBalance={refresh}
-            />
-          )}
-          {section === "admin" && <Admin session={session} />}
-          {section === "keys" && <Keys signedIn={signedIn} />}
-          {section === "usage" && (
-            <>
-              <Usage
-                key={profile?.wallet ?? "guest"}
-                signedIn={signedIn}
-                balance={profile?.balance}
-                range={range}
-                setRange={setRange}
-                liveRows={liveRows}
-              />
-              <section className="panel workspace-compute-links" aria-label="Compute usage">
-                <h2>Compute usage</h2>
-                <Link href="/console/blackboxes">
-                  Blackbox rentals <ArrowUpRight size={15} />
-                </Link>
-                <Link href="/console/dry-docks">
-                  Dry Dock builds <ArrowUpRight size={15} />
-                </Link>
-              </section>
-            </>
-          )}
-          {section === "billing" && (
-            <Billing key={session?.profile?.wallet ?? "guest"} session={session} refresh={refresh} />
-          )}
-          {section === "referrals" && <Referrals key={profile?.wallet ?? "guest"} profile={profile} />}
-          {section === "settings" && (
-            <SettingsPanel
-              profile={profile}
-              refresh={refresh}
-              preferences={{ ...prefs, theme }}
-              change={change}
-            />
-          )}
+          <ConsoleContext value={{ ...account, range, setRange, preferences: { ...prefs, theme }, change }}>
+            {children}
+          </ConsoleContext>
         </main>
       </div>
       <nav className="mobile-dock glass" aria-label="Quick workspace navigation">
@@ -352,5 +284,105 @@ export function Console({
         </button>
       </nav>
     </ThemeSurface>
+  );
+}
+
+export function ConsoleScreen({
+  section,
+  initialModel,
+  initialProvider,
+  initialRun,
+  availableProviders,
+  providerCatalog,
+}: {
+  section: Section;
+  initialModel: string;
+  initialProvider: ProviderId;
+  initialRun?: string;
+  availableProviders: ProviderId[];
+  providerCatalog?: Awaited<ReturnType<typeof nearCatalog>>;
+}) {
+  const context = useContext(ConsoleContext);
+  if (!context) throw new Error("Console screens require the console layout.");
+  const { session, failure, refresh, range, setRange, liveRows, preferences, change } = context;
+  const profile = session?.profile;
+  const signedIn = Boolean(profile);
+  if (!session && !failure && section !== "models") {
+    return (
+      <p className="caption" role="status">
+        Checking workspace session…
+      </p>
+    );
+  }
+
+  return (
+    <>
+      {section === "chat" && (
+        <Chat
+          key={(profile?.wallet ?? "guest") + ":" + initialModel + ":" + initialProvider}
+          session={session}
+          initialModel={initialModel}
+          initialProvider={initialProvider}
+          availableProviders={availableProviders}
+          refresh={refresh}
+          localHistory={preferences.localHistory}
+          plain={preferences.plain}
+        />
+      )}
+      {section === "models" && (
+        <>
+          <WorkspaceHeading
+            icon={Cpu}
+            title="Models"
+            description="Compare models, inference providers, and token rates."
+          >
+            <Link href="#near-directory" className="text-link">
+              Browse the full NEAR directory <ArrowUpRight size={15} />
+            </Link>
+          </WorkspaceHeading>
+          <ModelCatalog availableProviders={availableProviders} />
+          {providerCatalog && <NearModelDirectory {...providerCatalog} />}
+        </>
+      )}
+      {(section === "blackboxes" || section === "dry-docks") && (
+        <Compute
+          key={section + (profile?.wallet ?? "guest")}
+          kind={section}
+          session={session}
+          initialRun={initialRun}
+          refreshBalance={refresh}
+        />
+      )}
+      {section === "admin" && <Admin session={session} />}
+      {section === "keys" && <Keys signedIn={signedIn} />}
+      {section === "usage" && (
+        <>
+          <Usage
+            key={profile?.wallet ?? "guest"}
+            signedIn={signedIn}
+            balance={profile?.balance}
+            range={range}
+            setRange={setRange}
+            liveRows={liveRows}
+          />
+          <section className="panel workspace-compute-links" aria-label="Compute usage">
+            <h2>Compute usage</h2>
+            <Link href="/console/blackboxes">
+              Blackbox rentals <ArrowUpRight size={15} />
+            </Link>
+            <Link href="/console/dry-docks">
+              Dry Dock builds <ArrowUpRight size={15} />
+            </Link>
+          </section>
+        </>
+      )}
+      {section === "billing" && (
+        <Billing key={session?.profile?.wallet ?? "guest"} session={session} refresh={refresh} />
+      )}
+      {section === "referrals" && <Referrals key={profile?.wallet ?? "guest"} profile={profile} />}
+      {section === "settings" && (
+        <SettingsPanel profile={profile} refresh={refresh} preferences={preferences} change={change} />
+      )}
+    </>
   );
 }

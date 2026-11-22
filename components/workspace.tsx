@@ -316,7 +316,16 @@ export function Usage({
   const [group, setGroup] = useState<"Model" | "Provider" | "Key">("Model");
   const [view, setView] = useState<"Chart" | "Table">("Chart");
   const { data, error } = useRemote<UsageRow[]>(signedIn, "usage?days=" + range);
-  const rows = signedIn ? (liveRows ?? data ?? []) : [];
+  const usage = signedIn ? (liveRows ?? data) : null;
+  const rows = usage ?? [];
+  const loading = signedIn && !usage && !error;
+  const activityStatus = !signedIn
+    ? "Connect a wallet to see request activity."
+    : loading
+      ? "Loading activity…"
+      : usage
+        ? "No activity in this period."
+        : "Activity is unavailable.";
   const spend = rows.reduce((sum, row) => sum + (row.status === "complete" ? row.cost : 0), 0);
   const held = rows.reduce(
     (sum, row) => sum + (["pending", "unreported"].includes(row.status) ? row.cost : 0),
@@ -367,9 +376,9 @@ export function Usage({
       <div className="stat-grid">
         {[
           ["Credit balance", balance === undefined ? "—" : creditBalance(balance)],
-          ["Spend", signedIn ? usd(spend) : "—"],
-          ["Requests", signedIn ? rows.length : "—"],
-          ["Tokens", signedIn ? tokens.toLocaleString() : "—"],
+          ["Spend", usage ? usd(spend) : "—"],
+          ["Requests", usage ? rows.length : "—"],
+          ["Tokens", usage ? tokens.toLocaleString() : "—"],
         ].map(([label, value]) => (
           <div className="panel stat" key={label}>
             <span>{label}</span>
@@ -414,13 +423,7 @@ export function Usage({
         {!rows.length ? (
           <div className="chart-empty">
             <BarChart3 size={23} />
-            <p>
-              {signedIn
-                ? liveRows || data || error
-                  ? "No activity in this period."
-                  : "Loading activity…"
-                : "Connect a wallet to see request activity."}
-            </p>
+            <p role="status">{activityStatus}</p>
           </div>
         ) : view === "Chart" ? (
           <>
@@ -464,7 +467,7 @@ export function Usage({
       </section>
       <section className="panel breakdown">
         <div className="between controls">
-          <h2>Request breakdown</h2>
+          <h2 id="request-breakdown">Request breakdown</h2>
           <div className="segmented" aria-label="Group usage">
             {(["Model", "Provider", "Key"] as const).map((value) => (
               <button
@@ -479,7 +482,12 @@ export function Usage({
           </div>
         </div>
         {grouped.size ? (
-          <div className="table-wrap">
+          <div
+            className="table-wrap workspace-data-table"
+            role="region"
+            aria-labelledby="request-breakdown"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -503,10 +511,18 @@ export function Usage({
             </table>
           </div>
         ) : (
-          <p className="caption">No request breakdown for this period.</p>
+          <p className="caption">
+            {!signedIn
+              ? "Connect a wallet to see the request breakdown."
+              : loading
+                ? "Loading request breakdown…"
+                : usage
+                  ? "No request breakdown for this period."
+                  : "Request breakdown is unavailable."}
+          </p>
         )}
       </section>
-      {signedIn && <UsageMax days={range} hasUsage={rows.some((row) => row.status === "complete")} />}
+      {usage && <UsageMax days={range} hasUsage={rows.some((row) => row.status === "complete")} />}
     </>
   );
 }
@@ -613,7 +629,7 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
             <Wallet size={21} />
           </div>
           <p className="amount">{profile ? creditBalance(profile.balance) : "—"}</p>
-          <p className="caption">Available for managed inference.</p>
+          <p className="caption">Available for inference and compute.</p>
           <Link className="text-link" href="/models">
             View token rates <ArrowUpRight size={16} />
           </Link>
@@ -886,9 +902,14 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
         )}
       </div>
       <section className="panel breakdown">
-        <h2>Payment history</h2>
+        <h2 id="payment-history">Payment history</h2>
         {profile && data?.length ? (
-          <div className="table-wrap">
+          <div
+            className="table-wrap workspace-data-table payment-history"
+            role="region"
+            aria-labelledby="payment-history"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -917,17 +938,21 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
                           Finalized <ArrowUpRight size={13} />
                         </a>
                       ) : (
-                        <button
-                          className="button quiet small"
-                          type="button"
-                          disabled={!!pending}
-                          onClick={() => {
-                            if (order?.reference !== item.reference)
-                              void run("resume", () => resumePayment(item.reference));
-                          }}
-                        >
-                          Resume payment
-                        </button>
+                        <div className="payment-status">
+                          <span className="caption">Awaiting payment</span>
+                          <button
+                            className="text-link"
+                            type="button"
+                            aria-label="Resume payment"
+                            disabled={!!pending}
+                            onClick={() => {
+                              if (order?.reference !== item.reference)
+                                void run("resume", () => resumePayment(item.reference));
+                            }}
+                          >
+                            Resume
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -936,10 +961,14 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
             </table>
           </div>
         ) : (
-          <p className="caption">
-            {profile
-              ? "No payments to show."
-              : "Connect a wallet to view payment history and request quotes."}
+          <p className="caption" role="status">
+            {!profile
+              ? "Connect a wallet to view payment history and request quotes."
+              : error
+                ? "Payment history is unavailable."
+                : data
+                  ? "No payments to show."
+                  : "Loading payment history…"}
           </p>
         )}
       </section>

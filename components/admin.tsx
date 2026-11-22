@@ -110,7 +110,7 @@ export function Admin({ session }: { session: Session | null }) {
         <AdminCrm view={area} key={wallet + ":" + area} />
       ) : !data ? (
         <p className="caption" role="status">
-          Loading platform activity…
+          {error ? "Platform activity is unavailable." : "Loading platform activity…"}
         </p>
       ) : (
         <div className="admin-grid">
@@ -357,8 +357,13 @@ export function Admin({ session }: { session: Session | null }) {
             </a>
           </section>
           <section className="panel breakdown">
-            <h2>Inference by model</h2>
-            <div className="table-wrap">
+            <h2 id="admin-inference-by-model">Inference by model</h2>
+            <div
+              className="table-wrap workspace-data-table"
+              role="region"
+              aria-labelledby="admin-inference-by-model"
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>

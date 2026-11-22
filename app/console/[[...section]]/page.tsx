@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
-import { Console } from "@/components/console";
+import { ConsoleScreen } from "@/components/console";
 import { nearCatalog } from "@/lib/near-catalog";
 import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
 import { configuredProviders } from "@/lib/managed-access";
-import "../console-design.css";
 
 const sections = [
   "chat",
@@ -41,7 +40,7 @@ export default async function ConsolePage({ params, searchParams }: Props) {
   if ((section && section.length > 1) || !sections.includes(name as Section)) notFound();
   const initial = models.find((item) => item.id === model) ?? models[0];
   return (
-    <Console
+    <ConsoleScreen
       section={name as Section}
       providerCatalog={name === "models" ? await nearCatalog() : undefined}
       initialModel={initial.id}

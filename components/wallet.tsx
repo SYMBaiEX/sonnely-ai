@@ -170,9 +170,11 @@ export async function payWithWallet(
 export function WalletControl({
   session,
   refresh,
+  checkingAccount = false,
 }: {
   session: Session | null;
   refresh: () => Promise<void>;
+  checkingAccount?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [failure, setFailure] = useState("");
@@ -257,13 +259,18 @@ export function WalletControl({
         type="button"
         className="button wallet-button"
         aria-expanded={open}
+        disabled={checkingAccount}
         onClick={() => {
           setFailure("");
           setOpen(!open);
         }}
       >
         <WalletIcon size={16} />
-        {session?.profile ? shorten(session.profile.wallet) : "Connect wallet"}
+        {session?.profile
+          ? shorten(session.profile.wallet)
+          : checkingAccount
+            ? "Checking wallet…"
+            : "Connect wallet"}
         <ChevronDown size={14} />
       </button>
       {open && (

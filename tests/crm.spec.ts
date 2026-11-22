@@ -117,7 +117,22 @@ test("referral milestones and the admin workspace follow actual account activity
   ).rejects.toThrow("Administrator access required");
 
   await page.context().addCookies([{ name: "sonnely_session", value: admin.token, url: baseURL! }]);
-  await page.goto("/console/admin");
+  const sessionRequests: string[] = [];
+  page.on("request", (entry) => {
+    if (new URL(entry.url()).pathname === "/api/sonnely/session") sessionRequests.push(entry.url());
+  });
+  await page.goto("/console/billing");
+  const walletButton = page.getByRole("button", { name: /^8jN1/ });
+  await expect(walletButton).toBeVisible();
+  const originalWalletButton = await walletButton.elementHandle();
+  const workspace = page.getByRole("navigation", { name: "Workspace navigation" });
+  for (const label of ["Usage", "Admin"]) {
+    await workspace.getByRole("link", { name: label, exact: true }).click();
+    await expect(page.getByRole("heading", { name: label, exact: true, level: 1 })).toBeVisible();
+    expect(await originalWalletButton.evaluate((button) => button.isConnected)).toBe(true);
+    await expect(walletButton).toBeVisible();
+  }
+  expect(sessionRequests).toHaveLength(1);
   const adminNav = page.getByRole("navigation", { name: "Admin workspace" });
   await adminNav.getByRole("button", { name: "Customers" }).click();
   await page.getByRole("searchbox", { name: "Search customers" }).fill("@" + username);
