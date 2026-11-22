@@ -10,9 +10,17 @@ import { DeveloperGuide } from "@/components/developer-guide";
 import { Contact } from "@/components/contact";
 import { Scene } from "@/components/scene";
 import { JournalIndex } from "@/components/journal-index";
+import { PlatformLinks, ProductContent } from "@/components/product-pages";
+import { isProductPage, productPages } from "@/lib/product-pages";
+import { computeQuote } from "@/lib/compute";
+import { creditBalance } from "@/lib/credit-amount";
 
 const pages = {
-  models: ["Model catalog", "Compare live Sonnely models and browse the NEAR AI directory by privacy tier."],
+  ...productPages,
+  models: [
+    "Model catalog",
+    "Compare live model routes and published rates, then browse the NEAR AI directory by privacy tier.",
+  ],
   pricing: [
     "Pay for what you run",
     "Metered inference with a wallet-funded balance and optional per-key budgets.",
@@ -25,6 +33,36 @@ type Page = keyof typeof pages;
 type Props = { params: Promise<{ page: string }> };
 
 const entryActions = {
+  inference: {
+    section: "#routing",
+    label: "Compare provider routes",
+    next: "/docs#quickstart",
+    action: "Try the API quickstart",
+  },
+  observability: {
+    section: "#traces",
+    label: "Explore a sample trace",
+    next: "/docs#inference-operations",
+    action: "Read the guide",
+  },
+  compute: {
+    section: "#products",
+    label: "Compare compute products",
+    next: "/pricing#compute-pricing",
+    action: "See compute pricing",
+  },
+  blackboxes: {
+    section: "#rental",
+    label: "Explore the rental",
+    next: "/console/blackboxes",
+    action: "Check pilot access",
+  },
+  "dry-docks": {
+    section: "#workflow",
+    label: "Explore the planned workflow",
+    next: "/contact",
+    action: "Talk to us",
+  },
   models: {
     section: "#available-models",
     label: "Compare live models",
@@ -70,6 +108,8 @@ export default async function Subpage({ params }: Props) {
         <Link href="/" className="eyebrow">
           Sonnely <ArrowUpRight size={13} />
         </Link>
+        {page === "dry-docks" && <p className="eyebrow product-availability">Coming soon</p>}
+        {page === "blackboxes" && <p className="eyebrow product-availability">Paid pilot</p>}
         <h1>{title}</h1>
         <p>{description}</p>
         {entryAction && (
@@ -83,6 +123,7 @@ export default async function Subpage({ params }: Props) {
           </div>
         )}
       </header>
+      {isProductPage(page) && <ProductContent page={page} />}
       {page === "models" && (
         <>
           <div className="section-head" id="available-models">
@@ -91,6 +132,10 @@ export default async function Subpage({ params }: Props) {
               Browse the NEAR directory
             </Link>
           </div>
+          <p className="caption">
+            DeepSeek V4.1 Flash has routes through NEAR AI, Phala, and Tinfoil.{" "}
+            <Link href="/inference#routing">See how provider selection works</Link>.
+          </p>
           <ModelCatalog availableProviders={configuredProviders()} />
           {providerCatalog && <NearModelDirectory {...providerCatalog} />}
           <ModelGuide />
@@ -128,6 +173,24 @@ export default async function Subpage({ params }: Props) {
             </article>
           </div>
           <CostExample />
+          <section id="compute-pricing" className="panel stack-panel">
+            <h2>Compute pricing</h2>
+            <p>
+              A 15-minute Blackbox pilot rental is estimated at{" "}
+              {creditBalance(computeQuote("blackboxes", 15).total)}. The console shows the full reservation,
+              including provider cost and Sonnely’s service fee, before you start.
+            </p>
+            <Link className="text-link" href="/blackboxes#rental">
+              Explore Blackbox rentals <ArrowUpRight size={15} aria-hidden="true" />
+            </Link>
+            <p>
+              Dry Docks is coming soon.{" "}
+              <Link className="text-link" href="/dry-docks">
+                See the planned build workflow
+              </Link>
+              .
+            </p>
+          </section>
           <section className="faq">
             <h2>Billing questions</h2>
             <details>
@@ -167,11 +230,22 @@ export default async function Subpage({ params }: Props) {
               </p>
             </details>
           </section>
+          <PlatformLinks compact />
         </>
       )}
       {page === "docs" && <DeveloperGuide />}
-      {page === "blog" && <JournalIndex />}
-      {page === "contact" && <Contact />}
+      {page === "blog" && (
+        <>
+          <JournalIndex />
+          <PlatformLinks compact />
+        </>
+      )}
+      {page === "contact" && (
+        <>
+          <Contact />
+          <PlatformLinks compact />
+        </>
+      )}
     </div>
   );
 }

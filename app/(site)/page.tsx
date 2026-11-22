@@ -5,6 +5,7 @@ import { HomeModelList } from "@/components/home-model-list";
 import { RequestPath } from "@/components/request-path";
 import { HomeCapabilities, HomeResources, HomeWorkloads } from "@/components/home-content";
 import { HomeDemo } from "@/components/home-demo";
+import { PlatformLinks } from "@/components/product-pages";
 import { WorkspacePreview } from "@/components/workspace-preview";
 import "./home.css";
 
@@ -20,8 +21,8 @@ export default function Home() {
           </h1>
           <div className="hero-content">
             <p className="hero-description">
-              Confidential inference for your apps. Run NEAR Private TEE models through one OpenAI-compatible
-              API.
+              Confidential inference for your apps. Choose NEAR AI, Phala, or Tinfoil through one
+              OpenAI-compatible API.
             </p>
             <div className="actions">
               <Link href="/console" className="button accent">
@@ -46,11 +47,11 @@ export default function Home() {
             </span>
             <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
-          <Link href="/docs#verification">
+          <Link href="/inference#routing">
             <Fingerprint size={18} aria-hidden="true" />
             <span>
-              <strong>NEAR AI Cloud</strong>
-              <small>Private TEE inference</small>
+              <strong>Confidential providers</strong>
+              <small>NEAR AI, Phala, and Tinfoil</small>
             </span>
             <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
@@ -64,6 +65,7 @@ export default function Home() {
           </Link>
         </nav>
         <HomeCapabilities />
+        <PlatformLinks />
         <HomeModelList />
         <HomeWorkloads />
         <WorkspacePreview />

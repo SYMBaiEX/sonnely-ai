@@ -1,0 +1,215 @@
+.index,
+.section {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: clamp(1.4rem, 5vw, 5rem);
+  align-items: start;
+}
+.indexIntro,
+.body,
+.page,
+.related {
+  display: grid;
+  min-width: 0;
+}
+.indexIntro,
+.body {
+  gap: 0.85rem;
+}
+.indexIntro p,
+.body > p {
+  max-width: 65ch;
+  color: var(--muted);
+}
+.page {
+  gap: clamp(2.5rem, 7vw, 5.5rem);
+}
+.section {
+  scroll-margin-top: 7rem;
+}
+.section h2,
+.index h2 {
+  max-width: 14ch;
+  font-size: clamp(1.8rem, 4vw, 3.4rem);
+}
+.body a {
+  justify-self: start;
+}
+.body code:not(pre code) {
+  overflow-wrap: anywhere;
+}
+.related {
+  gap: 1rem;
+}
+.linkList,
+.routeList,
+.waterfall,
+.buildSteps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.linkList {
+  display: grid;
+  gap: 0.35rem;
+}
+.linkList a,
+.computeList a {
+  min-height: 3.6rem;
+  padding: 0.8rem 0.9rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--glass);
+  transition:
+    border-color 160ms,
+    background 160ms;
+}
+.linkList a:hover,
+.computeList a:hover {
+  border-color: var(--muted);
+  background: var(--raised);
+}
+.linkList svg:first-child,
+.computeList svg:first-child {
+  color: var(--accent);
+}
+.linkList strong,
+.linkList small,
+.computeList strong,
+.computeList small {
+  display: block;
+}
+.linkList small,
+.computeList small {
+  color: var(--muted);
+  margin-top: 0.15rem;
+  line-height: 1.5;
+}
+.related .linkList {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+}
+.computeList {
+  display: grid;
+  gap: 0.5rem;
+}
+.computeList a {
+  justify-self: stretch;
+}
+.sample {
+  display: grid;
+  gap: 1rem;
+  margin: 0.5rem 0;
+  padding: clamp(0.9rem, 3vw, 1.5rem);
+  min-width: 0;
+}
+.sample figcaption {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+.sampleStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: 0.8rem;
+  margin: 0;
+}
+.sampleStats dt,
+.buildSteps span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.sampleStats dd {
+  margin: 0.3rem 0 0;
+  font-family: var(--mono);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.routeList li,
+.buildSteps li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+}
+.routeList li + li,
+.buildSteps li + li {
+  border-top: 1px solid var(--line);
+}
+.routeList code,
+.buildSteps span {
+  justify-self: end;
+  text-align: end;
+}
+.sample pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 0.8rem;
+  background: var(--surface);
+  border-radius: 0.55rem;
+  font-size: 0.8rem;
+}
+.waterfall {
+  display: grid;
+  gap: 0.55rem;
+}
+.waterfall li {
+  display: grid;
+  align-items: center;
+  gap: 0.65rem;
+  grid-template-columns: minmax(8rem, 1fr) minmax(0, 1.5fr);
+  font-size: 0.88rem;
+}
+.waterfall li div {
+  position: relative;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--raised);
+}
+.waterfall li div span {
+  position: absolute;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+@media (max-width: 720px) {
+  .index,
+  .section {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+  .section h2,
+  .index h2 {
+    max-width: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .linkList a,
+  .computeList a {
+    transition: none;
+  }
+}
+
+.jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.jump a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--glass);
+}
+.jump a:hover {
+  color: var(--ink);
+  background: var(--raised);
+}

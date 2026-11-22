@@ -51,9 +51,14 @@ export default async function StatusPage() {
         <p className="caption">
           Provider configuration is checked without sending a prompt or making a billable request.
         </p>
-        <Link className="text-link" href="/api/health">
-          Health endpoint
-        </Link>
+        <div className="actions">
+          <Link className="text-link" href="/api/health">
+            Health endpoint
+          </Link>
+          <Link className="text-link" href="/observability#alerts">
+            How inference alerts work
+          </Link>
+        </div>
       </section>
     </div>
   );

@@ -16,7 +16,9 @@ const sections = [
   ["receipts", "Completion receipts"],
   ["settlement", "Payments and credits"],
   ["cloud-builds", "Dry Docks builds"],
+  ["blackboxes", "Blackbox rentals"],
   ["usage-export", "UsageMax export"],
+  ["inference-operations", "Inference operations"],
   ["migration", "Migrate from the original app"],
 ] as const;
 
@@ -332,10 +334,21 @@ export function DeveloperGuide() {
           <section id="cloud-builds">
             <h2>Dry Docks builds</h2>
             <p>
-              <Link href="/console/dry-docks">Dry Docks</Link> is coming soon. At launch, you’ll be able to
-              build a pinned commit from a public GitHub repository in an isolated Linux VM, follow the logs,
-              and download an output archive.
+              <Link href="/dry-docks">Dry Docks</Link> is coming soon. At launch, you’ll be able to build a
+              pinned commit from a public GitHub repository in an isolated Linux VM, follow the logs, and
+              download an output archive.
             </p>
+          </section>
+          <section id="blackboxes">
+            <h2>Blackbox rentals</h2>
+            <p>
+              Eligible pilot accounts can rent Phala confidential VMs using a supported image pinned by
+              digest. Review the credit reservation before launch and check the workload attestation after
+              provisioning.
+            </p>
+            <Link className="text-link" href="/blackboxes">
+              Read the Blackboxes overview <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
           </section>
           <section id="usage-export">
             <h2>Export inference usage to UsageMax</h2>
@@ -348,6 +361,17 @@ export function DeveloperGuide() {
             <a className="text-link" href="https://usagemax.com/docs">
               Read the UsageMax collector guide <ArrowUpRight size={16} />
             </a>
+          </section>
+          <section id="inference-operations">
+            <h2>Inference operations</h2>
+            <p>
+              Authorized operators use Sonnely Admin to inspect gateway spans, compare usage and latency,
+              track open alerts, and match finalized provider invoice lines to their billing references.
+              Customer-facing Usage shows each workspace’s own requests and charges.
+            </p>
+            <Link className="text-link" href="/observability">
+              Explore a sample trace and invoice workflow <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
           </section>
           <section id="migration">
             <h2>Migrate from the original app</h2>

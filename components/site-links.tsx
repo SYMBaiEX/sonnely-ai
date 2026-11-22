@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { isProductPage } from "@/lib/product-pages";
 
 const links = [
+  ["/inference", "Platform"],
   ["/models", "Models"],
   ["/pricing", "Pricing"],
   ["/docs", "Docs"],
@@ -19,7 +21,13 @@ export function SiteLinks() {
         <Link
           key={href}
           href={href}
-          aria-current={path === href ? "page" : path.startsWith(href + "/") ? "location" : undefined}
+          aria-current={
+            path === href
+              ? "page"
+              : path.startsWith(href + "/") || (href === "/inference" && isProductPage(path.slice(1)))
+                ? "location"
+                : undefined
+          }
         >
           {label}
         </Link>

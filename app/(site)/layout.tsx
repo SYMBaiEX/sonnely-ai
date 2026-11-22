@@ -33,6 +33,9 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
           <nav aria-label="Footer">
             <div className="footer-group">
               <h2>Platform</h2>
+              <Link href="/inference">Confidential inference</Link>
+              <Link href="/observability">Observability</Link>
+              <Link href="/compute">Compute</Link>
               <Link href="/models">Model catalog</Link>
               <Link href="/pricing">Pricing</Link>
               <Link href="/console">Playground</Link>
