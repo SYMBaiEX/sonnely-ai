@@ -141,7 +141,7 @@ function Observability() {
           Choose a reporting window of up to 30 days in Sonnely Admin. Each report analyzes up to 2,000 of the
           newest retained receipts and labels partial coverage.
         </p>
-        <NextLink href="/docs#usage-export">Export your workspace usage</NextLink>
+        <NextLink href="/docs/observability#export-to-usagemax">Export your workspace usage</NextLink>
       </ProductSection>
       <ProductSection id="reconciliation" title="Reconcile a provider statement.">
         <p>
@@ -210,7 +210,7 @@ function Inference() {
           consuming the stream. Set a cap for one request with <code>max_cost_microusd</code>, alongside daily
           and lifetime limits on the API key.
         </p>
-        <NextLink href="/docs#streaming">Read the streaming guide</NextLink>
+        <NextLink href="/docs/streaming">Read the streaming guide</NextLink>
       </ProductSection>
       <ProductSection id="evidence" title="Know the privacy boundary.">
         <p>
@@ -219,7 +219,7 @@ function Inference() {
           the provider and claim in the optional Sonnely receipt before relying on a specific attestation
           guarantee.
         </p>
-        <NextLink href="/docs#verification">Review evidence by provider</NextLink>
+        <NextLink href="/docs/attestation">Review evidence by provider</NextLink>
       </ProductSection>
     </>
   );

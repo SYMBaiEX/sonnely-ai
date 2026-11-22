@@ -1,0 +1,35 @@
+---
+title: Quickstart
+description: Fund a workspace and make a confidential text completion on Sonnely.
+---
+
+## Set up your workspace
+
+1. Open the [console](/console) and connect a Solana wallet. You can try a built-in sample before funding.
+2. Accept the current terms and add credits in [Billing](/console/billing). Follow the [funding guide](/docs/billing) for Solana Pay and NEAR Intents.
+3. Create an [API key](/console/keys). Copy it when it appears and store it as a server-side secret named `SONNELY_API_KEY`.
+
+## Find a model ID
+
+```bash
+curl -sS https://sonnely.com/api/sonnely/v1/models
+```
+
+The response shows Sonnely model IDs, available provider routes, and prices. Set the `model` field to an ID from that response.
+
+## Send a completion
+
+```bash
+curl -sS https://sonnely.com/api/sonnely/v1/chat/completions \
+  -H "Authorization: Bearer $SONNELY_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "messages": [{"role": "user", "content": "Suggest one name for a snowy forest village."}],
+    "max_tokens": 128
+  }'
+```
+
+Read the answer from `choices[0].message.content` and token counts from `usage`. The charge and request status appear in [Usage](/console/usage) after settlement.
+
+Continue with [SDK installation](/docs/sdks), [streaming](/docs/streaming), or [provider selection](/docs/providers).

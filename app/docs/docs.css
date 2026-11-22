@@ -1,0 +1,73 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+@source "./";
+@source "../../content/docs";
+@source "../../node_modules/fumadocs-ui/dist";
+
+.docs-shell {
+  --color-fd-primary: #2945c6;
+  --color-fd-background: #fbfbfd;
+  --color-fd-foreground: #161727;
+  --ink: var(--color-fd-foreground);
+  --surface: var(--color-fd-background);
+  --card: var(--color-fd-card);
+  --muted: var(--color-fd-muted-foreground);
+  --line: var(--color-fd-border);
+  --accent: var(--color-fd-primary);
+  color-scheme: light;
+  color: var(--ink);
+  background: var(--surface);
+  min-height: 100dvh;
+}
+
+.dark .docs-shell {
+  --color-fd-primary: #ff6571;
+  --color-fd-background: #0f0d12;
+  --color-fd-foreground: #faf7f9;
+  color-scheme: dark;
+}
+
+.docs-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.52rem;
+  white-space: nowrap;
+  font-weight: 640;
+}
+
+@layer base {
+  .docs-shell button {
+    border: 0 solid var(--color-fd-border);
+    background-color: transparent;
+    padding: 0;
+  }
+}
+
+#nd-page .prose > h2 {
+  margin-block: 1.75rem 0.7rem;
+}
+
+#nd-page .prose > h3 {
+  margin-block: 1.2rem 0.55rem;
+}
+
+#nd-page .docs-index {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13.5rem), 1fr));
+  gap: 0.75rem 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+#nd-page .docs-index li {
+  margin: 0;
+  padding: 0;
+}
+
+#nd-page .docs-index a {
+  min-width: 0;
+  text-underline-offset: 0.2em;
+}

@@ -99,7 +99,7 @@ export function HomeDemo() {
           <Link href="/console/keys">Create an API key</Link>, set <code>SONNELY_API_KEY</code>, and run an
           example in your terminal.
         </p>
-        <Link href="/docs#quickstart" className="text-link">
+        <Link href="/docs/quickstart" className="text-link">
           Read the quickstart <ArrowRight size={16} aria-hidden />
         </Link>
         <div className="home-api-samples">

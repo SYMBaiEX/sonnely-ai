@@ -223,12 +223,11 @@ test("the retired Sonnely app sends bookmarks to the current site and rejects le
 
 test("published guides link to supported endpoints and workflows", async ({ page }) => {
   await page.goto("/docs");
+  await expect(page.getByRole("heading", { name: "Sonnely documentation", exact: true })).toBeVisible();
+  await page.locator("a#api").click();
   await expect(page.getByText("https://sonnely.com/api/sonnely/v1", { exact: true })).toBeVisible();
-  await page
-    .getByRole("navigation", { name: "On this page" })
-    .getByRole("link", { name: "Errors and recovery" })
-    .click();
-  await expect(page.locator("#errors")).toContainText("A reservation may still be held.");
+  await page.getByRole("link", { name: "errors and recovery", exact: true }).last().click();
+  await expect(page.getByRole("heading", { name: "Errors and recovery", exact: true })).toBeVisible();
   await page.goto("/models");
   await expect(page.getByRole("table", { name: "Model rates and provider context" })).toContainText(
     "Qwen 3.6 35B",

@@ -1,0 +1,27 @@
+---
+title: Blackboxes
+description: Configure a Phala TDX rental, launch a pinned container, and verify its evidence.
+---
+
+Blackboxes is a paid pilot for eligible wallets. Open [Console → Blackboxes](/console/blackboxes) to check access.
+
+## Start a rental
+
+1. Pick **NGINX web server**, **HTTP playground**, or **Request inspector** to use a pinned image. Pick **Custom container** to supply a public Docker Hub or GHCR digest and an HTTP port.
+2. Select a Small (1 vCPU, 2 GB), Medium (2 vCPU, 4 GB), or Large (4 vCPU, 8 GB) TDX machine, and 20, 40, or 80 GB of temporary SSD. Phala selects placement.
+3. Choose 15, 30, 60, or 120 minutes. Review the maximum credit hold before renting.
+4. Wait for verification in the rental details. Open the HTTPS endpoint after attestation and download the evidence if you need an independent record.
+
+## Agent framework presets
+
+Hermes Agent, OpenClaw, ElizaOS, Mastra, and Pydantic AI have guided presets. They start with a Medium machine, 40 GB of SSD, and a suggested HTTP port. Supply your configured Linux amd64 image pinned by digest. Protect the public endpoint with your own application authentication and keep credentials out of the image. The pilot does not inject runtime secrets.
+
+## Attestation and teardown
+
+Sonnely checks Phala’s hardware quote and replays the RTMR3 event log to match the Compose, app, and instance measurements before publishing the endpoint. The evidence download contains the quote, provider verification result, and Compose hashes. Application logs and system information are private. Phala can publish attestation metadata.
+
+The VM and SSD are temporary. Ending a rental takes the endpoint offline and triggers deletion. Reopen a settled rental in history to view the receipt or reuse its configuration.
+
+## Charges
+
+The rate combines machine cost and temporary SSD. The billed charge is provider cost plus a 25% markup and $0.01 per billed run. Runtime rounds up to the minute and is capped by the selected window. Unused credits return after teardown. [Compute pricing](/pricing#compute-pricing) · [Phala verification guide](https://docs.phala.com/phala-cloud/attestation/verification-guide)

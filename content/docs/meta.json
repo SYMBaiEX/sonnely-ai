@@ -1,0 +1,23 @@
+{
+  "pages": [
+    "index",
+    "---Get started---",
+    "quickstart",
+    "sdks",
+    "keys",
+    "billing",
+    "workspace",
+    "---Inference---",
+    "api",
+    "providers",
+    "streaming",
+    "attestation",
+    "observability",
+    "---Compute---",
+    "blackboxes",
+    "dry-docks",
+    "---Support---",
+    "troubleshooting",
+    "migration"
+  ]
+}

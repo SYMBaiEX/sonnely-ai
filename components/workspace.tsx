@@ -303,7 +303,7 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
                 ? "Create a key to call the API from your own client."
                 : "Connect a Solana wallet to open your workspace."}
             </p>
-            <Link className="text-link" href="/docs#quickstart">
+            <Link className="text-link" href="/docs/quickstart">
               Read the quickstart <ArrowUpRight size={15} />
             </Link>
           </Empty>
@@ -1224,7 +1224,7 @@ export function SettingsPanel({
         </div>
       </section>
       <div className="actions">
-        <Link className="button quiet" href="/docs#privacy">
+        <Link className="button quiet" href="/docs/attestation#data-handling">
           <FileText size={17} /> Data handling
         </Link>
         <Link className="button quiet" href="/contact">

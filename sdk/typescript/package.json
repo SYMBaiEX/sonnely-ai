@@ -1,0 +1,21 @@
+{
+  "name": "@sonnely/sdk",
+  "version": "0.1.0",
+  "description": "Typed server-side client for the Sonnely inference API",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "eventsource-parser": "^3.1.1"
+  }
+}

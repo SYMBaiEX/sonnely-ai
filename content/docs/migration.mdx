@@ -1,0 +1,11 @@
+---
+title: Migrate to Sonnely
+description: Update older API clients and move from the retired app to the current gateway.
+---
+
+1. Sign in to the [current Sonnely console](/console) with a Solana wallet.
+2. Create a [Sonnely API key](/console/keys) and add [credits](/docs/billing).
+3. Set your OpenAI-compatible client’s base URL to `https://sonnely.com/api/sonnely/v1` and choose an ID from [model discovery](/api/sonnely/v1/models).
+4. Switch to text Chat Completions. Check your app’s streamed and non-streamed calls against the [current contract](/docs/api).
+
+The original app’s media APIs and CLI were retired. Existing inference integrations using the `/v1` compatibility path can migrate at their own pace.

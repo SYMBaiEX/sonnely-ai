@@ -32,7 +32,7 @@ export function ModelGuide() {
         {limits.bodyBytes.toLocaleString("en-US")} bytes per request and returns up to{" "}
         {limits.maxOutputTokens.toLocaleString("en-US")} output tokens.
       </p>
-      <Link className="text-link" href="/docs#limits">
+      <Link className="text-link" href="/docs/api#request-limits">
         See request limits <ArrowUpRight size={16} />
       </Link>
     </section>

@@ -332,7 +332,7 @@ export function Blackboxes({
           </div>
         </div>
         <div className={styles.actions}>
-          <Link className="button quiet" href="/docs#blackboxes">
+          <Link className="button quiet" href="/docs/blackboxes">
             Rental guide <ArrowUpRight size={15} aria-hidden="true" />
           </Link>
           <button className="button accent" type="button" onClick={() => configure()}>
