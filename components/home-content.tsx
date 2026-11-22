@@ -19,8 +19,8 @@ const capabilities = [
   {
     icon: Fingerprint,
     title: "Confidential compute",
-    body: "Sonnely forwards text requests to models in NEAR AI Cloud’s Private TEE tier.",
-    href: "/docs#verification",
+    body: "Select a supported confidential route through NEAR AI, Phala, or Tinfoil.",
+    href: "/inference#evidence",
     action: "Verify the provider",
   },
   {
@@ -117,7 +117,7 @@ export function HomeWorkloads() {
   );
 }
 
-const featured = ["choose-a-model", "rotate-api-keys", "credits-and-quotes"];
+const featured = ["read-a-gateway-trace", "choose-a-model", "credits-and-quotes"];
 
 export function HomeResources() {
   return (

@@ -1895,3 +1895,14 @@ button {
     display: none;
   }
 }
+
+.page-lead > .product-availability {
+  display: inline-flex;
+  justify-self: start;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--glass);
+  color: var(--ink);
+  font: 550 0.7rem var(--mono);
+}

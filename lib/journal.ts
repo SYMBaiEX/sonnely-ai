@@ -1,12 +1,42 @@
 export const articles = [
   {
+    slug: "read-a-gateway-trace",
+    title: "Read a gateway trace",
+    category: "Operations",
+    summary:
+      "Follow a request from the credit reservation to the provider attempt, billing settlement, and alert history.",
+    body: [
+      {
+        heading: "Start with the request timeline",
+        paragraphs: [
+          "Open Inference ops in Sonnely Admin and select a recent trace. The waterfall shows the credit reservation, provider attempt, evidence verification when available, and settlement. Provider attempts include the upstream model and status where reported.",
+          "First-token timing starts at Sonnely’s gateway. Provider attempt latency measures the provider stage and can include streaming output until the provider finishes. The trace separates those durations so you can tell which part contributed to a slow request.",
+        ],
+      },
+      {
+        heading: "Check the evidence behind the numbers",
+        paragraphs: [
+          "The analytics report displays known provider cost alongside customer charges. Covered margin uses requests where both amounts are known. An unresolved credit hold appears as billing pending and remains visible in operational alerts.",
+          "Preview a finalized provider statement using its billing references and USD amounts. Review the exceptions before recording it. Eligible receipts receive an invoice-confirmed cost revision, while wallet balances and payout accounting follow the Sonnely ledger.",
+        ],
+      },
+      {
+        heading: "Share the right view",
+        paragraphs: [
+          "Each customer can view their own tokens, charges, and settlement status in Usage. Gateway-wide traces, invoice details, and incident history require administrative access. Prompts and response text stay out of gateway telemetry.",
+        ],
+      },
+    ],
+    related: ["/observability", "Explore inference observability"],
+  },
+  {
     slug: "request-path",
     title: "Follow an inference request",
     category: "Architecture",
     summary: "Where your prompt travels and which details Sonnely keeps.",
     body: [
-      "When you send a message in the console, your browser sends it over HTTPS to Sonnely. The Sonnely server reads the request in order to validate it, reserve credits, and forward it to NEAR AI Cloud.",
-      "The catalog uses models that NEAR AI lists under Private TEE. This tier describes the provider’s execution environment. The Sonnely server is a separate trust boundary. The standard Sonnely gateway does not provide client-to-model end-to-end encryption.",
+      "When you send a message in the console, your browser sends it over HTTPS to Sonnely. The Sonnely server reads the request in order to validate it, reserve credits, and forward it to the selected provider.",
+      "NEAR AI Private TEE, Phala, and Tinfoil each supply different provider evidence. The evidence describes the upstream execution environment. The Sonnely server is a separate trust boundary. The standard Sonnely gateway does not provide client-to-model end-to-end encryption.",
       "The account ledger stores the model ID, API key label, token counts, request status, and charge. Prompts and responses are excluded from the ledger. If you enable chat history, the console stores it in your browser.",
     ],
   },
