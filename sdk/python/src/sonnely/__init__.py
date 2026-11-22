@@ -37,7 +37,7 @@ class Sonnely:
         self._opener = build_opener(_NoRedirect())
 
     def _send(self, path: str, body: dict[str, Any] | None = None, *, receipt: bool = False):
-        headers: dict[str, str] = {}
+        headers = {"User-Agent": "SonnelySDK-Python"}
         if body is not None:
             if not self._api_key:
                 raise SonnelyError("A Sonnely API key is required for completions.", 401)
