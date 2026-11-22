@@ -247,14 +247,6 @@
   gap: 0.52rem;
   margin: 0.8rem 0;
 }
-.hash {
-  color: var(--muted);
-  font-size: 0.77rem;
-  overflow-wrap: anywhere;
-}
-.hash code {
-  color: var(--ink);
-}
 .log {
   margin-top: 0.8rem;
   border: 1px solid var(--line);

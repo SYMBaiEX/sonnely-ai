@@ -247,6 +247,7 @@ export function Console({
               kind={section}
               session={session}
               initialRun={initialRun}
+              refreshBalance={refresh}
             />
           )}
           {section === "admin" && <Admin session={session} />}

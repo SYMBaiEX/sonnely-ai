@@ -2,72 +2,62 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Box, ChevronDown, Container, Download, ShieldCheck, Terminal } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Container, Download, Terminal } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { creditBalance } from "@/lib/credit-amount";
 import { computeFee, computeMarkup, computePlans, computeQuote, type ComputeKind } from "@/lib/compute";
 import { request, type Session } from "./wallet";
+import { Blackboxes } from "./blackboxes";
 import styles from "./compute.module.css";
 
-type Snapshot = FunctionReturnType<typeof api.compute.list>;
-type Run = Snapshot["runs"][number];
+export type ComputeSnapshot = FunctionReturnType<typeof api.compute.list>;
+export type ComputeRun = ComputeSnapshot["runs"][number];
 
 const exampleDock = {
   repository: "https://github.com/mdn/client-toolchain-example",
   revision: "23fdd12e35684be99fd7273d147997ec60755c62",
 };
 
-const copy = {
-  blackboxes: {
-    noun: "rental",
-    lead: "Rent a confidential VM for a pinned container image. Download the hardware evidence for the deployed workload.",
-    icon: Box,
-    unavailable: "New rentals are paused during the Phala pilot.",
-  },
-  "dry-docks": {
-    noun: "build",
-    lead: "Build a pinned GitHub commit in a clean Linux VM. Watch the logs and retrieve the output after automatic teardown.",
-    icon: Container,
-    unavailable: "Coming soon",
-  },
-} as const;
-
-function status(run: Run) {
+function status(run: ComputeRun) {
   if (run.phase === "settled") return run.result ?? "finished";
   if (run.phase === "teardown" || run.stopRequested) return "tearing down";
   return run.phase;
 }
 
-function details(run: Run) {
-  return run.spec.kind === "blackboxes"
-    ? run.spec.image.split("@")[0]
-    : run.spec.repository.replace("https://github.com/", "") + " · " + run.spec.revision.slice(0, 8);
+function details(run: ComputeRun) {
+  return run.spec.kind === "dry-docks"
+    ? run.spec.repository.replace("https://github.com/", "") + " · " + run.spec.revision.slice(0, 8)
+    : run.spec.image;
 }
 
 export function Compute({
   kind,
   session,
   initialRun,
+  refreshBalance,
 }: {
   kind: ComputeKind;
   session?: Session | null;
   initialRun?: string;
+  refreshBalance?: () => Promise<void>;
 }) {
   const plan = computePlans[kind];
-  const product = copy[kind];
   const blackbox = kind === "blackboxes";
   const wallet = session?.profile?.wallet;
   const balance = session?.profile?.balance ?? 0;
   const [minutes, setMinutes] = useState<number>(plan.minutes[0]);
-  const [snapshot, setSnapshot] = useState<Snapshot>();
-  const comingSoon = !blackbox && snapshot?.enabled !== true;
+  const [snapshot, setSnapshot] = useState<ComputeSnapshot>();
+  const [reload, setReload] = useState(0);
+  const [loadedTarget, setLoadedTarget] = useState<string>();
+  const comingSoon = snapshot?.enabled !== true;
   const [selected, setSelected] = useState(initialRun ?? "");
   const [followLog, setFollowLog] = useState(true);
   const [copied, setCopied] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
   const [pending, setPending] = useState(false);
+  const actionInFlight = useRef(false);
   const attempt = useRef<{ input: string; id: string }>(null);
   const logView = useRef<HTMLPreElement>(null);
   const formView = useRef<HTMLFormElement>(null);
@@ -75,15 +65,11 @@ export function Compute({
   const run =
     runs.find((item) => item.id === selected) ??
     (snapshot?.detail?.id === selected ? snapshot.detail : undefined) ??
-    (selected ? undefined : runs[0]);
+    (selected ? undefined : (blackbox && runs.find((item) => item.active)) || runs[0]);
   const log = snapshot?.selected === run?.id ? snapshot?.log : undefined;
   const id = run?.id ?? "";
-  const quote = computeQuote(kind, minutes);
-  const reserved = runs.reduce((sum, item) => sum + (item.active ? item.reserve : 0), 0);
-  const spend = runs.reduce((sum, item) => sum + (item.charged ?? 0), 0);
   const target = selected || id;
   const params = "compute?kind=" + kind + (target ? "&id=" + encodeURIComponent(target) : "");
-  const visibleRuns = run && !runs.some((item) => item.id === run.id) ? [run, ...runs] : runs;
 
   useEffect(() => {
     if (logView.current && followLog) logView.current.scrollTop = logView.current.scrollHeight;
@@ -123,9 +109,10 @@ export function Compute({
     async function poll() {
       let delay = 10_000;
       try {
-        const next = await request<Snapshot>(params);
+        const next = await request<ComputeSnapshot>(params);
         if (!current) return;
         setSnapshot(next);
+        setLoadedTarget(target);
         setLoadError("");
         if (next.detail?.active || next.runs.some((item) => item.active)) delay = 2500;
       } catch (error) {
@@ -139,10 +126,11 @@ export function Compute({
       current = false;
       clearTimeout(timer);
     };
-  }, [wallet, params]);
+  }, [wallet, params, target, reload]);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>, windowMinutes = minutes) {
     event.preventDefault();
+    if (actionInFlight.current) return false;
     const data = new FormData(event.currentTarget);
     const spec = blackbox
       ? { kind, image: String(data.get("image") ?? "").trim(), port: Number(data.get("port")) }
@@ -153,38 +141,87 @@ export function Compute({
             .replace(/\/$/, ""),
           revision: String(data.get("revision") ?? "").trim(),
         };
-    const input = JSON.stringify({ spec, minutes });
+    const input = JSON.stringify({ spec, minutes: windowMinutes });
     const reference =
       attempt.current?.input === input ? attempt.current.id : crypto.randomUUID().replaceAll("-", "");
     attempt.current = { input, id: reference };
+    actionInFlight.current = true;
     setActionError("");
     setPending(true);
     try {
-      const response = await request<{ id: string }>("compute", { action: "open", spec, minutes, reference });
+      const response = await request<{ id: string }>("compute", {
+        action: "open",
+        spec,
+        minutes: windowMinutes,
+        reference,
+      });
       attempt.current = null;
       selectRun(response.id);
-      setSnapshot(await request<Snapshot>("compute?kind=" + kind + "&id=" + response.id));
+      setReload((value) => value + 1);
+      void refreshBalance?.();
+      return true;
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Unable to start this run.");
+      return false;
     } finally {
+      actionInFlight.current = false;
       setPending(false);
     }
   }
 
   async function stop() {
-    if (!run) return;
+    if (!run || actionInFlight.current) return false;
+    actionInFlight.current = true;
     setActionError("");
     setPending(true);
     try {
       await request("compute", { action: "stop", id: run.id });
-      setSnapshot(await request<Snapshot>(params));
+      setSnapshot((current) => {
+        if (!current) return current;
+        const markStopped = (item: ComputeRun) =>
+          item.id === run.id && item.active ? { ...item, stopRequested: true } : item;
+        return {
+          ...current,
+          detail: current.detail && markStopped(current.detail),
+          runs: current.runs.map(markStopped),
+        };
+      });
+      setReload((value) => value + 1);
+      return true;
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Unable to end this run.");
+      return false;
     } finally {
+      actionInFlight.current = false;
       setPending(false);
     }
   }
 
+  if (blackbox) {
+    return (
+      <Blackboxes
+        session={session}
+        snapshot={snapshot}
+        run={run}
+        runs={runs}
+        pending={pending}
+        loadError={loadError}
+        actionError={actionError}
+        onSelect={selectRun}
+        onOpen={submit}
+        onStop={stop}
+        onRefresh={() => setReload((value) => value + 1)}
+        onClearError={() => setActionError("")}
+        selectionPending={Boolean(selected && !run && loadedTarget !== target)}
+        selectionUnavailable={Boolean(selected && !run && loadedTarget === target)}
+      />
+    );
+  }
+
+  const quote = computeQuote(kind, minutes);
+  const reserved = runs.reduce((sum, item) => sum + (item.active ? item.reserve : 0), 0);
+  const spend = runs.reduce((sum, item) => sum + (item.charged ?? 0), 0);
+  const visibleRuns = run && !runs.some((item) => item.id === run.id) ? [run, ...runs] : runs;
   const disabled =
     pending ||
     !snapshot?.enabled ||
@@ -197,11 +234,15 @@ export function Compute({
     <div className={styles.workspace}>
       <header className={styles.heading}>
         <span className={styles.emblem}>
-          <product.icon size={25} aria-hidden />
+          <Container size={25} aria-hidden />
         </span>
         <div>
           <h1>{plan.title}</h1>
-          <p>{comingSoon ? "On-demand repository builds in isolated Linux VMs." : product.lead}</p>
+          <p>
+            {comingSoon
+              ? "On-demand repository builds in isolated Linux VMs."
+              : "Build a pinned GitHub commit in a clean Linux VM. Watch the logs and retrieve the output after automatic teardown."}
+          </p>
         </div>
       </header>
 
@@ -216,71 +257,44 @@ export function Compute({
       ) : (
         <div className={styles.grid}>
           <section className={"panel " + styles.panel} aria-labelledby="compute-open">
-            <h2 id="compute-open">{blackbox ? "Configure a Blackbox" : "Configure a build"}</h2>
+            <h2 id="compute-open">Configure a build</h2>
             <p className={styles.meta}>
               {plan.provider} <span aria-hidden>·</span> {plan.size}
             </p>
             {wallet ? (
-              <form className={styles.form} onSubmit={submit} ref={formView}>
-                {blackbox ? (
-                  <>
-                    <label>
-                      Public OCI image digest
-                      <input
-                        name="image"
-                        required
-                        maxLength={240}
-                        placeholder="ghcr.io/owner/image@sha256:…"
-                        spellCheck={false}
-                      />
-                    </label>
-                    <label>
-                      Container HTTP port
-                      <input name="port" type="number" required min={1} max={65535} defaultValue={8080} />
-                    </label>
-                    <p className={styles.hint}>
-                      Phala exposes this port on a public HTTPS endpoint after evidence is available. Use
-                      application-level authentication for private traffic.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <label>
-                      Public GitHub repository
-                      <input
-                        name="repository"
-                        type="url"
-                        required
-                        maxLength={180}
-                        placeholder="https://github.com/owner/repo"
-                        spellCheck={false}
-                      />
-                    </label>
-                    <label>
-                      Commit SHA
-                      <input
-                        name="revision"
-                        required
-                        pattern="[0-9a-fA-F]{40}"
-                        maxLength={40}
-                        placeholder="Full 40-character SHA"
-                        spellCheck={false}
-                      />
-                    </label>
-                    <p className={styles.hint}>
-                      <code>npm ci</code> installs from a lockfile and <code>npm run build</code> runs in the
-                      VM. Downloadable output comes from <code>dist</code>, <code>build</code>,{" "}
-                      <code>out</code>, or <code>.next</code>, up to 5 MiB.
-                    </p>
-                  </>
-                )}
-                {!blackbox && (
-                  <button className="button quiet" type="button" onClick={() => prefillDock(exampleDock)}>
-                    Use MDN example repository
-                  </button>
-                )}
+              <form className={styles.form} onSubmit={(event) => void submit(event)} ref={formView}>
                 <label>
-                  {blackbox ? "Rental window" : "Build time limit"}
+                  Public GitHub repository
+                  <input
+                    name="repository"
+                    type="url"
+                    required
+                    maxLength={180}
+                    placeholder="https://github.com/owner/repo"
+                    spellCheck={false}
+                  />
+                </label>
+                <label>
+                  Commit SHA
+                  <input
+                    name="revision"
+                    required
+                    pattern="[0-9a-fA-F]{40}"
+                    maxLength={40}
+                    placeholder="Full 40-character SHA"
+                    spellCheck={false}
+                  />
+                </label>
+                <p className={styles.hint}>
+                  <code>npm ci</code> installs from a lockfile and <code>npm run build</code> runs in the VM.
+                  Downloadable output comes from <code>dist</code>, <code>build</code>, <code>out</code>, or{" "}
+                  <code>.next</code>, up to 5 MiB.
+                </p>
+                <button className="button quiet" type="button" onClick={() => prefillDock(exampleDock)}>
+                  Use MDN example repository
+                </button>
+                <label>
+                  Build time limit
                   <span className={styles.select}>
                     <select value={minutes} onChange={(event) => setMinutes(Number(event.target.value))}>
                       {plan.minutes.map((value) => (
@@ -292,22 +306,13 @@ export function Compute({
                     <ChevronDown size={16} aria-hidden />
                   </span>
                 </label>
-                {snapshot && !snapshot.enabled && (
-                  <p className={styles.notice} role="status">
-                    {product.unavailable}
-                  </p>
-                )}
                 {balance < quote.total && snapshot?.enabled && (
                   <p className={styles.notice}>
                     <Link href="/console/billing">Add credits</Link> to cover the maximum.
                   </p>
                 )}
                 <button className="button primary" type="submit" disabled={disabled}>
-                  {pending
-                    ? "Working…"
-                    : (blackbox ? "Rent Blackbox" : "Start paid build") +
-                      " · up to " +
-                      creditBalance(quote.total)}
+                  {pending ? "Working…" : "Start paid build · up to " + creditBalance(quote.total)}
                 </button>
               </form>
             ) : (
@@ -317,9 +322,7 @@ export function Compute({
 
           <aside className={"panel " + styles.panel} aria-labelledby="compute-price">
             <h2 id="compute-price">Pricing</h2>
-            <p className={styles.meta}>
-              {creditBalance(plan.hourlyBase)}/hr provider rate {blackbox && "including disk"}.
-            </p>
+            <p className={styles.meta}>{creditBalance(plan.hourlyBase)}/hr provider rate.</p>
             <dl className={styles.pricing}>
               <div>
                 <dt>Provider cost at {minutes} min</dt>
@@ -339,9 +342,8 @@ export function Compute({
               run. Unspent credits return to your balance after teardown.
             </p>
             <p className={styles.hint}>
-              {blackbox
-                ? "Runtime is rounded up to the minute from the start of provisioning. The VM and disk are deleted at the end of the rental."
-                : "Boat meters machine time by the second. The sandbox is deleted when the build ends or the limit is reached."}
+              Boat meters machine time by the second. The sandbox is deleted when the build ends or the limit
+              is reached.
             </p>
             <Link href="/console/billing" className={styles.link}>
               Manage credits <ArrowUpRight size={15} aria-hidden />
@@ -357,11 +359,11 @@ export function Compute({
       )}
 
       {wallet && (!comingSoon || visibleRuns.length > 0 || selected) && (
-        <section className={"panel " + styles.panel + " " + styles.runs} aria-labelledby="compute-runs">
+        <section className={"panel " + styles.panel} aria-labelledby="compute-runs">
           <div className={styles.runHeader}>
             <div>
-              <h2 id="compute-runs">{blackbox ? "Rental usage" : "Build usage"}</h2>
-              <p className={styles.meta}>Your last 30 {product.noun}s</p>
+              <h2 id="compute-runs">Build usage</h2>
+              <p className={styles.meta}>Your last 30 builds</p>
             </div>
             <div className={styles.totals}>
               <span>
@@ -378,7 +380,7 @@ export function Compute({
             <p className={styles.notice}>This run is unavailable in this wallet.</p>
           ) : (
             <div className={styles.runGrid}>
-              <div className={styles.runList} aria-label={"Recent " + product.noun + "s"}>
+              <div className={styles.runList} aria-label="Recent builds">
                 {visibleRuns.map((item) => (
                   <button
                     key={item.id}
@@ -416,26 +418,13 @@ export function Compute({
                       Provider cost {creditBalance(run.base ?? 0)} · Sonnely fee {creditBalance(run.fee ?? 0)}
                     </p>
                   )}
-                  {!blackbox && <DockTimeline run={run} />}
+                  <DockTimeline run={run} />
                   {run.message && <p className={styles.hint}>{run.message}</p>}
-                  {run.composeHash && (
-                    <p className={styles.hash}>
-                      Compose hash <code>{run.composeHash}</code>
-                    </p>
-                  )}
-                  {run.hasEvidence && (
-                    <p className={styles.hint}>
-                      Phala provided a hardware quote. Verify the quote and workload measurements before
-                      sending secrets.
-                    </p>
-                  )}
                   <div className={styles.actions}>
-                    {!blackbox && (
-                      <button className="button quiet" type="button" onClick={() => void copyRunLink()}>
-                        {copied ? "Link copied" : "Copy run link"}
-                      </button>
-                    )}
-                    {!blackbox && !run.active && (
+                    <button className="button quiet" type="button" onClick={() => void copyRunLink()}>
+                      {copied ? "Link copied" : "Copy run link"}
+                    </button>
+                    {!run.active && (
                       <>
                         <a className="button secondary" href={fileUrl + "receipt"}>
                           Download receipt
@@ -453,16 +442,6 @@ export function Compute({
                         )}
                       </>
                     )}
-                    {run.endpoint && (
-                      <a className="button secondary" href={run.endpoint} target="_blank" rel="noreferrer">
-                        Open workload <ArrowUpRight size={16} />
-                      </a>
-                    )}
-                    {run.hasEvidence && (
-                      <a className="button secondary" href={fileUrl + "evidence"}>
-                        <ShieldCheck size={16} /> Download evidence
-                      </a>
-                    )}
                     {run.hasArtifact && (
                       <a className="button secondary" href={fileUrl + "artifact"}>
                         <Download size={16} /> Download artifact
@@ -473,35 +452,28 @@ export function Compute({
                         className="button secondary"
                         type="button"
                         disabled={pending || run.stopRequested}
-                        onClick={stop}
+                        onClick={() => void stop()}
                       >
-                        {run.stopRequested ? "Stop requested" : blackbox ? "End rental" : "Cancel build"}
+                        {run.stopRequested ? "Stop requested" : "Cancel build"}
                       </button>
                     )}
                   </div>
-                  {!blackbox && (
-                    <div className={styles.log}>
-                      <div>
-                        <Terminal size={16} aria-hidden />{" "}
-                        <b>{run.active ? "Live build log" : "Build log"}</b>
-                        {run.hasLog && (
-                          <a href={fileUrl + "log"} download>
-                            Download log
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          aria-pressed={followLog}
-                          onClick={() => setFollowLog(!followLog)}
-                        >
-                          Follow
-                        </button>
-                      </div>
-                      <pre tabIndex={0} ref={logView} aria-label="Build output">
-                        {log || (run.active ? "Waiting for build output…" : "No log available.")}
-                      </pre>
+                  <div className={styles.log}>
+                    <div>
+                      <Terminal size={16} aria-hidden /> <b>{run.active ? "Live build log" : "Build log"}</b>
+                      {run.hasLog && (
+                        <a href={fileUrl + "log"} download>
+                          Download log
+                        </a>
+                      )}
+                      <button type="button" aria-pressed={followLog} onClick={() => setFollowLog(!followLog)}>
+                        Follow
+                      </button>
                     </div>
-                  )}
+                    <pre tabIndex={0} ref={logView} aria-label="Build output">
+                      {log || (run.active ? "Waiting for build output…" : "No log available.")}
+                    </pre>
+                  </div>
                   {run.purgeAt && (
                     <p className={styles.hint}>
                       Logs and artifacts expire {new Date(run.purgeAt).toLocaleDateString()}.
@@ -517,7 +489,7 @@ export function Compute({
   );
 }
 
-function DockTimeline({ run }: { run: Run }) {
+function DockTimeline({ run }: { run: ComputeRun }) {
   const steps = [
     ["Queued", run.createdAt],
     ["Provisioning", run.startedAt],
