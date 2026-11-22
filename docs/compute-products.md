@@ -52,7 +52,8 @@ Convex and `USAGEMAX_GATEWAY_REPORT_TOKEN` on the frontend server. Set
 `USAGEMAX_GATEWAY_PROJECT_ID` there to link the latest receipt from Admin. Never expose the
 credentials to a client build.
 
-With ingestion enabled, each new final settlement queues an opaque receipt in Convex. Delivery
+With ingestion enabled, each new final settlement queues a receipt with a stable, opaque trace ID.
+Settled streams include the time the gateway first saw output, where available. Delivery
 runs asynchronously, retries with backoff, and expires outbox records after 30 days. NEAR provider
 cost reconciliation updates a queued or previously delivered receipt without altering its original
 settlement time or customer charge. Admin reads UsageMax only after validating the Sonnely

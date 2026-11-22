@@ -45,6 +45,13 @@ export function settlementReceipt(
   if (!settlement.settledAt || !["complete", "failed"].includes(settlement.status)) return null;
   const model = gatewaySlug.safeParse(row.model);
   if (!model.success) return null;
+  const startedAt = Math.min(Math.floor(row._creationTime), settlement.settledAt);
+  const firstTokenAt = safeCount(settlement.usageMaxDetails?.firstTokenAt);
+  const hasFirstToken =
+    settlement.usageMaxDetails?.stream === true &&
+    firstTokenAt !== undefined &&
+    firstTokenAt >= startedAt &&
+    firstTokenAt <= settlement.settledAt;
   const reportedCost = safeCount(settlement.providerReportedCostNano);
   const rawUsage = settlement.usageMaxDetails?.usage;
   const resolvedModel = gatewaySlug.safeParse(settlement.usageMaxDetails?.resolvedModel);
@@ -60,12 +67,14 @@ export function settlementReceipt(
   return {
     schemaVersion: 1,
     requestId,
+    traceId: requestId.slice(0, 32),
     revision: 1,
     model: model.data,
     provider: row.provider ?? "near-ai",
     status: settlement.status === "complete" ? "ok" : "error",
     settledAt: settlement.settledAt,
-    startedAt: Math.min(Math.floor(row._creationTime), settlement.settledAt),
+    startedAt,
+    ...(hasFirstToken ? { firstTokenAt } : {}),
     ...(settlement.usageMaxDetails?.stream === undefined
       ? {}
       : { stream: settlement.usageMaxDetails.stream }),

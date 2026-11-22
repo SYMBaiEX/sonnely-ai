@@ -47,6 +47,7 @@ type FinalUsage = {
   reportedModel?: string;
   usage: ProviderUsage;
   responseHash: string;
+  firstTokenAt?: number;
 };
 
 export function inferenceStream(options: {
@@ -71,6 +72,7 @@ export function inferenceStream(options: {
           const digest = createHash("sha256");
           let id: string | undefined;
           let terminal: Chunk | undefined;
+          let firstTokenAt: number | undefined;
           let done = false;
           let malformed = false;
           try {
@@ -97,6 +99,12 @@ export function inferenceStream(options: {
                 terminal = chunk;
                 continue;
               }
+              if (
+                firstTokenAt === undefined &&
+                chunk.choices.some(({ delta }) => delta.content || delta.reasoning_content)
+              ) {
+                firstTokenAt = Date.now();
+              }
               send(
                 JSON.stringify({
                   id: chunk.id,
@@ -121,6 +129,7 @@ export function inferenceStream(options: {
             reportedModel: terminal.model,
             usage: terminal.usage,
             responseHash: digest.digest("hex"),
+            firstTokenAt,
           });
           if (options.includeUsage || receipt) {
             send(

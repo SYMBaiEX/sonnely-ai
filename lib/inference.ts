@@ -112,6 +112,7 @@ export async function infer(
   let providerReportedCostNano: number | undefined;
   let gatewayUsage: GatewayReceipt["usage"] | undefined;
   let gatewayResolvedModel: string | undefined;
+  let gatewayFirstTokenAt: number | undefined;
   let providerReceipt: string | undefined;
   let phalaEvidence: Awaited<ReturnType<typeof phalaResponseEvidence>> | undefined;
   let tinfoilEvidence: Awaited<ReturnType<typeof import("./tinfoil").fetchTinfoil>>["evidence"] | undefined;
@@ -135,6 +136,7 @@ export async function infer(
         stream: input.stream === true,
         ...(gatewayUsage ? { usage: gatewayUsage } : {}),
         ...(gatewayResolvedModel ? { resolvedModel: gatewayResolvedModel } : {}),
+        ...(gatewayFirstTokenAt === undefined ? {} : { firstTokenAt: gatewayFirstTokenAt }),
       },
     });
 
@@ -283,8 +285,12 @@ export async function infer(
         rememberId,
         settle: async (final) => {
           try {
-            if (final) await recordUsage(final.id, final.usage, final.responseHash, final.reportedModel);
-            else outcome = "stream_incomplete";
+            if (final) {
+              gatewayFirstTokenAt = final.firstTokenAt;
+              await recordUsage(final.id, final.usage, final.responseHash, final.reportedModel);
+            } else {
+              outcome = "stream_incomplete";
+            }
           } finally {
             await settle();
           }

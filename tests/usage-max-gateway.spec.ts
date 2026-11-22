@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { GET } from "../app/api/sonnely/[task]/route";
 import { api } from "../convex/_generated/api";
 import { gatewayRequestId } from "../convex/usageMaxOutbox";
+import { inferenceStream } from "../lib/inference-stream";
 import { backend, hash } from "../lib/server";
 import { deliverGatewayReceipts, gatewayEndpoint, type GatewayReceipt } from "../lib/usagemax-gateway";
 
@@ -48,6 +49,48 @@ test("the delivery client preserves retry payloads and rejects an unsafe local d
     "https://usagemax.com/api/v1/gateway/receipts",
   );
 });
+
+for (const delta of [{ role: "assistant" }, { reasoning_content: "Thinking" }, { content: "PONG" }]) {
+  test("stream first-token timing for " + Object.keys(delta)[0], async () => {
+    const chunk = { id: "fixture", object: "chat.completion.chunk", created: 0 };
+    const events = [
+      JSON.stringify({ ...chunk, choices: [{ index: 0, delta }] }),
+      JSON.stringify({
+        ...chunk,
+        choices: [],
+        usage: { prompt_tokens: 10, completion_tokens: 2 },
+      }),
+      "[DONE]",
+    ];
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(events.map((event) => "data: " + event + "\n\n").join("")),
+        );
+        controller.close();
+      },
+    });
+    const startedAt = Date.now();
+    let firstTokenAt: number | undefined;
+    const stream = inferenceStream({
+      upstream,
+      model: "fixture-model",
+      includeUsage: true,
+      rememberId: () => {},
+      settle: async (final) => {
+        expect(final?.usage).toMatchObject({ prompt_tokens: 10, completion_tokens: 2 });
+        firstTokenAt = final?.firstTokenAt;
+      },
+    });
+    expect(await stream.response.text()).toContain("[DONE]");
+    if ("role" in delta) {
+      expect(firstTokenAt).toBeUndefined();
+    } else {
+      expect(firstTokenAt).toBeGreaterThanOrEqual(startedAt);
+      expect(firstTokenAt).toBeLessThanOrEqual(Date.now());
+    }
+  });
+}
 
 test("settlement survives a gateway outage, late cost is revised, and reporting requires an administrator", async () => {
   test.skip(process.env.SONNELY_GATEWAY_LOCAL_TEST !== "1", "Opt-in local Convex fixture");
@@ -166,6 +209,7 @@ test("settlement survives a gateway outage, late cost is revised, and reporting 
     const model = "fixture-model";
     const reservation = await db.mutation(api.sonnely.reserve, { ...member.auth, model, cost: 1000 });
     const privateProviderId = randomUUID();
+    const firstTokenAt = Date.now();
     await db.mutation(api.sonnely.settle, {
       secret,
       id: reservation,
@@ -174,13 +218,19 @@ test("settlement survives a gateway outage, late cost is revised, and reporting 
       output: 10,
       cost: 110,
       providerRequest: privateProviderId,
-      usageMaxDetails: { stream: true, usage: { inputTokens: 30, outputTokens: 10, cacheReadTokens: 10 } },
+      usageMaxDetails: {
+        stream: true,
+        firstTokenAt,
+        usage: { inputTokens: 30, outputTokens: 10, cacheReadTokens: 10 },
+      },
     });
     const requestId = await gatewayRequestId(reservation);
     await run("run", "usageMaxOutbox:dispatch", "{}");
     const initial = deliveries.flat().find((item) => item.requestId === requestId);
     expect(initial).toMatchObject({
       revision: 1,
+      traceId: requestId.slice(0, 32),
+      firstTokenAt,
       customerChargeNanos: 110_000,
       providerCostNanos: null,
       providerCostBasis: "unknown",

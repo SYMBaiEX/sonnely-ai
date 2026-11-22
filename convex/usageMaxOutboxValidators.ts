@@ -14,17 +14,20 @@ export const gatewayDetails = v.object({
   stream: v.optional(v.boolean()),
   resolvedModel: v.optional(v.string()),
   usage: v.optional(gatewayUsage),
+  firstTokenAt: v.optional(v.number()),
 });
 
 export const gatewayReceipt = v.object({
   schemaVersion: v.literal(1),
   requestId: v.string(),
+  traceId: v.optional(v.string()),
   revision: v.number(),
   model: v.string(),
   provider: v.string(),
   status: v.union(v.literal("ok"), v.literal("error"), v.literal("cancelled")),
   settledAt: v.number(),
   startedAt: v.optional(v.number()),
+  firstTokenAt: v.optional(v.number()),
   stream: v.optional(v.boolean()),
   resolvedModel: v.optional(v.string()),
   currency: v.literal("USD"),
