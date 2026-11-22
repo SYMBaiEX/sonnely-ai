@@ -14,7 +14,7 @@ test("referral milestones and the admin workspace follow actual account activity
   const { backend, hash } = await import("../lib/server");
   const { api } = await import("../convex/_generated/api");
   const { db, secret } = backend();
-  const pilot = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+  const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
 
   async function signIn(wallet: string, invite?: string) {
     const token = randomUUID();
@@ -31,8 +31,10 @@ test("referral milestones and the admin workspace follow actual account activity
     return { auth, referral, token };
   }
 
-  const admin = await signIn(pilot);
+  const admin = await signIn(adminWallet);
   expect((await db.query(api.sonnely.profile, admin.auth))?.role).toBe("admin");
+  await db.mutation(api.sonnely.acceptTerms, { ...admin.auth, version: termsVersion });
+  await db.mutation(api.sonnely.finishOnboarding, { ...admin.auth, funding: "later" });
   const inviter = await signIn(randomUUID());
   const guest = await signIn(randomUUID(), inviter.referral);
   const username = "tester_" + randomUUID().slice(0, 8);
@@ -67,7 +69,7 @@ test("referral milestones and the admin workspace follow actual account activity
   await db.mutation(api.sonnely.createDeposit, {
     ...guest.auth,
     reference,
-    recipient: pilot,
+    recipient: adminWallet,
     mint: "test-usdc",
     cluster: "mainnet",
     amount: 1_000_000,
@@ -158,7 +160,7 @@ test("referral milestones and the admin workspace follow actual account activity
   await page.getByRole("combobox", { name: "Support status" }).selectOption("in_progress");
   await expect(issue.getByText("In progress", { exact: true }).first()).toBeVisible();
   expect((await db.query(api.crm.customer, { ...admin.auth, id: account }))?.tickets).toMatchObject([
-    { id: ticket, state: "in_progress", assignedWallet: pilot },
+    { id: ticket, state: "in_progress", assignedWallet: adminWallet },
   ]);
 
   await adminNav.getByRole("button", { name: "Traces" }).click();

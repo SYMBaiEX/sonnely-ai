@@ -90,9 +90,8 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
             </thead>
             <tbody role="rowgroup">
               {displayed.map((model) => {
-                const extraRoutes = availableProviders.filter(
-                  (id) => id !== "near-ai" && providerRoute(model, id),
-                );
+                const routes = availableProviders.filter((id) => providerRoute(model, id));
+                const extraRoutes = routes.slice(1);
                 return (
                   <tr role="row" key={model.id}>
                     <th role="rowheader" scope="row">
@@ -104,10 +103,8 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
                           <h3>{model.name}</h3>
                           <p>{model.summary}</p>
                           <span className="model-tier">{routeLabels[model.privacyRoute]} · Confidential</span>
-                          {extraRoutes.length > 0 && (
-                            <p className="caption">
-                              {["NEAR AI", ...extraRoutes.map((id) => providerNames[id])].join(" · ")}
-                            </p>
+                          {routes.length > 1 && (
+                            <p className="caption">{routes.map((id) => providerNames[id]).join(" · ")}</p>
                           )}
                         </div>
                       </div>
@@ -129,9 +126,13 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
                     ))}
                     <td role="cell" className="catalog-actions">
                       <div className="catalog-row-actions">
-                        <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
-                          Open in chat <ArrowUpRight size={15} />
-                        </Link>
+                        {routes.length > 0 ? (
+                          <Link href={"/console?model=" + encodeURIComponent(model.id)} className="text-link">
+                            Open in chat <ArrowUpRight size={15} />
+                          </Link>
+                        ) : (
+                          <span className="caption">Unavailable</span>
+                        )}
                         {extraRoutes.map((id) => (
                           <Link
                             key={id}

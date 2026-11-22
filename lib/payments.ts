@@ -2,7 +2,7 @@ import { z } from "zod";
 import bs58 from "bs58";
 import { getAddress } from "ethers";
 import { fundingAtomic, intentFunds, type FundingQuote, type IntentFund } from "./intent-funding";
-import { managedProviderKey } from "./managed-access";
+import { configuredProviders } from "./managed-access";
 import { SonnelyError } from "./sonnely-error";
 
 export const address = z
@@ -26,7 +26,7 @@ export function billing() {
   const paymentVerificationEnabled =
     treasury.success && Boolean(rpc) && (cluster === "devnet" || cluster === "mainnet");
   const billingEnabled =
-    paymentVerificationEnabled && (cluster === "devnet" || Boolean(managedProviderKey()));
+    paymentVerificationEnabled && (cluster === "devnet" || configuredProviders().length > 0);
   return {
     billingEnabled,
     paymentVerificationEnabled,

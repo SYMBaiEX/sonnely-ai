@@ -76,7 +76,6 @@ test("opt-in receipts match wire bytes and the settled Convex charge", async ({ 
     NEAR_AI_API_KEY: "mock-provider-key",
     VERCEL_ENV: "",
     SONNELY_PUBLIC_INFERENCE: "false",
-    SONNELY_PILOT_WALLET: "",
   };
   const originalFetch = globalThis.fetch;
   const inferenceId = randomUUID();
@@ -197,7 +196,6 @@ test("streams settle once from terminal usage, including after disconnect", asyn
     NEAR_AI_API_KEY: "fixture-key",
     VERCEL_ENV: "",
     SONNELY_PUBLIC_INFERENCE: "false",
-    SONNELY_PILOT_WALLET: "",
   };
   const encode = new TextEncoder();
   const originalFetch = globalThis.fetch;
@@ -319,7 +317,6 @@ test("Phala is pinned, fail-closed, and metered separately in Convex", async ({ 
     PHALA_AI_API_KEY: "phala-test-key",
     VERCEL_ENV: "",
     SONNELY_PUBLIC_INFERENCE: "false",
-    SONNELY_PILOT_WALLET: "",
   };
   const originalFetch = globalThis.fetch;
   const upstreamModel = "deepseek/deepseek-v4.1-flash-1017";

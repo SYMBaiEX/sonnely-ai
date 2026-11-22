@@ -296,7 +296,6 @@ export const reserve = mutation({
     ...secret,
     session: v.optional(v.string()),
     hash: v.optional(v.string()),
-    pilotWallet: v.optional(v.string()),
     requireTerms: v.optional(v.boolean()),
     model: v.string(),
     provider: v.optional(v.union(v.literal("phala"), v.literal("tinfoil"))),
@@ -317,8 +316,6 @@ export const reserve = mutation({
     if (hash && (!key || key.revoked || (key.expires !== null && key.expires <= now)))
       throw new ConvexError("Invalid or expired API key.");
     const account = key ? await ctx.db.get(key.account) : await requireAccount(ctx, args.session ?? "");
-    if (args.pilotWallet && account?.wallet !== args.pilotWallet)
-      throw new ConvexError("Managed inference is unavailable for this account.");
     if (args.requireTerms && account?.termsVersion !== termsVersion)
       throw new ConvexError("Accept the current Sonnely terms in the console.");
     if (!account) throw new ConvexError("Invalid account.");

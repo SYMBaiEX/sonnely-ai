@@ -1,7 +1,8 @@
 import { api } from "@/convex/_generated/api";
 import { backend } from "./server";
 import { billing } from "./payments";
-import { managedProviderKey, pilotWallet, publicInference } from "./managed-access";
+import { configuredProviders, publicInference } from "./managed-access";
+import { providerIds } from "./provider-catalog";
 
 function readProviderHealth() {
   const { db, secret } = backend();
@@ -11,13 +12,8 @@ function readProviderHealth() {
 export async function serviceHealth() {
   const payment = billing();
   const mainnet = payment.paymentVerificationEnabled && payment.cluster === "mainnet";
-  const mode = publicInference()
-    ? "public"
-    : pilotWallet()
-      ? "pilot"
-      : managedProviderKey()
-        ? "development"
-        : "disabled";
+  const providers = configuredProviders();
+  const mode = publicInference() ? "public" : providers.length ? "development" : "disabled";
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let accountService = false;
   let depositRecovery = false;
@@ -41,17 +37,17 @@ export async function serviceHealth() {
   }
   const checks = {
     accountService,
-    providerConfigured: Boolean(managedProviderKey()),
-    phalaConfigured: Boolean(managedProviderKey("phala")),
-    tinfoilConfigured: Boolean(managedProviderKey("tinfoil")),
+    providerConfigured: providers.length > 0,
+    phalaConfigured: providers.includes("phala"),
+    tinfoilConfigured: providers.includes("tinfoil"),
     mainnetPaymentsConfigured: mainnet,
     depositRecovery,
   };
   const fresh = providerStatus && Date.now() - providerStatus.checkedAt < 12 * 60_000;
   const probes = Object.fromEntries(
-    (["near-ai", "phala", "tinfoil"] as const).map((provider) => [
+    providerIds.map((provider) => [
       provider,
-      !managedProviderKey(provider)
+      !providers.includes(provider)
         ? "disabled"
         : fresh
           ? (providerStatus?.providers?.find((check) => check.provider === provider)?.state ?? "unverified")
@@ -66,7 +62,7 @@ export async function serviceHealth() {
       checks.providerConfigured &&
       mainnet &&
       depositRecovery &&
-      !Object.values(probes).includes("unavailable")
+      Object.values(probes).every((state) => state === "ok" || state === "disabled")
         ? "ok"
         : "degraded",
     mode,

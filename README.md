@@ -23,7 +23,7 @@ Set `CONVEX_URL` and `SONNELY_SERVICE_SECRET` in the deployment environment. Set
 | `TINFOIL_API_KEY`        | Optional Tinfoil inference key. Enables the attested DeepSeek V4.1 Flash 1017 route.                                         |
 | `SOLANA_TREASURY`        | Public wallet address for USDC transfers.                                                                                    |
 | `SOLANA_RPC_URL`         | Solana RPC matching the billing cluster.                                                                                     |
-| `SOLANA_BILLING_CLUSTER` | Defaults to `devnet`. Mainnet checkout also requires an inference key. Devnet receipts never create spendable credits.       |
+| `SOLANA_BILLING_CLUSTER` | Defaults to `devnet`. Mainnet checkout also requires an enabled inference provider. Devnet receipts never create spendable credits.       |
 | `NEAR_INTENTS_API_KEY`   | Optional 1Click credential. Enables supported swaps into the connected Solana wallet.                                                        |
 
 The API supports `GET /api/sonnely/v1/models` and `POST /api/sonnely/v1/chat/completions`. Choose an available provider with `provider.only`. Set `stream: true` for SSE and `stream_options.include_usage: true` to receive the final token totals. Sonnely settles reported usage before emitting `[DONE]`. The provider may finish and incur a charge after a client disconnects. `max_cost_microusd` caps the credit reservation before inference. Use Node 22.23.4 or newer in the Node 22 line to run the Tinfoil SDK. See the [provider comparison](docs/inference-providers.md) for evidence and accounting details.
@@ -44,7 +44,7 @@ Set the mainnet Helius `SOLANA_RPC_URL` on Convex alongside `SONNELY_TREASURY_WA
 
 In Admin, open Held credits to investigate an unreported request or a pending reservation older than five minutes. Record the provider receipt or investigation note before releasing the hold or entering a verified final charge. The resolution updates the customer balance and API key budgets together and saves an admin audit entry. Actual provider cost still needs a matching upstream billing record to affect payable margin.
 
-Public mode is controlled by `SONNELY_PUBLIC_INFERENCE=true`. It removes wallet allowlisting and requires the current terms version before funding or inference, including requests made with existing keys. Obtain provider approval and review the customer terms before enabling public mode. Accepted versions and timestamps are persisted in Convex. The public API schema is at `/api/openapi`.
+Public mode is controlled by `SONNELY_PUBLIC_INFERENCE=true`. It enables new production inference and mainnet checkout with current terms acceptance, including requests made with existing keys. Existing payments and provider costs can still reconcile while new inference is disabled. Obtain provider approval and review the customer terms before enabling public mode. Accepted versions and timestamps are persisted in Convex. The public API schema is at `/api/openapi`.
 
 
 ## Documentation and SDK releases

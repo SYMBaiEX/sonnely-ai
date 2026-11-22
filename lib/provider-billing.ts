@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { managedProviderKey } from "./managed-access";
 import { SonnelyError } from "./server";
 
 const uuid = z.uuid();
@@ -16,7 +15,8 @@ export function providerRequestId(header: string | null, completion: string) {
 }
 
 export async function getProviderCosts(requestIds: string[]) {
-  const key = managedProviderKey();
+  // Existing billable requests still reconcile when new inference is paused.
+  const key = process.env.NEAR_AI_API_KEY?.trim();
   if (!key) throw new SonnelyError("Provider billing is unavailable.", 503);
   const response = await fetch("https://cloud-api.near.ai/v1/billing/costs", {
     method: "POST",

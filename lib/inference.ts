@@ -4,7 +4,7 @@ import { api } from "@/convex/_generated/api";
 import { limits } from "./api-contract";
 import { nearResponseEvidence, receiptVersion, sha256 } from "./inference-receipt";
 import { inferenceStream, providerUsage, publicUsage, type ProviderUsage } from "./inference-stream";
-import { managedProviderKey, pilotWallet, publicInference } from "./managed-access";
+import { managedProviderKey, publicInference } from "./managed-access";
 import { phalaOrigin, phalaReceiptId, phalaResponseEvidence } from "./phala";
 import { requestCharge } from "./pricing";
 import { providerRequestId } from "./provider-billing";
@@ -118,12 +118,10 @@ export async function infer(
         }
       : {}),
   });
-  const pilot = pilotWallet();
   const reservationAt = Date.now();
   const id = await db.mutation(api.sonnely.reserve, {
     secret,
     ...auth,
-    ...(pilot ? { pilotWallet: pilot } : {}),
     model: input.model,
     ...(provider !== "near-ai" ? { provider } : {}),
     cost: reserve,

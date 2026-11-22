@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { allowedInPilot, managedProviderKey } from "../lib/managed-access";
+import { configuredProviders, managedProviderKey } from "../lib/managed-access";
 import { billing, mainnetMint, verifyCluster, verifyPayment } from "../lib/payments";
+import { getProviderCosts } from "../lib/provider-billing";
 
 const rpc = "https://rpc.example.test";
 const genesis = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
@@ -13,17 +14,33 @@ const order = {
   amount: 5_000_000,
 };
 
-test("opening a mainnet payment requires inference, but confirming it does not", () => {
-  const keys = ["SOLANA_TREASURY", "SOLANA_RPC_URL", "SOLANA_BILLING_CLUSTER", "NEAR_AI_API_KEY"] as const;
+test("mainnet checkout can use another provider while NEAR is paused", () => {
+  const keys = [
+    "SOLANA_TREASURY",
+    "SOLANA_RPC_URL",
+    "SOLANA_BILLING_CLUSTER",
+    "NEAR_AI_API_KEY",
+    "PHALA_AI_API_KEY",
+    "TINFOIL_API_KEY",
+    "SONNELY_PAUSED_PROVIDERS",
+    "VERCEL_ENV",
+  ] as const;
   const previous = keys.map((key) => process.env[key]);
   try {
+    delete process.env.VERCEL_ENV;
     process.env.SOLANA_TREASURY = order.recipient;
     process.env.SOLANA_RPC_URL = rpc;
     process.env.SOLANA_BILLING_CLUSTER = "mainnet";
-    delete process.env.NEAR_AI_API_KEY;
-    expect(billing()).toMatchObject({ billingEnabled: false, paymentVerificationEnabled: true });
-    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    process.env.NEAR_AI_API_KEY = "near-fixture";
+    process.env.PHALA_AI_API_KEY = "phala-fixture";
+    delete process.env.TINFOIL_API_KEY;
+    process.env.SONNELY_PAUSED_PROVIDERS = "near-ai";
+    expect(configuredProviders()).toEqual(["phala"]);
     expect(billing()).toMatchObject({ billingEnabled: true, paymentVerificationEnabled: true });
+
+    process.env.SONNELY_PAUSED_PROVIDERS = "near-ai,phala";
+    expect(configuredProviders()).toEqual([]);
+    expect(billing()).toMatchObject({ billingEnabled: false, paymentVerificationEnabled: true });
   } finally {
     keys.forEach((key, index) => {
       const value = previous[index];
@@ -89,23 +106,24 @@ test("payment verification requires the exact network, finalized transfer, signe
   }
 });
 
-test("production requires an explicit launch mode and restricts the pilot to one wallet", () => {
-  const keys = ["VERCEL_ENV", "SONNELY_PUBLIC_INFERENCE", "SONNELY_PILOT_WALLET", "NEAR_AI_API_KEY"] as const;
+test("production requires public enablement even if the old pilot variable is set", () => {
+  const keys = [
+    "VERCEL_ENV",
+    "SONNELY_PUBLIC_INFERENCE",
+    "SONNELY_PILOT_WALLET",
+    "NEAR_AI_API_KEY",
+    "SONNELY_PAUSED_PROVIDERS",
+  ] as const;
   const previous = keys.map((key) => process.env[key]);
   try {
     process.env.VERCEL_ENV = "production";
     process.env.NEAR_AI_API_KEY = "test-provider-key";
-    delete process.env.SONNELY_PILOT_WALLET;
+    process.env.SONNELY_PILOT_WALLET = payer;
+    delete process.env.SONNELY_PAUSED_PROVIDERS;
     delete process.env.SONNELY_PUBLIC_INFERENCE;
     expect(managedProviderKey()).toBeUndefined();
 
-    process.env.SONNELY_PILOT_WALLET = payer;
-    expect(allowedInPilot()).toBe(false);
-    expect(allowedInPilot(order.recipient)).toBe(false);
-    expect(allowedInPilot(payer)).toBe(true);
-    expect(managedProviderKey()).toBe("test-provider-key");
     process.env.SONNELY_PUBLIC_INFERENCE = "true";
-    expect(allowedInPilot(order.recipient)).toBe(true);
     expect(managedProviderKey()).toBe("test-provider-key");
   } finally {
     keys.forEach((key, index) => {
@@ -113,6 +131,25 @@ test("production requires an explicit launch mode and restricts the pilot to one
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     });
+  }
+});
+
+test("NEAR still returns billed costs with new NEAR inference paused", async () => {
+  const fetchOriginal = globalThis.fetch;
+  const env = process.env;
+  const requestId = "e1205616-64f4-48ad-806f-3d1bf421925e";
+  try {
+    process.env = { ...env, NEAR_AI_API_KEY: "near-fixture", SONNELY_PAUSED_PROVIDERS: "near-ai" };
+    expect(managedProviderKey("near-ai")).toBeUndefined();
+    globalThis.fetch = async (url, init) => {
+      expect(url).toBe("https://cloud-api.near.ai/v1/billing/costs");
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer near-fixture");
+      return Response.json({ requests: [{ requestId, costNanoUsd: 100 }] });
+    };
+    await expect(getProviderCosts([requestId])).resolves.toEqual([{ requestId, costNanoUsd: 100 }]);
+  } finally {
+    process.env = env;
+    globalThis.fetch = fetchOriginal;
   }
 });
 

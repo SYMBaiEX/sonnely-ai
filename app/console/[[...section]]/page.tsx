@@ -5,6 +5,7 @@ import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
 import { configuredProviders } from "@/lib/managed-access";
+import { providerIds, providerRoute } from "@/lib/provider-catalog";
 
 const sections = [
   "chat",
@@ -41,7 +42,14 @@ export default async function ConsolePage({ params, searchParams }: Props) {
   if ((section && section.length > 1) || !sections.includes(name as Section)) notFound();
   const features = computeFeatures();
   if (isComputeProduct(name) && !features[name]) notFound();
-  const initial = models.find((item) => item.id === model) ?? models[0];
+  const availableProviders = configuredProviders();
+  const initial =
+    models.find((item) => item.id === model) ??
+    models.find((item) => availableProviders.some((id) => providerRoute(item, id))) ??
+    models[0];
+  const pinnedProvider = providerIds.find((id) => id === provider);
+  const initialProvider =
+    pinnedProvider ?? availableProviders.find((id) => providerRoute(initial, id)) ?? initial.provider;
   return (
     <ConsoleScreen
       section={name as Section}
@@ -50,8 +58,8 @@ export default async function ConsolePage({ params, searchParams }: Props) {
       initialModel={initial.id}
       restoreConversation={model === undefined && provider === undefined}
       initialRun={typeof run === "string" && /^[a-z0-9]{20,80}$/.test(run) ? run : undefined}
-      initialProvider={provider === "phala" || provider === "tinfoil" ? provider : "near-ai"}
-      availableProviders={configuredProviders()}
+      initialProvider={initialProvider}
+      availableProviders={availableProviders}
     />
   );
 }

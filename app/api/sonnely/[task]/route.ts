@@ -13,7 +13,7 @@ import { intentFunds } from "@/lib/intent-funding";
 import { preparePayment } from "@/lib/payment-transaction";
 import { creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import { usageSince } from "@/lib/usage";
-import { allowedInPilot, managedProviderKey, publicInference } from "@/lib/managed-access";
+import { configuredProviders, publicInference } from "@/lib/managed-access";
 import { termsVersion } from "@/lib/policy";
 import { infer } from "@/lib/inference";
 import {
@@ -75,13 +75,12 @@ export async function GET(request: NextRequest, context: Context) {
             })
           : null;
       const termsRequired = publicInference() && profile !== null && profile.acceptedTerms !== termsVersion;
-      const eligible = allowedInPilot(profile?.wallet) && !termsRequired;
       return json({
         profile,
         termsRequired,
         enabled,
-        inferenceEnabled: enabled && eligible && Boolean(managedProviderKey()),
-        billingEnabled: enabled && eligible && billingEnabled,
+        inferenceEnabled: enabled && !termsRequired && configuredProviders().length > 0,
+        billingEnabled: enabled && !termsRequired && billingEnabled,
         paymentVerificationEnabled: enabled && paymentVerificationEnabled,
         cluster,
       });
@@ -298,7 +297,7 @@ export async function POST(request: NextRequest, context: Context) {
           })),
         ])
         .parse(raw);
-      if (input.prepare && (!billing().billingEnabled || !allowedInPilot(profile.wallet)))
+      if (input.prepare && !billing().billingEnabled)
         throw new SonnelyError("USDC checkout is unavailable.", 503);
       if (input.prepare && publicInference() && profile.acceptedTerms !== termsVersion)
         throw new SonnelyError("Accept the current Sonnely terms in the console.", 403);
@@ -310,7 +309,6 @@ export async function POST(request: NextRequest, context: Context) {
       if (task !== "confirm" && publicInference() && profile.acceptedTerms !== termsVersion)
         throw new SonnelyError("Accept the current Sonnely terms in the console.", 403);
       if (task === "deposit") {
-        if (!allowedInPilot(profile.wallet)) throw new SonnelyError("USDC checkout is unavailable.", 503);
         if (!billingEnabled || !recipient || !rpc)
           throw new SonnelyError("USDC checkout is unavailable.", 503);
         const { dollars } = z.object({ dollars: z.union([z.string().max(32), z.number()]) }).parse(raw);
@@ -363,8 +361,7 @@ export async function POST(request: NextRequest, context: Context) {
         throw new SonnelyError("This payment cannot be matched with the configured treasury.");
       await verifyCluster(rpc, cluster);
       if (task === "payment-transaction") {
-        if (!billingEnabled || !allowedInPilot(profile.wallet))
-          throw new SonnelyError("USDC checkout is unavailable.", 503);
+        if (!billingEnabled) throw new SonnelyError("USDC checkout is unavailable.", 503);
         if (version === undefined) throw new SonnelyError("Choose a supported wallet transaction version.");
         if (await findMatchingPayment(rpc, profile.wallet, order, "confirmed"))
           throw new SonnelyError("This payment is on chain. Wait for finality before trying again.", 409);

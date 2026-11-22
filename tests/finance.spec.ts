@@ -5,7 +5,7 @@ import { models } from "../lib/models";
 import { markedUpRates, requestCharge } from "../lib/pricing";
 
 const treasury = "X7D5MRGHootjNgKWSgG2Q79f2jHiHpSfduei8t9J4Hg";
-const pilot = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
 const recipient = "8RFMcU7Ai7wtRsJTZbF9L8MsaiSZ1kefdDfNSCRZBDht";
 
 test("10% rate card retains fractional cached prices and backs the charge", () => {
@@ -64,7 +64,7 @@ test("wallet roles, tenant isolation and payout reconciliation are enforced in C
   await expect(db.query(api.finance.overview, { ...member, secret: "wrong", since: 0 })).rejects.toThrow(
     "Unauthorized",
   );
-  const admin = await walletSession(pilot);
+  const admin = await walletSession(adminWallet);
   const treasuryAdmin = await walletSession(treasury);
   const role = (await db.query(api.sonnely.profile, admin))?.role;
   test.skip(role !== "admin", "Configure the local admin wallets to exercise the reconciliation fixture");

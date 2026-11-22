@@ -2,7 +2,7 @@
 
 ## Compute availability
 
-Set `SONNELY_BLACKBOX_RENTALS=false` and `SONNELY_DRY_DOCKS=false` on both Vercel and Convex. The web build uses these values for public discovery, docs and console navigation. Convex independently enforces the flags before reserving credits. Existing runs continue through settlement and teardown. The old admin pilot override does not bypass the flags.
+Set `SONNELY_BLACKBOX_RENTALS=false` and `SONNELY_DRY_DOCKS=false` on both Vercel and Convex. The web build uses these values for public discovery, docs and console navigation. Convex independently enforces the flags before reserving credits. Existing runs continue through settlement and teardown.
 
 ## Before onboarding a cohort
 
