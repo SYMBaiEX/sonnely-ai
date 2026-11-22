@@ -6,6 +6,7 @@ import { Sidebar, type SidebarProps } from "fumadocs-ui/layouts/docs/slots/sideb
 import { ArrowUpRight, BookOpen, Box, ChevronRight, CircleHelp, Fingerprint, Rocket } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { apiOrigin } from "@/lib/api-contract";
+import { SonnelySocialLink } from "@/components/sonnely-social-link";
 
 const sectionIcons = {
   "Get started": Rocket,
@@ -55,6 +56,7 @@ export function SonnelyDocsSidebar(props: SidebarProps) {
             <a href={apiOrigin + "/status"}>
               Status <ArrowUpRight size={13} aria-hidden="true" />
             </a>
+            <SonnelySocialLink compact />
           </nav>
         </div>
       }

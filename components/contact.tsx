@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { ArrowUpRight, Code2, CreditCard, Inbox, Send } from "lucide-react";
 import { request, useSession, WalletControl } from "./wallet";
+import { SonnelySocialLink } from "@/components/sonnely-social-link";
 
 const supportTopics = [
   [Code2, "Workspace support", "API errors, keys, sign-in, and model access"],
@@ -69,6 +70,7 @@ export function Contact() {
           <Link className="text-link" href="/console/billing">
             Billing history <ArrowUpRight size={16} />
           </Link>
+          <SonnelySocialLink className="text-link" />
         </div>
       </aside>
       <form className="panel contact-form" onSubmit={submit} aria-labelledby="support-request">

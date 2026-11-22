@@ -4,6 +4,7 @@ import { MotionSwitch } from "@/components/ambient-motion";
 import { Brand } from "@/components/brand";
 import { ThemeSurface } from "@/components/appearance";
 import { SiteHeader } from "@/components/site-header";
+import { SonnelySocialLink } from "@/components/sonnely-social-link";
 import "./site-pages.css";
 
 export default function SiteLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -44,6 +45,7 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
               <h2>Sonnely</h2>
               <Link href="/blog">Journal</Link>
               <Link href="/contact">Support</Link>
+              <SonnelySocialLink />
             </div>
             <div className="footer-group">
               <h2>Legal</h2>
