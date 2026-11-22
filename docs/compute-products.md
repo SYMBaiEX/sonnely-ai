@@ -78,3 +78,32 @@ A local loopback Convex deployment only sends receipts when
 disposable local deployment with `SONNELY_GATEWAY_LOCAL_TEST=1` and the local service secret.
 
 - [UsageMax telemetry API](https://usagemax.com/docs)
+
+### Scheduled reconciliation and email
+
+Convex checks pending NEAR AI receipts every five minutes against the provider’s
+per-request billing API. Unresolved costs stay pending and retry. A matched
+provider cost can update the settlement ledger. Treasury payout approval and
+signing are manual.
+
+Invoice exports with stable provider references can be submitted by a trusted
+server integration to `POST /api/internal/provider-invoices`. The endpoint
+requires the server-only `SONNELY_INVOICE_IMPORT_TOKEN` as a bearer token, accepts
+USD statements of up to 100 lines, and deduplicates by provider and invoice ID.
+Phala and Tinfoil require matching statement exports. NEAR’s per-request cost
+reports and finalized invoices are tracked independently.
+
+UsageMax alert opens and resolutions are queued for delivery when the
+operations email destination has been configured. In **Admin → Inference
+ops**, the operations panel reports synchronization and email status and can
+queue a test message. The email includes the provider, alert type, and a link
+to Admin.
+
+### Crypto funding
+
+On mainnet, Billing can quote supported NEAR Intents swaps into the user’s own
+Solana USDC wallet. The user reviews the deposit instructions and sends the
+source token from their wallet. After USDC arrives, they complete the standard
+Sonnely USDC checkout. Credits post after Solana finality, as with direct USDC
+purchases. Each swap quote shows its network, minimum output, and refund
+wallet.

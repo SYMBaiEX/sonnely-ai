@@ -117,11 +117,12 @@ export async function adminGateway(
   const through = reportDay.parse(params.get("through"));
   if (through < from || Date.parse(through) - Date.parse(from) >= 31 * 86_400_000)
     throw new SonnelyError("Choose up to 31 days.", 400);
-  const [invoices, operations] = await Promise.all([
+  const [invoices, operations, automation] = await Promise.all([
     db.query(api.providerInvoices.history, auth),
     readGatewayOperations(from, through).catch(() => null),
+    db.query(api.operations.status, auth),
   ]);
-  return json({ delivery, invoices, operations });
+  return json({ delivery, invoices, operations, automation });
 }
 
 export async function adminAction(
@@ -186,6 +187,8 @@ export async function adminAction(
     if (task === "admin-invoice-preview") return json(await db.query(api.providerInvoices.preview, args));
     return json(await db.mutation(api.providerInvoices.record, args), 201);
   }
+  if (task === "admin-alert-email-test")
+    return json({ id: await db.mutation(api.operations.queueTest, auth) }, 202);
   if (task === "admin-reconcile") {
     const ids = await db.query(api.finance.pendingCosts, auth);
     const costs = ids.length ? await getProviderCosts(ids) : [];

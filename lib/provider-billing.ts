@@ -21,6 +21,7 @@ export async function getProviderCosts(requestIds: string[]) {
   const response = await fetch("https://cloud-api.near.ai/v1/billing/costs", {
     method: "POST",
     cache: "no-store",
+    redirect: "error",
     signal: AbortSignal.timeout(12_000),
     headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
     body: JSON.stringify({ requestIds }),
@@ -33,5 +34,14 @@ export async function getProviderCosts(requestIds: string[]) {
   if (!report.success) throw new SonnelyError("NEAR billing did not return a usable cost report.", 502);
   const requested = new Set(requestIds);
   // NEAR reports zero for unresolved request IDs. Leave them pending for a later reconciliation.
-  return report.data.requests.filter((row) => requested.has(row.requestId) && row.costNanoUsd > 0);
+  const costs = new Map<string, number>();
+  for (const row of report.data.requests) {
+    if (!requested.has(row.requestId) || row.costNanoUsd === 0) continue;
+    const previous = costs.get(row.requestId);
+    if (previous !== undefined && previous !== row.costNanoUsd) {
+      throw new SonnelyError("NEAR billing returned conflicting costs.", 502);
+    }
+    costs.set(row.requestId, row.costNanoUsd);
+  }
+  return [...costs].map(([requestId, costNanoUsd]) => ({ requestId, costNanoUsd }));
 }

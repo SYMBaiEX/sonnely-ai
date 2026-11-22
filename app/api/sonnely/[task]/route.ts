@@ -9,6 +9,7 @@ import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { address, billing, findMatchingPayment, quote, verifyCluster, verifyPayment } from "@/lib/payments";
+import { intentFunds } from "@/lib/intent-funding";
 import { preparePayment } from "@/lib/payment-transaction";
 import { creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import { usageSince } from "@/lib/usage";
@@ -259,9 +260,29 @@ export async function POST(request: NextRequest, context: Context) {
       return await adminAction(task, raw, auth, db);
     }
     if (task === "quote") {
-      const { sol } = z.object({ sol: z.number().min(0.01).max(1000) }).parse(raw);
+      const input = z
+        .union([
+          z.object({
+            asset: z.enum(
+              Object.keys(intentFunds) as [keyof typeof intentFunds, ...(keyof typeof intentFunds)[]],
+            ),
+            amount: z.string().max(37),
+            refundTo: z.string().max(42).optional(),
+            prepare: z.boolean().optional(),
+          }),
+          z.object({ sol: z.number().min(0.01).max(1000) }).transform(({ sol }) => ({
+            asset: "sol" as const,
+            amount: String(sol),
+            prepare: false,
+          })),
+        ])
+        .parse(raw);
+      if (input.prepare && (!billing().billingEnabled || !allowedInPilot(profile.wallet)))
+        throw new SonnelyError("USDC checkout is unavailable.", 503);
+      if (input.prepare && publicInference() && profile.acceptedTerms !== termsVersion)
+        throw new SonnelyError("Accept the current Sonnely terms in the console.", 403);
       await db.mutation(api.sonnely.throttleQuote, auth);
-      return json(await quote(profile.wallet, sol));
+      return json(await quote(profile.wallet, input));
     }
     if (task === "deposit" || task === "confirm" || task === "payment-transaction") {
       const { billingEnabled, paymentVerificationEnabled, cluster, mint, recipient, rpc } = billing();

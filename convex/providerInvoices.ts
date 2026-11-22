@@ -1,6 +1,8 @@
 import { ConvexError, v } from "convex/values";
+import { validOperationsToken } from "../lib/operations-auth";
 import { invoiceBillingReference, invoiceLineLimit, invoiceReference } from "../lib/provider-invoice";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { auth, requireAdmin } from "./access";
 import { amendGatewayCost } from "./usageMaxOutbox";
 
@@ -79,54 +81,68 @@ export const preview = query({
   },
 });
 
+async function recordInvoice(ctx: MutationCtx, args: InvoiceInput, actor?: Id<"accounts">) {
+  const lines = validated(args);
+  const existing = await invoiceById(ctx, args.provider, args.invoiceId);
+  const unmatched = new Set(
+    existing?.lines.filter(({ state }) => state === "unmatched").map(({ reference }) => reference),
+  );
+  if (existing) {
+    const original = existing.lines.map(({ reference, costNanos }) => ({ reference, costNanos }));
+    if (JSON.stringify(original) !== JSON.stringify(lines))
+      throw new ConvexError("This invoice ID already has different line items.");
+    if (!unmatched.size) return existing.lines;
+  }
+  const matches = await matchLines(
+    ctx,
+    args.provider,
+    existing ? lines.filter(({ reference }) => unmatched.has(reference)) : lines,
+  );
+  const invoice =
+    existing?._id ??
+    (await ctx.db.insert("providerInvoices", {
+      provider: args.provider,
+      invoiceId: args.invoiceId,
+      ...(actor ? { recordedBy: actor } : { source: "integration" as const }),
+      lines: [],
+    }));
+  const recorded: Array<typeof invoiceLineView.type> = existing
+    ? existing.lines.filter(({ reference }) => !unmatched.has(reference))
+    : [];
+  for (const item of matches) {
+    if (!item.usageId) {
+      recorded.push(item.view);
+      continue;
+    }
+    const exported = await amendGatewayCost(ctx, item.usageId, item.view.costNanos, "invoice_confirmed");
+    await ctx.db.insert("providerInvoiceClaims", {
+      reference: item.view.reference,
+      invoice,
+      usage: item.usageId,
+    });
+    recorded.push({ ...item.view, exported });
+  }
+  recorded.sort((a, b) => a.reference.localeCompare(b.reference));
+  await ctx.db.patch(invoice, { lines: recorded });
+  return recorded;
+}
+
 export const record = mutation({
   args: { ...auth, ...invoiceInput },
   returns: v.array(invoiceLineView),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx, args);
-    const lines = validated(args);
-    const existing = await invoiceById(ctx, args.provider, args.invoiceId);
-    const unmatched = new Set(
-      existing?.lines.filter(({ state }) => state === "unmatched").map(({ reference }) => reference),
-    );
-    if (existing) {
-      const original = existing.lines.map(({ reference, costNanos }) => ({ reference, costNanos }));
-      if (JSON.stringify(original) !== JSON.stringify(lines))
-        throw new ConvexError("This invoice ID already has different line items.");
-      if (!unmatched.size) return existing.lines;
-    }
-    const matches = await matchLines(
-      ctx,
-      args.provider,
-      existing ? lines.filter(({ reference }) => unmatched.has(reference)) : lines,
-    );
-    const invoice =
-      existing?._id ??
-      (await ctx.db.insert("providerInvoices", {
-        provider: args.provider,
-        invoiceId: args.invoiceId,
-        recordedBy: admin._id,
-        lines: [],
-      }));
-    const recorded: Array<typeof invoiceLineView.type> = existing
-      ? existing.lines.filter(({ reference }) => !unmatched.has(reference))
-      : [];
-    for (const item of matches) {
-      if (!item.usageId) {
-        recorded.push(item.view);
-        continue;
-      }
-      const exported = await amendGatewayCost(ctx, item.usageId, item.view.costNanos, "invoice_confirmed");
-      await ctx.db.insert("providerInvoiceClaims", {
-        reference: item.view.reference,
-        invoice,
-        usage: item.usageId,
-      });
-      recorded.push({ ...item.view, exported });
-    }
-    recorded.sort((a, b) => a.reference.localeCompare(b.reference));
-    await ctx.db.patch(invoice, { lines: recorded });
-    return recorded;
+    return recordInvoice(ctx, args, admin._id);
+  },
+});
+
+export const ingest = mutation({
+  args: { token: v.string(), ...invoiceInput },
+  returns: v.array(invoiceLineView),
+  handler: async (ctx, args) => {
+    if (!validOperationsToken(args.token, process.env.SONNELY_INVOICE_IMPORT_TOKEN))
+      throw new ConvexError("Unauthorized.");
+    return recordInvoice(ctx, args);
   },
 });
 
@@ -138,16 +154,18 @@ export const history = query({
       invoiceId: v.string(),
       createdAt: v.number(),
       lines: v.array(invoiceLineView),
+      source: v.optional(v.literal("integration")),
     }),
   ),
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
     const rows = await ctx.db.query("providerInvoices").order("desc").take(15);
-    return rows.map(({ provider, invoiceId, _creationTime, lines }) => ({
+    return rows.map(({ provider, invoiceId, _creationTime, lines, source }) => ({
       provider,
       invoiceId,
       createdAt: _creationTime,
       lines,
+      ...(source ? { source } : {}),
     }));
   },
 });

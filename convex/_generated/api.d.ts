@@ -20,6 +20,8 @@ import type * as crons from "../crons.js";
 import type * as depositRecovery from "../depositRecovery.js";
 import type * as finance from "../finance.js";
 import type * as ledger from "../ledger.js";
+import type * as operations from "../operations.js";
+import type * as operationsContract from "../operationsContract.js";
 import type * as providerInvoiceContract from "../providerInvoiceContract.js";
 import type * as providerInvoices from "../providerInvoices.js";
 import type * as recoveryData from "../recoveryData.js";
@@ -50,6 +52,8 @@ declare const fullApi: ApiFromModules<{
   depositRecovery: typeof depositRecovery;
   finance: typeof finance;
   ledger: typeof ledger;
+  operations: typeof operations;
+  operationsContract: typeof operationsContract;
   providerInvoiceContract: typeof providerInvoiceContract;
   providerInvoices: typeof providerInvoices;
   recoveryData: typeof recoveryData;

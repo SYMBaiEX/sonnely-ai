@@ -325,7 +325,10 @@ export function DeveloperGuide() {
               </li>
             </ol>
             <p>
-              Verified mainnet payments create spendable credits. NEAR Intents provides informational quotes.
+              If you hold SOL, ETH on Ethereum, Base or Arbitrum, or USDC on Base, use
+              <strong> Fund with other crypto</strong> to review a NEAR Intents swap into your connected
+              Solana wallet. Send the source token from your own wallet, wait for Solana USDC to arrive, then
+              complete checkout. Only finalized Sonnely payments create credits.
             </p>
             <Link className="text-link" href="/pricing">
               Read the pricing and settlement guide <ArrowUpRight size={16} />
