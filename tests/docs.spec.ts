@@ -46,7 +46,7 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   expect(search.ok()).toBe(true);
   expect(await search.text()).toContain("/docs/blackboxes");
 
-  for (const archive of ["sonnely-sdk-0.1.1.tgz", "sonnely_sdk-0.1.2-py3-none-any.whl"]) {
+  for (const archive of ["sonnely-sdk-0.1.2.tgz", "sonnely_sdk-0.1.2-py3-none-any.whl"]) {
     const asset = await request.get("/sdk/" + archive);
     expect(asset.ok()).toBe(true);
     expect((await asset.body()).length).toBeGreaterThan(1000);
