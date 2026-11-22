@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const mailResult = z.object({
-  state: z.enum(["accepted", "failed", "retry", "unconfirmed"]),
+  state: z.enum(["delivered", "accepted", "failed", "retry", "unconfirmed"]),
   messageId: z.string().min(1).max(160).optional(),
   code: z
     .string()
@@ -10,6 +10,7 @@ const mailResult = z.object({
 });
 
 export async function sendOperationsEmail(
+  id: string,
   subject: string,
   text: string,
 ): Promise<z.infer<typeof mailResult>> {
@@ -22,7 +23,7 @@ export async function sendOperationsEmail(
     const response = await fetch(origin + "/send", {
       method: "POST",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, text }),
+      body: JSON.stringify({ id, subject, text }),
       signal: AbortSignal.timeout(10_000),
       redirect: "error",
     });
