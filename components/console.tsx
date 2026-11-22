@@ -16,11 +16,14 @@ import {
   Menu,
   MessageSquare,
   Search,
+  Sparkles,
   Settings,
   ShieldCheck,
   Users,
   Wallet,
 } from "lucide-react";
+import { computeProducts, isComputeProduct, type ComputeFeatures } from "@/lib/compute-features";
+import { computePlans } from "@/lib/compute";
 import type { nearCatalog } from "@/lib/near-catalog";
 import type { Section } from "@/app/console/[[...section]]/page";
 import { creditBalance } from "@/lib/credit-amount";
@@ -35,6 +38,7 @@ import { NearModelDirectory } from "./near-model-directory";
 import { ModelCatalog } from "./shared";
 import type { ProviderId } from "@/lib/provider-catalog";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
+import { Onboarding } from "./onboarding";
 import { TermsAcceptance } from "./terms-acceptance";
 import { useSession, WalletControl } from "./wallet";
 import { WorkspaceHeading } from "./workspace-heading";
@@ -63,7 +67,7 @@ const ConsoleContext = createContext<
   | null
 >(null);
 
-export function ConsoleShell({ children }: { children: ReactNode }) {
+export function ConsoleShell({ children, features }: { children: ReactNode; features: ComputeFeatures }) {
   const pathname = usePathname();
   const selected = nav.find((item) => item.path === pathname) ?? nav[0];
   const section = selected.id;
@@ -125,7 +129,16 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
   }
 
   const profile = session?.profile;
-  const visibleNav = nav.filter((item) => item.id !== "admin" || profile?.role === "admin");
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [dismissedWallet, setDismissedWallet] = useState<string>();
+  const showSetup =
+    session && (setupOpen || (profile?.onboarding === "pending" && profile.wallet !== dismissedWallet));
+  const visibleNav = nav.filter(({ id }) =>
+    isComputeProduct(id)
+      ? features[id]
+      : id !== "admin" || Boolean(profile?.role && profile.role !== "member"),
+  );
+  const computeNav = visibleNav.filter(({ id }) => isComputeProduct(id));
   const PageIcon = selected.Icon;
   const sidebar = (items: (typeof nav)[number][]) =>
     items.map(({ id, title, path, Icon }) => (
@@ -174,15 +187,24 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
         <nav aria-label="Workspace navigation" className="rail-nav">
           <p className="mono">Inference</p>
           {sidebar(visibleNav.slice(0, 4))}
-          <p className="mono">Compute</p>
-          {sidebar(visibleNav.slice(4, 6))}
+          {computeNav.length > 0 && (
+            <>
+              <p className="mono">Compute</p>
+              {sidebar(computeNav)}
+            </>
+          )}
           <p className="mono">Workspace</p>
-          {sidebar(visibleNav.slice(6))}
+          {sidebar(visibleNav.slice(4).filter(({ id }) => !isComputeProduct(id)))}
         </nav>
         <div className="rail-bottom">
           <span className="rail-theme">
             <ThemeSwitch />
           </span>
+          {session?.enabled && (
+            <button type="button" className="button quiet small" onClick={() => setSetupOpen(true)}>
+              <Sparkles size={16} aria-hidden /> Workspace setup
+            </button>
+          )}
           <Link href="/docs">
             <BookOpen size={17} /> Documentation <ArrowUpRight size={13} />
           </Link>
@@ -249,7 +271,26 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
               {failure}
             </p>
           )}
-          {session?.termsRequired && <TermsAcceptance refresh={refresh} />}
+          {session?.termsRequired && !showSetup && <TermsAcceptance refresh={refresh} />}
+          {session?.enabled && !profile && section === "chat" && (
+            <div className="workspace-setup-invite">
+              <Sparkles size={16} aria-hidden />
+              <span>New to Sonnely?</span>
+              <button type="button" className="text-link" onClick={() => setSetupOpen(true)}>
+                Set up your workspace <ArrowUpRight size={14} aria-hidden />
+              </button>
+            </div>
+          )}
+          {showSetup && (
+            <Onboarding
+              session={session}
+              refresh={refresh}
+              close={() => {
+                setSetupOpen(false);
+                setDismissedWallet(profile?.wallet);
+              }}
+            />
+          )}
           <ConsoleContext value={{ ...account, range, setRange, preferences: { ...prefs, theme }, change }}>
             {children}
           </ConsoleContext>
@@ -289,6 +330,7 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
 
 export function ConsoleScreen({
   section,
+  features,
   initialModel,
   restoreConversation,
   initialProvider,
@@ -297,6 +339,7 @@ export function ConsoleScreen({
   providerCatalog,
 }: {
   section: Section;
+  features: ComputeFeatures;
   initialModel: string;
   restoreConversation: boolean;
   initialProvider: ProviderId;
@@ -365,7 +408,7 @@ export function ConsoleScreen({
           refreshBalance={refresh}
         />
       )}
-      {section === "admin" && <Admin session={session} />}
+      {section === "admin" && <Admin session={session} features={features} />}
       {section === "keys" && <Keys signedIn={signedIn} />}
       {section === "usage" && (
         <>
@@ -379,12 +422,17 @@ export function ConsoleScreen({
           />
           <section className="panel workspace-compute-links" aria-label="Compute usage">
             <h2>Compute usage</h2>
-            <Link href="/console/blackboxes">
-              Blackbox rentals <ArrowUpRight size={15} />
-            </Link>
-            <Link href="/console/dry-docks">
-              Dry Dock builds <ArrowUpRight size={15} />
-            </Link>
+            {computeProducts.map((id) =>
+              features[id] ? (
+                <Link key={id} href={"/console/" + id}>
+                  {computePlans[id].title} <ArrowUpRight size={15} />
+                </Link>
+              ) : (
+                <p className="caption" key={id}>
+                  {computePlans[id].title} · Coming soon
+                </p>
+              ),
+            )}
           </section>
         </>
       )}

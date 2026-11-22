@@ -1,11 +1,21 @@
 import { v } from "convex/values";
 
-export const operationKind = v.union(v.literal("near_costs"), v.literal("gateway_alerts"));
+export const providerCheck = v.object({
+  provider: v.union(v.literal("near-ai"), v.literal("phala"), v.literal("tinfoil")),
+  state: v.union(v.literal("ok"), v.literal("unavailable"), v.literal("disabled")),
+});
+export const operationKind = v.union(
+  v.literal("near_costs"),
+  v.literal("gateway_alerts"),
+  v.literal("provider_health"),
+  v.literal("provider_invoices"),
+);
 export const operationState = v.object({
   kind: operationKind,
   checkedAt: v.number(),
   successAt: v.optional(v.number()),
   watermark: v.optional(v.number()),
+  providers: v.optional(v.array(providerCheck)),
   status: v.union(v.literal("ok"), v.literal("unavailable"), v.literal("partial")),
   matched: v.number(),
   checked: v.number(),

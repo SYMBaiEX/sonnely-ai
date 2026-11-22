@@ -2,7 +2,8 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
-import { auth, requireAdmin, walletRole } from "./access";
+import { auth, requireAdmin, requireOperator, walletRole } from "./access";
+import { termsVersion } from "../lib/policy";
 import { firstConversion } from "./referralPipeline";
 
 const state = v.union(v.literal("open"), v.literal("in_progress"), v.literal("resolved"));
@@ -22,6 +23,7 @@ const identity = v.object({
   username: v.optional(v.string()),
   balance: v.number(),
   role: v.string(),
+  onboarding: v.optional(v.union(v.literal("pending"), v.literal("fund"), v.literal("later"))),
 });
 const trace = v.object({
   id: v.id("usage"),
@@ -63,6 +65,7 @@ function customerDoc(row: Doc<"accounts">) {
     username: row.username,
     balance: row.balance,
     role: walletRole(row.wallet),
+    onboarding: row.onboarding,
   };
 }
 
@@ -130,7 +133,7 @@ export const tickets = query({
   args: { ...auth, state: filter, page: paginationOptsValidator },
   returns: v.object({ page: v.array(support), ...paging }),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args);
+    await requireOperator(ctx, args, "support");
     const selected = args.state;
     const rows =
       selected === "all"
@@ -290,7 +293,7 @@ export const updateTicket = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const admin = await requireAdmin(ctx, args);
+    const admin = await requireOperator(ctx, args, "support");
     const ticket = await ctx.db.get(args.id);
     if (!ticket) throw new ConvexError("Support request unavailable.");
     const old = ticket.state ?? "open";
@@ -312,5 +315,52 @@ export const updateTicket = mutation({
       note: "Support status changed from " + old + " to " + args.state + assignment,
     });
     return null;
+  },
+});
+
+export const activation = query({
+  args: auth,
+  returns: v.object({
+    joined: v.number(),
+    accepted: v.number(),
+    finishedSetup: v.number(),
+    startedFunding: v.number(),
+    funded: v.number(),
+    active: v.number(),
+    capped: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args);
+    const since = Date.now() - 14 * 86_400_000;
+    const accounts = await ctx.db
+      .query("accounts")
+      .withIndex("by_creation_time", (q) => q.gte("_creationTime", since))
+      .order("desc")
+      .take(201);
+    const cohort = accounts.slice(0, 200);
+    const milestones = await Promise.all(
+      cohort.map(async (row) => {
+        const [deposit, conversion] = await Promise.all([
+          ctx.db
+            .query("deposits")
+            .withIndex("by_account_cluster_signature", (q) =>
+              q.eq("account", row._id).eq("cluster", "mainnet"),
+            )
+            .first(),
+          firstConversion(ctx, row._id),
+        ]);
+        return { payment: Boolean(deposit), ...conversion };
+      }),
+    );
+    return {
+      joined: cohort.length,
+      accepted: cohort.filter((row) => row.termsVersion === termsVersion).length,
+      finishedSetup: cohort.filter(({ onboarding }) => onboarding === "fund" || onboarding === "later")
+        .length,
+      startedFunding: milestones.filter(({ payment }) => payment).length,
+      funded: milestones.filter(({ funded }) => funded).length,
+      active: milestones.filter(({ active }) => active).length,
+      capped: accounts.length > 200,
+    };
   },
 });

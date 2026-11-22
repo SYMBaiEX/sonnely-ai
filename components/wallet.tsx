@@ -22,7 +22,8 @@ export type Session = {
     username?: string;
     balance: number;
     referral: string;
-    role?: "admin" | "member";
+    role?: "admin" | "support" | "finance" | "member";
+    onboarding?: "pending" | "fund" | "later";
   } | null;
   enabled: boolean;
   termsRequired?: boolean;
@@ -291,7 +292,12 @@ export function WalletControl({
                   </button>
                 ))
               ) : (
-                <p>On Seeker, open in Chrome. You can also use a Solana wallet browser or extension.</p>
+                <>
+                  <p>Open this page in your Solana wallet’s browser on mobile. On Seeker, use Chrome.</p>
+                  <a className="text-link" href="/docs/quickstart#set-up-your-workspace">
+                    Wallet setup guide
+                  </a>
+                </>
               )}
               {session.profile && (
                 <button className="button quiet full" type="button" disabled={busy} onClick={disconnect}>

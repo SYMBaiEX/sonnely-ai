@@ -70,6 +70,9 @@ export function Contact() {
           <Link className="text-link" href="/console/billing">
             Billing history <ArrowUpRight size={16} />
           </Link>
+          <a className="text-link" href="mailto:sonnely@symbaiex.com">
+            Email support without signing in <ArrowUpRight size={16} />
+          </a>
           <SonnelySocialLink className="text-link" />
         </div>
       </aside>

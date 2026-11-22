@@ -9,7 +9,7 @@ export const productPages = {
   ],
   compute: [
     "Compute on Sonnely",
-    "Rent attested confidential VMs through Blackboxes or explore the upcoming Dry Docks build sandbox.",
+    "Explore attested confidential VMs and isolated build sandboxes on Sonnely.",
   ],
   blackboxes: [
     "Blackboxes",
@@ -17,7 +17,7 @@ export const productPages = {
   ],
   "dry-docks": [
     "Dry Docks",
-    "An upcoming isolated build sandbox for pinned public GitHub commits, live logs, and downloadable artifacts.",
+    "An isolated build sandbox for pinned public GitHub commits, live logs, and downloadable artifacts.",
   ],
 } as const;
 

@@ -6,6 +6,7 @@ import type { api } from "@/convex/_generated/api";
 import { request } from "./wallet";
 
 const capacityCopy: Record<string, string> = {
+  disabled: "Coming soon.",
   ready: "Paid Boat capacity is available.",
   checkout: "Boat requires subscription checkout.",
   unpaid: "Boat needs a first plan payment.",

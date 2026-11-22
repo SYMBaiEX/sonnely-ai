@@ -4,6 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { ThemeSwitch } from "@/components/appearance";
 import { Brand } from "@/components/brand";
 import { SiteLinks } from "@/components/site-links";
+import { computeFeatures } from "@/lib/compute-features";
 import { apiOrigin } from "@/lib/api-contract";
 
 export function SiteHeader({
@@ -19,7 +20,7 @@ export function SiteHeader({
     <header className="site-header" aria-label="Sonnely">
       <div className="wrap site-nav glass">
         <Brand href={fromDocs ? apiOrigin : undefined} />
-        <SiteLinks fromDocs={fromDocs} />
+        <SiteLinks fromDocs={fromDocs} features={computeFeatures()} />
         <div className="site-actions">
           {themeSwitch}
           <ConsoleLink href="/console" className="button accent">

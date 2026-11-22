@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+import { computeFeatures } from "@/lib/compute-features";
 import { api } from "@/convex/_generated/api";
 import { blackboxDiskSizes, blackboxMachineIds } from "@/lib/blackbox-options";
 import {
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
       return json({ ok: true });
     }
     const { minutes, spec, reference } = body;
+    if (!computeFeatures()[spec.kind]) throw new SonnelyError("Coming soon.", 403);
     return json(await db.mutation(api.compute.open, { secret, session, minutes, spec, reference }), 202);
   } catch (error) {
     return errorResponse(error);

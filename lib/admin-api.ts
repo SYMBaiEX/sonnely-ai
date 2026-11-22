@@ -47,7 +47,7 @@ export async function adminOverview(
 ) {
   const data = await db.query(api.finance.overview, { ...auth, since });
   const { rpc, cluster, recipient } = billing();
-  const [creditLiability, treasury, recovery, compute, gateway] = await Promise.allSettled([
+  const [creditLiability, treasury, recovery, compute, gateway, activation] = await Promise.allSettled([
     db.query(api.finance.payoutCoverage, auth),
     rpc && recipient && cluster === "mainnet"
       ? verifyCluster(rpc, cluster).then(() => treasuryBalance(rpc, recipient))
@@ -55,10 +55,12 @@ export async function adminOverview(
     db.query(api.creditRecovery.queue, { ...auth, now: Date.now() }),
     db.query(api.compute.adminSummary, { ...auth, since }),
     readGatewayReport(since),
+    db.query(api.crm.activation, auth),
   ]);
   const treasuryMicros = treasury.status === "fulfilled" ? Number(treasury.value ?? NaN) : NaN;
   return json({
     ...data,
+    activation: activation.status === "fulfilled" ? activation.value : null,
     gateway: gateway.status === "fulfilled" ? gateway.value : { state: "unavailable" },
     compute: compute.status === "fulfilled" ? compute.value : null,
     creditRecovery: recovery.status === "fulfilled" ? recovery.value : null,

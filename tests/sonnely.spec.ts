@@ -165,6 +165,7 @@ test("wallet account workflow scopes keys, referrals, and support requests", asy
   await page.goto("/console/keys");
   await page.getByRole("button", { name: "Connect wallet" }).click();
   await page.getByRole("button", { name: "Test Solana Wallet" }).click();
+  await page.getByRole("button", { name: "Close setup" }).click();
   await page.getByRole("button", { name: "Create key", exact: true }).click();
   await page.getByRole("textbox", { name: "Name", exact: true }).fill("Local fixture");
   await page.getByRole("spinbutton", { name: "Daily cap (USD)" }).fill("5");
@@ -207,6 +208,7 @@ test("wallet account workflow scopes keys, referrals, and support requests", asy
     await guest.getByRole("button", { name: "Test Solana Wallet" }).click();
     await expect(guest.getByRole("button", { name: new RegExp(invitedWallet.slice(0, 4)) })).toBeVisible();
     await guest.goto("/console/keys");
+    await guest.getByRole("button", { name: "Close setup" }).click();
     await expect(guest.getByText("No API keys to show")).toBeVisible();
     await page.reload();
     await expect(page.getByText(invitedWallet.slice(0, 4) + "…" + invitedWallet.slice(-4))).toBeVisible();
@@ -354,7 +356,9 @@ test("the open Usage page receives Convex balance and usage changes without a re
   });
   await expect(page.locator(".stat").filter({ hasText: "Credit balance" })).toContainText("$4.99979");
   await expect(page.locator(".stat").filter({ hasText: "Spend" })).toContainText("$0.000210");
-  await expect(page.getByRole("row", { name: /GLM 5.3 Flash/ })).toContainText("399");
+  await expect(
+    page.getByRole("region", { name: "Request breakdown" }).getByRole("row", { name: /GLM 5.3 Flash/ }),
+  ).toContainText("399");
 });
 
 test("launch endpoints describe this Solana workspace and its actual API", async ({ request }) => {
@@ -411,4 +415,65 @@ test("the NEAR directory distinguishes privacy routes and Sonnely availability",
   await expect(directory.locator(".near-model-id")).toHaveText(providerIds);
   await expect(table.getByText("Available on Sonnely", { exact: true })).toHaveCount(models.length);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(1080);
+});
+
+test("workspace setup accepts terms, saves a name and offers optional funding on mobile", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const profile = {
+    wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk",
+    balance: 0,
+    name: "",
+    onboarding: "pending",
+  };
+  let termsRequired = true;
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: {
+        profile,
+        termsRequired,
+        enabled: true,
+        billingEnabled: !termsRequired,
+        cluster: "mainnet",
+      },
+    }),
+  );
+  await page.route("**/api/sonnely/accept-terms", (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({ accepted: true });
+    termsRequired = false;
+    return route.fulfill({ json: { ok: true } });
+  });
+  await page.route("**/api/sonnely/profile", (route) => {
+    profile.name = route.request().postDataJSON().name;
+    return route.fulfill({ json: { ok: true } });
+  });
+  await page.route("**/api/sonnely/finish-onboarding", (route) => {
+    profile.onboarding = route.request().postDataJSON().funding;
+    return route.fulfill({ json: { ok: true } });
+  });
+  await page.route("**/api/sonnely/history", (route) => route.fulfill({ json: [] }));
+  await page.goto("/console");
+  const setup = page.getByRole("dialog");
+  await expect(setup.getByRole("heading", { name: "Review the terms" })).toBeFocused();
+  const accept = setup.getByRole("button", { name: "Accept terms" });
+  await expect(accept).toBeDisabled();
+  await setup.getByRole("checkbox").check();
+  await accept.click();
+  await setup.getByRole("textbox", { name: /Display name/ }).fill("River");
+  await setup.getByRole("button", { name: "Continue" }).click();
+  await expect(setup.getByRole("heading", { name: "Add your first credits" })).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await setup.getByRole("button", { name: "Explore first" }).click();
+  await setup.getByRole("button", { name: "Usage", exact: true }).click();
+  await expect(setup.getByText("See tokens, charges, and request references.")).toBeVisible();
+  await setup.getByRole("button", { name: "Back" }).click();
+  await setup.getByRole("button", { name: "Add credits" }).click();
+  await expect(page).toHaveURL(/\/console\/billing#buy-credits$/);
+  await expect(setup).toBeHidden();
+  expect(profile).toMatchObject({ name: "River", onboarding: "fund" });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Buy credits" })).toBeVisible();
+  await expect(setup).toBeHidden();
 });

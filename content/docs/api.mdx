@@ -31,3 +31,11 @@ Send `Content-Type: application/json`. Add `X-Sonnely-Receipt: v1` to receive th
 The gateway accepts up to 36,000 bytes of JSON, up to 32 messages with roles `system`, `user`, or `assistant`, and up to 12,000 characters per message. `max_tokens` accepts integers from 1 to 2,048.
 
 Use the Chat Completions interface. The gateway accepts plain text messages and the fields listed above. The Responses API, tool calls, embeddings, multimodal inputs, and arbitrary OpenAI parameters are outside this contract. See [errors and recovery](/docs/troubleshooting) for HTTP and stream failures.
+
+## Request references and retries
+
+For programmatic retries, send an `Idempotency-Key` header unique to the operation. Use the same value if the connection drops. A repeat returns HTTP 409 with the original `X-Sonnely-Request-Id` and does not reserve credits again. Open [Usage](/console/usage) to check that reference for settlement. Completion bodies are not stored for replay.
+
+## Tool calling and structured output
+
+Check the `capabilities` object on the exact route in `GET /v1/models`. When `tools` is true, you can send OpenAI-style function definitions, consume `tool_calls`, then send the results as `tool` messages. Your client runs the tools. When `structured_outputs` is true, you can request `response_format` with a JSON object or a JSON schema. Sonnely preserves provider streaming usage and settles the request using reported tokens.

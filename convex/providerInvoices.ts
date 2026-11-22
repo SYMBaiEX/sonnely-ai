@@ -1,9 +1,9 @@
 import { ConvexError, v } from "convex/values";
 import { validOperationsToken } from "../lib/operations-auth";
 import { invoiceBillingReference, invoiceLineLimit, invoiceReference } from "../lib/provider-invoice";
-import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { auth, requireAdmin } from "./access";
+import { auth, requireOperator } from "./access";
 import { amendGatewayCost } from "./usageMaxOutbox";
 
 import { invoiceProvider, invoiceLineView, invoiceLine, invoiceInput } from "./providerInvoiceContract";
@@ -75,7 +75,7 @@ export const preview = query({
   args: { ...auth, ...invoiceInput },
   returns: v.array(invoiceLineView),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args);
+    await requireOperator(ctx, args, "finance");
     const lines = validated(args);
     return (await matchLines(ctx, args.provider, lines)).map(({ view }) => view);
   },
@@ -131,7 +131,7 @@ export const record = mutation({
   args: { ...auth, ...invoiceInput },
   returns: v.array(invoiceLineView),
   handler: async (ctx, args) => {
-    const admin = await requireAdmin(ctx, args);
+    const admin = await requireOperator(ctx, args, "finance");
     return recordInvoice(ctx, args, admin._id);
   },
 });
@@ -146,6 +146,12 @@ export const ingest = mutation({
   },
 });
 
+export const ingestStatement = internalMutation({
+  args: invoiceInput,
+  returns: v.array(invoiceLineView),
+  handler: async (ctx, args) => recordInvoice(ctx, args),
+});
+
 export const history = query({
   args: auth,
   returns: v.array(
@@ -158,7 +164,7 @@ export const history = query({
     }),
   ),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args);
+    await requireOperator(ctx, args, "finance");
     const rows = await ctx.db.query("providerInvoices").order("desc").take(15);
     return rows.map(({ provider, invoiceId, _creationTime, lines, source }) => ({
       provider,

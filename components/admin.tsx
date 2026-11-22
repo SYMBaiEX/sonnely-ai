@@ -1,11 +1,13 @@
 "use client";
 
+import type { ComputeFeatures } from "@/lib/compute-features";
+
 import { useCallback, useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { AdminBoatCapacity } from "./admin-boat-capacity";
-import { AdminGateway } from "./admin-gateway";
+import { AdminGateway, AdminInvoices } from "./admin-gateway";
 import { AdminCrm, type CrmView } from "./admin-crm";
 import { CreditRecovery } from "./credit-recovery";
 import { computePlans } from "@/lib/compute";
@@ -16,6 +18,7 @@ import { payWithWallet, request, type Session } from "./wallet";
 import { WorkspaceHeading } from "./workspace-heading";
 
 type Overview = FunctionReturnType<typeof api.finance.overview> & {
+  activation?: FunctionReturnType<typeof api.crm.activation> | null;
   creditRecovery: FunctionReturnType<typeof api.creditRecovery.queue> | null;
   creditLiability: number | null;
   treasuryMicros: number | null;
@@ -23,7 +26,7 @@ type Overview = FunctionReturnType<typeof api.finance.overview> & {
   gateway?: GatewayReport;
 };
 
-export function Admin({ session }: { session: Session | null }) {
+export function Admin({ session, features }: { session: Session | null; features: ComputeFeatures }) {
   const wallet = session?.profile?.wallet;
   const authorized = session?.profile?.role === "admin";
   const [result, setResult] = useState<{ wallet: string; value: Overview }>();
@@ -51,6 +54,28 @@ export function Admin({ session }: { session: Session | null }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  const role = session?.profile?.role;
+  if (role === "support" || role === "finance") {
+    return (
+      <>
+        <WorkspaceHeading
+          icon={ShieldCheck}
+          title={role === "support" ? "Support workspace" : "Finance workspace"}
+          description={
+            role === "support"
+              ? "Review and assign support requests."
+              : "Reconcile finalized provider statements."
+          }
+        />
+        {role === "support" ? (
+          <AdminCrm view="support" key={wallet} canOpenCustomer={false} />
+        ) : (
+          <AdminInvoices key={wallet} />
+        )}
+      </>
+    );
   }
 
   return (
@@ -114,6 +139,29 @@ export function Admin({ session }: { session: Session | null }) {
         </p>
       ) : (
         <div className="admin-grid">
+          {data.activation && (
+            <section className="panel stack-panel">
+              <h2>New workspaces · Last 14 days</h2>
+              {data.activation.capped && <p className="caption">Showing the most recent 200 workspaces.</p>}
+              <dl className="admin-metrics">
+                {(
+                  [
+                    ["Wallets signed in", data.activation.joined],
+                    ["Terms accepted", data.activation.accepted],
+                    ["Setup completed", data.activation.finishedSetup],
+                    ["USDC checkout started", data.activation.startedFunding],
+                    ["Credits added", data.activation.funded],
+                    ["First paid request", data.activation.active],
+                  ] as const
+                ).map(([label, count]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{count.toLocaleString()}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
           <section className="panel stack-panel">
             <h2>Activity over 30 days</h2>
             <dl className="admin-metrics">
@@ -220,12 +268,15 @@ export function Admin({ session }: { session: Session | null }) {
           {data.compute && (
             <section className="panel stack-panel">
               <h2>Compute over 30 days</h2>
-              <AdminBoatCapacity />
+              {features["dry-docks"] && <AdminBoatCapacity />}
               {(["blackboxes", "dry-docks"] as const).map((kind) => {
                 const row = data.compute![kind];
                 return (
                   <div key={kind}>
-                    <h3>{computePlans[kind].title}</h3>
+                    <h3>
+                      {computePlans[kind].title}
+                      {!features[kind] && " · Coming soon"}
+                    </h3>
                     <dl className="admin-metrics">
                       <div>
                         <dt>Runs</dt>

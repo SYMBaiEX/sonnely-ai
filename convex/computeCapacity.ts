@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 import { auth } from "./access";
+import { computeFeatures } from "../lib/compute-features";
 import { boatCapacity } from "./computeProvider";
 
 export const status = action({
@@ -14,8 +15,9 @@ export const status = action({
   }),
   handler: async (ctx, args) => {
     await ctx.runQuery(internal.compute.authorizeCapacityRead, args);
-    const enabled = process.env.SONNELY_DRY_DOCKS === "true";
+    const enabled = computeFeatures()["dry-docks"];
     const unavailable = { enabled, active: null, limit: null };
+    if (!enabled) return { ...unavailable, state: "disabled" };
     if (!process.env.BOAT_API_KEY) return { ...unavailable, state: "unconfigured" };
     try {
       return { ...(await boatCapacity()), enabled };

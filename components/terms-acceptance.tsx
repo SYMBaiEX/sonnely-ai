@@ -6,23 +6,34 @@ import { useState } from "react";
 import { termsVersion } from "@/lib/policy";
 import { request } from "./wallet";
 
-export function TermsAcceptance({ refresh }: { refresh: () => Promise<void> }) {
+export function TermsAcceptance({
+  refresh,
+  inSetup = false,
+}: {
+  refresh: () => Promise<void>;
+  inSetup?: boolean;
+}) {
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   return (
-    <section className="terms-banner" aria-labelledby="workspace-terms">
+    <section
+      className={inSetup ? "terms-banner setup-terms" : "terms-banner"}
+      aria-label="Review the Sonnely terms"
+    >
       <div className="terms-banner-layout">
-        <div className="terms-banner-intro">
-          <span className="terms-banner-icon" aria-hidden="true">
-            <FileCheck2 size={20} />
-          </span>
-          <div>
-            <h2 id="workspace-terms">Review the Sonnely terms</h2>
-            <p>Accept to add credits and run live inference.</p>
+        {!inSetup && (
+          <div className="terms-banner-intro">
+            <span className="terms-banner-icon" aria-hidden="true">
+              <FileCheck2 size={20} />
+            </span>
+            <div>
+              <h2 id="workspace-terms">Review the Sonnely terms</h2>
+              <p>Accept to add credits and run live inference.</p>
+            </div>
           </div>
-        </div>
+        )}
         <form
           className="terms-banner-form"
           aria-busy={busy}

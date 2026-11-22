@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("the Platform menu exposes all product pages on desktop and mobile", async ({ page }) => {
+test("the Platform menu exposes the enabled product pages on desktop and mobile", async ({ page }) => {
   for (const width of [1280, 320]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
@@ -12,7 +12,7 @@ test("the Platform menu exposes all product pages on desktop and mobile", async 
     const routes = await panel
       .getByRole("link")
       .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
-    expect(routes).toEqual(["/inference", "/observability", "/compute", "/blackboxes", "/dry-docks"]);
+    expect(routes).toEqual(["/inference", "/observability", "/compute"]);
 
     await page.keyboard.press("Tab");
     await expect(panel.getByRole("link", { name: /Confidential inference/ })).toBeFocused();
@@ -23,8 +23,8 @@ test("the Platform menu exposes all product pages on desktop and mobile", async 
     const box = await panel.boundingBox();
     expect(box?.x).toBeGreaterThan(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(width);
-    await panel.getByRole("link", { name: /Blackboxes/ }).click();
-    await expect(page).toHaveURL(/\/blackboxes$/);
+    await panel.getByRole("link", { name: /^Compute/ }).click();
+    await expect(page).toHaveURL(/\/compute$/);
     await expect(panel).toBeHidden();
   }
 });
@@ -37,16 +37,12 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   await expect(page.getByText("npm install @sonnely/sdk", { exact: true })).toBeVisible();
   await expect(page.getByText("python -m pip install sonnely-sdk", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open Search", exact: true }).click();
-  await page.getByRole("dialog").getByRole("combobox").fill("Blackboxes");
-  await page.getByRole("option").filter({ hasText: "Blackboxes" }).first().click();
-  await expect(page).toHaveURL(/\/docs\/blackboxes$/);
-  await expect(page.getByRole("link", { name: "Console → Blackboxes" })).toHaveAttribute(
-    "href",
-    "https://sonnely.com/console/blackboxes",
-  );
+  await page.getByRole("dialog").getByRole("combobox").fill("Confidentiality");
+  await page.getByRole("option").filter({ hasText: "Confidentiality and attestation" }).first().click();
+  await expect(page).toHaveURL(/\/docs\/attestation(?:#.*)?$/);
   const search = await request.get("/api/search?query=Blackboxes");
   expect(search.ok()).toBe(true);
-  expect(await search.text()).toContain("/docs/blackboxes");
+  expect(await search.text()).not.toContain("/docs/blackboxes");
 
   for (const archive of ["sonnely-typescript-0.1.2.tgz", "sonnely_sdk-0.1.2-py3-none-any.whl"]) {
     const asset = await request.get("/sdk/" + archive);
@@ -74,7 +70,7 @@ test("the shared docs header leads to the site and console on desktop and mobile
     );
     await expect(nav.getByRole("link", { name: "Docs" })).toHaveAttribute("aria-current", "location");
     await nav.locator("summary").click();
-    await expect(nav.getByRole("link", { name: /Blackboxes/ })).toBeVisible();
+    await expect(nav.getByRole("link", { name: /^Compute/ })).toBeVisible();
     await page.keyboard.press("Escape");
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
 
@@ -102,7 +98,7 @@ test("the docs overview groups its guide links and fits a narrow phone", async (
     "Confidentiality and compute",
     "Operations and support",
   ]);
-  await expect(guides.getByRole("link")).toHaveCount(18);
+  await expect(guides.getByRole("link")).toHaveCount(17);
   await expect(guides.getByRole("link", { name: "Request limits" })).toHaveAttribute(
     "href",
     "/docs/api#request-limits",
@@ -120,12 +116,7 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   await page.addInitScript(() => localStorage.setItem("sonnely.theme", "dark"));
   await page.goto("/docs/streaming");
   const sidebar = page.getByRole("complementary", { name: "Documentation sidebar" });
-  await expect(sidebar.locator(".docs-sidebar-section")).toHaveText([
-    "Get started",
-    "Inference",
-    "Compute",
-    "Support",
-  ]);
+  await expect(sidebar.locator(".docs-sidebar-section")).toHaveText(["Get started", "Inference", "Support"]);
   await expect(sidebar.getByRole("link", { name: "Streaming and usage" })).toHaveAttribute(
     "aria-current",
     "page",

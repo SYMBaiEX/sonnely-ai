@@ -3,13 +3,22 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 
+import { guardProvider } from "./launchGuard";
 import { creditDeposit, settleUsage } from "./ledger";
 import { gatewayDetails } from "./usageMaxOutboxValidators";
 import { termsVersion } from "../lib/policy";
-import { accountFor, auth, requireAccount, secret, service, walletRole } from "./access";
+import {
+  accountFor,
+  accountRole,
+  auth,
+  requireAccount,
+  secret,
+  service,
+  sessionLife,
+  walletRole,
+} from "./access";
 
 const optionalNumber = v.union(v.number(), v.null());
-const sessionLife = 7 * 86400_000;
 
 export const signIn = mutation({
   args: {
@@ -51,6 +60,7 @@ export const signIn = mutation({
       (await ctx.db.insert("accounts", {
         wallet: args.wallet,
         name: "",
+        onboarding: "pending",
         balance: 0,
         referral: args.referral,
         invitedBy: inviter?._id,
@@ -85,7 +95,8 @@ export const profile = query({
       balance: v.number(),
       referral: v.string(),
       acceptedTerms: v.optional(v.string()),
-      role: v.union(v.literal("admin"), v.literal("member")),
+      onboarding: v.optional(v.union(v.literal("pending"), v.literal("fund"), v.literal("later"))),
+      role: accountRole,
     }),
   ),
   handler: async (ctx, args) => {
@@ -100,6 +111,7 @@ export const profile = query({
       balance,
       referral,
       acceptedTerms: account.termsVersion,
+      onboarding: account.onboarding,
       role: walletRole(wallet),
     };
   },
@@ -114,6 +126,19 @@ export const acceptTerms = mutation({
     if (args.version !== termsVersion) throw new ConvexError("Refresh to review the current terms.");
     if (account.termsVersion !== termsVersion)
       await ctx.db.patch(account._id, { termsVersion, termsAcceptedAt: Date.now() });
+    return null;
+  },
+});
+
+export const finishOnboarding = mutation({
+  args: { ...auth, funding: v.union(v.literal("fund"), v.literal("later")) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await requireAccount(ctx, args.session);
+    if (account.onboarding === "pending") {
+      await ctx.db.patch(account._id, { onboarding: args.funding });
+    }
     return null;
   },
 });
@@ -214,6 +239,7 @@ export const revokeKey = mutation({
 });
 
 const usageRow = v.object({
+  id: v.id("usage"),
   time: v.number(),
   keyName: v.string(),
   model: v.string(),
@@ -230,7 +256,8 @@ async function usageRows(ctx: QueryCtx, account: Id<"accounts">, since: number) 
     .withIndex("by_account", (q) => q.eq("account", account).gte("_creationTime", since))
     .order("desc")
     .take(1000);
-  return rows.map(({ _creationTime, keyName, model, provider, input, output, cost, status }) => ({
+  return rows.map(({ _id, _creationTime, keyName, model, provider, input, output, cost, status }) => ({
+    id: _id,
     time: _creationTime,
     keyName,
     model,
@@ -274,6 +301,7 @@ export const reserve = mutation({
     model: v.string(),
     provider: v.optional(v.union(v.literal("phala"), v.literal("tinfoil"))),
     cost: v.number(),
+    retryKey: v.optional(v.string()),
   },
   returns: v.id("usage"),
   handler: async (ctx, args) => {
@@ -293,12 +321,23 @@ export const reserve = mutation({
       throw new ConvexError("Managed inference is unavailable for this account.");
     if (args.requireTerms && account?.termsVersion !== termsVersion)
       throw new ConvexError("Accept the current Sonnely terms in the console.");
-    if (!account || account.balance < args.cost) throw new ConvexError("Insufficient compute credits.");
+    if (!account) throw new ConvexError("Invalid account.");
+    if (args.retryKey) {
+      const retryKey = args.retryKey;
+      const previous = await ctx.db
+        .query("usage")
+        .withIndex("by_account_retryKey", (q) => q.eq("account", account._id).eq("retryKey", retryKey))
+        .unique();
+      if (previous) throw new ConvexError({ code: "duplicate_request", reference: previous._id });
+    }
+    if (!Number.isSafeInteger(args.cost) || args.cost < 0) throw new ConvexError("Invalid reservation.");
+    if (account.balance < args.cost) throw new ConvexError("Insufficient compute credits.");
     const recent = await ctx.db
       .query("usage")
       .withIndex("by_account", (q) => q.eq("account", account._id).gte("_creationTime", now - 60_000))
       .take(15);
     if (recent.length >= 15) throw new ConvexError("Request limit reached. Try again in one minute.");
+    await guardProvider(ctx, args.provider, args.cost, now);
     const day = new Date(now).toISOString().slice(0, 10);
     if (key) {
       const usage = await ctx.db
@@ -320,6 +359,7 @@ export const reserve = mutation({
       account: account._id,
       key: key?._id,
       keyName: key?.name ?? "Console",
+      retryKey: args.retryKey,
       keyDay: key ? day : undefined,
       model: args.model,
       ...(args.provider ? { provider: args.provider } : {}),

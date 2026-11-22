@@ -308,7 +308,7 @@ test("the homepage offers a copyable request and links to the selected model", a
     "/console?model=deepseek-ai%2FDeepSeek-V4.1-Flash-1017",
   );
   const gateway = page.getByRole("region", { name: "From request to receipt." });
-  await expect(gateway.getByRole("link", { name: "Confidential compute" })).toHaveAttribute(
+  await expect(gateway.getByRole("link", { name: "Confidential inference" })).toHaveAttribute(
     "href",
     "/inference#evidence",
   );

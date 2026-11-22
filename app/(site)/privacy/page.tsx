@@ -49,10 +49,10 @@ export default function PrivacyPage() {
           </p>
           <h2 id={sections[3][0]}>{sections[3][1]}</h2>
           <p>
-            Dry Docks sends the public repository URL and pinned commit to a Boat sandbox. Sonnely keeps build
-            logs and downloadable artifacts for seven days after teardown, and retains the run and billing
-            receipt in your workspace. Blackboxes sends the selected image and port to Phala and publishes
-            workload attestation metadata.
+            When available, Dry Docks sends the public repository URL and pinned commit to a Boat sandbox.
+            Sonnely keeps build logs and downloadable artifacts for seven days after teardown, and retains the
+            run and billing receipt in your workspace. When available, Blackboxes sends the selected image and
+            port to Phala and publishes workload attestation metadata.
           </p>
           <p>
             For service operations, Sonnely sends settled inference receipts to a private UsageMax project.

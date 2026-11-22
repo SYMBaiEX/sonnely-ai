@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { auth, requireAdmin } from "./access";
+import { auth, requireAdmin, requireRecentAdmin } from "./access";
 import { settleUsage } from "./ledger";
 
 const staleAfterMs = 5 * 60_000;
@@ -90,7 +90,7 @@ export const resolve = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const admin = await requireAdmin(ctx, args);
+    const admin = await requireRecentAdmin(ctx, args);
     const row = await ctx.db.get(args.id);
     if (!row || (row.status !== "pending" && row.status !== "unreported"))
       throw new ConvexError("This reservation is no longer held.");

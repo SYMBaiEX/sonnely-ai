@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { toolDelta } from "./inference-tools";
 import { readSse } from "./sse";
 import { SonnelyError } from "./sonnely-error";
 
@@ -34,6 +35,7 @@ const chunkSchema = z.object({
         role: z.literal("assistant").optional(),
         content: z.string().nullish(),
         reasoning_content: z.string().nullish(),
+        tool_calls: z.array(toolDelta).optional(),
       }),
       finish_reason: z.string().nullable().default(null),
     }),
@@ -101,7 +103,9 @@ export function inferenceStream(options: {
               }
               if (
                 firstTokenAt === undefined &&
-                chunk.choices.some(({ delta }) => delta.content || delta.reasoning_content)
+                chunk.choices.some(
+                  ({ delta }) => delta.content || delta.reasoning_content || delta.tool_calls?.length,
+                )
               ) {
                 firstTokenAt = Date.now();
               }

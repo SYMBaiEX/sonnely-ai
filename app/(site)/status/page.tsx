@@ -8,11 +8,21 @@ export const dynamic = "force-dynamic";
 
 export default async function StatusPage() {
   const health = await serviceHealth();
+  const providerLabel = (provider: string) => {
+    const state = health.probes[provider];
+    return state === "ok"
+      ? "Reachable"
+      : state === "unavailable"
+        ? "Unavailable"
+        : state === "disabled"
+          ? "Disabled"
+          : "Check pending";
+  };
   const services = [
     ["Account service", health.checks.accountService, "Connected", "Unavailable"],
-    ["NEAR AI", health.checks.providerConfigured, "Configured", "Unavailable"],
-    ["Phala", health.checks.phalaConfigured, "Configured", "Unavailable"],
-    ["Tinfoil", health.checks.tinfoilConfigured, "Configured", "Unavailable"],
+    ["NEAR AI", health.probes["near-ai"] === "ok", "Reachable", providerLabel("near-ai")],
+    ["Phala", health.probes["phala"] === "ok", "Reachable", providerLabel("phala")],
+    ["Tinfoil", health.probes["tinfoil"] === "ok", "Reachable", providerLabel("tinfoil")],
     ["Mainnet USDC", health.checks.mainnetPaymentsConfigured, "Configured", "Unavailable"],
     ["Deposit recovery", health.checks.depositRecovery, "Running", "Check pending"],
   ] as const;
@@ -23,7 +33,7 @@ export default async function StatusPage() {
         status={health.status === "ok" ? "Checks passed" : "Check needs attention"}
         description={
           health.status === "ok"
-            ? "Configured services are responding."
+            ? "Account and payment recovery checks passed."
             : "One or more service checks need attention."
         }
       />
@@ -48,7 +58,7 @@ export default async function StatusPage() {
           ))}
         </dl>
         <p className="caption">
-          Provider configuration is checked without sending a prompt or making a billable request.
+          Provider catalog checks measure connectivity. They do not send billable requests.
         </p>
         <div className="actions">
           <Link className="text-link" href="/api/health">

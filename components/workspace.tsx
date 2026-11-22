@@ -568,6 +568,52 @@ export function Usage({
           </p>
         )}
       </section>
+      {rows.length > 0 && (
+        <section className="panel breakdown">
+          <h2 id="recent-request-references">Recent requests</h2>
+          <div
+            className="table-wrap workspace-data-table"
+            role="region"
+            aria-labelledby="recent-request-references"
+            tabIndex={0}
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th>Request</th>
+                  <th>Provider</th>
+                  <th>Tokens</th>
+                  <th>Billing</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice(0, 25).map((row) => (
+                  <tr key={row.id}>
+                    <th scope="row">
+                      {models.find(({ id }) => id === row.model)?.name ?? row.model}
+                      <div className="caption">
+                        {date(row.time)} · <CopyButton value={row.id} label="Copy request reference" />
+                      </div>
+                    </th>
+                    <td>{providerNames[row.provider]}</td>
+                    <td>{(row.input + row.output).toLocaleString()}</td>
+                    <td>
+                      {row.status === "complete"
+                        ? `Charged ${creditBalance(row.cost)}`
+                        : row.status === "failed"
+                          ? "Released"
+                          : `${row.status === "unreported" ? "Under review" : "Reserved"} · ${creditBalance(row.cost)}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Link className="text-link" href="/contact">
+            Get help with a charge <ArrowUpRight size={15} />
+          </Link>
+        </section>
+      )}
       {usage && <UsageMax days={range} hasUsage={rows.some((row) => row.status === "complete")} />}
     </>
   );
@@ -675,12 +721,17 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
             <Wallet size={21} />
           </div>
           <p className="amount">{profile ? creditBalance(profile.balance) : "—"}</p>
-          <p className="caption">Available for inference and compute.</p>
+          <p className="caption">Available for inference.</p>
+          {profile && profile.balance > 0 && (
+            <Link className="text-link" href="/console">
+              Send a prompt <ArrowUpRight size={16} />
+            </Link>
+          )}
           <Link className="text-link" href="/models">
             View token rates <ArrowUpRight size={16} />
           </Link>
         </section>
-        <section className="panel stack-panel buy-credits">
+        <section className="panel stack-panel buy-credits" id="buy-credits">
           <div className="between">
             <h2>Buy credits</h2>
             <span className="pill">{session?.billingEnabled ? session.cluster : "Solana Pay"}</span>
@@ -963,6 +1014,7 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
                   <th>Network</th>
                   <th>USDC</th>
                   <th>Status</th>
+                  <th>Reference</th>
                 </tr>
               </thead>
               <tbody>
@@ -1000,6 +1052,9 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
                           </button>
                         </div>
                       )}
+                    </td>
+                    <td>
+                      <CopyButton value={item.reference} label="Copy payment reference" />
                     </td>
                   </tr>
                 ))}

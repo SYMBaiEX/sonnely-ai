@@ -12,6 +12,7 @@ import {
   startBuild,
   stopDock,
 } from "../convex/computeProvider";
+import { computeFeatures } from "../lib/compute-features";
 import { computePrice, computeQuote, imagePattern } from "../lib/compute";
 import { blackboxHourlyBase, blackboxPresets } from "../lib/blackbox-options";
 
@@ -140,6 +141,11 @@ test("Boat capacity rejects unpaid starts and the paid adapter isolates builds a
 
 test.use({ ...devices["Pixel 7"], defaultBrowserType: "chromium" });
 test("both products show responsive paid quotes in both themes", async ({ page }) => {
+  const flags = computeFeatures();
+  test.skip(
+    !flags.blackboxes || !flags["dry-docks"],
+    "Run against a build with the corresponding product flags enabled",
+  );
   await page.route("**/api/sonnely/session", (route) =>
     route.fulfill({
       json: {
@@ -206,6 +212,8 @@ test("both products show responsive paid quotes in both themes", async ({ page }
 test("Dry Dock run links load an owner detail and display live logs and settled downloads", async ({
   page,
 }) => {
+  const flags = computeFeatures();
+  test.skip(!flags["dry-docks"], "Run against a build with the corresponding product flags enabled");
   const id = "ks7ctestw6m50r22c5ktfgxmwec6jv6w";
   const time = Date.now();
   let phase = "provisioning";
@@ -279,26 +287,32 @@ test("Dry Dock run links load an owner detail and display live logs and settled 
   await expect(page.getByRole("textbox", { name: "Commit SHA" })).toHaveValue(revision);
 });
 
-test("Dry Docks shows Coming soon without a build form while starts are paused", async ({ page }) => {
-  await page.route("**/api/sonnely/session", (route) =>
-    route.fulfill({
-      json: {
-        profile: { wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk", balance: 1_000_000 },
-        enabled: true,
-        cluster: "mainnet",
-      },
-    }),
-  );
-  await page.route("**/api/sonnely/compute?**", (route) =>
-    route.fulfill({ json: { enabled: false, runs: [], log: "" } }),
-  );
-  await page.goto("/console/dry-docks");
-  await expect(page.getByRole("heading", { name: "Coming soon" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Start paid build/ })).toHaveCount(0);
-  await expect(page.getByRole("textbox", { name: "Public GitHub repository" })).toHaveCount(0);
+test("disabled compute product pages redirect and discovery marks them coming soon", async ({
+  page,
+  request,
+}) => {
+  const flags = computeFeatures();
+  test.skip(flags.blackboxes || flags["dry-docks"], "Checks both flags off");
+  for (const kind of ["blackboxes", "dry-docks"]) {
+    const origin = await request.get("/" + kind, { maxRedirects: 0 });
+    expect(origin.status()).toBe(307);
+    expect(origin.headers().location).toBe("/compute#" + kind);
+    const consolePage = await request.get("/console/" + kind, { maxRedirects: 0 });
+    expect(consolePage.status()).toBe(307);
+    expect(consolePage.headers().location).toBe("/console");
+    expect((await request.get("/docs/" + kind)).status()).toBe(404);
+  }
+  await page.goto("/compute");
+  await expect(page.locator("#products").getByText("Coming soon", { exact: true })).toHaveCount(2);
+  await expect(page.getByRole("link", { name: /Blackboxes|Dry Docks/ })).toHaveCount(0);
+  await page.goto("/console");
+  const rail = page.getByRole("navigation", { name: "Workspace navigation" });
+  await expect(rail.getByRole("link", { name: /Blackboxes|Dry Docks/ })).toHaveCount(0);
 });
 
 test("Blackbox rentals expose controls, attestation and final charges on mobile", async ({ page }) => {
+  const flags = computeFeatures();
+  test.skip(!flags.blackboxes, "Run against a build with the corresponding product flags enabled");
   const now = Date.now();
   const id = "kx7cvmrunw6m50r22c5ktfgxmwec6jv6";
   const pastId = "kx7cvmrunw6m50r22c5ktfgxmwec6jv7";
@@ -435,6 +449,8 @@ test("Blackbox rentals expose controls, attestation and final charges on mobile"
 });
 
 test("agent framework presets guide a configured image through the rental form", async ({ page }) => {
+  const flags = computeFeatures();
+  test.skip(!flags.blackboxes, "Run against a build with the corresponding product flags enabled");
   const image = "ghcr.io/example/eliza@sha256:" + "a".repeat(64);
   let submitted: unknown;
   await page.route("**/api/sonnely/session", (route) =>

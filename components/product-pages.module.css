@@ -68,6 +68,7 @@
   gap: 0.35rem;
 }
 .linkList a,
+.computeSoon,
 .computeList a {
   min-height: 3.6rem;
   padding: 0.8rem 0.9rem;

@@ -13,7 +13,7 @@ export function GET() {
       owned_by: model.provider,
       tier: model.tier,
       privacy_route: model.privacyRoute,
-      routes: listModelRoutes(model, providers),
+      routes: listModelRoutes(model, providers, process.env.SONNELY_AGENT_CAPABILITIES === "true"),
     })),
   });
 }

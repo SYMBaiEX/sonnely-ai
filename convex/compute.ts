@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
-import { auth, requireAccount, requireAdmin, service, walletRole } from "./access";
+import { auth, requireAccount, requireAdmin, service } from "./access";
 import { computeProgress, kind, spec } from "./computeValidators";
 import {
   computeFee,
@@ -17,16 +17,15 @@ import {
 import { termsVersion } from "../lib/policy";
 import { blackboxHourlyBase } from "../lib/blackbox-options";
 
+import { computeFeatures } from "../lib/compute-features";
+
 const leaseMs = 60_000;
 
-function availability(wallet: string) {
+function availability() {
+  const flags = computeFeatures();
   return {
-    blackboxes: Boolean(
-      process.env.PHALA_CLOUD_API_KEY &&
-      (process.env.SONNELY_BLACKBOX_RENTALS === "true" ||
-        (process.env.SONNELY_BLACKBOX_PILOT === "true" && walletRole(wallet) === "admin")),
-    ),
-    "dry-docks": Boolean(process.env.BOAT_API_KEY && process.env.SONNELY_DRY_DOCKS === "true"),
+    blackboxes: flags.blackboxes && Boolean(process.env.PHALA_CLOUD_API_KEY),
+    "dry-docks": flags["dry-docks"] && Boolean(process.env.BOAT_API_KEY),
   };
 }
 
@@ -74,7 +73,7 @@ export const list = query({
     const id = args.id ? ctx.db.normalizeId("computeRuns", args.id) : null;
     const selected = id ? await ctx.db.get(id) : null;
     return {
-      enabled: availability(account.wallet)[args.kind],
+      enabled: availability()[args.kind],
       runs: runs.map(summary),
       detail:
         selected?.account === account._id && selected.kind === args.kind ? summary(selected) : undefined,
@@ -133,7 +132,7 @@ export const open = mutation({
       .withIndex("by_account_reference", (q) => q.eq("account", account._id).eq("reference", reference))
       .unique();
     if (previous) return { id: previous._id };
-    if (!availability(account.wallet)[spec.kind])
+    if (!availability()[spec.kind])
       throw new ConvexError("This compute product is unavailable for new runs.");
     const active = await ctx.db
       .query("computeRuns")

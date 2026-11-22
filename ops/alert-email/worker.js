@@ -1,5 +1,57 @@
 import { operationsBearer, validOperationsToken } from "../../lib/operations-auth";
 
+async function deliver(env, message) {
+  let inboxRetry = false;
+  if (env.SONNELY_INBOX_TOKEN) {
+    try {
+      return await env.SONNELY_INBOX.deliver(env.SONNELY_INBOX_TOKEN, message);
+    } catch {
+      inboxRetry = true;
+    }
+  }
+  if (!env.SONNELY_MAIL_TO) {
+    return inboxRetry
+      ? { state: "retry", code: "E_INBOX_TEMPORARY" }
+      : { state: "failed", code: "E_RECIPIENT_NOT_CONFIGURED" };
+  }
+  try {
+    const result = await env.EMAIL.send({
+      to: env.SONNELY_MAIL_TO,
+      from: env.SONNELY_MAIL_FROM,
+      subject: message.subject,
+      text: message.text,
+    });
+    return { state: "accepted", messageId: result.messageId };
+  } catch (error) {
+    const code =
+      typeof error?.code === "string" && /^E_[A-Z0-9_]{1,60}$/.test(error.code) ? error.code : undefined;
+    if (code === "E_RATE_LIMIT_EXCEEDED") return { state: "retry", code };
+    if (inboxRetry) return { state: "retry", code: "E_INBOX_TEMPORARY" };
+    return { state: code ? "failed" : "unconfirmed", code };
+  }
+}
+
+async function healthOk() {
+  try {
+    const response = await fetch("https://sonnely.com/api/health", {
+      headers: { "User-Agent": "Sonnely-Operations", Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) return false;
+    const health = await response.json();
+    const probes = Object.values(health.probes ?? {});
+    return (
+      health.status === "ok" &&
+      probes.length === 3 &&
+      probes.every((state) => state === "ok" || state === "disabled")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default {
   async fetch(request, env) {
     if (request.method !== "POST" || new URL(request.url).pathname !== "/send") {
@@ -30,30 +82,20 @@ export default {
     ) {
       return new Response(null, { status: 400 });
     }
-    if (env.SONNELY_INBOX_TOKEN) {
-      const { id, subject, text } = message;
-      try {
-        return Response.json(await env.SONNELY_INBOX.deliver(env.SONNELY_INBOX_TOKEN, { id, subject, text }));
-      } catch {
-        return Response.json({ state: "retry", code: "E_INBOX_TEMPORARY" });
-      }
-    }
-    if (!env.SONNELY_MAIL_TO) {
-      return Response.json({ state: "failed", code: "E_RECIPIENT_NOT_CONFIGURED" });
-    }
-    try {
-      const result = await env.EMAIL.send({
-        to: env.SONNELY_MAIL_TO,
-        from: env.SONNELY_MAIL_FROM,
-        subject: message.subject,
-        text: message.text,
-      });
-      return Response.json({ state: "accepted", messageId: result.messageId });
-    } catch (error) {
-      const code =
-        typeof error?.code === "string" && /^E_[A-Z0-9_]{1,60}$/.test(error.code) ? error.code : undefined;
-      const state = code === "E_RATE_LIMIT_EXCEEDED" ? "retry" : code ? "failed" : "unconfirmed";
-      return Response.json({ state, code });
-    }
+    const { id, subject, text } = message;
+    return Response.json(await deliver(env, { id, subject, text }));
+  },
+
+  async scheduled(event, env) {
+    if (env.SONNELY_HEARTBEAT_ENABLED !== "true" || (await healthOk()) || (await healthOk())) return;
+    const hour = Math.floor(event.scheduledTime / 3_600_000);
+    const id = "sonnelyhealthcheck" + String(hour).padStart(10, "0");
+    const result = await deliver(env, {
+      id,
+      subject: "[Sonnely] External health check failed",
+      text: "Two Cloudflare checks could not confirm gateway and provider health. Review https://sonnely.com/status",
+    });
+    if (result.state !== "accepted" && result.state !== "delivered")
+      throw new Error("External health alert delivery was not confirmed.");
   },
 };

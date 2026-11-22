@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Activity, ArrowRight, ArrowUpRight, Boxes, Cpu, Fingerprint, Terminal } from "lucide-react";
+import { computeFeatures, computeProducts } from "@/lib/compute-features";
 import { artifactLimit, computeMarkup, computePlans, computeQuote } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
 import { models } from "@/lib/models";
@@ -23,7 +24,7 @@ const products = [
   {
     href: "/compute",
     label: "Compute",
-    description: "Explore attested Blackbox rentals and upcoming Dry Docks builds.",
+    description: "Check availability for confidential VMs and isolated build sandboxes.",
     icon: Boxes,
   },
 ];
@@ -38,7 +39,7 @@ export function PlatformLinks({ compact = false }: { compact?: boolean }) {
         <h2 id="platform-links-heading">
           {compact ? "Explore the platform" : "Inference, from API to operations."}
         </h2>
-        {!compact && <p>Choose a model route, understand each request, and run isolated workloads.</p>}
+        {!compact && <p>Choose a model route, understand each request, and explore compute products.</p>}
       </div>
       <ul className={styles.linkList}>
         {products.map(({ href, label, description, icon: Icon }) => (
@@ -274,31 +275,42 @@ function Inference() {
 }
 
 function Compute() {
+  const features = computeFeatures();
   return (
-    <ProductSection id="products" title="Choose a compute product.">
+    <ProductSection id="products" title="Compute products">
       <div className={styles.computeList}>
-        <Link href="/blackboxes">
-          <Fingerprint aria-hidden="true" size={20} />
-          <span>
-            <strong>Blackboxes</strong>
-            <small>Paid pilot · Attested confidential VMs on Phala Cloud</small>
-          </span>
-          <ArrowUpRight aria-hidden="true" size={16} />
-        </Link>
-        <Link href="/dry-docks">
-          <Terminal aria-hidden="true" size={20} />
-          <span>
-            <strong>Dry Docks</strong>
-            <small>Coming soon · Isolated public-repository builds on Boat</small>
-          </span>
-          <ArrowUpRight aria-hidden="true" size={16} />
-        </Link>
+        {computeProducts.map((id) => {
+          const Icon = id === "blackboxes" ? Fingerprint : Terminal;
+          const title = computePlans[id].title;
+          const detail =
+            id === "blackboxes"
+              ? "Attested confidential VMs on Phala Cloud"
+              : "Isolated public-repository builds on Boat";
+          const content = (
+            <>
+              <Icon aria-hidden="true" size={20} />
+              <span>
+                <strong>{title}</strong>
+                <small>{detail}</small>
+              </span>
+            </>
+          );
+          return features[id] ? (
+            <Link id={id} key={id} href={"/" + id}>
+              {content}
+              <ArrowUpRight aria-hidden="true" size={16} />
+            </Link>
+          ) : (
+            <div id={id} key={id} className={styles.computeSoon}>
+              {content}
+              <span className="pill">Coming soon</span>
+            </div>
+          );
+        })}
       </div>
-      <p>
-        Compute has separate rates from inference. You can review the quote and reserve credits before an
-        available rental starts. The console tracks each run’s status and settlement.
-      </p>
-      <NextLink href="/pricing#compute-pricing">See compute pricing</NextLink>
+      {(features.blackboxes || features["dry-docks"]) && (
+        <NextLink href="/pricing#compute-pricing">See compute pricing</NextLink>
+      )}
     </ProductSection>
   );
 }
@@ -361,9 +373,8 @@ function DryDocks() {
     <>
       <ProductSection id="workflow" title="A clean environment for each build.">
         <p>
-          Dry Docks is coming soon. The planned workflow starts from a public GitHub repository and exact
-          commit. A disposable Boat sandbox runs the build with streamed logs and a downloadable output
-          archive.
+          Dry Docks starts from a public GitHub repository and exact commit. A disposable Boat sandbox runs
+          the build with streamed logs and a downloadable output archive.
         </p>
         <ProductSample label="Planned build workflow">
           <ol className={styles.buildSteps}>
@@ -385,11 +396,8 @@ function DryDocks() {
             </li>
           </ol>
         </ProductSample>
-        <p>
-          Planned artifact downloads are limited to {artifactLimit / 1024 ** 2} MiB. Build submissions are
-          paused during rollout.
-        </p>
-        <NextLink href="/contact">Ask about build sandbox access</NextLink>
+        <p>Artifact downloads are limited to {artifactLimit / 1024 ** 2} MiB.</p>
+        <NextLink href="/console/dry-docks">Open Dry Docks</NextLink>
       </ProductSection>
     </>
   );

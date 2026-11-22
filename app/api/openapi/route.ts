@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { completionMessage, functionTool, responseFormat, toolCall, toolChoice } from "@/lib/inference-tools";
 import { apiBasePath, apiOrigin, limits } from "@/lib/api-contract";
 import { receiptHeader, receiptVersion } from "@/lib/inference-receipt";
 import { models } from "@/lib/models";
@@ -13,6 +15,10 @@ const errors = Object.fromEntries(
     [401, "A valid Sonnely API key is required"],
     [402, "Insufficient credits or API key budget"],
     [403, "Current terms must be accepted"],
+    [
+      409,
+      "Idempotency-Key already reserved a request. Check X-Sonnely-Request-Id for the original reference.",
+    ],
     [404, "Model is outside the Sonnely catalog"],
     [413, "Request exceeds the body size limit"],
     [415, "Use application/json"],
@@ -55,6 +61,14 @@ const spec = {
         parameters: [
           {
             in: "header",
+            name: "Idempotency-Key",
+            required: false,
+            description:
+              "Use the same key for retries of one operation. A repeat returns 409 and the original reference.",
+            schema: { type: "string", pattern: "^[A-Za-z0-9_.:-]{8,128}$" },
+          },
+          {
+            in: "header",
             name: receiptHeader,
             required: false,
             description: "Return Sonnely’s private completion receipt and any matching provider evidence.",
@@ -65,6 +79,12 @@ const spec = {
         responses: {
           200: {
             description: "Text completion or an OpenAI-compatible event stream.",
+            headers: {
+              "X-Sonnely-Request-Id": {
+                schema: { type: "string" },
+                description: "Reference in workspace Usage.",
+              },
+            },
             content: {
               ...jsonSchema("Completion"),
               "text/event-stream": {
@@ -112,6 +132,10 @@ const spec = {
           provider: { enum: providerIds },
           provider_name: { type: "string" },
           upstream_model: { type: "string" },
+          capabilities: {
+            type: "object",
+            properties: { tools: { type: "boolean" }, structured_outputs: { type: "boolean" } },
+          },
           price_usd_per_million: {
             type: "object",
             required: ["input", "cache", "output"],
@@ -123,6 +147,11 @@ const spec = {
           },
         },
       },
+      CompletionMessage: z.toJSONSchema(completionMessage, { io: "input" }),
+      FunctionTool: z.toJSONSchema(functionTool, { io: "input" }),
+      ToolChoice: z.toJSONSchema(toolChoice, { io: "input" }),
+      ToolCall: z.toJSONSchema(toolCall),
+      ResponseFormat: z.toJSONSchema(responseFormat, { io: "input" }),
       CompletionRequest: {
         type: "object",
         additionalProperties: false,
@@ -133,16 +162,16 @@ const spec = {
             type: "array",
             minItems: 1,
             maxItems: limits.messages,
-            items: {
-              type: "object",
-              required: ["role", "content"],
-              additionalProperties: false,
-              properties: {
-                role: { enum: ["system", "user", "assistant"] },
-                content: { type: "string", minLength: 1, maxLength: limits.charactersPerMessage },
-              },
-            },
+            items: { $ref: "#/components/schemas/CompletionMessage" },
           },
+          tools: {
+            type: "array",
+            minItems: 1,
+            maxItems: 16,
+            items: { $ref: "#/components/schemas/FunctionTool" },
+          },
+          tool_choice: { $ref: "#/components/schemas/ToolChoice" },
+          response_format: { $ref: "#/components/schemas/ResponseFormat" },
           max_tokens: {
             type: "integer",
             minimum: 1,
@@ -187,6 +216,7 @@ const spec = {
           object: { const: "chat.completion" },
           created: { type: "number" },
           model: { type: "string" },
+          sonnely_request_id: { type: "string" },
           sonnely_receipt: { $ref: "#/components/schemas/InferenceReceipt" },
           choices: {
             type: "array",
@@ -201,6 +231,7 @@ const spec = {
                   properties: {
                     role: { const: "assistant" },
                     content: { type: ["string", "null"] },
+                    tool_calls: { type: "array", items: { $ref: "#/components/schemas/ToolCall" } },
                   },
                 },
                 finish_reason: { type: ["string", "null"] },

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { createMDX } from "fumadocs-mdx/next";
+import { computeFeatures, computeProducts } from "./lib/compute-features";
 import { apiOrigin } from "./lib/api-contract";
 
 const legacyDocs = {
@@ -39,8 +40,15 @@ const config: NextConfig = {
       destination: apiOrigin + path,
       permanent: true,
     }));
+    const features = computeFeatures();
     return [
       ...legacySite,
+      ...computeProducts
+        .filter((kind) => !features[kind])
+        .flatMap((kind) => [
+          { source: "/" + kind, destination: "/compute#" + kind, permanent: false },
+          { source: "/console/" + kind, destination: "/console", permanent: false },
+        ]),
       ...Object.entries(legacyDocs).flatMap(([old, current]) => [
         { source: "/docs/" + old, destination: "/docs/" + current, permanent: true },
         { source: "/docs/" + old + ".md", destination: "/docs/" + current + ".md", permanent: true },

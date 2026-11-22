@@ -12,6 +12,7 @@ import { SiteLead, type SiteBrief } from "@/components/site-lead";
 import { JournalIndex } from "@/components/journal-index";
 import { PlatformLinks, ProductContent } from "@/components/product-pages";
 import { isProductPage, productPages } from "@/lib/product-pages";
+import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans, computeQuote } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
 import { models } from "@/lib/models";
@@ -56,8 +57,8 @@ const briefs = {
   compute: {
     title: "Compute products",
     rows: [
-      ["Blackboxes", "Paid VM rentals"],
-      ["Dry Docks", "Build sandboxes · Coming soon"],
+      ["Blackboxes", computeFeatures().blackboxes ? "Paid VM rentals" : "Coming soon"],
+      ["Dry Docks", computeFeatures()["dry-docks"] ? "Build sandboxes" : "Coming soon"],
     ],
   },
   blackboxes: {
@@ -160,11 +161,15 @@ const entryActions = {
 } as const;
 
 export function generateStaticParams() {
-  return Object.keys(pages).map((page) => ({ page }));
+  const features = computeFeatures();
+  return Object.keys(pages)
+    .filter((page) => !isComputeProduct(page) || features[page])
+    .map((page) => ({ page }));
 }
 
 export async function generateMetadata({ params }: Props) {
   const { page } = await params;
+  if (isComputeProduct(page) && !computeFeatures()[page]) return { robots: { index: false } };
   const info = pages[page as Page];
   return info ? { title: info[0], description: info[1], alternates: { canonical: "/" + page } } : {};
 }
@@ -172,6 +177,8 @@ export async function generateMetadata({ params }: Props) {
 export default async function Subpage({ params }: Props) {
   const { page } = await params;
   if (!Object.hasOwn(pages, page)) notFound();
+  const features = computeFeatures();
+  if (isComputeProduct(page) && !features[page]) notFound();
   const [title, description] = pages[page as Page];
   const providerCatalog = page === "models" ? await nearCatalog() : null;
   const entryAction = Object.hasOwn(entryActions, page)
@@ -182,7 +189,7 @@ export default async function Subpage({ params }: Props) {
       <SiteLead
         title={title}
         description={description}
-        status={page === "dry-docks" ? "Coming soon" : page === "blackboxes" ? "Paid pilot" : undefined}
+        status={page === "blackboxes" ? "Paid pilot" : undefined}
         brief={(briefs as Partial<Record<Page, SiteBrief>>)[page as Page]}
       >
         {entryAction && (
@@ -248,21 +255,27 @@ export default async function Subpage({ params }: Props) {
           </div>
           <section id="compute-pricing" className="panel stack-panel">
             <h2>Compute pricing</h2>
-            <p>
-              A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
-              {creditBalance(computeQuote("blackboxes", 15).total)}. The console shows the full reservation,
-              including provider cost and Sonnely’s service fee, before you start.
-            </p>
-            <Link className="text-link" href="/blackboxes#rental">
-              Explore Blackbox rentals <ArrowUpRight size={15} aria-hidden="true" />
-            </Link>
-            <p>
-              Dry Docks is coming soon.{" "}
+            {features.blackboxes ? (
+              <>
+                <p>
+                  A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
+                  {creditBalance(computeQuote("blackboxes", 15).total)}. Review the full reservation before
+                  starting.
+                </p>
+                <Link className="text-link" href="/blackboxes#rental">
+                  Explore Blackbox rentals <ArrowUpRight size={15} aria-hidden="true" />
+                </Link>
+              </>
+            ) : (
+              <p>Blackboxes · Coming soon</p>
+            )}
+            {features["dry-docks"] ? (
               <Link className="text-link" href="/dry-docks">
-                See the planned build workflow
+                Explore Dry Docks
               </Link>
-              .
-            </p>
+            ) : (
+              <p>Dry Docks · Coming soon</p>
+            )}
           </section>
           <section className="faq">
             <h2>Billing questions</h2>

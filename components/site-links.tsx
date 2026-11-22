@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Box, ChevronDown, Container, Fingerprint, Radio, Terminal } from "lucide-react";
+import { isComputeProduct, type ComputeFeatures } from "@/lib/compute-features";
 import { isProductPage } from "@/lib/product-pages";
 import styles from "./site-links.module.css";
 
@@ -17,7 +18,7 @@ const products = [
   { href: "/observability", label: "Observability", detail: "Traces and UsageMax", icon: Radio },
   { href: "/compute", label: "Compute", detail: "Explore compute products", icon: Box },
   { href: "/blackboxes", label: "Blackboxes", detail: "Attested VM rentals", icon: Container },
-  { href: "/dry-docks", label: "Dry Docks", detail: "Build sandboxes · Coming soon", icon: Terminal },
+  { href: "/dry-docks", label: "Dry Docks", detail: "Isolated build sandboxes", icon: Terminal },
 ] as const;
 
 const links = [
@@ -28,7 +29,7 @@ const links = [
   ["/contact", "Contact"],
 ] as const;
 
-export function SiteLinks({ fromDocs = false }: { fromDocs?: boolean }) {
+export function SiteLinks({ fromDocs = false, features }: { fromDocs?: boolean; features: ComputeFeatures }) {
   const path = usePathname();
   const menu = useRef<HTMLDetailsElement>(null);
   const toggle = useRef<HTMLElement>(null);
@@ -66,26 +67,31 @@ export function SiteLinks({ fromDocs = false }: { fromDocs?: boolean }) {
           Platform <ChevronDown size={13} aria-hidden="true" />
         </summary>
         <ul className={styles.panel} aria-label="Platform pages">
-          {products.map(({ href, label, detail, icon: Icon }) => (
-            <li key={href}>
-              <ProductLink
-                href={href}
-                aria-current={path === href ? "page" : undefined}
-                onClick={() => {
-                  if (menu.current) menu.current.open = false;
-                }}
-              >
-                <span className={styles.icon}>
-                  <Icon size={17} aria-hidden="true" />
-                </span>
-                <span>
-                  <strong>{label}</strong>
-                  <small>{detail}</small>
-                </span>
-                <ArrowUpRight size={14} className={styles.arrow} aria-hidden="true" />
-              </ProductLink>
-            </li>
-          ))}
+          {products
+            .filter(({ href }) => {
+              const id = href.slice(1);
+              return !isComputeProduct(id) || features[id];
+            })
+            .map(({ href, label, detail, icon: Icon }) => (
+              <li key={href}>
+                <ProductLink
+                  href={href}
+                  aria-current={path === href ? "page" : undefined}
+                  onClick={() => {
+                    if (menu.current) menu.current.open = false;
+                  }}
+                >
+                  <span className={styles.icon}>
+                    <Icon size={17} aria-hidden="true" />
+                  </span>
+                  <span>
+                    <strong>{label}</strong>
+                    <small>{detail}</small>
+                  </span>
+                  <ArrowUpRight size={14} className={styles.arrow} aria-hidden="true" />
+                </ProductLink>
+              </li>
+            ))}
         </ul>
       </details>
       {links.map(([href, label]) => {

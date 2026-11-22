@@ -27,9 +27,45 @@ export async function requireAccount(ctx: QueryCtx, session: string) {
   return account;
 }
 
-export function walletRole(wallet: string): "admin" | "member" {
-  const admins = (process.env.SONNELY_ADMIN_WALLETS ?? "").split(",").map((value) => value.trim());
-  return admins.includes(wallet) ? "admin" : "member";
+export const accountRole = v.union(
+  v.literal("admin"),
+  v.literal("support"),
+  v.literal("finance"),
+  v.literal("member"),
+);
+export const sessionLife = 7 * 86_400_000;
+
+export function walletRole(wallet: string): typeof accountRole.type {
+  const listed = (list: string | undefined) =>
+    (list ?? "").split(",").some((value) => value.trim() === wallet);
+  if (listed(process.env.SONNELY_ADMIN_WALLETS)) return "admin";
+  if (listed(process.env.SONNELY_FINANCE_WALLETS)) return "finance";
+  if (listed(process.env.SONNELY_SUPPORT_WALLETS)) return "support";
+  return "member";
+}
+
+export async function requireOperator(
+  ctx: QueryCtx,
+  args: { secret: string; session: string },
+  role: "support" | "finance",
+) {
+  service(args.secret);
+  const account = await requireAccount(ctx, args.session);
+  const assigned = walletRole(account.wallet);
+  if (assigned !== "admin" && assigned !== role) throw new ConvexError("Administrator access required.");
+  return account;
+}
+
+export async function requireRecentAdmin(ctx: QueryCtx, args: { secret: string; session: string }) {
+  const account = await requireAdmin(ctx, args);
+  const session = args.session;
+  const row = await ctx.db
+    .query("sessions")
+    .withIndex("by_hash", (q) => q.eq("hash", session))
+    .unique();
+  if (!row || Date.now() - (row.expires - sessionLife) > 10 * 60_000)
+    throw new ConvexError("Sign in again with your wallet before approving this action.");
+  return account;
 }
 
 export async function requireAdmin(ctx: QueryCtx, args: { secret: string; session: string }) {

@@ -27,7 +27,7 @@ Both products hold the maximum quote from a signed-in wallet’s Sonnely balance
 
 ## Operations
 
-Store `PHALA_CLOUD_API_KEY` and `BOAT_API_KEY` in the Convex deployment. The Phala credential manages CVMs and is separate from inference credentials. Configure `SONNELY_BLACKBOX_RENTALS=true` or `SONNELY_DRY_DOCKS=true` to accept new jobs after the corresponding provider account is ready. Both switches default off. Set `SONNELY_BLACKBOX_PILOT=true` for paid admin-wallet trials. Disabling starts leaves teardown enabled for existing jobs.
+Store `PHALA_CLOUD_API_KEY` and `BOAT_API_KEY` in the Convex deployment. The Phala credential manages CVMs and is separate from inference credentials. Configure `SONNELY_BLACKBOX_RENTALS=true` or `SONNELY_DRY_DOCKS=true` to accept new jobs after the corresponding provider account is ready. Both switches default off. Mirror them on the web host to expose product pages and console navigation. Disabling starts leaves teardown enabled for existing jobs.
 
 Keep Boat on a paid plan with paid start overages disabled. The worker checks current capacity and rejects starts when Boat reports an overage fee. Confirm Phala’s terms and grant terms before selling customer rentals. Keep gifted credits restricted to the authorized pilot until their commercial eligibility is confirmed.
 

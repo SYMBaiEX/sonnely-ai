@@ -4,10 +4,13 @@ import { SecureClient } from "tinfoil";
 // Account-specific cache scope is set in the body; this value avoids filesystem persistence.
 const client = new SecureClient({ userCacheSecret: "sonnely-explicit-scope" });
 
-export async function fetchTinfoil(init: RequestInit) {
+export async function fetchTinfoil(
+  init: RequestInit,
+  path: "/v1/chat/completions" | "/v1/models" = "/v1/chat/completions",
+) {
   await client.ready();
   init.signal?.throwIfAborted();
-  const response = await client.fetch("/v1/chat/completions", init);
+  const response = await client.fetch(path, init);
   const verification = client.getVerificationDocument();
   if (!verification.securityVerified || !verification.releaseDigest) {
     await response.body?.cancel();

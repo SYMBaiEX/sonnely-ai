@@ -84,7 +84,7 @@ const capabilities = [
   {
     id: "route",
     icon: Fingerprint,
-    title: "Confidential compute",
+    title: "Confidential inference",
     body: "Pick a confidential provider and check the evidence it publishes about where the model ran.",
     href: "/inference#evidence",
     action: "Verify the provider",

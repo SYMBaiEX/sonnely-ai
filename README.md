@@ -38,6 +38,8 @@ Support requests land in the Convex `tickets` table. Set up an operator inbox be
 
 ## Recovery and launch
 
+See the [launch operations runbook](docs/launch-operations.md) for compute flags, independent alert delivery, provider statement automation, operator roles, and ledger restore.
+
 Set the mainnet Helius `SOLANA_RPC_URL` on Convex alongside `SONNELY_TREASURY_WALLET`. The Convex cron checks open USDC drafts every two minutes, backs off older drafts, and applies the same finalized transfer and signature checks as browser checkout. Check `/api/health` or `/status` for the recovery heartbeat. The inference-provider check in health verifies configuration without incurring inference costs.
 
 In Admin, open Held credits to investigate an unreported request or a pending reservation older than five minutes. Record the provider receipt or investigation note before releasing the hold or entering a verified final charge. The resolution updates the customer balance and API key budgets together and saves an admin audit entry. Actual provider cost still needs a matching upstream billing record to affect payable margin.

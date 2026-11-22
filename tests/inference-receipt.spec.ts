@@ -429,3 +429,54 @@ test("Phala is pinned, fail-closed, and metered separately in Convex", async ({ 
     process.env = originalEnv;
   }
 });
+
+test("idempotent API retries return the original request reference without a second charge", async ({
+  baseURL,
+}) => {
+  const { db, auth, apiKey, balance } = await fundedKey(baseURL);
+  const previous = process.env.NEAR_AI_API_KEY;
+  process.env.NEAR_AI_API_KEY = "fixture-key";
+  const originalFetch = globalThis.fetch;
+  const id = randomUUID();
+  let calls = 0;
+  const provider = mock.method(
+    globalThis,
+    "fetch",
+    async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url) !== "https://cloud-api.near.ai/v1/chat/completions") return originalFetch(url, init);
+      calls++;
+      return new Response(body, { headers: { "Content-Type": "application/json", "inference-id": id } });
+    },
+  );
+  function submit() {
+    return POST(
+      new NextRequest("http://127.0.0.1/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + apiKey,
+          "Idempotency-Key": id,
+        },
+        body: JSON.stringify({ model: model.id, messages, max_tokens: 40 }),
+      }),
+    );
+  }
+  try {
+    const replies = await Promise.all([submit(), submit()]);
+    const accepted = replies.find(({ status }) => status === 200);
+    const duplicate = replies.find(({ status }) => status === 409);
+    expect(accepted).toBeDefined();
+    expect(duplicate).toBeDefined();
+    expect(duplicate!.headers.get("x-sonnely-request-id")).toBe(
+      accepted!.headers.get("x-sonnely-request-id"),
+    );
+    expect(calls).toBe(1);
+    const snapshot = await db.query(api.sonnely.consoleLive, { ...auth, since: 0 });
+    expect(snapshot?.rows).toHaveLength(1);
+    expect(snapshot?.balance).toBe(balance - requestCharge(model, 50, 25, 10));
+  } finally {
+    provider.mock.restore();
+    if (previous === undefined) delete process.env.NEAR_AI_API_KEY;
+    else process.env.NEAR_AI_API_KEY = previous;
+  }
+});

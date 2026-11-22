@@ -8,25 +8,23 @@ import { managedProviderKey, pilotWallet, publicInference } from "./managed-acce
 import { phalaOrigin, phalaReceiptId, phalaResponseEvidence } from "./phala";
 import { requestCharge } from "./pricing";
 import { providerRequestId } from "./provider-billing";
-import { providerIds, providerRoute } from "./provider-catalog";
+import { completionMessage, functionTool, responseFormat, toolCall, toolChoice } from "./inference-tools";
+import { agentCapabilities, providerIds, providerRoute } from "./provider-catalog";
 import { models } from "./models";
 import { backend, SonnelyError } from "./server";
 import type { GatewayReceipt } from "./usagemax-gateway";
 
-const message = z
-  .object({
-    role: z.enum(["system", "user", "assistant"]),
-    content: z.string().min(1).max(limits.charactersPerMessage),
-  })
-  .strict();
 const completion = z
   .object({
     model: z.string().min(1).max(100),
-    messages: z.array(message).min(1).max(limits.messages),
+    messages: z.array(completionMessage).min(1).max(limits.messages),
     max_tokens: z.number().int().min(1).max(limits.maxOutputTokens).optional(),
     provider: z.strictObject({ only: z.tuple([z.enum(providerIds)]) }).optional(),
     max_cost_microusd: z.int().positive().optional(),
     stream: z.boolean().optional(),
+    tools: z.array(functionTool).min(1).max(16).optional(),
+    tool_choice: toolChoice.optional(),
+    response_format: responseFormat.optional(),
     stream_options: z.strictObject({ include_usage: z.boolean().optional() }).optional(),
   })
   .strict();
@@ -40,7 +38,11 @@ const result = z.object({
     .array(
       z.object({
         index: z.number(),
-        message: z.object({ role: z.literal("assistant"), content: z.string().nullable() }),
+        message: z.object({
+          role: z.literal("assistant"),
+          content: z.string().nullable().default(null),
+          tool_calls: z.array(toolCall).optional(),
+        }),
         finish_reason: z.string().nullable(),
       }),
     )
@@ -53,6 +55,7 @@ export async function infer(
   auth: { session?: string; hash?: string },
   withReceipt = false,
   keepAlive?: (work: Promise<void>) => void,
+  idempotencyKey?: string,
 ) {
   const requestAt = Date.now();
   const input = completion.parse(raw);
@@ -63,11 +66,32 @@ export async function infer(
   const provider = input.provider?.only[0] ?? model.provider;
   const route = providerRoute(model, provider);
   if (!route) throw new SonnelyError("The requested model is unavailable on this provider.", 404);
+  const capabilities = agentCapabilities(model, provider, process.env.SONNELY_AGENT_CAPABILITIES === "true");
+  const usesTools =
+    input.tools ||
+    input.tool_choice !== undefined ||
+    input.messages.some((item) => item.role === "tool" || (item.role === "assistant" && item.tool_calls));
+  if (usesTools && !capabilities.tools)
+    throw new SonnelyError("Tool calling is unavailable on this route. Check /v1/models.", 400);
+  if (input.response_format && input.response_format.type !== "text" && !capabilities.structured_outputs)
+    throw new SonnelyError("Structured outputs are unavailable on this route. Check /v1/models.", 400);
+  if (input.tool_choice && !input.tools) throw new SonnelyError("tool_choice requires tools.", 400);
+  if (input.messages.some((item) => item.role === "assistant" && !item.content && !item.tool_calls))
+    throw new SonnelyError("Assistant messages require content or tool calls.", 400);
   const upstreamKey = managedProviderKey(provider);
   if (!upstreamKey) throw new SonnelyError("Managed inference is awaiting provider activation.", 503);
 
   const maxTokens = input.max_tokens ?? limits.defaultOutputTokens;
-  const bytes = Buffer.byteLength(JSON.stringify(input.messages));
+  const shape = {
+    ...(input.tools ? { tools: input.tools } : {}),
+    ...(input.tool_choice ? { tool_choice: input.tool_choice } : {}),
+    ...(input.response_format ? { response_format: input.response_format } : {}),
+  };
+  const bytes =
+    Buffer.byteLength(JSON.stringify(input.messages)) +
+    (input.tools || input.tool_choice || input.response_format
+      ? Buffer.byteLength(JSON.stringify(shape))
+      : 0);
   const reserve = requestCharge(route, bytes + 256, 0, maxTokens);
   if (input.max_cost_microusd !== undefined && reserve > input.max_cost_microusd)
     throw new SonnelyError("The estimated reservation exceeds max_cost_microusd.", 400);
@@ -77,6 +101,7 @@ export async function infer(
   const requestBody = JSON.stringify({
     model: route.upstreamModel,
     messages: input.messages,
+    ...shape,
     max_tokens: maxTokens,
     ...(input.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
     ...(isPhala
@@ -102,6 +127,13 @@ export async function infer(
     model: input.model,
     ...(provider !== "near-ai" ? { provider } : {}),
     cost: reserve,
+    ...(idempotencyKey
+      ? {
+          retryKey: createHmac("sha256", secret)
+            .update("completion-idempotency:" + idempotencyKey)
+            .digest("hex"),
+        }
+      : {}),
     ...(publicInference() ? { requireTerms: true } : {}),
   });
   let status: "complete" | "failed" | "unreported" = "unreported";
@@ -317,6 +349,7 @@ export async function infer(
       });
       streamOwnsSettlement = true;
       keepAlive?.(stream.finished);
+      stream.response.headers.set("X-Sonnely-Request-Id", id);
       return stream.response;
     }
     outcome = "invalid_usage";
@@ -340,7 +373,7 @@ export async function infer(
     if (!streamOwnsSettlement) await settle();
   }
 
-  const reply = { ...data, model: input.model, usage: publicUsage(data.usage) };
+  const reply = { ...data, model: input.model, usage: publicUsage(data.usage), sonnely_request_id: id };
   if (!withReceipt || !responseHash) return reply;
   return {
     ...reply,

@@ -1,0 +1,343 @@
+.dialog {
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1.4rem;
+  padding: 0;
+  width: min(920px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  overflow: auto;
+  box-shadow: 0 28px 90px rgb(0 0 0 / 0.38);
+}
+.dialog[open] {
+  animation: lift 260ms cubic-bezier(0.2, 0.75, 0.3, 1) both;
+}
+.dialog::backdrop {
+  background: rgb(17 10 17 / 0.63);
+  backdrop-filter: blur(7px);
+}
+.shell {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
+  min-height: 438px;
+}
+.scene {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 1.6rem;
+  color: #fff3f1;
+  background:
+    linear-gradient(175deg, rgb(22 12 21 / 0.45), rgb(22 12 21 / 0.88) 89%),
+    url("/forest-night.webp") center 42% / cover;
+}
+:global([data-theme="light"]) .scene {
+  background-image:
+    linear-gradient(175deg, rgb(42 15 22 / 0.33), rgb(40 15 22 / 0.9) 89%), url("/forest-day.webp");
+}
+.brand {
+  pointer-events: none;
+  width: fit-content;
+}
+.brand :global(.brand) {
+  color: inherit;
+}
+.stage {
+  display: grid;
+  gap: 1.5rem;
+  padding-block: 1rem 0;
+}
+.orbit {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: 9.5rem;
+  aspect-ratio: 1;
+  position: relative;
+  isolation: isolate;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(231 65 95 / 0.31), transparent 68%);
+  border: 1px dashed rgb(255 219 218 / 0.36);
+}
+.orbit::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid transparent;
+  border-top-color: #ff9c9d;
+  border-right-color: #ff9c9d36;
+  animation: orbit 12s linear infinite;
+}
+.orbitCore {
+  display: grid;
+  place-items: center;
+  width: 4.9rem;
+  aspect-ratio: 1;
+  border-radius: 1.6rem;
+  background: rgb(47 20 31 / 0.8);
+  border: 1px solid rgb(255 194 191 / 0.45);
+  box-shadow:
+    0 1rem 2.7rem rgb(31 9 19 / 0.7),
+    0 0 2rem rgb(241 65 94 / 0.27);
+  color: #ffb4b0;
+}
+.nodes {
+  display: grid;
+  gap: 0.3rem;
+}
+.nodes div {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  color: #ead4d8;
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+  font-size: 0.84rem;
+  transition:
+    background 180ms,
+    border-color 180ms;
+}
+.nodes div[data-current="true"] {
+  border-color: #ffada562;
+  color: #fff6f4;
+  background: #77293882;
+}
+.content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: clamp(1.25rem, 4vw, 2.65rem);
+  background: radial-gradient(
+    ellipse at top right,
+    color-mix(in srgb, var(--accent) 9%, transparent),
+    transparent 70%
+  );
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.65rem;
+}
+.progress {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.8rem;
+  list-style: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+.progress li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.progress li[aria-current] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 0.35rem;
+  text-decoration-color: var(--accent);
+}
+.progress li[data-done="true"] svg {
+  color: var(--accent);
+}
+.close {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 0.7rem;
+  color: var(--muted);
+  background: var(--glass);
+  border: 1px solid var(--line);
+}
+.close:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+.step {
+  margin-block: auto;
+  padding-block: 1.6rem 0.75rem;
+  display: grid;
+  gap: 1rem;
+  animation: lift 240ms ease-out both;
+}
+.step h2 {
+  color: var(--ink);
+  margin: 0;
+  font-size: clamp(1.9rem, 4vw, 3.2rem);
+  letter-spacing: -0.055em;
+  line-height: 1.03;
+  outline: none;
+  text-wrap: balance;
+}
+.step p {
+  margin: 0;
+  color: var(--muted);
+}
+.step :global(.wallet-widget) {
+  width: fit-content;
+}
+.step :global(.wallet-pop) {
+  position: static;
+  margin-top: 0.55rem;
+  max-width: 100%;
+  width: 19rem;
+}
+.step :global(.setup-terms) {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.step :global(.setup-terms .terms-banner-layout),
+.step :global(.setup-terms .terms-banner-form) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.step :global(.setup-terms button) {
+  justify-self: start;
+}
+.form,
+.form label {
+  display: grid;
+  gap: 0.6rem;
+}
+.form {
+  gap: 1rem;
+}
+.form input {
+  width: 100%;
+}
+.form button {
+  justify-self: start;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.tourNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.tourNav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  min-height: 44px;
+  border-radius: 0.65rem;
+  color: var(--ink);
+  background: var(--glass);
+  border: 1px solid var(--line);
+  font-size: 0.8rem;
+}
+.tourNav button[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+}
+.tourNote {
+  animation: lift 200ms ease-out both;
+}
+@keyframes lift {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 690px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .scene {
+    min-height: 110px;
+    padding: 1rem;
+    justify-content: center;
+  }
+  .stage {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0;
+  }
+  .brand {
+    display: none;
+  }
+  .orbit {
+    width: 3.9rem;
+  }
+  .orbitCore {
+    width: 3.2rem;
+    border-radius: 1rem;
+  }
+  .orbitCore svg {
+    width: 23px;
+  }
+  .nodes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .nodes div {
+    padding: 0.35rem;
+    font-size: 0.7rem;
+  }
+  .nodes div span {
+    display: none;
+  }
+  .nodes div[data-current="true"] span {
+    display: inline;
+  }
+  .step {
+    padding-block: 1.1rem 0.35rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog[open],
+  .orbit::after,
+  .step,
+  .tourNote {
+    animation: none;
+  }
+  .nodes div {
+    transition: none;
+  }
+}
+@media (min-width: 691px) {
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-size: 1.3rem;
+    font-weight: 640;
+    letter-spacing: -0.045em;
+  }
+  .brand img {
+    border-radius: 0.55rem;
+  }
+}

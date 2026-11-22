@@ -1,5 +1,5 @@
 import { adminAction, adminCrm, adminGateway, adminOverview } from "@/lib/admin-api";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { createSignInMessageText, verifySignIn } from "@solana/wallet-standard-util";
 import type { SolanaSignInInput } from "@solana/wallet-standard-features";
 import bs58 from "bs58";
@@ -91,6 +91,7 @@ export async function GET(request: NextRequest, context: Context) {
     const auth = { secret, session };
     if (task === "keys") return json(await db.query(api.sonnely.listKeys, auth));
     if (task === "admin") return await adminOverview(auth, db, usageSince("30"));
+    if (task === "admin-invoices") return json(await db.query(api.providerInvoices.history, auth));
     if (task === "admin-gateway") return await adminGateway(request.nextUrl.searchParams, auth, db);
     if (task === "admin-crm") return await adminCrm(request.nextUrl.searchParams, auth, db);
     if (task === "referrals") return json(await db.query(api.sonnely.referrals, auth));
@@ -123,6 +124,17 @@ export async function POST(request: NextRequest, context: Context) {
     const { task } = await context.params;
     const raw = await readBody(request);
     const { db, secret } = backend();
+
+    if (task === "challenge" || task === "verify") {
+      const client =
+        process.env.VERCEL === "1"
+          ? request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+          : "local";
+      const bucket = createHmac("sha256", secret)
+        .update("signin:" + client)
+        .digest("hex");
+      await db.mutation(api.launchGuard.throttleSignIn, { secret, bucket });
+    }
 
     if (task === "challenge") {
       const { wallet } = z.object({ wallet: address }).parse(raw);
@@ -215,6 +227,11 @@ export async function POST(request: NextRequest, context: Context) {
       const result = await infer(raw, { session }, false, (finished) => after(() => finished));
       return result instanceof Response ? result : json(result);
     }
+    if (task === "finish-onboarding") {
+      const { funding } = z.object({ funding: z.enum(["fund", "later"]) }).parse(raw);
+      await db.mutation(api.sonnely.finishOnboarding, { ...auth, funding });
+      return json({ ok: true });
+    }
     if (task === "profile") {
       const profile = z
         .object({ name: z.string().trim().max(60), username: z.string().trim().max(24).optional() })
@@ -256,7 +273,11 @@ export async function POST(request: NextRequest, context: Context) {
     const profile = await db.query(api.sonnely.profile, auth);
     if (!profile) throw new SonnelyError("Sign in with a Solana wallet.", 401);
     if (task.startsWith("admin-")) {
-      if (profile.role !== "admin") throw new SonnelyError("Administrator access required.", 403);
+      const delegated =
+        (profile.role === "support" && task === "admin-ticket") ||
+        (profile.role === "finance" && (task === "admin-invoice-preview" || task === "admin-invoice-record"));
+      if (profile.role !== "admin" && !delegated)
+        throw new SonnelyError("Administrator access required.", 403);
       return await adminAction(task, raw, auth, db);
     }
     if (task === "quote") {

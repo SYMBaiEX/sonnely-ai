@@ -1,15 +1,26 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
-import { auth, requireAdmin } from "./access";
+import { alertFallbackConfigured, sendAlertFallback } from "./alertFallback";
+import { auth, requireAdmin, secret, service } from "./access";
 import { applyNearCosts, providerCost } from "./finance";
-import { alertDeliveryState, gatewayIncident, operationKind, operationState } from "./operationsContract";
+import { alertDeliveryState, gatewayIncident, operationState, providerCheck } from "./operationsContract";
 import { z } from "zod";
+import { providerDailyLimit } from "./launchGuard";
+import { loadStatements } from "./statementFeed";
 
 const minute = 60_000;
 const retention = 30 * 24 * 60 * minute;
 const bridgeUrl = "https://sonnely.com/api/internal/operations";
 const adminUrl = "https://sonnely.com/console/admin";
+const replyHealth = z
+  .array(
+    z.strictObject({
+      provider: z.enum(["near-ai", "phala", "tinfoil"]),
+      state: z.enum(["ok", "unavailable", "disabled"]),
+    }),
+  )
+  .length(3);
 const replyCosts = z.array(z.object({ requestId: z.uuid(), costNanoUsd: z.int().positive() })).max(100);
 const replyAlerts = z.object({
   evaluatedAt: z.int().nonnegative().nullable(),
@@ -182,6 +193,109 @@ export const captureAlerts = internalMutation({
   },
 });
 
+export const captureHealth = internalMutation({
+  args: { checkedAt: v.number(), providers: v.union(v.array(providerCheck), v.null()) },
+  returns: v.null(),
+  handler: async (ctx, { checkedAt, providers }) => {
+    const failed = providers?.filter(({ state }) => state === "unavailable") ?? [];
+    await saveState(ctx, {
+      kind: "provider_health",
+      checkedAt,
+      ...(providers ? { providers } : {}),
+      checked: providers?.filter(({ state }) => state !== "disabled").length ?? 0,
+      matched: providers?.filter(({ state }) => state === "ok").length ?? 0,
+      status: !providers ? "unavailable" : failed.length ? "partial" : "ok",
+    });
+    const window = Math.floor(checkedAt / (6 * 60 * minute));
+    for (const { provider } of failed) {
+      await enqueue(
+        ctx,
+        "catalog:" + provider + ":" + window,
+        "[Sonnely] Provider unavailable · " + names[provider],
+        "The provider catalog probe failed. Review provider availability and account balance.\n\n" + adminUrl,
+      );
+    }
+    if (!providers)
+      await enqueue(
+        ctx,
+        "probe:" + window,
+        "[Sonnely] Provider checks unavailable",
+        "The gateway health bridge did not respond.\n\n" + adminUrl,
+      );
+    const budgetWindow = Math.floor(checkedAt / (24 * 60 * minute)) * 24 * 60 * minute;
+    for (const provider of ["near-ai", "phala", "tinfoil"] as const) {
+      const bucket = "provider:" + provider;
+      const meter = await ctx.db
+        .query("launchLimits")
+        .withIndex("by_bucket_window", (q) => q.eq("bucket", bucket).eq("window", budgetWindow))
+        .unique();
+      const limit = providerDailyLimit(provider === "near-ai" ? undefined : provider);
+      if ((meter?.used ?? 0) >= limit * 0.8)
+        await enqueue(
+          ctx,
+          "provider-budget:" + provider + ":" + budgetWindow,
+          "[Sonnely] Inference budget running low · " + names[provider],
+          "Today’s reservations reached 80% of the provider limit. Check upstream credits before increasing it.\n\n" +
+            adminUrl,
+        );
+    }
+    const age = checkedAt - 15 * minute;
+    const [stale, unreported] = await Promise.all(
+      (["pending", "unreported"] as const).map((status) =>
+        ctx.db
+          .query("usage")
+          .withIndex("by_status", (q) => q.eq("status", status).lt("_creationTime", age))
+          .first(),
+      ),
+    );
+    if (stale || unreported)
+      await enqueue(
+        ctx,
+        "credit-holds:" + window,
+        "[Sonnely] Credit recovery needs attention",
+        "A credit hold is older than 15 minutes. Review Held credits and look up the provider’s usage before settling or releasing it.\n\n" +
+          adminUrl,
+      );
+    const active = await ctx.db
+      .query("computeRuns")
+      .withIndex("by_ready", (q) => q.eq("active", true))
+      .take(10);
+    for (const run of active) {
+      if (run.phase === "teardown" && run.teardownAt && run.teardownAt < checkedAt - 5 * minute)
+        await enqueue(
+          ctx,
+          "compute-teardown:" + run._id,
+          "[Sonnely] Compute teardown delayed",
+          "A compute run is still awaiting provider deletion.\n\n" + adminUrl,
+        );
+    }
+    const deposit = await ctx.db.query("recoveryHealth").first();
+    if (!deposit || deposit.failures > 0 || deposit.checkedAt < checkedAt - 6 * minute)
+      await enqueue(
+        ctx,
+        "deposit-recovery:" + window,
+        "[Sonnely] Deposit recovery needs attention",
+        "The Solana deposit check is stale or reported an error.\n\n" + adminUrl,
+      );
+    return null;
+  },
+});
+
+export const providerHealth = query({
+  args: secret,
+  returns: v.union(v.null(), operationState),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const row = await ctx.db
+      .query("operationsState")
+      .withIndex("by_kind", (q) => q.eq("kind", "provider_health"))
+      .unique();
+    if (!row) return null;
+    const { _id, _creationTime, ...status } = row;
+    return status;
+  },
+});
+
 export const sweep = internalAction({
   args: {},
   returns: v.object({ checked: v.number(), reconciled: v.number() }),
@@ -190,7 +304,7 @@ export const sweep = internalAction({
     const checkedAt = Date.now();
     const ids = await ctx.runMutation(internal.operations.claimCosts, {});
     const requests = new Set(ids);
-    const [costs, alerts] = await Promise.all([
+    const [costs, alerts, probes] = await Promise.all([
       ids.length
         ? bridge({ kind: "near_costs", requestIds: ids })
             .then((raw) => replyCosts.parse(raw).filter((item) => requests.has(item.requestId)))
@@ -199,12 +313,63 @@ export const sweep = internalAction({
       bridge({ kind: "gateway_alerts" })
         .then((raw) => replyAlerts.parse(raw))
         .catch(() => ({ evaluatedAt: null, truncated: false, items: [] })),
+      bridge({ kind: "provider_health" })
+        .then((raw) => replyHealth.parse(raw))
+        .catch(() => null),
     ]);
     const [reconciled] = await Promise.all([
       ctx.runMutation(internal.operations.applyCosts, { checkedAt, checked: ids.length, costs }),
       ctx.runMutation(internal.operations.captureAlerts, { checkedAt, ...alerts }),
+      ctx.runMutation(internal.operations.captureHealth, { checkedAt, providers: probes }),
     ]);
     return { checked: ids.length, reconciled };
+  },
+});
+
+export const recordStatementSync = internalMutation({
+  args: { checkedAt: v.number(), checked: v.number(), matched: v.number(), failed: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, { checkedAt, checked, matched, failed }) => {
+    await saveState(ctx, {
+      kind: "provider_invoices",
+      checkedAt,
+      checked,
+      matched,
+      status: failed ? "partial" : "ok",
+      ...(failed ? {} : { successAt: checkedAt }),
+    });
+    return null;
+  },
+});
+
+export const importStatements = internalAction({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const endpoint = process.env.SONNELY_STATEMENT_FEED_URL;
+    const token = process.env.SONNELY_STATEMENT_FEED_TOKEN;
+    if (!endpoint || !token) return null;
+    const checkedAt = Date.now();
+    const statements = await loadStatements(endpoint, token).catch(() => null);
+    let matched = 0;
+    let failed = !statements;
+    for (const { currency: _currency, ...statement } of statements ?? []) {
+      const recorded = await ctx
+        .runMutation(internal.providerInvoices.ingestStatement, statement)
+        .catch(() => null);
+      if (recorded)
+        matched += recorded.filter(
+          ({ state }) => state === "new" || state === "exact" || state === "variance",
+        ).length;
+      else failed = true;
+    }
+    await ctx.runMutation(internal.operations.recordStatementSync, {
+      checkedAt,
+      checked: statements?.length ?? 0,
+      matched,
+      failed,
+    });
+    return null;
   },
 });
 
@@ -213,8 +378,11 @@ export const queueTest = mutation({
   returns: v.id("alertDeliveries"),
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
-    if (!process.env.SONNELY_OPERATIONS_TOKEN || process.env.SONNELY_EMAIL_ENABLED !== "true")
-      throw new ConvexError("Email alerts are not configured.");
+    if (
+      !(process.env.SONNELY_OPERATIONS_TOKEN && process.env.SONNELY_EMAIL_ENABLED === "true") &&
+      !alertFallbackConfigured()
+    )
+      throw new ConvexError("External alerts are not configured.");
     return enqueue(
       ctx,
       "test:" + Math.floor(Date.now() / (10 * minute)),
@@ -268,12 +436,8 @@ export const finishEmail = internalMutation({
     const row = await ctx.db.get(id);
     if (row?.state !== "sending" || row.attempts !== attempts) return null;
     const now = Date.now();
-    const day = 24 * 60 * minute;
-    const nextAt =
-      errorCode === "E_INBOX_TEMPORARY" && attempts >= 4
-        ? // The inbox can hit Cloudflare's account-wide daily write limit.
-          Math.max(now + minute, (Math.floor(now / day) + 1) * day + minute)
-        : now + 2 ** attempts * minute;
+
+    const nextAt = now + Math.min(15, 2 ** attempts) * minute;
     await ctx.db.patch(id, {
       state,
       errorCode,
@@ -288,13 +452,24 @@ export const dispatch = internalAction({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    if (!process.env.SONNELY_OPERATIONS_TOKEN || process.env.SONNELY_EMAIL_ENABLED !== "true") return null;
+    const mailEnabled =
+      Boolean(process.env.SONNELY_OPERATIONS_TOKEN) && process.env.SONNELY_EMAIL_ENABLED === "true";
+    if (!mailEnabled && !alertFallbackConfigured()) return null;
     const items = await ctx.runMutation(internal.operations.claimEmails, {});
     await Promise.all(
       items.map(async ({ id, subject, text, attempts }) => {
-        const result = await bridge({ kind: "alert_email", id, subject, text })
-          .then((raw) => emailReply.parse(raw))
-          .catch(() => ({ state: "unconfirmed" as const, messageId: undefined, code: undefined }));
+        const email = mailEnabled
+          ? await bridge({ kind: "alert_email", id, subject, text })
+              .then((raw) => emailReply.parse(raw))
+              .catch(() => ({ state: "unconfirmed" as const, messageId: undefined, code: undefined }))
+          : { state: "retry" as const, messageId: undefined, code: undefined };
+        const fallback =
+          email.state !== "delivered" &&
+          email.state !== "accepted" &&
+          (await sendAlertFallback(id, subject, text));
+        const result = fallback
+          ? { state: "accepted" as const, code: "E_SLACK_ACCEPTED", messageId: undefined }
+          : email;
         await ctx.runMutation(internal.operations.finishEmail, {
           id,
           attempts,
@@ -325,6 +500,7 @@ export const status = query({
   args: auth,
   returns: v.object({
     emailEnabled: v.boolean(),
+    fallbackConfigured: v.boolean(),
     checks: v.array(operationState),
     email: v.array(
       v.object({
@@ -338,11 +514,12 @@ export const status = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
     const [checks, email] = await Promise.all([
-      ctx.db.query("operationsState").take(2),
+      ctx.db.query("operationsState").take(4),
       ctx.db.query("alertDeliveries").order("desc").take(12),
     ]);
     return {
       emailEnabled: process.env.SONNELY_EMAIL_ENABLED === "true",
+      fallbackConfigured: alertFallbackConfigured(),
       checks: checks.map(({ _id, _creationTime, ...row }) => row),
       email: email.map(({ subject, _creationTime, state, errorCode }) => ({
         subject,

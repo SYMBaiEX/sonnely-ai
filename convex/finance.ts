@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { auth, requireAdmin } from "./access";
+import { auth, requireAdmin, requireRecentAdmin } from "./access";
 import { amendGatewayCost } from "./usageMaxOutbox";
 
 const payoutOrder = {
@@ -243,7 +243,7 @@ export const openPayout = mutation({
   args: { ...auth, reference: v.string(), mint: v.string() },
   returns: v.string(),
   handler: async (ctx, args) => {
-    const account = await requireAdmin(ctx, args);
+    const account = await requireRecentAdmin(ctx, args);
     const treasury = process.env.SONNELY_TREASURY_WALLET;
     const recipient = process.env.SONNELY_PROFIT_WALLET;
     if (!treasury || !recipient || treasury === recipient) throw new ConvexError("Payout is not configured.");

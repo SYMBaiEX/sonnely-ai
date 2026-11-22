@@ -13,7 +13,12 @@ export function allowedInPilot(wallet?: string) {
   return !allowed || allowed === wallet;
 }
 
+function providerPaused(provider: ProviderId) {
+  return process.env.SONNELY_PAUSED_PROVIDERS?.split(",").some((item) => item.trim() === provider) ?? false;
+}
+
 export function managedProviderKey(provider: ProviderId = "near-ai") {
+  if (providerPaused(provider)) return undefined;
   if (process.env.VERCEL_ENV === "production" && !pilotWallet() && !publicInference()) {
     return undefined;
   }
@@ -23,5 +28,8 @@ export function managedProviderKey(provider: ProviderId = "near-ai") {
 }
 
 export function configuredProviders() {
-  return providerIds.filter((provider) => provider === "near-ai" || Boolean(managedProviderKey(provider)));
+  return providerIds.filter(
+    (provider) =>
+      !providerPaused(provider) && (provider === "near-ai" || Boolean(managedProviderKey(provider))),
+  );
 }

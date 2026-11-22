@@ -1,9 +1,9 @@
 ---
 title: Sonnely documentation
-description: Build with confidential inference, fund a workspace, and rent attested compute.
+description: Build with confidential inference, fund a workspace, and verify completion receipts.
 ---
 
-import { Box, Fingerprint, KeyRound, LifeBuoy, Rocket, Terminal } from "lucide-react";
+import { Box, Fingerprint, ShieldCheck, LifeBuoy, Rocket, Terminal } from "lucide-react";
 import { GuideGroup, GuideLink } from "@/app/docs/overview-links";
 
 <div className="docs-overview">
@@ -27,10 +27,10 @@ import { GuideGroup, GuideLink } from "@/app/docs/overview-links";
       description="Compare models, prices, and providers."
     />
     <Card
-      title="Rent a Blackbox"
-      href="/docs/blackboxes"
-      icon={<KeyRound aria-hidden="true" />}
-      description="Run a container and verify its attestation."
+      title="Verify a completion"
+      href="/docs/attestation"
+      icon={<ShieldCheck aria-hidden="true" />}
+      description="Understand what each provider’s evidence verifies."
     />
   </Cards>
 
@@ -58,8 +58,7 @@ import { GuideGroup, GuideLink } from "@/app/docs/overview-links";
     <GuideLink id="verification" href="/docs/attestation" title="Confidentiality and attestation" />
     <GuideLink id="receipts" href="/docs/attestation#completion-receipts" title="Completion receipts" />
     <GuideLink id="privacy" href="/docs/attestation#data-handling" title="Data handling" />
-    <GuideLink id="blackboxes" href="/docs/blackboxes" title="Blackbox rentals" />
-    <GuideLink id="cloud-builds" href="/docs/dry-docks" title="Dry Docks" />
+    <GuideLink href="/compute" title="Compute roadmap and availability" />
   </GuideGroup>
   <GuideGroup
     id="docs-operations"

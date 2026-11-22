@@ -38,6 +38,7 @@ export default defineSchema({
     wallet: v.string(),
     name: v.string(),
     username: v.optional(v.string()),
+    onboarding: v.optional(v.union(v.literal("pending"), v.literal("fund"), v.literal("later"))),
     balance: v.number(),
     lastQuote: v.optional(v.number()),
     referral: v.string(),
@@ -75,6 +76,9 @@ export default defineSchema({
     "key",
     "day",
   ]),
+  launchLimits: defineTable({ bucket: v.string(), window: v.number(), used: v.number() })
+    .index("by_bucket_window", ["bucket", "window"])
+    .index("by_window", ["window"]),
   usage: defineTable({
     account: v.id("accounts"),
     key: v.optional(v.id("keys")),
@@ -86,6 +90,7 @@ export default defineSchema({
     cost: v.number(),
     provider: v.optional(v.union(v.literal("phala"), v.literal("tinfoil"))),
     providerRequest: v.optional(v.string()),
+    retryKey: v.optional(v.string()),
     providerStatus: v.optional(v.number()),
     outcome: v.optional(v.string()),
     settledAt: v.optional(v.number()),
@@ -102,6 +107,8 @@ export default defineSchema({
     ),
   })
     .index("by_account", ["account"])
+    .index("by_account_retryKey", ["account", "retryKey"])
+    .index("by_provider_status", ["provider", "status"])
     .index("by_account_status_cost", ["account", "status", "cost"])
     .index("by_account_status_time", ["account", "status"])
     .index("by_reconciliation", ["reconciliation"])

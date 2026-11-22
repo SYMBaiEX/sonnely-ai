@@ -409,7 +409,7 @@ function Automation({ status, refresh }: { status: Report["automation"]; refresh
     setBusy(true);
     try {
       await request("admin-alert-email-test", {});
-      setNotice("Test email queued. Delivery status will appear here.");
+      setNotice("Test alert queued. Delivery status will appear here.");
       refresh();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not queue a test email.");
@@ -421,14 +421,26 @@ function Automation({ status, refresh }: { status: Report["automation"]; refresh
     <section className="panel stack-panel">
       <div>
         <h2>Operations automation</h2>
-        <p className="caption">Provider cost sync and external email delivery.</p>
+        <p className="caption">Provider checks, finalized cost sync, and external alert delivery.</p>
       </div>
       {status.checks.map((check) => (
         <div key={check.kind}>
-          <strong>{check.kind === "near_costs" ? "NEAR cost sync" : "UsageMax alert sync"}</strong>
+          <strong>
+            {
+              {
+                near_costs: "NEAR cost sync",
+                gateway_alerts: "UsageMax alert sync",
+                provider_health: "Provider catalog probes",
+                provider_invoices: "Statement feed import",
+              }[check.kind]
+            }
+          </strong>
           <p className="caption">
             {utc(check.checkedAt)} · {check.status}
             {check.kind === "near_costs" && ` · ${check.matched} reconciled of ${check.checked} checked`}
+            {check.kind === "provider_invoices" &&
+              ` · ${check.checked} statements · ${check.matched} matched lines`}
+            {check.providers?.map(({ provider, state }) => ` · ${provider}: ${state}`).join("")}
           </p>
         </div>
       ))}
@@ -436,14 +448,15 @@ function Automation({ status, refresh }: { status: Report["automation"]; refresh
         <button
           type="button"
           className="button quiet"
-          disabled={busy || !status.emailEnabled}
+          disabled={busy || !(status.emailEnabled || status.fallbackConfigured)}
           onClick={() => void testEmail()}
         >
-          Send test email
+          Send test alert
         </button>
-        {!status.emailEnabled && (
-          <span className="caption">External alerts awaiting mail configuration.</span>
-        )}
+        <span className="caption">
+          Email {status.emailEnabled ? "configured" : "unconfigured"} · Slack fallback{" "}
+          {status.fallbackConfigured ? "configured" : "unconfigured"}
+        </span>
       </div>
       {notice && <p role="status">{notice}</p>}
       {status.email.length > 0 && (
@@ -457,6 +470,32 @@ function Automation({ status, refresh }: { status: Report["automation"]; refresh
         </ul>
       )}
     </section>
+  );
+}
+
+export function AdminInvoices() {
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    try {
+      setInvoices(await request<Invoice[]>("admin-invoices"));
+      setError("");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not load invoices.");
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  return (
+    <>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <Invoices invoices={invoices} refresh={() => void load()} />
+    </>
   );
 }
 

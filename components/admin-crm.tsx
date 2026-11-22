@@ -322,6 +322,18 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
                 </dd>
               </div>
               <div>
+                <dt>Workspace setup</dt>
+                <dd>
+                  {data.customer.onboarding === "fund"
+                    ? "Chose to add credits"
+                    : data.customer.onboarding === "later"
+                      ? "Explored first"
+                      : data.customer.onboarding === "pending"
+                        ? "In progress"
+                        : "—"}
+                </dd>
+              </div>
+              <div>
                 <dt>Activation</dt>
                 <dd>{data.active ? "Paid request completed" : data.funded ? "Funded" : "Signed up"}</dd>
               </div>
@@ -428,7 +440,7 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
   );
 }
 
-export function AdminCrm({ view }: { view: CrmView }) {
+export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canOpenCustomer?: boolean }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [trail, setTrail] = useState<string[]>([]);
@@ -547,7 +559,11 @@ export function AdminCrm({ view }: { view: CrmView }) {
               <p className="caption">No matching customers.</p>
             ))}
           {view === "support" && (
-            <TicketList rows={state.data.page as Ticket[]} open={setAccount} refresh={refresh} />
+            <TicketList
+              rows={state.data.page as Ticket[]}
+              open={canOpenCustomer ? setAccount : undefined}
+              refresh={refresh}
+            />
           )}
           {view === "traces" && <TraceList rows={state.data.page as Trace[]} open={setAccount} />}
           {(trail.length > 0 || !state.data.isDone) && (

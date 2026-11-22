@@ -49,7 +49,13 @@ export function errorResponse(error: unknown, openai = false) {
             ? 402
             : 400;
   }
-  return json({ error: openai ? { message, type: "sonnely_error", code: status } : message }, status);
+  const response = json(
+    { error: openai ? { message, type: "sonnely_error", code: status } : message },
+    status,
+  );
+  if (status === 429 && !message.includes("daily reservation limit"))
+    response.headers.set("Retry-After", "60");
+  return response;
 }
 
 export async function readBody(request: NextRequest, limit: number = limits.bodyBytes): Promise<unknown> {

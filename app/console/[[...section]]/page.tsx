@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ConsoleScreen } from "@/components/console";
 import { nearCatalog } from "@/lib/near-catalog";
+import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
 import { configuredProviders } from "@/lib/managed-access";
@@ -38,10 +39,13 @@ export default async function ConsolePage({ params, searchParams }: Props) {
   const [{ section }, { model, provider, run }] = await Promise.all([params, searchParams]);
   const name = section?.[0] ?? "chat";
   if ((section && section.length > 1) || !sections.includes(name as Section)) notFound();
+  const features = computeFeatures();
+  if (isComputeProduct(name) && !features[name]) notFound();
   const initial = models.find((item) => item.id === model) ?? models[0];
   return (
     <ConsoleScreen
       section={name as Section}
+      features={features}
       providerCatalog={name === "models" ? await nearCatalog() : undefined}
       initialModel={initial.id}
       restoreConversation={model === undefined && provider === undefined}
