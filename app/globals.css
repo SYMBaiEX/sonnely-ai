@@ -7,8 +7,8 @@
   --serif: "Instrument Serif", Georgia, serif;
   color-scheme: dark;
 }
-.theme-root {
-  color-scheme: dark;
+.theme-root,
+html:has(.docs-shell) {
   --surface: light-dark(#eef0fa, #0c0b0e);
   --card: light-dark(#f9faff, #19171c);
   --raised: light-dark(#e5e9f9, #28232b);
@@ -26,6 +26,9 @@
   --shadow: light-dark(rgb(26 38 94 / 12%), rgb(0 0 0 / 42%));
   --haze: light-dark(rgb(169 189 249 / 26%), rgb(142 27 51 / 21%));
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.theme-root {
+  color-scheme: dark;
   background: var(--surface);
   color: var(--ink);
 }

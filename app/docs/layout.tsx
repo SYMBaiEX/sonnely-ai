@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
+import { SidebarProvider, SidebarTrigger, useSidebar } from "fumadocs-ui/layouts/docs/slots/sidebar";
 import { RootProvider } from "fumadocs-ui/provider/next";
-import { apiOrigin } from "@/lib/api-contract";
 import { docsSource } from "@/lib/docs-source";
+import { SonnelyDocsSidebar } from "./sidebar";
 import "./docs.css";
 
 export default function DocumentationLayout({ children }: { children: ReactNode }) {
@@ -12,6 +13,7 @@ export default function DocumentationLayout({ children }: { children: ReactNode 
       <div className="docs-shell">
         <DocsLayout
           tree={docsSource.getPageTree()}
+          themeSwitch={{ enabled: false }}
           nav={{
             url: "/docs",
             title: (
@@ -21,11 +23,14 @@ export default function DocumentationLayout({ children }: { children: ReactNode 
               </span>
             ),
           }}
-          links={[
-            { text: "Sonnely", url: apiOrigin },
-            { text: "Console", url: apiOrigin + "/console" },
-            { text: "Service status", url: apiOrigin + "/status" },
-          ]}
+          slots={{
+            sidebar: {
+              root: SonnelyDocsSidebar,
+              provider: SidebarProvider,
+              trigger: SidebarTrigger,
+              useSidebar,
+            },
+          }}
         >
           {children}
         </DocsLayout>

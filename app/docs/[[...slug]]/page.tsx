@@ -1,6 +1,12 @@
 import { notFound } from "next/navigation";
 import type { ComponentProps } from "react";
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/docs/page";
+import {
+  DocsBody,
+  DocsDescription,
+  DocsPage,
+  DocsTitle,
+  MarkdownCopyButton,
+} from "fumadocs-ui/layouts/docs/page";
 import mdxComponents from "fumadocs-ui/mdx";
 import { apiOrigin } from "@/lib/api-contract";
 import { docsSource } from "@/lib/docs-source";
@@ -37,10 +43,19 @@ export default async function DocumentationPage({ params }: Props) {
   const page = docsSource.getPage((await params).slug);
   if (!page) notFound();
   const Content = page.data.body;
+  const markdownUrl = page.url === "/docs" ? "/llms.mdx/docs/content.md" : page.url + ".md";
   return (
-    <DocsPage toc={page.data.toc}>
+    <DocsPage
+      toc={page.data.toc}
+      tableOfContent={{ style: "block" }}
+      tableOfContentPopover={{ style: "block" }}
+    >
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
+      <div className="docs-page-actions">
+        <MarkdownCopyButton markdownUrl={markdownUrl} />
+        <a href={markdownUrl}>View Markdown</a>
+      </div>
       <DocsBody>
         <Content components={components} />
       </DocsBody>
