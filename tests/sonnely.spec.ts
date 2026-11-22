@@ -63,9 +63,15 @@ test("public routes and console work across desktop and mobile", async ({ page }
     .filter({ has: page.getByRole("heading", { name: "Qwen 3.6 35B", exact: true }) })
     .getByRole("link", { name: "Open in chat" })
     .click();
-  await expect(page.getByRole("combobox", { name: "Inference model" })).toHaveValue(
-    "Qwen/Qwen3.6-35B-A3B-FP8",
-  );
+  const route = page.getByRole("button", { name: /Choose model and provider/ });
+  await expect(route).toContainText("Qwen 3.6 35B");
+  await route.click();
+  const picker = page.getByRole("dialog", { name: "Model and provider" });
+  await expect(picker.getByRole("radio", { name: /^Qwen 3.6 35B/ })).toBeChecked();
+  await picker.getByText("GLM 5.3 Flash", { exact: true }).click();
+  await picker.getByRole("button", { name: "Apply route" }).click();
+  await expect(route).toContainText("GLM 5.3 Flash");
+  await expect(route).toBeFocused();
   await page.getByRole("button", { name: "What is a trusted execution environment?" }).click();
   await expect(page.getByText("Sample transcript")).toBeVisible();
   await page.getByRole("button", { name: "Quick navigation" }).click();
@@ -94,6 +100,11 @@ test("public routes and console work across desktop and mobile", async ({ page }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   await page.goto("/console");
   await expect(page.locator(".compact-brand img")).toBeVisible();
+  await route.click();
+  await expect(picker.getByRole("button", { name: "Apply route" })).toBeInViewport();
+  await picker.getByRole("button", { name: "Cancel" }).click();
+  await expect(route).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   await expect(page.locator(".compact-brand img")).toHaveAttribute("src", "/brand/sonnely-crimson-192.png");
 });
 

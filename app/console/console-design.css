@@ -237,11 +237,6 @@
   margin-bottom: 0.55rem;
 }
 
-.console .chat-welcome .prompt:hover {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
-  background: var(--console-selected);
-}
-
 .console .key-record-label {
   display: none;
 }
@@ -364,21 +359,12 @@
   background: color-mix(in srgb, var(--card) 58%, var(--surface));
 }
 
-.console .chat-welcome h1 {
-  font-size: clamp(32px, 4.6vw, 52px);
-  font-weight: 630;
-}
-
-.console .chat-welcome .welcome-mark {
-  box-shadow: none;
-}
-
 .console .command-dialog {
   background: var(--glass-solid);
   box-shadow: 0 22px 70px var(--shadow);
 }
 
-.console[data-motion="on"] :is(.console-title, .console-content > *, .chat-welcome, .composer) {
+.console[data-motion="on"] :is(.console-title, .console-content > *, .chat-welcome, .playground-entry) {
   animation-name: workspace-content-in;
   animation-duration: 280ms;
 }
@@ -395,7 +381,7 @@
 }
 
 .console[data-motion="off"]
-  :is(.console-title, .console-content > *, .chat-welcome, .composer, .chart-panel .bars span) {
+  :is(.console-title, .console-content > *, .chat-welcome, .playground-entry, .chart-panel .bars span) {
   animation: none;
 }
 
@@ -532,62 +518,6 @@
 }
 
 @media (max-width: 600px) {
-  .console .chat-main {
-    padding-block: 14px 16px;
-  }
-
-  .console .chat-welcome {
-    padding-block: 16px 20px;
-  }
-
-  .console .chat-welcome .welcome-mark {
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-  }
-
-  .console .chat-welcome .welcome-mark svg {
-    width: 21px;
-    height: 21px;
-  }
-
-  .console .chat-welcome h1 {
-    margin-top: 10px;
-  }
-
-  .console .chat-welcome .prompts {
-    margin-top: 15px;
-  }
-
-  .console .chat-welcome .prompt {
-    padding-block: 7px;
-    min-height: 48px;
-  }
-
-  .console .composer textarea {
-    height: 64px;
-    min-height: 64px;
-  }
-
-  .console .composer-controls {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px;
-  }
-
-  .console .composer-controls:has(.model-select:nth-child(2)) .model-select:first-child {
-    grid-column: 1 / -1;
-  }
-
-  .console .composer-controls select {
-    max-width: none;
-  }
-
-  .console .composer-controls .icon-send {
-    width: 44px;
-    height: 44px;
-  }
-
   .console .workspace-data-table :is(th, td) {
     padding-inline: 7px;
   }

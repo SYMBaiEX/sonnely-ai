@@ -3,12 +3,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowUp,
+  MessageSquare,
   ArrowUpRight,
   BadgeCheck,
   Fingerprint,
   History,
   Plus,
-  Sparkles,
   Trash2,
   KeyRound,
   Wallet,
@@ -18,6 +18,7 @@ import { models } from "@/lib/models";
 import { providerNames, providerRoute, type ProviderId } from "@/lib/provider-catalog";
 import { readSse } from "@/lib/sse";
 import { CopyButton } from "./shared";
+import { PlaygroundRoute } from "./playground-route";
 import { type Session } from "./wallet";
 
 type Message = { role: "user" | "assistant"; content: string; model?: string };
@@ -81,7 +82,7 @@ export function Chat({
   const legacyStorageKey = "fathom.chats." + owner;
   const current = threads.find((thread) => thread.id === active);
   const activeSample = sample === null ? null : samples[sample];
-  const ready = Boolean(session?.profile && session?.inferenceEnabled);
+  const ready = Boolean(session?.profile && session?.inferenceEnabled && !session.termsRequired);
   const messages: Message[] = activeSample
     ? [
         { role: "user", content: activeSample.prompt },
@@ -271,54 +272,35 @@ export function Chat({
         </Link>
       </aside>
       <section className="chat-main">
-        <div className="chat-tools">
-          <button
-            className="button quiet small mobile-history"
-            type="button"
-            onClick={() => setShowHistory(!showHistory)}
-            aria-expanded={showHistory}
-            aria-controls="playground-history"
-          >
-            <History size={16} /> History
-          </button>
-          <button className="button quiet small" type="button" onClick={start} disabled={busy}>
-            <Plus size={16} /> New chat
-          </button>
-          {activeSample && <span className="pill">Sample transcript</span>}
-        </div>
+        <header className="playground-header">
+          <div className="playground-title">
+            <MessageSquare size={18} aria-hidden="true" />
+            <h1>Playground</h1>
+          </div>
+          <div className="chat-tools">
+            <button
+              className="button quiet small mobile-history"
+              type="button"
+              onClick={() => setShowHistory(!showHistory)}
+              aria-expanded={showHistory}
+              aria-controls="playground-history"
+            >
+              <History size={16} aria-hidden="true" /> History
+            </button>
+            <button className="button quiet small" type="button" onClick={start} disabled={busy}>
+              <Plus size={16} aria-hidden="true" /> New chat
+            </button>
+          </div>
+        </header>
         {!messages.length && (
           <div className="chat-welcome">
-            <span className="welcome-mark">
-              <Sparkles size={27} />
-            </span>
-            <h1>Inference workspace</h1>
-            <p>Explore a sample or run a request with your account.</p>
-            <div className="prompts">
-              {samples.map(({ prompt, title, icon: Icon }, index) => (
-                <button
-                  type="button"
-                  className="button prompt"
-                  key={prompt}
-                  aria-label={prompt}
-                  onClick={() => {
-                    setSample(index);
-                    setActive(null);
-                    setError("");
-                  }}
-                >
-                  <Icon size={19} className="prompt-icon" aria-hidden />
-                  <span>
-                    <strong>{title}</strong>
-                    <span>{prompt}</span>
-                  </span>
-                  <ArrowUpRight size={15} aria-hidden />
-                </button>
-              ))}
-            </div>
+            <h2>Start a conversation</h2>
+            <p>Choose a model and send a prompt.</p>
           </div>
         )}
         {!!messages.length && (
           <div className="messages" aria-label="Messages">
+            {activeSample && <p className="playground-sample-note">Sample transcript</p>}
             {messages.map((message, index) => (
               <article className={"message " + message.role} key={index}>
                 <div className="mono">
@@ -340,71 +322,56 @@ export function Chat({
             )}
           </div>
         )}
-        <form className="composer glass" onSubmit={send}>
-          <textarea
-            rows={3}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            maxLength={12000}
-            aria-label="Message"
-            enterKeyHint="send"
-            placeholder="Write a message…"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && ready && text.trim()) {
-                e.preventDefault();
-                e.currentTarget.form?.requestSubmit();
-              }
-            }}
-          />
-          <div className="between composer-controls">
-            <label className="model-select">
-              <select
-                aria-label="Inference model"
-                value={model}
-                onChange={(e) => {
-                  setModel(e.target.value);
-                  setProvider("near-ai");
-                }}
-                disabled={busy}
-              >
-                {models.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {(routes.length > 1 || !routes.includes(provider)) && (
-              <label className="model-select">
-                <select
-                  aria-label="Inference provider"
-                  value={provider}
-                  onChange={(e) => setProvider(e.target.value as ProviderId)}
-                  disabled={busy}
-                >
-                  {routes.map((id) => (
-                    <option key={id} value={id}>
-                      {providerNames[id]}
-                    </option>
-                  ))}
-                  {!routes.includes(provider) && (
-                    <option value={provider} disabled>
-                      {providerNames[provider]} unavailable
-                    </option>
-                  )}
-                </select>
-              </label>
-            )}
+        <div className="playground-entry">
+          <form id="playground-message-form" className="composer" onSubmit={send}>
+            <textarea
+              rows={3}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              maxLength={12000}
+              aria-label="Message"
+              enterKeyHint="send"
+              placeholder="Write a message…"
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Enter" &&
+                  !e.shiftKey &&
+                  !e.nativeEvent.isComposing &&
+                  ready &&
+                  text.trim() &&
+                  !busy &&
+                  routes.includes(provider)
+                ) {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                }
+              }}
+            />
+          </form>
+          <div className="composer-controls">
+            <PlaygroundRoute
+              model={model}
+              provider={provider}
+              availableProviders={availableProviders}
+              disabled={busy}
+              onChange={(model, provider) => {
+                setModel(model);
+                setProvider(provider);
+                setError("");
+              }}
+            />
             <button
-              className="button accent icon-send"
+              className="button accent playground-send"
               type="submit"
+              form="playground-message-form"
               aria-label="Send message"
-              disabled={!ready || !text.trim() || busy}
+              disabled={!ready || !text.trim() || busy || !routes.includes(provider)}
             >
-              <ArrowUp size={20} />
+              <span>{busy ? "Sending…" : "Send"}</span>
+              <ArrowUp size={17} aria-hidden="true" />
             </button>
           </div>
-        </form>
+        </div>
         {error && (
           <p role="alert" className="error">
             {error}
@@ -422,6 +389,30 @@ export function Chat({
                   ? "History stays in this browser."
                   : "Chats aren’t saved when you leave Playground."}
         </p>
+        {!messages.length && (
+          <section className="playground-starters" aria-labelledby="playground-starters-title">
+            <h2 id="playground-starters-title">Try a sample</h2>
+            <div className="prompts">
+              {samples.map(({ prompt, title, icon: Icon }, index) => (
+                <button
+                  type="button"
+                  className="button prompt"
+                  key={prompt}
+                  aria-label={prompt}
+                  onClick={() => {
+                    setSample(index);
+                    setActive(null);
+                    setError("");
+                  }}
+                >
+                  <Icon size={17} className="prompt-icon" aria-hidden="true" />
+                  <strong>{title}</strong>
+                  <ArrowUpRight size={14} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </section>
     </div>
   );
