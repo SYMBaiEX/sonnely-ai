@@ -267,11 +267,18 @@ export const finishEmail = internalMutation({
   handler: async (ctx, { id, attempts, state, providerId, errorCode }) => {
     const row = await ctx.db.get(id);
     if (row?.state !== "sending" || row.attempts !== attempts) return null;
+    const now = Date.now();
+    const day = 24 * 60 * minute;
+    const nextAt =
+      errorCode === "E_INBOX_TEMPORARY" && attempts >= 4
+        ? // The inbox can hit Cloudflare's account-wide daily write limit.
+          Math.max(now + minute, (Math.floor(now / day) + 1) * day + minute)
+        : now + 2 ** attempts * minute;
     await ctx.db.patch(id, {
       state,
       errorCode,
       ...(providerId ? { providerId } : {}),
-      ...(state === "queued" ? { nextAt: Date.now() + 2 ** attempts * minute } : {}),
+      ...(state === "queued" ? { nextAt } : {}),
     });
     return null;
   },
