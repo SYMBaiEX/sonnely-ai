@@ -29,7 +29,7 @@ const copy = {
     noun: "build",
     lead: "Build a pinned GitHub commit in a clean Linux VM. Watch the logs and retrieve the output after automatic teardown.",
     icon: Container,
-    unavailable: "New builds are unavailable while provider capacity is being set up.",
+    unavailable: "Coming soon",
   },
 } as const;
 
@@ -61,6 +61,7 @@ export function Compute({
   const balance = session?.profile?.balance ?? 0;
   const [minutes, setMinutes] = useState<number>(plan.minutes[0]);
   const [snapshot, setSnapshot] = useState<Snapshot>();
+  const comingSoon = !blackbox && snapshot?.enabled !== true;
   const [selected, setSelected] = useState(initialRun ?? "");
   const [followLog, setFollowLog] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -200,151 +201,162 @@ export function Compute({
         </span>
         <div>
           <h1>{plan.title}</h1>
-          <p>{product.lead}</p>
+          <p>{comingSoon ? "On-demand repository builds in isolated Linux VMs." : product.lead}</p>
         </div>
       </header>
 
-      <div className={styles.grid}>
-        <section className={"panel " + styles.panel} aria-labelledby="compute-open">
-          <h2 id="compute-open">{blackbox ? "Configure a Blackbox" : "Configure a build"}</h2>
+      {comingSoon ? (
+        <section className={"panel " + styles.panel} aria-labelledby="dry-docks-status">
+          <h2 id="dry-docks-status">Coming soon</h2>
           <p className={styles.meta}>
-            {plan.provider} <span aria-hidden>·</span> {plan.size}
+            Build a pinned GitHub commit, follow the logs, and download the output. Each build runs in a
+            dedicated VM that is deleted when the run ends.
           </p>
-          {wallet ? (
-            <form className={styles.form} onSubmit={submit} ref={formView}>
-              {blackbox ? (
-                <>
-                  <label>
-                    Public OCI image digest
-                    <input
-                      name="image"
-                      required
-                      maxLength={240}
-                      placeholder="ghcr.io/owner/image@sha256:…"
-                      spellCheck={false}
-                    />
-                  </label>
-                  <label>
-                    Container HTTP port
-                    <input name="port" type="number" required min={1} max={65535} defaultValue={8080} />
-                  </label>
-                  <p className={styles.hint}>
-                    Phala exposes this port on a public HTTPS endpoint after evidence is available. Use
-                    application-level authentication for private traffic.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <label>
-                    Public GitHub repository
-                    <input
-                      name="repository"
-                      type="url"
-                      required
-                      maxLength={180}
-                      placeholder="https://github.com/owner/repo"
-                      spellCheck={false}
-                    />
-                  </label>
-                  <label>
-                    Commit SHA
-                    <input
-                      name="revision"
-                      required
-                      pattern="[0-9a-fA-F]{40}"
-                      maxLength={40}
-                      placeholder="Full 40-character SHA"
-                      spellCheck={false}
-                    />
-                  </label>
-                  <p className={styles.hint}>
-                    <code>npm ci</code> installs from a lockfile and <code>npm run build</code> runs in the
-                    VM. Downloadable output comes from <code>dist</code>, <code>build</code>, <code>out</code>
-                    , or <code>.next</code>, up to 5 MiB.
-                  </p>
-                </>
-              )}
-              {!blackbox && (
-                <button className="button quiet" type="button" onClick={() => prefillDock(exampleDock)}>
-                  Use MDN example repository
-                </button>
-              )}
-              <label>
-                {blackbox ? "Rental window" : "Build time limit"}
-                <span className={styles.select}>
-                  <select value={minutes} onChange={(event) => setMinutes(Number(event.target.value))}>
-                    {plan.minutes.map((value) => (
-                      <option key={value} value={value}>
-                        {value} minutes
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={16} aria-hidden />
-                </span>
-              </label>
-              {snapshot && !snapshot.enabled && (
-                <p className={styles.notice} role="status">
-                  {product.unavailable}
-                </p>
-              )}
-              {balance < quote.total && snapshot?.enabled && (
-                <p className={styles.notice}>
-                  <Link href="/console/billing">Add credits</Link> to cover the maximum.
-                </p>
-              )}
-              <button className="button primary" type="submit" disabled={disabled}>
-                {pending
-                  ? "Working…"
-                  : (blackbox ? "Rent Blackbox" : "Start paid build") +
-                    " · up to " +
-                    creditBalance(quote.total)}
-              </button>
-            </form>
-          ) : (
-            <p className={styles.notice}>Connect a Solana wallet to start and manage paid runs.</p>
-          )}
-          {(loadError || actionError) && (
-            <p className={styles.notice} role="alert">
-              {actionError || loadError}
-            </p>
-          )}
         </section>
+      ) : (
+        <div className={styles.grid}>
+          <section className={"panel " + styles.panel} aria-labelledby="compute-open">
+            <h2 id="compute-open">{blackbox ? "Configure a Blackbox" : "Configure a build"}</h2>
+            <p className={styles.meta}>
+              {plan.provider} <span aria-hidden>·</span> {plan.size}
+            </p>
+            {wallet ? (
+              <form className={styles.form} onSubmit={submit} ref={formView}>
+                {blackbox ? (
+                  <>
+                    <label>
+                      Public OCI image digest
+                      <input
+                        name="image"
+                        required
+                        maxLength={240}
+                        placeholder="ghcr.io/owner/image@sha256:…"
+                        spellCheck={false}
+                      />
+                    </label>
+                    <label>
+                      Container HTTP port
+                      <input name="port" type="number" required min={1} max={65535} defaultValue={8080} />
+                    </label>
+                    <p className={styles.hint}>
+                      Phala exposes this port on a public HTTPS endpoint after evidence is available. Use
+                      application-level authentication for private traffic.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <label>
+                      Public GitHub repository
+                      <input
+                        name="repository"
+                        type="url"
+                        required
+                        maxLength={180}
+                        placeholder="https://github.com/owner/repo"
+                        spellCheck={false}
+                      />
+                    </label>
+                    <label>
+                      Commit SHA
+                      <input
+                        name="revision"
+                        required
+                        pattern="[0-9a-fA-F]{40}"
+                        maxLength={40}
+                        placeholder="Full 40-character SHA"
+                        spellCheck={false}
+                      />
+                    </label>
+                    <p className={styles.hint}>
+                      <code>npm ci</code> installs from a lockfile and <code>npm run build</code> runs in the
+                      VM. Downloadable output comes from <code>dist</code>, <code>build</code>,{" "}
+                      <code>out</code>, or <code>.next</code>, up to 5 MiB.
+                    </p>
+                  </>
+                )}
+                {!blackbox && (
+                  <button className="button quiet" type="button" onClick={() => prefillDock(exampleDock)}>
+                    Use MDN example repository
+                  </button>
+                )}
+                <label>
+                  {blackbox ? "Rental window" : "Build time limit"}
+                  <span className={styles.select}>
+                    <select value={minutes} onChange={(event) => setMinutes(Number(event.target.value))}>
+                      {plan.minutes.map((value) => (
+                        <option key={value} value={value}>
+                          {value} minutes
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} aria-hidden />
+                  </span>
+                </label>
+                {snapshot && !snapshot.enabled && (
+                  <p className={styles.notice} role="status">
+                    {product.unavailable}
+                  </p>
+                )}
+                {balance < quote.total && snapshot?.enabled && (
+                  <p className={styles.notice}>
+                    <Link href="/console/billing">Add credits</Link> to cover the maximum.
+                  </p>
+                )}
+                <button className="button primary" type="submit" disabled={disabled}>
+                  {pending
+                    ? "Working…"
+                    : (blackbox ? "Rent Blackbox" : "Start paid build") +
+                      " · up to " +
+                      creditBalance(quote.total)}
+                </button>
+              </form>
+            ) : (
+              <p className={styles.notice}>Connect a Solana wallet to start and manage paid runs.</p>
+            )}
+          </section>
 
-        <aside className={"panel " + styles.panel} aria-labelledby="compute-price">
-          <h2 id="compute-price">Pricing</h2>
-          <p className={styles.meta}>
-            {creditBalance(plan.hourlyBase)}/hr provider rate {blackbox && "including disk"}.
-          </p>
-          <dl className={styles.pricing}>
-            <div>
-              <dt>Provider cost at {minutes} min</dt>
-              <dd>{creditBalance(quote.base)}</dd>
-            </div>
-            <div>
-              <dt>Sonnely fee</dt>
-              <dd>{creditBalance(quote.fee)}</dd>
-            </div>
-            <div>
-              <dt>Maximum held</dt>
-              <dd>{creditBalance(quote.total)}</dd>
-            </div>
-          </dl>
-          <p className={styles.hint}>
-            The fee is {computeMarkup}% of the compute cost plus {creditBalance(computeFee)} for a billed run.
-            Unspent credits return to your balance after teardown.
-          </p>
-          <p className={styles.hint}>
-            {blackbox
-              ? "Runtime is rounded up to the minute from the start of provisioning. The VM and disk are deleted at the end of the rental."
-              : "Boat meters machine time by the second. The sandbox is deleted when the build ends or the limit is reached."}
-          </p>
-          <Link href="/console/billing" className={styles.link}>
-            Manage credits <ArrowUpRight size={15} aria-hidden />
-          </Link>
-        </aside>
-      </div>
+          <aside className={"panel " + styles.panel} aria-labelledby="compute-price">
+            <h2 id="compute-price">Pricing</h2>
+            <p className={styles.meta}>
+              {creditBalance(plan.hourlyBase)}/hr provider rate {blackbox && "including disk"}.
+            </p>
+            <dl className={styles.pricing}>
+              <div>
+                <dt>Provider cost at {minutes} min</dt>
+                <dd>{creditBalance(quote.base)}</dd>
+              </div>
+              <div>
+                <dt>Sonnely fee</dt>
+                <dd>{creditBalance(quote.fee)}</dd>
+              </div>
+              <div>
+                <dt>Maximum held</dt>
+                <dd>{creditBalance(quote.total)}</dd>
+              </div>
+            </dl>
+            <p className={styles.hint}>
+              The fee is {computeMarkup}% of the compute cost plus {creditBalance(computeFee)} for a billed
+              run. Unspent credits return to your balance after teardown.
+            </p>
+            <p className={styles.hint}>
+              {blackbox
+                ? "Runtime is rounded up to the minute from the start of provisioning. The VM and disk are deleted at the end of the rental."
+                : "Boat meters machine time by the second. The sandbox is deleted when the build ends or the limit is reached."}
+            </p>
+            <Link href="/console/billing" className={styles.link}>
+              Manage credits <ArrowUpRight size={15} aria-hidden />
+            </Link>
+          </aside>
+        </div>
+      )}
 
-      {wallet && (
+      {(loadError || actionError) && (
+        <p className={styles.notice} role="alert">
+          {actionError || loadError}
+        </p>
+      )}
+
+      {wallet && (!comingSoon || visibleRuns.length > 0 || selected) && (
         <section className={"panel " + styles.panel + " " + styles.runs} aria-labelledby="compute-runs">
           <div className={styles.runHeader}>
             <div>
@@ -428,7 +440,7 @@ export function Compute({
                         <a className="button secondary" href={fileUrl + "receipt"}>
                           Download receipt
                         </a>
-                        {run.spec.kind === "dry-docks" && (
+                        {!comingSoon && run.spec.kind === "dry-docks" && (
                           <button
                             className="button quiet"
                             type="button"

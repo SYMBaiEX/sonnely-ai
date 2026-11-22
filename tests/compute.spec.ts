@@ -206,3 +206,22 @@ test("Dry Dock run links load an owner detail and display live logs and settled 
   await page.getByRole("button", { name: "Use this commit again" }).click();
   await expect(page.getByRole("textbox", { name: "Commit SHA" })).toHaveValue(revision);
 });
+
+test("Dry Docks shows Coming soon without a build form while starts are paused", async ({ page }) => {
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: {
+        profile: { wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk", balance: 1_000_000 },
+        enabled: true,
+        cluster: "mainnet",
+      },
+    }),
+  );
+  await page.route("**/api/sonnely/compute?**", (route) =>
+    route.fulfill({ json: { enabled: false, runs: [], log: "" } }),
+  );
+  await page.goto("/console/dry-docks");
+  await expect(page.getByRole("heading", { name: "Coming soon" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Start paid build/ })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Public GitHub repository" })).toHaveCount(0);
+});

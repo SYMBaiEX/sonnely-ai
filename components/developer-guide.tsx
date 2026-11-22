@@ -330,16 +330,11 @@ export function DeveloperGuide() {
             </Link>
           </section>
           <section id="cloud-builds">
-            <h2>Build a repository in Dry Docks</h2>
+            <h2>Dry Docks builds</h2>
             <p>
-              Open <Link href="/console/dry-docks">Dry Docks</Link> and enter a public GitHub repository and a
-              full commit SHA, or load the pinned MDN example. Each run executes <code>npm ci</code>
-              and <code>npm run build</code> in an isolated Boat VM.
-            </p>
-            <p>
-              Review the credit hold before starting. Follow logs in the console and download an output
-              archive up to 5 MiB. Dry Docks deletes the VM when the run ends and returns unused credits. The
-              run receipt lists metered seconds, provider cost, fees, and released credits.
+              <Link href="/console/dry-docks">Dry Docks</Link> is coming soon. At launch, you’ll be able to
+              build a pinned commit from a public GitHub repository in an isolated Linux VM, follow the logs,
+              and download an output archive.
             </p>
           </section>
           <section id="usage-export">
