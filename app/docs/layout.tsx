@@ -1,16 +1,21 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
+import { BookOpen } from "lucide-react";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "fumadocs-ui/layouts/docs/slots/sidebar";
 import { RootProvider } from "fumadocs-ui/provider/next";
+import { SiteHeader } from "@/components/site-header";
+import { apiOrigin } from "@/lib/api-contract";
+import { themeKey } from "@/lib/appearance";
 import { docsSource } from "@/lib/docs-source";
 import { SonnelyDocsSidebar } from "./sidebar";
+import { DocsThemeSwitch } from "./theme-switch";
 import "./docs.css";
 
 export default function DocumentationLayout({ children }: { children: ReactNode }) {
   return (
-    <RootProvider theme={{ storageKey: "sonnely.theme", defaultTheme: "dark" }}>
+    <RootProvider theme={{ storageKey: themeKey, defaultTheme: "dark" }}>
       <div className="docs-shell">
+        <SiteHeader homeHref={apiOrigin} themeSwitch={<DocsThemeSwitch />} />
         <DocsLayout
           tree={docsSource.getPageTree()}
           themeSwitch={{ enabled: false }}
@@ -18,8 +23,8 @@ export default function DocumentationLayout({ children }: { children: ReactNode 
             url: "/docs",
             title: (
               <span className="docs-brand">
-                <Image src="/brand/sonnely-crimson.svg" width={25} height={25} alt="" />
-                Sonnely Docs
+                <BookOpen size={18} aria-hidden="true" />
+                Documentation
               </span>
             ),
           }}

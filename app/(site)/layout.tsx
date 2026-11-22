@@ -2,8 +2,9 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { MotionSwitch } from "@/components/ambient-motion";
 import { Brand } from "@/components/brand";
-import { ThemeSurface, ThemeSwitch } from "@/components/appearance";
-import { SiteLinks } from "@/components/site-links";
+import { ThemeSurface } from "@/components/appearance";
+import { SiteHeader } from "@/components/site-header";
+import "./site-pages.css";
 
 export default function SiteLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -11,24 +12,16 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
       <a href="#content" className="skip">
         Skip to content
       </a>
-      <header className="site-header">
-        <div className="wrap site-nav glass">
-          <Brand />
-          <SiteLinks />
-          <div className="site-actions">
-            <ThemeSwitch />
-            <Link href="/console" className="button accent">
-              Open console <ArrowUpRight size={15} />
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
       <main id="content">{children}</main>
       <footer className="site-footer">
         <div className="wrap footer-inner">
           <div className="footer-brand">
             <Brand />
             <p>Confidential inference on Solana.</p>
+            <Link href="/docs/quickstart" className="text-link">
+              API quickstart <ArrowUpRight size={14} aria-hidden="true" />
+            </Link>
           </div>
           <nav aria-label="Footer">
             <div className="footer-group">

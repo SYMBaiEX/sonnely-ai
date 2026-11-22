@@ -1,34 +1,106 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowDown, ArrowRight, ArrowUpRight, Fingerprint, KeyRound, Wallet } from "lucide-react";
-import { ModelGuide, CostExample } from "@/components/model-guide";
+import { ModelGuide } from "@/components/model-guide";
+import { CostExample } from "@/components/cost-example";
 import { NearModelDirectory } from "@/components/near-model-directory";
 import { nearCatalog } from "@/lib/near-catalog";
 import { configuredProviders } from "@/lib/managed-access";
 import { ModelCatalog } from "@/components/shared";
 import { Contact } from "@/components/contact";
-import { Scene } from "@/components/scene";
+import { SiteLead, type SiteBrief } from "@/components/site-lead";
 import { JournalIndex } from "@/components/journal-index";
 import { PlatformLinks, ProductContent } from "@/components/product-pages";
 import { isProductPage, productPages } from "@/lib/product-pages";
-import { computeQuote } from "@/lib/compute";
+import { computePlans, computeQuote } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
+import { models } from "@/lib/models";
+import { markupPercent } from "@/lib/pricing";
 
 const pages = {
   ...productPages,
   models: [
     "Model catalog",
-    "Compare live model routes and published rates, then browse the NEAR AI directory by privacy tier.",
+    "Compare the models you can run, what they cost, and where they run. The NEAR AI directory is below.",
   ],
   pricing: [
     "Pay for what you run",
-    "Metered inference with a wallet-funded balance and optional per-key budgets.",
+    "Add USDC to your balance and pay by the token. You can set a budget for each API key.",
   ],
-  blog: ["Field notes", "A closer look at the gateway, the wallet, and how they fit together."],
-  contact: ["Talk to Sonnely", "Tell us what you’re building or get help with your workspace."],
+  blog: [
+    "Field notes",
+    "Notes on how requests run, how you’re billed, and what to check when something breaks.",
+  ],
+  contact: ["Talk to Sonnely", "Tell us what you’re building. If you’re stuck, share what you tried."],
 } as const;
 type Page = keyof typeof pages;
 type Props = { params: Promise<{ page: string }> };
+
+const briefs = {
+  inference: {
+    title: "Inference API",
+    rows: [
+      ["Interface", "Chat Completions"],
+      ["Providers", "NEAR AI · Phala · Tinfoil"],
+      ["Response", "Completion or stream"],
+    ],
+  },
+  observability: {
+    title: "Request lifecycle",
+    rows: [
+      ["Track", "Provider attempts"],
+      ["Measure", "Latency, tokens, cost"],
+      ["Reconcile", "UsageMax receipts"],
+    ],
+  },
+  compute: {
+    title: "Compute products",
+    rows: [
+      ["Blackboxes", "Paid VM rentals"],
+      ["Dry Docks", "Build sandboxes · Coming soon"],
+    ],
+  },
+  blackboxes: {
+    title: "Pilot configuration",
+    rows: [
+      ["Provider", "Phala Cloud"],
+      ["Lease terms", computePlans.blackboxes.minutes.join(" · ") + " min"],
+      ["15-minute estimate", creditBalance(computeQuote("blackboxes", 15).total)],
+    ],
+  },
+  "dry-docks": {
+    title: "Planned build workflow",
+    rows: [
+      ["Source", "Public GitHub commit"],
+      ["Runtime", "Disposable Boat sandbox"],
+      ["Output", "Live logs and artifacts"],
+    ],
+  },
+  models: {
+    title: "Sonnely catalog",
+    rows: [
+      ["Text models", String(models.length)],
+      ["Compatibility", "OpenAI Chat Completions"],
+      ["Rates", "USD per million tokens"],
+    ],
+  },
+  pricing: {
+    title: "Inference billing",
+    rows: [
+      ["Funding", "USDC on Solana"],
+      ["Meter", "Provider-reported tokens"],
+      ["Sonnely markup", markupPercent + "%"],
+    ],
+  },
+  contact: {
+    title: "Contact Sonnely",
+    rows: [
+      ["Workspace", "Access and API support"],
+      ["Billing", "Payments and usage charges"],
+      ["Partners", "Provider integrations"],
+    ],
+  },
+} satisfies Partial<Record<Page, SiteBrief>>;
 
 const entryActions = {
   inference: {
@@ -73,6 +145,18 @@ const entryActions = {
     next: "/console/billing",
     action: "Open billing",
   },
+  blog: {
+    section: "#journal-articles",
+    label: "Browse articles",
+    next: "/docs",
+    action: "Read the docs",
+  },
+  contact: {
+    section: "#support-form",
+    label: "Open support form",
+    next: "/docs/troubleshooting",
+    action: "Troubleshoot the API",
+  },
 } as const;
 
 export function generateStaticParams() {
@@ -94,16 +178,13 @@ export default async function Subpage({ params }: Props) {
     ? entryActions[page as keyof typeof entryActions]
     : null;
   return (
-    <div className={"wrap inner-page page-" + page}>
-      <header className={entryAction ? "page-lead product-lead" : "page-lead"}>
-        <Scene />
-        <Link href="/" className="eyebrow">
-          Sonnely <ArrowUpRight size={13} />
-        </Link>
-        {page === "dry-docks" && <p className="eyebrow product-availability">Coming soon</p>}
-        {page === "blackboxes" && <p className="eyebrow product-availability">Paid pilot</p>}
-        <h1>{title}</h1>
-        <p>{description}</p>
+    <div className={"wrap inner-page market-page page-" + page}>
+      <SiteLead
+        title={title}
+        description={description}
+        status={page === "dry-docks" ? "Coming soon" : page === "blackboxes" ? "Paid pilot" : undefined}
+        brief={(briefs as Partial<Record<Page, SiteBrief>>)[page as Page]}
+      >
         {entryAction && (
           <div className="product-entry-actions">
             <a href={entryAction.section} className="button accent">
@@ -114,7 +195,7 @@ export default async function Subpage({ params }: Props) {
             </Link>
           </div>
         )}
-      </header>
+      </SiteLead>
       {isProductPage(page) && <ProductContent page={page} />}
       {page === "models" && (
         <>
@@ -135,6 +216,7 @@ export default async function Subpage({ params }: Props) {
       )}
       {page === "pricing" && (
         <>
+          <CostExample />
           <div className="model-cards price-cards">
             <article className="panel benefit">
               <Wallet />
@@ -158,13 +240,12 @@ export default async function Subpage({ params }: Props) {
             <article className="panel benefit">
               <Fingerprint />
               <h2>Token rates</h2>
-              <p>Published token rates include a 10% Sonnely markup on provider list rates.</p>
+              <p>Published token rates include a {markupPercent}% Sonnely markup on provider list rates.</p>
               <Link className="text-link" href="/models#available-models">
                 Compare token rates <ArrowUpRight size={16} />
               </Link>
             </article>
           </div>
-          <CostExample />
           <section id="compute-pricing" className="panel stack-panel">
             <h2>Compute pricing</h2>
             <p>

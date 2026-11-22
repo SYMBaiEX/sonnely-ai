@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { apiBasePath, apiOrigin } from "@/lib/api-contract";
@@ -96,15 +96,25 @@ export function HomeDemo() {
       <div className="home-quickstart-intro">
         <h2 id="home-quickstart-heading">Your first API request.</h2>
         <p>
-          <Link href="/console/keys">Create an API key</Link>, set <code>SONNELY_API_KEY</code>, and run an
-          example in your terminal.
+          <Link href="/console/keys">Create an API key</Link> and export it as <code>SONNELY_API_KEY</code>.
+          Pick a language, then copy the example into your terminal or app.
         </p>
-        <Link href="/docs/quickstart" className="text-link">
-          Read the quickstart <ArrowRight size={16} aria-hidden />
-        </Link>
+        <div className="home-quickstart-links">
+          <Link href="/docs/quickstart" className="text-link">
+            Read the quickstart <ArrowRight size={16} aria-hidden />
+          </Link>
+          <Link href="/docs/sdks" className="text-link">
+            SDKs <ArrowUpRight size={14} aria-hidden />
+          </Link>
+        </div>
         <div className="home-api-samples">
           <p id="home-api-example-label">Example</p>
-          <div className="home-api-examples" role="group" aria-labelledby="home-api-example-label">
+          <div
+            className="home-api-segments"
+            role="group"
+            aria-labelledby="home-api-example-label"
+            style={{ "--segment": active } as CSSProperties}
+          >
             {examples.map(({ label }, index) => (
               <button
                 type="button"
@@ -118,14 +128,19 @@ export function HomeDemo() {
           </div>
         </div>
       </div>
-      <div className="home-api">
+      <div className="home-api" data-reveal="fade">
         <div className="home-api-endpoint">
           <span>POST</span>
           <code>{completionPath}</code>
         </div>
         <div className="home-api-request">
           <div className="home-api-pane-head">
-            <div className="home-api-languages" role="group" aria-label="Request language">
+            <div
+              className="home-api-segments"
+              role="group"
+              aria-label="Request language"
+              style={{ "--segment": languages.indexOf(language) } as CSSProperties}
+            >
               {languages.map((option) => (
                 <button
                   type="button"
@@ -177,11 +192,13 @@ export function HomeDemo() {
           </div>
           <div className="home-api-result" aria-live="polite">
             {showJson ? (
-              <pre aria-label="Sample response JSON">
+              <pre key={active} aria-label="Sample response JSON">
                 <code>{JSON.stringify(sampleResponse, null, 2)}</code>
               </pre>
             ) : (
-              <p className={active === 1 ? "mono" : undefined}>{output}</p>
+              <p key={active} className={active === 1 ? "mono" : undefined}>
+                {output}
+              </p>
             )}
           </div>
           <div className="home-api-response-footer">

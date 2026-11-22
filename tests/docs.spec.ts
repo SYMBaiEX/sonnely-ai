@@ -61,6 +61,33 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   expect(legacy.headers().location).toBe("/docs/api");
 });
 
+test("the shared docs header leads to the site and console on desktop and mobile", async ({ page }) => {
+  for (const width of [1440, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/docs/api");
+
+    const header = page.getByRole("banner", { name: "Sonnely" });
+    const nav = header.getByRole("navigation", { name: "Main navigation" });
+    await expect(header.getByRole("link", { name: "Sonnely", exact: true })).toHaveAttribute(
+      "href",
+      "https://sonnely.com",
+    );
+    await expect(nav.getByRole("link", { name: "Docs" })).toHaveAttribute("aria-current", "location");
+    await nav.locator("summary").click();
+    await expect(nav.getByRole("link", { name: /Blackboxes/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+
+    await header.getByRole("link", { name: "Open console" }).click();
+    await expect(page).toHaveURL(/\/console$/);
+    const toggle = page.getByRole("button", { name: "Toggle navigation" });
+    if (await toggle.isVisible()) await toggle.click();
+    await page.getByRole("link", { name: "Documentation", exact: true }).click();
+    await expect(page).toHaveURL(/\/docs$/);
+    await expect(header).toBeVisible();
+  }
+});
+
 test("the docs sidebar groups pages and adopts the Sonnely palette in both themes", async ({
   page,
   context,
@@ -82,7 +109,10 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   const shell = page.locator(".docs-shell");
   await expect(shell).toHaveCSS("background-color", "rgb(12, 11, 14)");
   await expect(sidebar).toHaveCSS("background-color", "rgb(25, 23, 28)");
-  await sidebar.getByRole("switch", { name: "Switch color theme" }).click();
+  await page
+    .getByRole("banner", { name: "Sonnely" })
+    .getByRole("switch", { name: "Switch color theme" })
+    .click();
   await expect(shell).toHaveCSS("background-color", "rgb(238, 240, 250)");
   await expect(sidebar).toHaveCSS("background-color", "rgb(249, 250, 255)");
 

@@ -86,8 +86,9 @@ const cards = [
     id: "usage",
     previewTitle: "Request ledger",
     icon: Activity,
-    title: "Trace spend to a request",
-    description: "See which model and key ran a request, along with its token counts and charge.",
+    title: "See what a request cost",
+    description:
+      "Look up a request to see which model and key ran it, how many tokens it used, and what you paid.",
     link: "/console/usage",
     action: "View usage",
     Preview: UsagePreview,
@@ -113,9 +114,9 @@ export function WorkspacePreview() {
           See pricing <ArrowUpRight size={16} />
         </Link>
       </div>
-      <div className="workspace-previews">
+      <div className="workspace-previews" role="list">
         {cards.map(({ id, previewTitle, icon: Icon, title, description, link, action, Preview }) => (
-          <article className="workspace-preview" key={id}>
+          <article className="workspace-preview" role="listitem" key={id} data-reveal="rise">
             <div className={"workspace-visual workspace-visual-" + id}>
               <img src={"/homepage/" + id + ".webp"} alt="" width={840} height={560} loading="lazy" />
               <figure className="preview-data glass">

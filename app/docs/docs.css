@@ -48,6 +48,27 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   min-height: 100dvh;
 }
 
+.docs-shell > .site-header {
+  position: relative;
+  z-index: 35;
+  background: var(--surface);
+}
+
+.docs-shell .site-nav a[aria-current="location"] {
+  color: var(--accent);
+}
+
+@media (width > 820px) {
+  .docs-shell {
+    --fd-banner-height: 88px;
+  }
+
+  .docs-shell > .site-header {
+    position: sticky;
+    min-height: var(--fd-banner-height);
+  }
+}
+
 .docs-brand {
   display: inline-flex;
   align-items: center;
@@ -157,11 +178,6 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   gap: 0.55rem;
 }
 
-.docs-sidebar-footer .theme-switch {
-  width: 58px;
-  height: 36px;
-}
-
 .docs-sidebar-footer a {
   display: inline-flex;
   align-items: center;
@@ -176,6 +192,20 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   text-underline-offset: 0.25em;
 }
 
+.docs-article-header {
+  padding: clamp(15px, 2.6vw, 29px);
+  margin-bottom: clamp(15px, 2.5vw, 29px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(155deg, var(--card), var(--surface));
+  box-shadow: inset 0 1px 0 var(--rim);
+}
+.docs-article-header h1 {
+  text-wrap: balance;
+}
+.docs-article-header > p {
+  margin-bottom: 0;
+}
 .docs-page-actions {
   display: flex;
   flex-wrap: wrap;

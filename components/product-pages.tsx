@@ -77,10 +77,23 @@ function NextLink({ href, children }: { href: string; children: React.ReactNode 
 
 function ProductSample({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <figure className={"panel " + styles.sample}>
+    <figure className={"panel " + styles.sample} data-reveal="rise">
       <figcaption>{label}</figcaption>
       {children}
     </figure>
+  );
+}
+
+function SampleFacts({ rows }: { rows: readonly (readonly [string, string])[] }) {
+  return (
+    <dl className={styles.sampleStats}>
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -137,10 +150,15 @@ function Observability() {
           tokens, p50, p95 and p99 latency, first-token time, and known provider cost. Cost coverage shows how
           many requests have evidence. Margin covers only requests with both charges and known costs.
         </p>
-        <p>
-          Choose a reporting window of up to 30 days in Sonnely Admin. Each report analyzes up to 2,000 of the
-          newest retained receipts and labels partial coverage.
-        </p>
+        <ProductSample label="Report controls">
+          <SampleFacts
+            rows={[
+              ["Group by", "Provider · Model · UTC day"],
+              ["Window", "Up to 30 days"],
+              ["Coverage", "Up to 2,000 receipts"],
+            ]}
+          />
+        </ProductSample>
         <NextLink href="/docs/observability#export-to-usagemax">Export your workspace usage</NextLink>
       </ProductSection>
       <ProductSection id="reconciliation" title="Reconcile a provider statement.">
@@ -162,10 +180,16 @@ function Observability() {
           Scheduled alerts flag provider attempt errors, high latency, and pending billing recovery. Admin
           shows open and resolved incidents alongside the current state of receipt delivery.
         </p>
-        <p>
-          UsageMax evaluates conditions every five minutes. Provider alerts use at least five attempts in the
-          previous hour, with thresholds of 20% errors and 5 seconds p95 latency.
-        </p>
+        <ProductSample label="Provider alert thresholds">
+          <SampleFacts
+            rows={[
+              ["Evaluation interval", "5 minutes"],
+              ["Error rate", "20%"],
+              ["p95 latency", "5 seconds"],
+            ]}
+          />
+          <p className="caption">Provider alerts use at least five attempts in the previous hour.</p>
+        </ProductSample>
       </ProductSection>
       <ProductSection id="evaluations" title="Evaluate before you roll out.">
         <p>
@@ -210,6 +234,21 @@ function Inference() {
           consuming the stream. Set a cap for one request with <code>max_cost_microusd</code>, alongside daily
           and lifetime limits on the API key.
         </p>
+        <ProductSample label="Streaming request options">
+          <pre>
+            <code>
+              {JSON.stringify(
+                {
+                  stream: true,
+                  stream_options: { include_usage: true },
+                  max_cost_microusd: 500,
+                },
+                null,
+                2,
+              )}
+            </code>
+          </pre>
+        </ProductSample>
         <NextLink href="/docs/streaming">Read the streaming guide</NextLink>
       </ProductSection>
       <ProductSection id="evidence" title="Know the privacy boundary.">
@@ -219,6 +258,15 @@ function Inference() {
           the provider and claim in the optional Sonnely receipt before relying on a specific attestation
           guarantee.
         </p>
+        <ProductSample label="What each layer handles">
+          <SampleFacts
+            rows={[
+              ["Sonnely gateway", "Validation, forwarding, settlement"],
+              ["Provider TEE", "Model execution"],
+              ["Receipt", "Provider-specific evidence"],
+            ]}
+          />
+        </ProductSample>
         <NextLink href="/docs/attestation">Review evidence by provider</NextLink>
       </ProductSection>
     </>
@@ -292,6 +340,15 @@ function Blackboxes() {
           attestation to verify the workload you intended to launch. The lease expires automatically. Stop the
           VM earlier from the console if you finish before its expiry.
         </p>
+        <ProductSample label="Rental lifecycle">
+          <SampleFacts
+            rows={[
+              ["Before start", "Review the credit hold"],
+              ["During the lease", "Inspect available attestation"],
+              ["At the end", "Stop or allow expiry"],
+            ]}
+          />
+        </ProductSample>
         <NextLink href="/console/blackboxes">Check pilot access</NextLink>
       </ProductSection>
     </>
@@ -346,17 +403,39 @@ const pageContent = {
   "dry-docks": DryDocks,
 };
 
+const pageSections = {
+  inference: [
+    ["routing", "Provider routing"],
+    ["streaming", "Streaming"],
+    ["evidence", "Privacy boundary"],
+  ],
+  observability: [
+    ["traces", "Traces"],
+    ["analytics", "Analytics"],
+    ["reconciliation", "Reconciliation"],
+    ["alerts", "Alerts"],
+    ["evaluations", "Evaluations"],
+  ],
+  compute: [],
+  blackboxes: [
+    ["rental", "Rental configuration"],
+    ["attestation", "Attestation"],
+  ],
+  "dry-docks": [],
+} as const;
+
 export function ProductContent({ page }: { page: ProductPage }) {
   const Content = pageContent[page];
+  const sections = pageSections[page];
   return (
     <div className={styles.page}>
-      {page === "observability" && (
-        <nav className={styles.jump} aria-label="Observability sections">
-          <a href="#traces">Traces</a>
-          <a href="#analytics">Analytics</a>
-          <a href="#reconciliation">Reconciliation</a>
-          <a href="#alerts">Alerts</a>
-          <a href="#evaluations">Evaluations</a>
+      {sections.length > 0 && (
+        <nav className={styles.jump} aria-label="On this page">
+          {sections.map(([id, title]) => (
+            <a key={id} href={"#" + id}>
+              {title}
+            </a>
+          ))}
         </nav>
       )}
       <Content />

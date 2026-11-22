@@ -124,6 +124,7 @@ export function Console({
   const signedIn = Boolean(profile);
   const visibleNav = nav.filter((item) => item.id !== "admin" || profile?.role === "admin");
   const selected = nav.find((item) => item.id === section)!;
+  const PageIcon = selected.Icon;
   const sidebar = (items: (typeof nav)[number][]) =>
     items.map(({ id, title, path, Icon }) => (
       <Link
@@ -132,7 +133,7 @@ export function Console({
         onClick={() => setNavOpen(false)}
         aria-current={id === section ? "page" : undefined}
       >
-        <Icon size={18} />
+        <Icon size={18} aria-hidden="true" />
         <span>{title}</span>
       </Link>
     ));
@@ -143,14 +144,16 @@ export function Console({
       <a href="#console-content" className="skip">
         Skip to workspace
       </a>
-      <aside id="console-navigation" className={"rail glass" + (navOpen ? " rail-open" : "")}>
+      <aside ref={navPanel} id="console-navigation" className={"rail glass" + (navOpen ? " rail-open" : "")}>
         <div className="rail-top">
           <Brand />
           <p className="mono rail-caption">Developer console</p>
         </div>
         <nav aria-label="Workspace navigation" className="rail-nav">
+          <p className="mono">Inference</p>
+          {sidebar(visibleNav.slice(0, 4))}
           <p className="mono">Compute</p>
-          {sidebar([...nav.slice(0, 6)])}
+          {sidebar(visibleNav.slice(4, 6))}
           <p className="mono">Workspace</p>
           {sidebar(visibleNav.slice(6))}
         </nav>
@@ -187,7 +190,9 @@ export function Console({
             </span>
             <span>Workspace</span>
             <span className="slash">/</span>
-            <strong>{selected.title}</strong>
+            <strong className="crumb-page">
+              <PageIcon size={15} aria-hidden="true" /> {selected.title}
+            </strong>
           </div>
           <div className="bar-controls">
             <button

@@ -4,6 +4,7 @@ import { nearCatalog } from "@/lib/near-catalog";
 import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
 import { configuredProviders } from "@/lib/managed-access";
+import "../console-design.css";
 
 const sections = [
   "chat",

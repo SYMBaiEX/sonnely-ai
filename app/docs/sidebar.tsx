@@ -2,19 +2,8 @@
 
 import type { Item, Separator } from "fumadocs-core/page-tree";
 import { SidebarItem, SidebarSeparator } from "fumadocs-ui/components/sidebar/base";
-import { useTheme } from "fumadocs-ui/provider/base";
 import { Sidebar, type SidebarProps } from "fumadocs-ui/layouts/docs/slots/sidebar";
-import {
-  ArrowUpRight,
-  BookOpen,
-  Box,
-  ChevronRight,
-  CircleHelp,
-  Fingerprint,
-  Moon,
-  Rocket,
-  Sun,
-} from "lucide-react";
+import { ArrowUpRight, BookOpen, Box, ChevronRight, CircleHelp, Fingerprint, Rocket } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { apiOrigin } from "@/lib/api-contract";
 
@@ -48,26 +37,6 @@ function PageLink({ item }: { item: Item }) {
   );
 }
 
-function DocsThemeSwitch() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const light = resolvedTheme === "light";
-  return (
-    <button
-      className="theme-switch"
-      type="button"
-      role="switch"
-      aria-label="Switch color theme"
-      aria-checked={light}
-      data-light={light}
-      suppressHydrationWarning
-      onClick={() => setTheme(light ? "dark" : "light")}
-    >
-      <Moon size={15} aria-hidden="true" />
-      <Sun size={15} aria-hidden="true" />
-    </button>
-  );
-}
-
 export function SonnelyDocsSidebar(props: SidebarProps) {
   return (
     <Sidebar
@@ -87,7 +56,6 @@ export function SonnelyDocsSidebar(props: SidebarProps) {
               Status <ArrowUpRight size={13} aria-hidden="true" />
             </a>
           </nav>
-          <DocsThemeSwitch />
         </div>
       }
     />

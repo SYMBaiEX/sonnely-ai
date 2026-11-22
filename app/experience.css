@@ -60,9 +60,6 @@ html[data-initial-theme="light"] .theme-root,
 .product-entry-actions > a {
   min-height: 44px;
 }
-#available-models {
-  scroll-margin-top: 123px;
-}
 .doc-nav {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -476,7 +473,7 @@ html[data-initial-theme="light"] .theme-root,
 }
 .content-section,
 .content-section h2 {
-  scroll-margin-top: 110px;
+  scroll-margin-top: var(--site-anchor-offset, 110px);
 }
 
 .preview-data figcaption {
@@ -624,7 +621,7 @@ html[data-initial-theme="light"] .theme-root,
 
 .catalog-list {
   container: catalog / inline-size;
-  scroll-margin-top: 110px;
+  scroll-margin-top: var(--site-anchor-offset, 110px);
   margin-bottom: 16px;
 }
 .catalog-list table {
@@ -1084,7 +1081,7 @@ html[data-initial-theme="light"] .theme-root,
   }
 }
 
-@media (721px <= width <= 930px) {
+@media (820px < width <= 930px) {
   .site-nav {
     gap: 12px;
     padding-inline: 12px;
@@ -1095,6 +1092,8 @@ html[data-initial-theme="light"] .theme-root,
   .site-actions .button {
     padding-inline: 12px;
   }
+}
+@media (721px <= width <= 930px) {
   .console-bar .command-toggle {
     padding-inline: 10px;
   }
@@ -1258,7 +1257,6 @@ html[data-initial-theme="light"] .theme-root,
 }
 
 .near-directory {
-  scroll-margin-top: 7rem;
   margin-block: clamp(2.5rem, 5vw, 4.5rem);
 }
 

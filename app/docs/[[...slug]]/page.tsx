@@ -50,12 +50,14 @@ export default async function DocumentationPage({ params }: Props) {
       tableOfContent={{ style: "block" }}
       tableOfContentPopover={{ style: "block" }}
     >
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      <div className="docs-page-actions">
-        <MarkdownCopyButton markdownUrl={markdownUrl} />
-        <a href={markdownUrl}>View Markdown</a>
-      </div>
+      <header className="docs-article-header">
+        <DocsTitle>{page.data.title}</DocsTitle>
+        <DocsDescription>{page.data.description}</DocsDescription>
+        <div className="docs-page-actions">
+          <MarkdownCopyButton markdownUrl={markdownUrl} />
+          <a href={markdownUrl}>View Markdown</a>
+        </div>
+      </header>
       <DocsBody>
         <Content components={components} />
       </DocsBody>

@@ -38,7 +38,7 @@ export default function Home() {
       </section>
       <div className="wrap home">
         <HomeDemo />
-        <nav className="home-platform" aria-label="Platform integrations">
+        <nav className="home-platform" data-reveal="fade" aria-label="Platform integrations">
           <Link href="/docs/billing">
             <Wallet size={18} aria-hidden="true" />
             <span>
@@ -65,20 +65,28 @@ export default function Home() {
           </Link>
         </nav>
         <HomeCapabilities />
-        <PlatformLinks />
         <HomeModelList />
         <HomeWorkloads />
         <WorkspacePreview />
+        <PlatformLinks />
         <HomeResources />
-        <section className="closing home-closing">
+        <section className="closing home-closing" data-reveal="fade">
           <Scene />
           <div>
             <h2>Start in the console.</h2>
-            <p>Explore a local sample or connect a Solana wallet.</p>
+            <p>
+              Try a sample in the playground. When you’re ready to run a live request, connect your Solana
+              wallet.
+            </p>
           </div>
-          <Link className="button accent" href="/console">
-            Open console <ArrowUpRight size={16} />
-          </Link>
+          <div className="actions">
+            <Link className="button quiet" href="/docs/sdks">
+              SDKs <ArrowUpRight size={15} aria-hidden="true" />
+            </Link>
+            <Link className="button accent" href="/console">
+              Open console <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
         </section>
       </div>
     </>

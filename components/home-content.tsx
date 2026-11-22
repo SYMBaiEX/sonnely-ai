@@ -3,87 +3,169 @@ import {
   ArrowRight,
   ArrowUpRight,
   Braces,
+  Check,
   Code2,
   FileText,
   Fingerprint,
   KeyRound,
   Plus,
   ScanLine,
+  Server,
   Wallet,
 } from "lucide-react";
 import { articles } from "@/lib/journal";
-import { limits } from "@/lib/api-contract";
+import { apiBasePath, limits } from "@/lib/api-contract";
 import { models } from "@/lib/models";
+
+function RouteSample() {
+  return (
+    <div className="gateway-sample gateway-route">
+      <p>Example provider route</p>
+      <ul>
+        <li data-selected="">
+          <Server size={15} aria-hidden="true" /> <strong>NEAR AI</strong>
+          <span>
+            <Check size={13} aria-hidden="true" /> Pinned
+          </span>
+        </li>
+        <li>
+          <Server size={15} aria-hidden="true" /> Phala
+        </li>
+        <li>
+          <Server size={15} aria-hidden="true" /> Tinfoil
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function EndpointSample() {
+  return (
+    <div className="gateway-sample gateway-endpoint">
+      <span>POST</span>
+      <code>
+        {apiBasePath}/chat/
+        <wbr />
+        completions
+      </code>
+    </div>
+  );
+}
+
+function BudgetSample() {
+  return (
+    <div className="gateway-sample gateway-budget">
+      <p>Example key budget</p>
+      <dl>
+        <div>
+          <dt>Daily limit</dt>
+          <dd>$5.00</dd>
+        </div>
+        <div>
+          <dt>Lifetime limit</dt>
+          <dd>$75.00</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function FundingPath() {
+  return (
+    <div className="gateway-sample gateway-funding">
+      <span>USDC on Solana</span>
+      <ArrowRight size={16} aria-hidden="true" />
+      <span>Compute credits</span>
+    </div>
+  );
+}
 
 const capabilities = [
   {
+    id: "route",
     icon: Fingerprint,
     title: "Confidential compute",
-    body: "Select a supported confidential route through NEAR AI, Phala, or Tinfoil.",
+    body: "Pick a confidential provider and check the evidence it publishes about where the model ran.",
     href: "/inference#evidence",
     action: "Verify the provider",
+    Sample: RouteSample,
   },
   {
+    id: "api",
     icon: Braces,
     title: "OpenAI-compatible requests",
-    body: "Use your existing Chat Completions client with Sonnely’s endpoint and a model ID.",
+    body: "Keep your Chat Completions client. Point it at Sonnely and choose a model ID.",
     href: "/docs/api",
     action: "See the API",
+    Sample: EndpointSample,
   },
   {
+    id: "budget",
     icon: KeyRound,
     title: "A budget for each key",
-    body: "Set daily and lifetime limits on each key. See tokens and charges in Usage.",
+    body: "Set daily and lifetime limits for each key. See what each request cost in Usage.",
     href: "/docs/keys",
     action: "Set up API keys",
+    Sample: BudgetSample,
   },
   {
+    id: "funding",
     icon: Wallet,
     title: "Solana sign-in and funding",
-    body: "Sign in with your wallet and approve USDC top-ups when checkout is enabled.",
+    body: "Sign in with your Solana wallet. When checkout is available, top up with USDC.",
     href: "/docs/billing",
     action: "See how funding works",
+    Sample: FundingPath,
   },
 ] as const;
 
 const workloads = [
   {
     icon: FileText,
-    title: "Synthesize documents",
-    body: "Turn a set of notes into a brief, extract decisions, or compare short excerpts.",
+    title: "Make sense of messy notes",
+    prompt: "What did we decide, and what’s still open?",
     model: models[0],
   },
   {
     icon: ScanLine,
-    title: "Extract and classify",
-    body: "Identify fields, label a support ticket, or turn a short response into a consistent schema.",
+    title: "Pull out the details",
+    prompt: "Find the owner and due date in this handoff.",
     model: models[1],
   },
   {
     icon: Code2,
-    title: "Work through code",
-    body: "Explain an unfamiliar function, summarize a small diff, or draft a test plan for review.",
+    title: "Read unfamiliar code",
+    prompt: "Explain how this retry delay changes after each failure.",
     model: models[2],
   },
 ] as const;
 
 export function HomeCapabilities() {
   return (
-    <section className="section home-split home-capabilities" aria-labelledby="capabilities-heading">
-      <header className="home-section-intro">
-        <p className="eyebrow">The gateway</p>
+    <section className="section home-capabilities" aria-labelledby="capabilities-heading">
+      <p className="eyebrow">The gateway</p>
+      <header className="section-head">
         <h2 id="capabilities-heading">From request to receipt.</h2>
-        <p>Run a model, set a budget, and see what each request cost.</p>
+        <p>Pick where a request runs, set a limit, and see what you were charged.</p>
       </header>
-      <ul className="capability-list" role="list">
-        {capabilities.map(({ icon: Icon, title, body, href, action }) => (
-          <li key={title}>
-            <Link href={href}>
-              <Icon size={19} aria-hidden="true" />
-              <div>
-                <h3>{title}</h3>
-                <p>{body}</p>
+      <ul className="gateway-grid" role="list">
+        {capabilities.map(({ id, icon: Icon, title, body, href, action, Sample }) => (
+          <li
+            key={id}
+            className={"gateway-tile gateway-tile-" + id}
+            data-reveal={id === "route" ? "fade" : "rise"}
+          >
+            <Link href={href} aria-labelledby={"capability-" + id}>
+              <div className="gateway-tile-copy">
+                <span className="home-feature-icon">
+                  <Icon size={19} aria-hidden="true" />
+                </span>
+                <div>
+                  <h3 id={"capability-" + id}>{title}</h3>
+                  <p>{body}</p>
+                </div>
               </div>
+              <Sample />
               <span className="text-link">
                 {action} <ArrowUpRight size={14} aria-hidden="true" />
               </span>
@@ -97,16 +179,16 @@ export function HomeCapabilities() {
 
 export function HomeWorkloads() {
   return (
-    <section className="section" aria-labelledby="workloads-heading">
+    <section className="section home-workloads" aria-labelledby="workloads-heading">
       <div className="section-head">
         <h2 id="workloads-heading">Start with a real task.</h2>
       </div>
       <div className="home-workload-grid">
-        {workloads.map(({ icon: Icon, title, body, model }) => (
-          <article className="workload-card" key={title}>
+        {workloads.map(({ icon: Icon, title, prompt, model }) => (
+          <article className="workload-card" key={title} data-reveal="rise">
             <Icon size={20} aria-hidden="true" />
             <h3>{title}</h3>
-            <p>{body}</p>
+            <blockquote>“{prompt}”</blockquote>
             <Link className="text-link" href={"/console?model=" + encodeURIComponent(model.id)}>
               Try {model.name} <ArrowUpRight size={14} aria-hidden="true" />
             </Link>
@@ -133,7 +215,7 @@ export function HomeResources() {
           {featured.map((slug) => {
             const article = articles.find((item) => item.slug === slug)!;
             return (
-              <Link href={"/blog/" + slug} className="resource-row" key={slug}>
+              <Link href={"/blog/" + slug} className="resource-row" key={slug} data-reveal="rise">
                 <span>{article.category}</span>
                 <div>
                   <h3>{article.title}</h3>
@@ -153,16 +235,16 @@ export function HomeResources() {
           </Link>
         </div>
         <div className="faq">
-          <details>
+          <details name="home-questions" data-reveal="fade">
             <summary>
               What can I try without a wallet? <Plus size={17} aria-hidden="true" />
             </summary>
             <p>
-              Explore the model catalog and run a local sample in the playground. Live requests require an
-              eligible wallet account and available credits.
+              Explore the model catalog or try a sample in the playground. To send a live request, connect an
+              eligible wallet and add credits.
             </p>
           </details>
-          <details>
+          <details name="home-questions" data-reveal="fade">
             <summary>
               What can I send through the API? <Plus size={17} aria-hidden="true" />
             </summary>
@@ -172,7 +254,7 @@ export function HomeResources() {
               <Link href="/docs/api#request-limits">request limits</Link> for the JSON size cap.
             </p>
           </details>
-          <details>
+          <details name="home-questions" data-reveal="fade">
             <summary>
               What does the usage ledger store? <Plus size={17} aria-hidden="true" />
             </summary>
@@ -182,7 +264,7 @@ export function HomeResources() {
               <Link href="/docs/attestation#data-handling">Read about data handling</Link>.
             </p>
           </details>
-          <details>
+          <details name="home-questions" data-reveal="fade">
             <summary>
               Can I use a Solana Seeker? <Plus size={17} aria-hidden="true" />
             </summary>

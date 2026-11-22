@@ -178,6 +178,40 @@ test("the visualizer fades while reading, plays at the footer and shares its set
   await expect.poll(() => pixels("all")).toBe(0);
 });
 
+test("public anchors clear the mobile header and follow motion preferences", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+
+  const root = page.locator("html");
+  const tile = page.locator(".gateway-tile").first();
+  await expect(root).toHaveCSS("scroll-behavior", "smooth");
+  await expect(tile).toHaveCSS("animation-name", "site-reveal");
+  await page
+    .getByRole("region", { name: "Private AI." })
+    .getByRole("link", { name: "API quickstart" })
+    .click();
+  await expect(page).toHaveURL(/#quickstart$/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const top = document.getElementById("quickstart")!.getBoundingClientRect().top;
+        const navBottom = document.querySelector(".site-nav")!.getBoundingClientRect().bottom;
+        return top > navBottom + 12 && top < navBottom + 60;
+      }),
+    )
+    .toBe(true);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(root).toHaveCSS("scroll-behavior", "auto");
+  await expect(tile).toHaveCSS("animation-name", "none");
+
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.getByRole("switch", { name: "Ambient motion" }).click();
+  await expect(root).toHaveCSS("scroll-behavior", "auto");
+  await expect(tile).toHaveCSS("animation-name", "none");
+});
+
 test("the homepage offers a copyable request and links to the selected model", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
@@ -187,7 +221,9 @@ test("the homepage offers a copyable request and links to the selected model", a
   await hero.getByRole("link", { name: "API quickstart" }).click();
   await expect(page).toHaveURL(/#quickstart$/);
   await expect(demo.locator("pre")).toContainText("Turn these handoff notes into a brief.");
-  await demo.getByRole("button", { name: "Extract", exact: true }).click();
+  const extract = demo.getByRole("button", { name: "Extract", exact: true });
+  await extract.click();
+  await expect(extract).toHaveAttribute("aria-pressed", "true");
   await expect(demo.getByText('{ "owner": "Rin", "due": "Friday" }')).toBeVisible();
   await demo.getByRole("button", { name: "Copy request" }).click();
   await expect(demo.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
@@ -242,6 +278,12 @@ test("the homepage offers a copyable request and links to the selected model", a
     "href",
     "/console?model=deepseek-ai%2FDeepSeek-V4.1-Flash-1017",
   );
+  const gateway = page.getByRole("region", { name: "From request to receipt." });
+  await expect(gateway.getByRole("link", { name: "Confidential compute" })).toHaveAttribute(
+    "href",
+    "/inference#evidence",
+  );
+  await expect(gateway.getByText("Pinned", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 720 });
   await expect(list.getByRole("link", { name: /Qwen 3.6 35B/ })).toBeVisible();
   expect(await list.evaluate((element) => element.scrollWidth)).toBe(
@@ -261,6 +303,26 @@ test("the homepage offers a copyable request and links to the selected model", a
         ),
     )
     .toBe(true);
+  const faq = page.getByRole("region", { name: "Good to know." });
+  const firstQuestion = faq.locator("summary").filter({ hasText: "What can I try without a wallet?" });
+  await firstQuestion.focus();
+  await firstQuestion.press("Enter");
+  await expect(faq.getByText("Explore the model catalog", { exact: false })).toBeVisible();
+  await faq.locator("summary").filter({ hasText: "What can I send through the API?" }).click();
+  await expect(faq.getByText("Explore the model catalog", { exact: false })).toBeHidden();
+  await expect(faq.getByRole("link", { name: "request limits" })).toBeVisible();
+});
+
+test("the pricing estimate updates with model and token inputs", async ({ page }) => {
+  await page.goto("/pricing");
+  const estimate = page.getByRole("region", { name: "Estimate a request" });
+  await expect(estimate.locator("output")).toHaveText("$0.00462");
+  await estimate.getByLabel("Model").selectOption({ label: "GLM 5.3 Flash" });
+  await expect(estimate.locator("output")).toHaveText("$0.00143");
+  await estimate.getByLabel("Output tokens").fill("0");
+  await expect(estimate.locator("output")).toHaveText("$0.00088");
+  await estimate.getByLabel("Output tokens").fill("-1");
+  await expect(estimate.locator("output")).toHaveText("Check token counts");
 });
 
 test("journal filtering, contact topics and mobile navigation remain usable", async ({ page }) => {
@@ -275,7 +337,15 @@ test("journal filtering, contact topics and mobile navigation remain usable", as
   await expect(page.getByRole("combobox", { name: "Topic" })).toHaveValue("Billing");
   await page.goto("/models");
   await expect(page.getByRole("table").getByText("$0.0066", { exact: true })).toBeVisible();
-  for (const path of ["/", "/docs", "/blog", "/contact", "/console/admin"]) {
+  for (const path of [
+    "/",
+    "/docs",
+    "/blog",
+    "/contact",
+    "/console",
+    "/console/blackboxes",
+    "/console/admin",
+  ]) {
     await page.goto(path);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   }

@@ -13,7 +13,7 @@ export function HomeModelList() {
           Compare models and pricing <ArrowRight size={16} aria-hidden="true" />
         </Link>
       </div>
-      <div className="home-model-catalog">
+      <div className="home-model-catalog" data-reveal="fade">
         <div className="home-model-columns" aria-hidden="true">
           <span>Model</span>
           <span>Inference</span>
