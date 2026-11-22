@@ -1,5 +1,6 @@
 "use client";
 
+import { UsageMax } from "./usage-max";
 import { useEffect, useEffectEvent, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowUpRight,
@@ -513,6 +514,7 @@ export function Usage({
           <p className="caption">No request breakdown for this period.</p>
         )}
       </section>
+      {signedIn && <UsageMax days={range} hasUsage={rows.some((row) => row.status === "complete")} />}
     </>
   );
 }

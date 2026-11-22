@@ -13,6 +13,11 @@ import styles from "./compute.module.css";
 type Snapshot = FunctionReturnType<typeof api.compute.list>;
 type Run = Snapshot["runs"][number];
 
+const exampleDock = {
+  repository: "https://github.com/mdn/client-toolchain-example",
+  revision: "23fdd12e35684be99fd7273d147997ec60755c62",
+};
+
 const copy = {
   blackboxes: {
     noun: "rental",
@@ -40,7 +45,15 @@ function details(run: Run) {
     : run.spec.repository.replace("https://github.com/", "") + " · " + run.spec.revision.slice(0, 8);
 }
 
-export function Compute({ kind, session }: { kind: ComputeKind; session?: Session | null }) {
+export function Compute({
+  kind,
+  session,
+  initialRun,
+}: {
+  kind: ComputeKind;
+  session?: Session | null;
+  initialRun?: string;
+}) {
   const plan = computePlans[kind];
   const product = copy[kind];
   const blackbox = kind === "blackboxes";
@@ -48,19 +61,59 @@ export function Compute({ kind, session }: { kind: ComputeKind; session?: Sessio
   const balance = session?.profile?.balance ?? 0;
   const [minutes, setMinutes] = useState<number>(plan.minutes[0]);
   const [snapshot, setSnapshot] = useState<Snapshot>();
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState(initialRun ?? "");
+  const [followLog, setFollowLog] = useState(true);
+  const [copied, setCopied] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
   const [pending, setPending] = useState(false);
   const attempt = useRef<{ input: string; id: string }>(null);
   const logView = useRef<HTMLPreElement>(null);
+  const formView = useRef<HTMLFormElement>(null);
   const runs = snapshot?.runs ?? [];
-  const run = runs.find((item) => item.id === selected) ?? runs[0];
+  const run =
+    runs.find((item) => item.id === selected) ??
+    (snapshot?.detail?.id === selected ? snapshot.detail : undefined) ??
+    (selected ? undefined : runs[0]);
+  const log = snapshot?.selected === run?.id ? snapshot?.log : undefined;
   const id = run?.id ?? "";
   const quote = computeQuote(kind, minutes);
   const reserved = runs.reduce((sum, item) => sum + (item.active ? item.reserve : 0), 0);
   const spend = runs.reduce((sum, item) => sum + (item.charged ?? 0), 0);
-  const params = "compute?kind=" + kind + (id ? "&id=" + encodeURIComponent(id) : "");
+  const target = selected || id;
+  const params = "compute?kind=" + kind + (target ? "&id=" + encodeURIComponent(target) : "");
+  const visibleRuns = run && !runs.some((item) => item.id === run.id) ? [run, ...runs] : runs;
+
+  useEffect(() => {
+    if (logView.current && followLog) logView.current.scrollTop = logView.current.scrollHeight;
+  }, [log, followLog]);
+
+  function prefillDock(input: { repository: string; revision: string }, time?: number) {
+    const repository = formView.current?.elements.namedItem("repository");
+    const revision = formView.current?.elements.namedItem("revision");
+    if (!(repository instanceof HTMLInputElement) || !(revision instanceof HTMLInputElement)) return;
+    repository.value = input.repository;
+    revision.value = input.revision;
+    if (time) setMinutes(time);
+    repository.focus();
+  }
+
+  function selectRun(runId: string) {
+    setSelected(runId);
+    setFollowLog(true);
+    setCopied(false);
+  }
+
+  async function copyRunLink() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("run", id);
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setCopied(true);
+    } catch {
+      setActionError("Unable to copy the run link.");
+    }
+  }
 
   useEffect(() => {
     if (!wallet) return;
@@ -73,7 +126,7 @@ export function Compute({ kind, session }: { kind: ComputeKind; session?: Sessio
         if (!current) return;
         setSnapshot(next);
         setLoadError("");
-        if (next.runs.some((item) => item.active)) delay = 2500;
+        if (next.detail?.active || next.runs.some((item) => item.active)) delay = 2500;
       } catch (error) {
         if (!current) return;
         setLoadError(error instanceof Error ? error.message : "Compute usage is unavailable.");
@@ -108,7 +161,7 @@ export function Compute({ kind, session }: { kind: ComputeKind; session?: Sessio
     try {
       const response = await request<{ id: string }>("compute", { action: "open", spec, minutes, reference });
       attempt.current = null;
-      setSelected(response.id);
+      selectRun(response.id);
       setSnapshot(await request<Snapshot>("compute?kind=" + kind + "&id=" + response.id));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Unable to start this run.");
@@ -158,7 +211,7 @@ export function Compute({ kind, session }: { kind: ComputeKind; session?: Sessio
             {plan.provider} <span aria-hidden>·</span> {plan.size}
           </p>
           {wallet ? (
-            <form className={styles.form} onSubmit={submit}>
+            <form className={styles.form} onSubmit={submit} ref={formView}>
               {blackbox ? (
                 <>
                   <label>
@@ -210,6 +263,11 @@ export function Compute({ kind, session }: { kind: ComputeKind; session?: Sessio
                     , or <code>.next</code>, up to 5 MiB.
                   </p>
                 </>
+              )}
+              {!blackbox && (
+                <button className="button quiet" type="button" onClick={() => prefillDock(exampleDock)}>
+                  Use MDN example repository
+                </button>
               )}
               <label>
                 {blackbox ? "Rental window" : "Build time limit"}
@@ -302,17 +360,19 @@ export function Compute({ kind, session }: { kind: ComputeKind; session?: Sessio
               </span>
             </div>
           </div>
-          {!run ? (
+          {!run && (!selected || !snapshot) ? (
             <p className={styles.notice}>{snapshot ? "No runs yet." : "Loading compute usage…"}</p>
+          ) : !run && !runs.length ? (
+            <p className={styles.notice}>This run is unavailable in this wallet.</p>
           ) : (
             <div className={styles.runGrid}>
               <div className={styles.runList} aria-label={"Recent " + product.noun + "s"}>
-                {runs.map((item) => (
+                {visibleRuns.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     aria-pressed={id === item.id}
-                    onClick={() => setSelected(item.id)}
+                    onClick={() => selectRun(item.id)}
                   >
                     <strong>{details(item)}</strong>
                     <span>
@@ -324,87 +384,145 @@ export function Compute({ kind, session }: { kind: ComputeKind; session?: Sessio
                   </button>
                 ))}
               </div>
-              <div className={styles.runDetail}>
-                <div className={styles.runHeader}>
-                  <h3>{details(run)}</h3>
-                  <span className={styles.state}>{status(run)}</span>
-                </div>
-                <p className={styles.meta}>
-                  {run.active
-                    ? creditBalance(run.reserve) +
-                      " held" +
-                      (run.expiresAt ? " · ends " + new Date(run.expiresAt).toLocaleTimeString() : "")
-                    : creditBalance(run.charged ?? 0) + " charged · " + (run.seconds ?? 0) + " s metered"}
-                </p>
-                {!run.active && (
-                  <p className={styles.hint}>
-                    Provider cost {creditBalance(run.base ?? 0)} · Sonnely fee {creditBalance(run.fee ?? 0)}
+              {!run ? (
+                <p className={styles.notice}>This run is unavailable in this wallet.</p>
+              ) : (
+                <div className={styles.runDetail}>
+                  <div className={styles.runHeader}>
+                    <h3>{details(run)}</h3>
+                    <span className={styles.state}>{status(run)}</span>
+                  </div>
+                  <p className={styles.meta}>
+                    {run.active
+                      ? creditBalance(run.reserve) +
+                        " held" +
+                        (run.expiresAt ? " · ends " + new Date(run.expiresAt).toLocaleTimeString() : "")
+                      : creditBalance(run.charged ?? 0) + " charged · " + (run.seconds ?? 0) + " s metered"}
                   </p>
-                )}
-                {run.message && <p className={styles.hint}>{run.message}</p>}
-                {run.composeHash && (
-                  <p className={styles.hash}>
-                    Compose hash <code>{run.composeHash}</code>
-                  </p>
-                )}
-                {run.hasEvidence && (
-                  <p className={styles.hint}>
-                    Phala provided a hardware quote. Verify the quote and workload measurements before sending
-                    secrets.
-                  </p>
-                )}
-                <div className={styles.actions}>
-                  {run.endpoint && (
-                    <a className="button secondary" href={run.endpoint} target="_blank" rel="noreferrer">
-                      Open workload <ArrowUpRight size={16} />
-                    </a>
+                  {!run.active && (
+                    <p className={styles.hint}>
+                      Provider cost {creditBalance(run.base ?? 0)} · Sonnely fee {creditBalance(run.fee ?? 0)}
+                    </p>
+                  )}
+                  {!blackbox && <DockTimeline run={run} />}
+                  {run.message && <p className={styles.hint}>{run.message}</p>}
+                  {run.composeHash && (
+                    <p className={styles.hash}>
+                      Compose hash <code>{run.composeHash}</code>
+                    </p>
                   )}
                   {run.hasEvidence && (
-                    <a className="button secondary" href={fileUrl + "evidence"}>
-                      <ShieldCheck size={16} /> Download evidence
-                    </a>
+                    <p className={styles.hint}>
+                      Phala provided a hardware quote. Verify the quote and workload measurements before
+                      sending secrets.
+                    </p>
                   )}
-                  {run.hasArtifact && (
-                    <a className="button secondary" href={fileUrl + "artifact"}>
-                      <Download size={16} /> Download artifact
-                    </a>
+                  <div className={styles.actions}>
+                    {!blackbox && (
+                      <button className="button quiet" type="button" onClick={() => void copyRunLink()}>
+                        {copied ? "Link copied" : "Copy run link"}
+                      </button>
+                    )}
+                    {!blackbox && !run.active && (
+                      <>
+                        <a className="button secondary" href={fileUrl + "receipt"}>
+                          Download receipt
+                        </a>
+                        {run.spec.kind === "dry-docks" && (
+                          <button
+                            className="button quiet"
+                            type="button"
+                            onClick={() => {
+                              if (run.spec.kind === "dry-docks") prefillDock(run.spec, run.minutes);
+                            }}
+                          >
+                            Use this commit again
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {run.endpoint && (
+                      <a className="button secondary" href={run.endpoint} target="_blank" rel="noreferrer">
+                        Open workload <ArrowUpRight size={16} />
+                      </a>
+                    )}
+                    {run.hasEvidence && (
+                      <a className="button secondary" href={fileUrl + "evidence"}>
+                        <ShieldCheck size={16} /> Download evidence
+                      </a>
+                    )}
+                    {run.hasArtifact && (
+                      <a className="button secondary" href={fileUrl + "artifact"}>
+                        <Download size={16} /> Download artifact
+                      </a>
+                    )}
+                    {run.active && run.phase !== "teardown" && (
+                      <button
+                        className="button secondary"
+                        type="button"
+                        disabled={pending || run.stopRequested}
+                        onClick={stop}
+                      >
+                        {run.stopRequested ? "Stop requested" : blackbox ? "End rental" : "Cancel build"}
+                      </button>
+                    )}
+                  </div>
+                  {!blackbox && (
+                    <div className={styles.log}>
+                      <div>
+                        <Terminal size={16} aria-hidden />{" "}
+                        <b>{run.active ? "Live build log" : "Build log"}</b>
+                        {run.hasLog && (
+                          <a href={fileUrl + "log"} download>
+                            Download log
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          aria-pressed={followLog}
+                          onClick={() => setFollowLog(!followLog)}
+                        >
+                          Follow
+                        </button>
+                      </div>
+                      <pre tabIndex={0} ref={logView} aria-label="Build output">
+                        {log || (run.active ? "Waiting for build output…" : "No log available.")}
+                      </pre>
+                    </div>
                   )}
-                  {run.active && run.phase !== "teardown" && (
-                    <button
-                      className="button secondary"
-                      type="button"
-                      disabled={pending || run.stopRequested}
-                      onClick={stop}
-                    >
-                      {run.stopRequested ? "Stop requested" : blackbox ? "End rental" : "Cancel build"}
-                    </button>
+                  {run.purgeAt && (
+                    <p className={styles.hint}>
+                      Logs and artifacts expire {new Date(run.purgeAt).toLocaleDateString()}.
+                    </p>
                   )}
                 </div>
-                {!blackbox && (
-                  <div className={styles.log}>
-                    <div>
-                      <Terminal size={16} aria-hidden /> <b>{run.active ? "Live build log" : "Build log"}</b>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (logView.current) logView.current.scrollTop = logView.current.scrollHeight;
-                        }}
-                      >
-                        Latest
-                      </button>
-                    </div>
-                    <pre tabIndex={0} ref={logView} aria-label="Build output">
-                      {(snapshot?.selected === id && snapshot.log) ||
-                        (run.active ? "Waiting for build output…" : "No log available.")}
-                    </pre>
-                  </div>
-                )}
-                <p className={styles.hint}>Logs and downloads are available for seven days after teardown.</p>
-              </div>
+              )}
             </div>
           )}
         </section>
       )}
     </div>
+  );
+}
+
+function DockTimeline({ run }: { run: Run }) {
+  const steps = [
+    ["Queued", run.createdAt],
+    ["Provisioning", run.startedAt],
+    ["Building", run.workAt],
+    ["Teardown", run.teardownAt],
+    ["Settled", run.settledAt],
+  ] as const;
+  return (
+    <ol className={styles.timeline} aria-label="Run timeline">
+      {steps
+        .filter((entry) => entry[1] !== undefined)
+        .map(([label, time]) => (
+          <li key={label}>
+            <span>{label}</span>
+            <time dateTime={new Date(time!).toISOString()}>{new Date(time!).toLocaleTimeString()}</time>
+          </li>
+        ))}
+    </ol>
   );
 }

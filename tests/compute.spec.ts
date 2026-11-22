@@ -38,6 +38,9 @@ test("Boat capacity rejects unpaid starts and the paid adapter isolates builds a
     if (path.endsWith("/limits")) {
       return Response.json({
         canStart: permitted,
+        checkoutRequired: !permitted,
+        hasPaymentHistory: permitted,
+        machineTypes: [{ type: "small", available: true }],
         subscriptionStatus: permitted ? "active" : "none",
         nextStartDollars: 0,
       });
@@ -126,4 +129,80 @@ test("both products show responsive paid quotes in both themes", async ({ page }
   await expect(page.locator(".theme-root")).toHaveAttribute("data-theme", "light");
   await expect(page.getByRole("button", { name: /Start paid build.*0\.011875/ })).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
+});
+
+test("Dry Dock run links load an owner detail and display live logs and settled downloads", async ({
+  page,
+}) => {
+  const id = "ks7ctestw6m50r22c5ktfgxmwec6jv6w";
+  const time = Date.now();
+  let phase = "provisioning";
+  let log = "";
+  const repository = "https://github.com/mdn/client-toolchain-example";
+  const revision = "23fdd12e35684be99fd7273d147997ec60755c62";
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: {
+        profile: {
+          wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk",
+          name: "Run fixture",
+          balance: 1_000_000,
+        },
+        enabled: true,
+        cluster: "mainnet",
+      },
+    }),
+  );
+  await page.route("**/api/sonnely/compute?**", (route) => {
+    expect(new URL(route.request().url()).searchParams.get("id")).toBe(id);
+    return route.fulfill({
+      json: {
+        enabled: true,
+        runs: [],
+        log,
+        selected: id,
+        detail: {
+          id,
+          phase,
+          createdAt: time,
+          startedAt: time + 100,
+          spec: { kind: "dry-docks", repository, revision },
+          minutes: 5,
+          reserve: 11875,
+          active: phase !== "settled",
+          ...(phase === "settled"
+            ? {
+                result: "completed",
+                charged: 10125,
+                base: 100,
+                fee: 10025,
+                seconds: 20,
+                settledAt: time + 1500,
+                hasArtifact: true,
+              }
+            : {}),
+          hasLog: Boolean(log),
+        },
+      },
+    });
+  });
+  await page.goto("/console/dry-docks?run=" + id);
+  await expect(page.getByRole("heading", { name: /mdn\/client-toolchain-example/ })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Run timeline" })).toContainText("Provisioning");
+  phase = "running";
+  log = "Installing dependencies with npm ci\nRunning npm build";
+  await expect(page.getByLabel("Build output")).toContainText("Running npm build");
+  await expect(page.getByRole("button", { name: "Follow", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  phase = "settled";
+  await expect(page.getByRole("link", { name: "Download artifact" })).toHaveAttribute(
+    "href",
+    /file=artifact/,
+  );
+  await expect(page.getByRole("link", { name: "Download receipt" })).toHaveAttribute("href", /file=receipt/);
+  await expect(page.getByRole("link", { name: "Download log" })).toHaveAttribute("href", /file=log/);
+  await page.getByRole("button", { name: "Use this commit again" }).click();
+  await expect(page.getByRole("textbox", { name: "Commit SHA" })).toHaveValue(revision);
 });

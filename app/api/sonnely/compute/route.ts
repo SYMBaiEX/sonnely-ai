@@ -12,7 +12,7 @@ import {
 } from "@/lib/server";
 
 const kind = z.enum(["blackboxes", "dry-docks"]);
-const fileType = z.enum(["artifact", "evidence"]);
+const fileType = z.enum(["artifact", "evidence", "log", "receipt"]);
 const idSchema = z.string().min(1).max(80);
 const requestSchema = z.discriminatedUnion("action", [
   z.object({
@@ -33,8 +33,26 @@ export async function GET(request: NextRequest) {
     const { db, secret } = backend();
     const search = request.nextUrl.searchParams;
     const id = idSchema.optional().parse(search.get("id") ?? undefined);
+    if (search.get("admin") === "capacity")
+      return json(await db.action(api.computeCapacity.status, { session, secret }));
     if (search.has("file")) {
       const type = fileType.parse(search.get("file"));
+      if (id && (type === "log" || type === "receipt")) {
+        const content = await db.query(api.compute.exportRun, { secret, session, id, type });
+        if (content === null) throw new SonnelyError("Compute file not found.", 404);
+        return new Response(content, {
+          headers: {
+            "Content-Disposition":
+              type === "log"
+                ? 'attachment; filename="dry-dock.log"'
+                : 'attachment; filename="dry-dock-receipt.json"',
+            "Content-Type": type === "log" ? "text/plain; charset=utf-8" : "application/json",
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      }
+      if (type === "log" || type === "receipt") throw new SonnelyError("Compute file not found.", 404);
       const url = id && (await db.query(api.compute.file, { secret, session, id, type }));
       if (!url) throw new SonnelyError("Compute file not found.", 404);
       const file = await fetch(url, {

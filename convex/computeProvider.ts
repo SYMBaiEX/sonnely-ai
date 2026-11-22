@@ -144,16 +144,35 @@ export function endpointFor(cvm: Awaited<ReturnType<typeof blackbox>>) {
   }
 }
 
-export async function createDock(row: Run) {
+export async function boatCapacity() {
   const limits = z
     .object({
       canStart: z.boolean(),
+      checkoutRequired: z.boolean(),
+      hasPaymentHistory: z.boolean(),
       subscriptionStatus: z.string().nullish(),
       nextStartDollars: z.number().nonnegative(),
+      activeSandboxes: z.number().nonnegative().optional(),
+      maxActiveSandboxes: z.number().nonnegative().optional(),
+      machineTypes: z.array(z.object({ type: z.string(), available: z.boolean() })),
     })
-    .parse(await call(row.kind, "/limits"));
-  if (!limits.canStart || limits.subscriptionStatus === "trialing" || limits.nextStartDollars > 0)
-    throw new ProviderError(402, "boat_capacity");
+    .parse(await call("dry-docks", "/limits"));
+  const paid = limits.hasPaymentHistory && limits.subscriptionStatus === "active";
+  const state = limits.checkoutRequired
+    ? "checkout"
+    : !paid
+      ? "unpaid"
+      : limits.nextStartDollars > 0
+        ? "overage"
+        : limits.canStart && limits.machineTypes.some((item) => item.type === "small" && item.available)
+          ? "ready"
+          : "capacity";
+  return { state, active: limits.activeSandboxes ?? null, limit: limits.maxActiveSandboxes ?? null };
+}
+
+export async function createDock(row: Run) {
+  const { state } = await boatCapacity();
+  if (state !== "ready") throw new ProviderError(402, "boat_capacity");
   const response = z.object({ sandbox: boatSandbox }).parse(
     await call(row.kind, "/sandboxes", {
       method: "POST",
@@ -181,11 +200,14 @@ export function buildCommand(repository: string, revision: string, seconds: numb
     "work=$(mktemp -d /tmp/sonnely-build.XXXXXXXX)",
     'cd "$work"',
     "export CI=1 GIT_TERMINAL_PROMPT=0",
+    'printf "%s\\n" "Fetching pinned commit"',
     "git init -q",
     "git fetch --depth=1 " + repository + " " + revision,
     "git checkout --detach FETCH_HEAD",
     'test "$(git rev-parse HEAD)" = ' + revision.toLowerCase(),
+    'printf "%s\\n" "Installing dependencies with npm ci"',
     "npm ci --no-audit --no-fund",
+    'printf "%s\\n" "Running npm build"',
     "npm run build",
     "for output in dist build out .next; do",
     '  if [ -d "$output" ] && [ ! -L "$output" ]; then',

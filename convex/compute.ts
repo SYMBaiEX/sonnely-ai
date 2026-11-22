@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import { auth, requireAccount, requireAdmin, service, walletRole } from "./access";
 import { computeProgress, kind, spec } from "./computeValidators";
 import {
@@ -45,6 +45,12 @@ function summary(row: Doc<"computeRuns">) {
     fee: row.fee,
     seconds: row.seconds,
     expiresAt: row.expiresAt,
+    startedAt: row.startedAt,
+    workAt: row.workAt,
+    teardownAt: row.teardownAt,
+    settledAt: row.settledAt,
+    purgeAt: row.purgeAt,
+    hasLog: Boolean(row.log),
     endpoint: row.active && row.phase === "running" ? row.endpoint : undefined,
     evidenceAt: row.evidenceAt,
     composeHash: row.composeHash,
@@ -69,6 +75,8 @@ export const list = query({
     return {
       enabled: availability(account.wallet)[args.kind],
       runs: runs.map(summary),
+      detail:
+        selected?.account === account._id && selected.kind === args.kind ? summary(selected) : undefined,
       log: selected?.account === account._id && selected.kind === args.kind ? (selected.log ?? "") : "",
       selected: selected?.account === account._id && selected.kind === args.kind ? selected._id : undefined,
     };
@@ -224,6 +232,7 @@ export const advance = internalMutation({
         active: false,
         lease: undefined,
         phase: "settled",
+        settledAt: now,
         nextAt: now,
         purgeAt: now + computeRetention,
         seconds,
@@ -239,7 +248,14 @@ export const advance = internalMutation({
       row.stopRequested && (patch.providerId ?? row.providerId) && (patch.phase ?? row.phase) !== "teardown"
         ? 0
         : delay;
-    await ctx.db.patch(id, { ...patch, lease: undefined, nextAt: Date.now() + wait });
+    const now = Date.now();
+    await ctx.db.patch(id, {
+      ...patch,
+      lease: undefined,
+      nextAt: now + wait,
+      workAt: row.workAt ?? (patch.phase === "running" ? now : undefined),
+      teardownAt: row.teardownAt ?? (patch.phase === "teardown" ? now : undefined),
+    });
     await ctx.scheduler.runAfter(wait, internal.computeWorker.run, { id });
     return true;
   },
@@ -316,9 +332,14 @@ export const adminSummary = query({
       const active = open.filter((row) => row.kind === kind);
       return {
         runs: runs.length,
+        completed: runs.filter((row) => row.result === "completed").length,
+        failed: runs.filter((row) => row.result === "failed").length,
+        meteredSeconds: runs.reduce((sum, row) => sum + (row.seconds ?? 0), 0),
         active: active.length,
         held: active.reduce((sum, row) => sum + row.reserve, 0),
         teardown: active.filter((row) => row.phase === "teardown").length,
+        delayedTeardown: active.filter((row) => row.teardownAt && Date.now() - row.teardownAt > 120_000)
+          .length,
         charged: runs.reduce((sum, row) => sum + (row.charged ?? 0), 0),
         base: runs.reduce((sum, row) => sum + (row.base ?? 0), 0),
         fee: runs.reduce((sum, row) => sum + (row.fee ?? 0), 0),
@@ -329,5 +350,45 @@ export const adminSummary = query({
       "dry-docks": stats("dry-docks"),
       truncated: recent.length > 100,
     };
+  },
+});
+
+export const authorizeCapacityRead = internalQuery({
+  args: auth,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args);
+    return null;
+  },
+});
+
+export const exportRun = query({
+  args: { ...auth, id: v.string(), type: v.union(v.literal("receipt"), v.literal("log")) },
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await requireAccount(ctx, args.session);
+    const id = ctx.db.normalizeId("computeRuns", args.id);
+    const row = id ? await ctx.db.get(id) : null;
+    if (!row || row.account !== account._id || row.kind !== "dry-docks") return null;
+    if (args.type === "log") return row.log || null;
+    if (row.active) return null;
+    return JSON.stringify(
+      {
+        run: row._id,
+        result: row.result,
+        workload: row.spec,
+        created_at_ms: row._creationTime,
+        settled_at_ms: row.settledAt,
+        metered_seconds: row.seconds,
+        reserve_microusd: row.reserve,
+        provider_base_microusd: row.base,
+        fee_microusd: row.fee,
+        charged_microusd: row.charged,
+        released_microusd: row.reserve - (row.charged ?? 0),
+      },
+      null,
+      2,
+    );
   },
 });

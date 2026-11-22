@@ -54,12 +54,14 @@ export function Console({
   section,
   initialModel,
   initialProvider,
+  initialRun,
   availableProviders,
   providerCatalog,
 }: {
   section: Section;
   initialModel: string;
   initialProvider: ProviderId;
+  initialRun?: string;
   availableProviders: ProviderId[];
   providerCatalog?: Awaited<ReturnType<typeof nearCatalog>>;
 }) {
@@ -240,13 +242,19 @@ export function Console({
             </>
           )}
           {(section === "blackboxes" || section === "dry-docks") && (
-            <Compute key={section + (profile?.wallet ?? "guest")} kind={section} session={session} />
+            <Compute
+              key={section + (profile?.wallet ?? "guest")}
+              kind={section}
+              session={session}
+              initialRun={initialRun}
+            />
           )}
           {section === "admin" && <Admin session={session} />}
           {section === "keys" && <Keys signedIn={signedIn} />}
           {section === "usage" && (
             <>
               <Usage
+                key={profile?.wallet ?? "guest"}
                 signedIn={signedIn}
                 balance={profile?.balance}
                 range={range}

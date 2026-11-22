@@ -10,6 +10,7 @@
 
 import type * as access from "../access.js";
 import type * as compute from "../compute.js";
+import type * as computeCapacity from "../computeCapacity.js";
 import type * as computeProvider from "../computeProvider.js";
 import type * as computeValidators from "../computeValidators.js";
 import type * as computeWorker from "../computeWorker.js";
@@ -23,6 +24,7 @@ import type * as recoveryData from "../recoveryData.js";
 import type * as referralPipeline from "../referralPipeline.js";
 import type * as relay from "../relay.js";
 import type * as sonnely from "../sonnely.js";
+import type * as usageExport from "../usageExport.js";
 
 import type {
   ApiFromModules,
@@ -33,6 +35,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   access: typeof access;
   compute: typeof compute;
+  computeCapacity: typeof computeCapacity;
   computeProvider: typeof computeProvider;
   computeValidators: typeof computeValidators;
   computeWorker: typeof computeWorker;
@@ -46,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   referralPipeline: typeof referralPipeline;
   relay: typeof relay;
   sonnely: typeof sonnely;
+  usageExport: typeof usageExport;
 }>;
 
 /**

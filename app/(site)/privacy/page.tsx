@@ -39,6 +39,19 @@ export default function PrivacyPage() {
           payments. We use these records to provide service, reconcile billing, protect accounts, investigate
           failures, and respond to support requests.
         </p>
+        <h2>Builds and optional usage export</h2>
+        <p>
+          Dry Docks sends the public repository URL and pinned commit to a Boat sandbox. Sonnely keeps build
+          logs and downloadable artifacts for seven days after teardown, and retains the run and billing
+          receipt in your workspace. Blackboxes sends the selected image and port to Phala and publishes
+          workload attestation metadata.
+        </p>
+        <p>
+          The optional UsageMax export sends model and provider names, token counts, timestamps, and settled
+          Sonnely charges to the collector you choose. The send uses your UsageMax collector key for that
+          request. Sonnely does not keep that key or export prompt bodies, responses, wallet addresses, or
+          API-key labels.
+        </p>
         <h2>Retention and your choices</h2>
         <p>
           Billing and security records may be kept to resolve disputes, prevent abuse, and meet legal

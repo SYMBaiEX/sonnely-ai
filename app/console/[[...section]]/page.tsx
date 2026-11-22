@@ -20,7 +20,7 @@ const sections = [
 export type Section = (typeof sections)[number];
 type Props = {
   params: Promise<{ section?: string[] }>;
-  searchParams: Promise<{ model?: string; provider?: string }>;
+  searchParams: Promise<{ model?: string; provider?: string; run?: string }>;
 };
 
 export async function generateMetadata({ params }: Props) {
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function ConsolePage({ params, searchParams }: Props) {
-  const [{ section }, { model, provider }] = await Promise.all([params, searchParams]);
+  const [{ section }, { model, provider, run }] = await Promise.all([params, searchParams]);
   const name = section?.[0] ?? "chat";
   if ((section && section.length > 1) || !sections.includes(name as Section)) notFound();
   const initial = models.find((item) => item.id === model) ?? models[0];
@@ -44,6 +44,7 @@ export default async function ConsolePage({ params, searchParams }: Props) {
       section={name as Section}
       providerCatalog={name === "models" ? await nearCatalog() : undefined}
       initialModel={initial.id}
+      initialRun={typeof run === "string" && /^[a-z0-9]{20,80}$/.test(run) ? run : undefined}
       initialProvider={provider === "phala" || provider === "tinfoil" ? provider : "near-ai"}
       availableProviders={configuredProviders()}
     />

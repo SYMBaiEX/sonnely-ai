@@ -98,6 +98,7 @@ export default defineSchema({
   })
     .index("by_account", ["account"])
     .index("by_account_status_cost", ["account", "status", "cost"])
+    .index("by_account_status_time", ["account", "status"])
     .index("by_reconciliation", ["reconciliation"])
     .index("by_status", ["status"])
     .index("by_provider_request", ["providerRequest"]),

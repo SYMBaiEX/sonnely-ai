@@ -33,3 +33,16 @@ Keep Boat on a paid plan with paid start overages disabled. The worker checks cu
 - [Boat pricing](https://docs.boat.dev/pricing)
 - [Boat sandbox usage](https://docs.boat.dev/api/reference/sandboxes/get-sandbox-usage)
 - [Boat embedded product terms](https://boat.dev/terms#end-users)
+
+### Verify a Dry Dock release
+
+Use **Check Boat capacity** on the Sonnely Admin page and verify that the Boat workspace is paid and can start small VMs. The first plan requires Stripe card checkout. A trial remains unpaid until Boat registers the first payment. Dry Docks checks payment and capacity before requesting a sandbox.
+
+From the Dry Docks page, fill in the pinned MDN example and select a five-minute limit. The run timeline shows provisioning, build, teardown, and settlement. Download the artifact and receipt, compare the receipt’s released credits with the balance, and confirm Boat reports completed deletion. The receipt remains accessible after logs and artifacts expire.
+
+### UsageMax integration
+
+In **Console > Usage**, export up to 100 settled inference requests from the selected date range. Download a UsageMax telemetry batch or send it directly to a workspace with an advanced write-only collector key. Use a dedicated collector and retain the same installation UUID when sending again. The request carries model and provider names, counters, timestamps, and ledger charges. Sonnely creates stable opaque event keys for deduplication. No service credential or collector key stays in Sonnely after the send.
+
+- [Boat Billing](https://boat.dev/dashboard?tab=billing)
+- [UsageMax telemetry API](https://usagemax.com/docs)

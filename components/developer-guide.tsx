@@ -15,6 +15,8 @@ const sections = [
   ["verification", "Attestation"],
   ["receipts", "Completion receipts"],
   ["settlement", "Payments and credits"],
+  ["cloud-builds", "Dry Docks builds"],
+  ["usage-export", "UsageMax export"],
   ["migration", "Migrate from the original app"],
 ] as const;
 
@@ -326,6 +328,31 @@ export function DeveloperGuide() {
             <Link className="text-link" href="/pricing">
               Read the pricing and settlement guide <ArrowUpRight size={16} />
             </Link>
+          </section>
+          <section id="cloud-builds">
+            <h2>Build a repository in Dry Docks</h2>
+            <p>
+              Open <Link href="/console/dry-docks">Dry Docks</Link> and enter a public GitHub repository and a
+              full commit SHA, or load the pinned MDN example. Each run executes <code>npm ci</code>
+              and <code>npm run build</code> in an isolated Boat VM.
+            </p>
+            <p>
+              Review the credit hold before starting. Follow logs in the console and download an output
+              archive up to 5 MiB. Dry Docks deletes the VM when the run ends and returns unused credits. The
+              run receipt lists metered seconds, provider cost, fees, and released credits.
+            </p>
+          </section>
+          <section id="usage-export">
+            <h2>Export inference usage to UsageMax</h2>
+            <p>
+              Choose a date range in <Link href="/console/usage">Usage</Link> and export up to 100 settled
+              inference requests. Download the telemetry JSON or send it to your workspace with an advanced
+              UsageMax collector key. The export includes model and provider names, token counts, timestamps,
+              and Sonnely charges.
+            </p>
+            <a className="text-link" href="https://usagemax.com/docs">
+              Read the UsageMax collector guide <ArrowUpRight size={16} />
+            </a>
           </section>
           <section id="migration">
             <h2>Migrate from the original app</h2>

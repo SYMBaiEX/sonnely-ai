@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
+import { AdminBoatCapacity } from "./admin-boat-capacity";
 import { AdminCrm, type CrmView } from "./admin-crm";
 import { CreditRecovery } from "./credit-recovery";
 import { computePlans } from "@/lib/compute";
@@ -161,6 +162,7 @@ export function Admin({ session }: { session: Session | null }) {
           {data.compute && (
             <section className="panel stack-panel">
               <h2>Compute over 30 days</h2>
+              <AdminBoatCapacity />
               {(["blackboxes", "dry-docks"] as const).map((kind) => {
                 const row = data.compute![kind];
                 return (
@@ -179,6 +181,26 @@ export function Admin({ session }: { session: Session | null }) {
                         <dt>Pending deletion</dt>
                         <dd>{row.teardown}</dd>
                       </div>
+                      {kind === "dry-docks" && (
+                        <>
+                          <div>
+                            <dt>Completed builds</dt>
+                            <dd>{row.completed}</dd>
+                          </div>
+                          <div>
+                            <dt>Failed builds</dt>
+                            <dd>{row.failed}</dd>
+                          </div>
+                          <div>
+                            <dt>Metered runtime</dt>
+                            <dd>{row.meteredSeconds}s</dd>
+                          </div>
+                          <div>
+                            <dt>Cleanup over 2 min</dt>
+                            <dd>{row.delayedTeardown}</dd>
+                          </div>
+                        </>
+                      )}
                       <div>
                         <dt>Credits held</dt>
                         <dd>{creditBalance(row.held)}</dd>
