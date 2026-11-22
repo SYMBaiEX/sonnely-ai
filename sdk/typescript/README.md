@@ -3,7 +3,7 @@
 Run text inference on Sonnely from Node.js 22 or newer. Create a funded [Sonnely API key](https://sonnely.com/console/keys) and store it server-side as `SONNELY_API_KEY`.
 
 ```ts
-import { Sonnely } from "@sonnely/sdk";
+import { Sonnely } from "sonnely-sdk";
 
 const sonnely = new Sonnely({ apiKey: process.env.SONNELY_API_KEY });
 const request = {
