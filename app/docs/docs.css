@@ -51,7 +51,11 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
 .docs-shell > .site-header {
   position: relative;
   z-index: 35;
-  background: var(--surface);
+}
+
+.docs-shell > .site-header,
+.docs-shell :is(#nd-sidebar[data-collapsed="false"], #nd-subnav) {
+  background-color: var(--surface);
 }
 
 .docs-shell .site-nav a[aria-current="location"] {

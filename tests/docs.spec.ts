@@ -107,14 +107,14 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
     "page",
   );
   const shell = page.locator(".docs-shell");
+  const header = page.getByRole("banner", { name: "Sonnely" });
   await expect(shell).toHaveCSS("background-color", "rgb(12, 11, 14)");
-  await expect(sidebar).toHaveCSS("background-color", "rgb(25, 23, 28)");
-  await page
-    .getByRole("banner", { name: "Sonnely" })
-    .getByRole("switch", { name: "Switch color theme" })
-    .click();
+  await expect(header).toHaveCSS("background-color", "rgb(12, 11, 14)");
+  await expect(sidebar).toHaveCSS("background-color", "rgb(12, 11, 14)");
+  await header.getByRole("switch", { name: "Switch color theme" }).click();
   await expect(shell).toHaveCSS("background-color", "rgb(238, 240, 250)");
-  await expect(sidebar).toHaveCSS("background-color", "rgb(249, 250, 255)");
+  await expect(header).toHaveCSS("background-color", "rgb(238, 240, 250)");
+  await expect(sidebar).toHaveCSS("background-color", "rgb(238, 240, 250)");
 
   await page.getByRole("button", { name: "Copy Markdown" }).click();
   await expect
@@ -126,6 +126,7 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   );
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator("#nd-subnav")).toHaveCSS("background-color", "rgb(238, 240, 250)");
   await page.getByRole("button", { name: "Open Sidebar" }).click();
   const mobile = page
     .getByRole("complementary")
