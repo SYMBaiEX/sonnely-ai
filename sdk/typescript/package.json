@@ -1,5 +1,5 @@
 {
-  "name": "sonnely-sdk",
+  "name": "@sonnely/sdk",
   "version": "0.1.2",
   "description": "Typed server-side client for the Sonnely inference API",
   "type": "module",
