@@ -1,5 +1,7 @@
 import { z } from "zod";
 import bs58 from "bs58";
+import { getAddress } from "ethers";
+import { fundingAtomic, intentFunds, type FundingQuote, type IntentFund } from "./intent-funding";
 import { managedProviderKey } from "./managed-access";
 import { SonnelyError } from "./sonnely-error";
 
@@ -153,37 +155,109 @@ export async function findMatchingPayment(
   return null;
 }
 
-export async function quote(wallet: string, sol: number) {
+const destinationAsset = "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near";
+
+export async function quote(
+  wallet: string,
+  input: { asset: IntentFund; amount: string; refundTo?: string; prepare?: boolean },
+): Promise<FundingQuote> {
   const token = process.env.NEAR_INTENTS_API_KEY;
+  const { asset, amount: quantity, prepare = false } = input;
+  if (prepare && (!token || billing().cluster !== "mainnet")) {
+    throw new SonnelyError("Cross-chain funding is unavailable.", 503);
+  }
+  const fund = intentFunds[asset];
+  const amountIn = fundingAtomic(quantity, fund.decimals);
+  if (amountIn === null) throw new SonnelyError("Enter a positive amount within the token's precision.");
+
+  let refundTo = wallet;
+  if (asset !== "sol") {
+    try {
+      refundTo = getAddress(input.refundTo ?? "");
+      if (refundTo === "0x0000000000000000000000000000000000000000") throw new Error();
+    } catch {
+      throw new SonnelyError("Enter a valid refund wallet for the selected network.");
+    }
+  }
+  const deadline = new Date(Date.now() + (prepare ? 15 : 3) * 60_000).toISOString();
+  const quoteRequest = {
+    dry: !prepare,
+    swapType: "EXACT_INPUT",
+    slippageTolerance: 100,
+    originAsset: fund.id,
+    depositType: "ORIGIN_CHAIN",
+    destinationAsset,
+    amount: amountIn,
+    recipient: wallet,
+    recipientType: "DESTINATION_CHAIN",
+    refundTo,
+    refundType: "ORIGIN_CHAIN",
+    deadline,
+  };
+
   const result = await fetch("https://1click.chaindefuser.com/v0/quote", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+    redirect: "error",
     cache: "no-store",
     signal: AbortSignal.timeout(12_000),
-    body: JSON.stringify({
-      dry: true,
-      swapType: "EXACT_INPUT",
-      slippageTolerance: 100,
-      originAsset: "nep141:sol.omft.near",
-      depositType: "ORIGIN_CHAIN",
-      destinationAsset: "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near",
-      amount: String(Math.round(sol * 1_000_000_000)),
-      recipient: wallet,
-      recipientType: "DESTINATION_CHAIN",
-      refundTo: wallet,
-      refundType: "ORIGIN_CHAIN",
-      deadline: new Date(Date.now() + 180_000).toISOString(),
-    }),
+    body: JSON.stringify(quoteRequest),
   }).catch(() => null);
   const parsed = z
     .object({
-      quote: z.object({ amountOut: amount, minAmountOut: amount, timeEstimate: z.number().optional() }),
+      quoteRequest: z.record(z.string(), z.unknown()),
+      quote: z.object({
+        amountIn: amount,
+        amountOut: amount,
+        minAmountOut: amount,
+        depositAddress: z.string().min(1).max(128).optional(),
+        depositMemo: z.string().min(1).max(100).optional(),
+        deadline: z.iso.datetime().optional(),
+      }),
     })
     .safeParse(result?.ok ? await result.json().catch(() => null) : null);
-  if (!parsed.success)
-    throw new SonnelyError(
-      "No quote was available for this amount. Try a larger amount or retry shortly.",
-      502,
-    );
-  return parsed.data.quote;
+  if (!parsed.success) {
+    throw new SonnelyError("No quote was available. Check the amount and try again.", 502);
+  }
+
+  const { quote: expected, quoteRequest: echoed } = parsed.data;
+  const acceptUntil =
+    expected.deadline && Date.parse(expected.deadline) < Date.parse(deadline) ? expected.deadline : deadline;
+  const deliverable =
+    BigInt(expected.minAmountOut) > 0n && BigInt(expected.amountOut) >= BigInt(expected.minAmountOut);
+  const matches = [
+    "dry",
+    "swapType",
+    "originAsset",
+    "depositType",
+    "destinationAsset",
+    "amount",
+    "recipient",
+    "recipientType",
+    "refundTo",
+    "refundType",
+    "slippageTolerance",
+    "deadline",
+  ].every((key) => echoed[key] === quoteRequest[key as keyof typeof quoteRequest]);
+  const validDeposit =
+    expected.depositAddress &&
+    (asset === "sol"
+      ? address.safeParse(expected.depositAddress).success
+      : /^0x[0-9a-fA-F]{40}$/.test(expected.depositAddress) && !/^0x0{40}$/.test(expected.depositAddress));
+  if (
+    !deliverable ||
+    !matches ||
+    BigInt(expected.amountIn) !== BigInt(amountIn) ||
+    (prepare && (!validDeposit || !expected.deadline || Date.parse(acceptUntil) <= Date.now()))
+  ) {
+    throw new SonnelyError("NEAR Intents returned inconsistent swap details. Request a new quote.", 502);
+  }
+  return {
+    amountOut: expected.amountOut,
+    minAmountOut: expected.minAmountOut,
+    deadline: acceptUntil,
+    recipient: wallet,
+    refundTo,
+    ...(prepare ? { depositAddress: expected.depositAddress, depositMemo: expected.depositMemo } : {}),
+  };
 }

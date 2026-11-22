@@ -16,6 +16,7 @@ type Report = {
   operations: GatewayOperations | null;
   delivery: FunctionReturnType<typeof api.usageMaxOutbox.adminHealth>;
   invoices: Invoice[];
+  automation: FunctionReturnType<typeof api.operations.status>;
 };
 
 const day = 86_400_000;
@@ -379,6 +380,7 @@ function Invoices({ invoices, refresh }: { invoices: Invoice[]; refresh: () => v
             <details key={entry.provider + ":" + entry.invoiceId}>
               <summary>
                 {label(entry.provider)} · {entry.invoiceId} · {entry.lines.length} lines
+                {entry.source === "integration" && " · Imported"}
               </summary>
               <p className="caption">{utc(entry.createdAt)}</p>
               <InvoiceTable lines={entry.lines} />
@@ -395,6 +397,64 @@ function Invoices({ invoices, refresh }: { invoices: Invoice[]; refresh: () => v
             </details>
           ))}
         </div>
+      )}
+    </section>
+  );
+}
+
+function Automation({ status, refresh }: { status: Report["automation"]; refresh: () => void }) {
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function testEmail() {
+    setBusy(true);
+    try {
+      await request("admin-alert-email-test", {});
+      setNotice("Test email queued. Delivery status will appear here.");
+      refresh();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not queue a test email.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="panel stack-panel">
+      <div>
+        <h2>Operations automation</h2>
+        <p className="caption">Provider cost sync and external email delivery.</p>
+      </div>
+      {status.checks.map((check) => (
+        <div key={check.kind}>
+          <strong>{check.kind === "near_costs" ? "NEAR cost sync" : "UsageMax alert sync"}</strong>
+          <p className="caption">
+            {utc(check.checkedAt)} · {check.status}
+            {check.kind === "near_costs" && ` · ${check.matched} reconciled of ${check.checked} checked`}
+          </p>
+        </div>
+      ))}
+      <div className="actions">
+        <button
+          type="button"
+          className="button quiet"
+          disabled={busy || !status.emailEnabled}
+          onClick={() => void testEmail()}
+        >
+          Send test email
+        </button>
+        {!status.emailEnabled && (
+          <span className="caption">External alerts awaiting mail configuration.</span>
+        )}
+      </div>
+      {notice && <p role="status">{notice}</p>}
+      {status.email.length > 0 && (
+        <ul>
+          {status.email.map((item) => (
+            <li key={item.subject + ":" + item.createdAt}>
+              {item.subject} · {item.state}
+              {item.errorCode ? " · " + item.errorCode : ""} · {utc(item.createdAt)}
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );
@@ -645,6 +705,7 @@ export function AdminGateway() {
         )}
         {trace && <Trace receipt={trace} />}
       </section>
+      {report && <Automation status={report.automation} refresh={() => void refresh()} />}
       {report && <Invoices invoices={report.invoices} refresh={() => void refresh()} />}
     </div>
   );

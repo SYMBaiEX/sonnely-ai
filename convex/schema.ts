@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { computeProgress, kind, spec } from "./computeValidators";
 import { invoiceProvider, invoiceLineView } from "./providerInvoiceContract";
+import { alertDelivery, operationState } from "./operationsContract";
 import { gatewayDetails, gatewayReceipt } from "./usageMaxOutboxValidators";
 
 export default defineSchema({
@@ -91,6 +92,7 @@ export default defineSchema({
     providerCostNano: v.optional(v.number()),
     providerReportedCostNano: v.optional(v.number()),
     usageMaxDetails: v.optional(gatewayDetails),
+    reconcileAfter: v.optional(v.number()),
     reconciliation: v.optional(v.union(v.literal("pending"), v.literal("reconciled"))),
     status: v.union(
       v.literal("pending"),
@@ -103,6 +105,7 @@ export default defineSchema({
     .index("by_account_status_cost", ["account", "status", "cost"])
     .index("by_account_status_time", ["account", "status"])
     .index("by_reconciliation", ["reconciliation"])
+    .index("by_reconciliation_and_reconcileAfter", ["reconciliation", "reconcileAfter"])
     .index("by_status", ["status"])
     .index("by_provider_request", ["providerRequest"]),
   usageMaxOutbox: defineTable({
@@ -120,7 +123,8 @@ export default defineSchema({
   providerInvoices: defineTable({
     provider: invoiceProvider,
     invoiceId: v.string(),
-    recordedBy: v.id("accounts"),
+    recordedBy: v.optional(v.id("accounts")),
+    source: v.optional(v.literal("integration")),
     lines: v.array(invoiceLineView),
   }).index("by_provider_and_invoiceId", ["provider", "invoiceId"]),
   providerInvoiceClaims: defineTable({
@@ -128,6 +132,11 @@ export default defineSchema({
     invoice: v.id("providerInvoices"),
     usage: v.id("usage"),
   }).index("by_reference", ["reference"]),
+  operationsState: defineTable(operationState.fields).index("by_kind", ["kind"]),
+  alertDeliveries: defineTable(alertDelivery.fields)
+    .index("by_key", ["key"])
+    .index("by_state_and_nextAt", ["state", "nextAt"])
+    .index("by_expiry", ["purgeAt"]),
   finance: defineTable({
     reconciled: v.number(),
     customerMicros: v.number(),

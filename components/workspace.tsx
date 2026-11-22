@@ -18,6 +18,7 @@ import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 import { providerNames } from "@/lib/provider-catalog";
 import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
+import { intentFunds, type FundingQuote, type IntentFund } from "@/lib/intent-funding";
 import { MotionSwitch } from "./ambient-motion";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
@@ -527,16 +528,17 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
   const profile = session?.profile;
   const { data, error, reload } = useRemote<Receipt[]>(Boolean(profile), "history");
   const [dollars, setDollars] = useState("5");
-  const [sol, setSol] = useState("1");
-  const [intent, setIntent] = useState<{
-    amountOut: string;
-    minAmountOut: string;
-    timeEstimate?: number;
-  } | null>(null);
+  const [fund, setFund] = useState<IntentFund>("sol");
+  const [fundAmount, setFundAmount] = useState("0.1");
+  const [refundTo, setRefundTo] = useState("");
+  const [intent, setIntent] = useState<FundingQuote | null>(null);
+  const fundingDetails = intent?.recipient === profile?.wallet ? intent : null;
+  const swapAsset = intentFunds[fund];
   const [order, setOrder] = useState<Payment | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [signature, setSignature] = useState("");
   const [pending, setPending] = useState("");
+  const quoting = pending === "quote" || pending === "prepare-swap";
   const [failure, setFailure] = useState("");
   const [status, setStatus] = useState("");
 
@@ -753,45 +755,140 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
             </section>
           )}
         </section>
-        <section className="panel stack-panel">
-          <div className="between">
-            <h2>NEAR Intents</h2>
-            <span className="pill">Quote only</span>
-          </div>
-          <p className="caption">Estimate what a SOL-to-USDC swap would return. Quotes do not move funds.</p>
-          <form
-            className="inline-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setIntent(null);
-              void run("quote", async () => setIntent(await request("quote", { sol: Number(sol) })));
-            }}
-          >
-            <label>
-              Amount in SOL
-              <input
-                type="number"
-                required
-                min="0.01"
-                max="1000"
-                step="0.01"
-                value={sol}
-                onChange={(e) => {
-                  setSol(e.target.value);
-                  setIntent(null);
-                }}
-              />
-            </label>
-            <button className="button quiet" disabled={!profile || !!pending}>
-              {pending === "quote" ? "Quoting…" : "Get quote"}
-            </button>
-          </form>
-          {intent && (
-            <p role="status" className="status">
-              {usd(Number(intent.amountOut))} estimated · {usd(Number(intent.minAmountOut))} minimum
-            </p>
-          )}
-        </section>
+        {session?.cluster === "mainnet" && (
+          <section className="panel stack-panel">
+            <div className="between">
+              <h2>Fund with other crypto</h2>
+              <span className="pill">NEAR Intents</span>
+            </div>
+            <p className="caption">Swap into Solana USDC in your connected wallet, then buy credits above.</p>
+            <form
+              className="inline-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setIntent(null);
+                void run("quote", async () =>
+                  setIntent(
+                    await request<FundingQuote>("quote", {
+                      asset: fund,
+                      amount: fundAmount.trim(),
+                      ...(fund !== "sol" ? { refundTo: refundTo.trim() } : {}),
+                    }),
+                  ),
+                );
+              }}
+            >
+              <label>
+                Source asset
+                <select
+                  value={fund}
+                  disabled={quoting}
+                  onChange={(event) => {
+                    setFund(event.target.value as IntentFund);
+                    setIntent(null);
+                  }}
+                >
+                  {Object.entries(intentFunds).map(([id, asset]) => (
+                    <option key={id} value={id}>
+                      {asset.symbol} on {asset.network}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Amount in {swapAsset.symbol}
+                <input
+                  inputMode="decimal"
+                  autoComplete="off"
+                  required
+                  maxLength={37}
+                  disabled={quoting}
+                  value={fundAmount}
+                  onChange={(event) => {
+                    setFundAmount(event.target.value);
+                    setIntent(null);
+                  }}
+                />
+              </label>
+              {fund !== "sol" && (
+                <label>
+                  Refund wallet on {swapAsset.network}
+                  <input
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="0x…"
+                    required
+                    maxLength={42}
+                    disabled={quoting}
+                    value={refundTo}
+                    onChange={(event) => {
+                      setRefundTo(event.target.value);
+                      setIntent(null);
+                    }}
+                  />
+                </label>
+              )}
+              <button className="button quiet" disabled={!profile || !!pending}>
+                {pending === "quote" ? "Quoting…" : "Get quote"}
+              </button>
+            </form>
+            {fundingDetails && (
+              <section className="checkout" aria-label="Swap details">
+                <p role="status" className="status">
+                  {creditBalance(Number(fundingDetails.amountOut))} estimated ·{" "}
+                  {creditBalance(Number(fundingDetails.minAmountOut))} minimum
+                </p>
+                {fundingDetails.depositAddress ? (
+                  <>
+                    <p>
+                      Send exactly{" "}
+                      <strong>
+                        {fundAmount.trim()} {swapAsset.symbol}
+                      </strong>{" "}
+                      on <strong>{swapAsset.network} mainnet</strong> to the address below before{" "}
+                      {new Date(fundingDetails.deadline).toLocaleTimeString([], { timeZoneName: "short" })}.
+                      Save the address and transaction ID.
+                    </p>
+                    <CopyButton value={fundingDetails.depositAddress} label="Copy swap deposit address" />
+                    <code style={{ overflowWrap: "anywhere" }}>{fundingDetails.depositAddress}</code>
+                    {fundingDetails.depositMemo && (
+                      <>
+                        <p>Include this memo with your transfer.</p>
+                        <CopyButton value={fundingDetails.depositMemo} label="Copy deposit memo" />
+                        <code style={{ overflowWrap: "anywhere" }}>{fundingDetails.depositMemo}</code>
+                      </>
+                    )}
+                    <p className="caption">
+                      Solana USDC goes to {shorten(fundingDetails.recipient)}. Refunds go to{" "}
+                      {shorten(fundingDetails.refundTo)} on {swapAsset.network}. Once USDC arrives in your
+                      wallet, use the USDC checkout above.
+                    </p>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="button accent"
+                    disabled={!!pending || !session?.billingEnabled || session.termsRequired}
+                    onClick={() =>
+                      void run("prepare-swap", async () =>
+                        setIntent(
+                          await request<FundingQuote>("quote", {
+                            asset: fund,
+                            amount: fundAmount.trim(),
+                            ...(fund !== "sol" ? { refundTo: refundTo.trim() } : {}),
+                            prepare: true,
+                          }),
+                        ),
+                      )
+                    }
+                  >
+                    {pending === "prepare-swap" ? "Preparing…" : "Get swap deposit address"}
+                  </button>
+                )}
+              </section>
+            )}
+          </section>
+        )}
       </div>
       <section className="panel breakdown">
         <h2>Payment history</h2>

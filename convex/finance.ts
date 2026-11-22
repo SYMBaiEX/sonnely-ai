@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { auth, requireAdmin } from "./access";
 import { amendGatewayCost } from "./usageMaxOutbox";
 
@@ -161,43 +161,50 @@ export const pendingCosts = query({
   },
 });
 
+export const providerCost = v.object({ requestId: v.string(), costNanoUsd: v.number() });
+
+export async function applyNearCosts(ctx: MutationCtx, costs: Array<typeof providerCost.type>) {
+  if (costs.length > 100) throw new ConvexError("Reconcile at most 100 requests.");
+  const existing = await totals(ctx);
+  const ledger = {
+    ...emptyFinance,
+    ...(existing && {
+      reconciled: existing.reconciled,
+      customerMicros: existing.customerMicros,
+      providerNano: existing.providerNano,
+      paidMicros: existing.paidMicros,
+    }),
+  };
+  let count = 0;
+  for (const cost of costs) {
+    if (!Number.isSafeInteger(cost.costNanoUsd) || cost.costNanoUsd <= 0) continue;
+    const rows = await ctx.db
+      .query("usage")
+      .withIndex("by_provider_request", (q) => q.eq("providerRequest", cost.requestId))
+      .take(2);
+    const row = rows.length === 1 ? rows[0] : undefined;
+    if (!row || row.provider !== undefined || row.status !== "complete" || row.reconciliation !== "pending")
+      continue;
+    await ctx.db.patch(row._id, { reconciliation: "reconciled", providerCostNano: cost.costNanoUsd });
+    await amendGatewayCost(ctx, row._id, cost.costNanoUsd);
+    ledger.reconciled++;
+    ledger.customerMicros += row.cost;
+    ledger.providerNano += cost.costNanoUsd;
+    count++;
+  }
+  if (count > 0) {
+    if (existing) await ctx.db.patch(existing._id, ledger);
+    else await ctx.db.insert("finance", ledger);
+  }
+  return count;
+}
+
 export const reconcile = mutation({
-  args: { ...auth, costs: v.array(v.object({ requestId: v.string(), costNanoUsd: v.number() })) },
+  args: { ...auth, costs: v.array(providerCost) },
   returns: v.number(),
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
-    if (args.costs.length > 100) throw new ConvexError("Reconcile at most 100 requests.");
-    const existing = await totals(ctx);
-    const ledger = {
-      ...emptyFinance,
-      ...(existing && {
-        reconciled: existing.reconciled,
-        customerMicros: existing.customerMicros,
-        providerNano: existing.providerNano,
-        paidMicros: existing.paidMicros,
-      }),
-    };
-    let count = 0;
-    for (const cost of args.costs) {
-      if (!Number.isSafeInteger(cost.costNanoUsd) || cost.costNanoUsd <= 0) continue;
-      const row = await ctx.db
-        .query("usage")
-        .withIndex("by_provider_request", (q) => q.eq("providerRequest", cost.requestId))
-        .unique();
-      if (!row || row.provider !== undefined || row.status !== "complete" || row.reconciliation !== "pending")
-        continue;
-      await ctx.db.patch(row._id, { reconciliation: "reconciled", providerCostNano: cost.costNanoUsd });
-      await amendGatewayCost(ctx, row._id, cost.costNanoUsd);
-      ledger.reconciled++;
-      ledger.customerMicros += row.cost;
-      ledger.providerNano += cost.costNanoUsd;
-      count++;
-    }
-    if (count > 0) {
-      if (existing) await ctx.db.patch(existing._id, ledger);
-      else await ctx.db.insert("finance", ledger);
-    }
-    return count;
+    return applyNearCosts(ctx, args.costs);
   },
 });
 
