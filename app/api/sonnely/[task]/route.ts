@@ -1,4 +1,4 @@
-import { adminAction, adminCrm, adminOverview } from "@/lib/admin-api";
+import { adminAction, adminCrm, adminGateway, adminOverview } from "@/lib/admin-api";
 import { randomBytes } from "node:crypto";
 import { createSignInMessageText, verifySignIn } from "@solana/wallet-standard-util";
 import type { SolanaSignInInput } from "@solana/wallet-standard-features";
@@ -90,6 +90,7 @@ export async function GET(request: NextRequest, context: Context) {
     const auth = { secret, session };
     if (task === "keys") return json(await db.query(api.sonnely.listKeys, auth));
     if (task === "admin") return await adminOverview(auth, db, usageSince("30"));
+    if (task === "admin-gateway") return await adminGateway(request.nextUrl.searchParams, auth, db);
     if (task === "admin-crm") return await adminCrm(request.nextUrl.searchParams, auth, db);
     if (task === "referrals") return json(await db.query(api.sonnely.referrals, auth));
     if (task === "referral-pipeline") {

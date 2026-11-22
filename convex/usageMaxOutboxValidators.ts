@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { gatewayTrace, traceTiming } from "./usageMaxTrace";
 
 export const gatewayUsage = v.object({
   inputTokens: v.optional(v.number()),
@@ -15,12 +16,15 @@ export const gatewayDetails = v.object({
   resolvedModel: v.optional(v.string()),
   usage: v.optional(gatewayUsage),
   firstTokenAt: v.optional(v.number()),
+  timing: v.optional(traceTiming),
+  attemptModel: v.optional(v.string()),
 });
 
 export const gatewayReceipt = v.object({
   schemaVersion: v.literal(1),
   requestId: v.string(),
   traceId: v.optional(v.string()),
+  trace: v.optional(gatewayTrace),
   revision: v.number(),
   model: v.string(),
   provider: v.string(),

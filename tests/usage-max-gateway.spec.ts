@@ -220,6 +220,13 @@ test("settlement survives a gateway outage, late cost is revised, and reporting 
       providerRequest: privateProviderId,
       usageMaxDetails: {
         stream: true,
+        timing: {
+          requestAt: firstTokenAt - 100,
+          reservationAt: firstTokenAt - 80,
+          providerAt: firstTokenAt - 50,
+          providerDoneAt: firstTokenAt,
+          settlementAt: firstTokenAt,
+        },
         firstTokenAt,
         usage: { inputTokens: 30, outputTokens: 10, cacheReadTokens: 10 },
       },
@@ -230,6 +237,14 @@ test("settlement survives a gateway outage, late cost is revised, and reporting 
     expect(initial).toMatchObject({
       revision: 1,
       traceId: requestId.slice(0, 32),
+      trace: {
+        billingStatus: "final",
+        spans: expect.arrayContaining([
+          expect.objectContaining({ kind: "request" }),
+          expect.objectContaining({ kind: "provider", provider: "near-ai", outcome: "success" }),
+          expect.objectContaining({ kind: "settlement" }),
+        ]),
+      },
       firstTokenAt,
       customerChargeNanos: 110_000,
       providerCostNanos: null,
@@ -279,6 +294,39 @@ test("settlement survives a gateway outage, late cost is revised, and reporting 
       providerCostNanos: 100_000,
       providerCostBasis: "provider_reported",
     });
+
+    const initialFinance = (await db.query(api.finance.overview, { ...admin.auth, since: 0 })).finance;
+    const invoice = {
+      provider: "near-ai" as const,
+      invoiceId: "fixture-invoice-" + randomUUID(),
+      lines: [{ reference: privateProviderId, costNanos: 100_050 }],
+    };
+    await expect(db.query(api.providerInvoices.preview, { ...member.auth, ...invoice })).rejects.toThrow(
+      "Administrator access required",
+    );
+    expect(await db.query(api.providerInvoices.preview, { ...admin.auth, ...invoice })).toMatchObject([
+      { state: "variance", previousCostNanos: 100_000 },
+    ]);
+    expect(await db.mutation(api.providerInvoices.record, { ...admin.auth, ...invoice })).toMatchObject([
+      { state: "variance", exported: true },
+    ]);
+    await run("run", "usageMaxOutbox:dispatch", "{}");
+    expect(stored.get(requestId)).toMatchObject({
+      revision: 3,
+      customerChargeNanos: 110_000,
+      providerCostNanos: 100_050,
+      providerCostBasis: "invoice_confirmed",
+    });
+    expect(await db.mutation(api.providerInvoices.record, { ...admin.auth, ...invoice })).toMatchObject([
+      { state: "variance", exported: true },
+    ]);
+    expect(await db.query(api.providerInvoices.preview, { ...admin.auth, ...invoice })).toMatchObject([
+      { state: "previously_invoiced" },
+    ]);
+    expect((await db.query(api.sonnely.profile, member.auth))?.balance).toBe(890);
+    expect((await db.query(api.finance.overview, { ...admin.auth, since: 0 })).finance).toEqual(
+      initialFinance,
+    );
 
     truncate = true;
     const authorized = await lookup(admin.token);

@@ -8,6 +8,8 @@ import { preparePaymentEnvelope } from "./payment-transaction";
 import { getProviderCosts } from "./provider-billing";
 import { backend, json, SonnelyError } from "./server";
 import { readGatewayReport } from "./usagemax-gateway";
+import { gatewayRequestKey, readGatewayOperations, readGatewayTrace, reportDay } from "./usagemax-operations";
+import { invoiceAmountNanos, invoiceLineLimit, invoiceProviders, invoiceReference } from "./provider-invoice";
 
 const tokenBalance = z.object({
   value: z.array(
@@ -98,6 +100,30 @@ export async function adminCrm(
   }
 }
 
+export async function adminGateway(
+  params: URLSearchParams,
+  auth: { secret: string; session: string },
+  db: ReturnType<typeof backend>["db"],
+) {
+  const requestId = params.get("requestId");
+  if (requestId !== null) {
+    const profile = await db.query(api.sonnely.profile, auth);
+    if (!profile) throw new SonnelyError("Sign in with a Solana wallet.", 401);
+    if (profile.role !== "admin") throw new SonnelyError("Administrator access required.", 403);
+    return json(await readGatewayTrace(gatewayRequestKey.parse(requestId)));
+  }
+  const delivery = await db.query(api.usageMaxOutbox.adminHealth, auth);
+  const from = reportDay.parse(params.get("from"));
+  const through = reportDay.parse(params.get("through"));
+  if (through < from || Date.parse(through) - Date.parse(from) >= 31 * 86_400_000)
+    throw new SonnelyError("Choose up to 31 days.", 400);
+  const [invoices, operations] = await Promise.all([
+    db.query(api.providerInvoices.history, auth),
+    readGatewayOperations(from, through).catch(() => null),
+  ]);
+  return json({ delivery, invoices, operations });
+}
+
 export async function adminAction(
   task: string,
   raw: unknown,
@@ -133,6 +159,32 @@ export async function adminAction(
       .parse(raw);
     await db.mutation(api.creditRecovery.resolve, { ...auth, id: id as Id<"usage">, ...fields });
     return json({ ok: true });
+  }
+  if (task === "admin-invoice-preview" || task === "admin-invoice-record") {
+    const payload = z
+      .strictObject({
+        provider: z.enum(invoiceProviders),
+        invoiceId: z.string().refine(invoiceReference),
+        rows: z.string().trim().min(1).max(16_384),
+      })
+      .parse(raw);
+    const input = payload.rows
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (/^reference,cost_usd$/i.test(input[0])) input.shift();
+    if (input.length < 1 || input.length > invoiceLineLimit)
+      throw new SonnelyError("Enter 1 to 100 invoice lines.", 400);
+    const lines = input.map((line, index) => {
+      const [reference, amount, ...other] = line.split(",").map((value) => value.trim());
+      const costNanos = amount === undefined ? null : invoiceAmountNanos(amount);
+      if (!invoiceReference(reference) || costNanos === null || other.length)
+        throw new SonnelyError(`Invoice line ${index + 1} needs a billing reference and a USD amount.`, 400);
+      return { reference, costNanos };
+    });
+    const args = { ...auth, provider: payload.provider, invoiceId: payload.invoiceId, lines };
+    if (task === "admin-invoice-preview") return json(await db.query(api.providerInvoices.preview, args));
+    return json(await db.mutation(api.providerInvoices.record, args), 201);
   }
   if (task === "admin-reconcile") {
     const ids = await db.query(api.finance.pendingCosts, auth);

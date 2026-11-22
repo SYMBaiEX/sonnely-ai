@@ -24,7 +24,29 @@ const usage = z.strictObject({
   reportedTotalTokens: integer.optional(),
   unclassifiedTokens: integer.optional(),
 });
-const receipt = z.strictObject({
+const spanId = z.string().regex(/^[a-f0-9]{16}$/);
+const span = z.object({
+  spanId,
+  parentSpanId: spanId.optional(),
+  kind: z.enum(["request", "reservation", "provider", "verification", "settlement", "recovery"]),
+  startedAt: integer,
+  endedAt: integer,
+  status: z.enum(["ok", "error"]),
+  httpStatus: z.int().min(100).max(599).optional(),
+  provider: gatewaySlug.optional(),
+  model: gatewaySlug.optional(),
+  outcome: z
+    .enum([
+      "success",
+      "http_error",
+      "transport_error",
+      "invalid_response",
+      "verification_failed",
+      "incomplete_stream",
+    ])
+    .optional(),
+});
+export const receipt = z.strictObject({
   schemaVersion: z.literal(1),
   requestId,
   revision: z.int().positive(),
@@ -37,6 +59,7 @@ const receipt = z.strictObject({
   stream: z.boolean().optional(),
   resolvedModel: gatewaySlug.optional(),
   traceId: requestId.optional(),
+  trace: z.object({ billingStatus: z.enum(["final", "pending"]), spans: z.array(span).max(12) }).optional(),
   currency: z.literal("USD"),
   customerChargeNanos: integer.nullable(),
   providerCostNanos: integer.nullable(),
@@ -150,7 +173,7 @@ export async function readGatewayReport(since: number, send = fetch): Promise<Ga
       redirect: "error",
       signal: AbortSignal.timeout(4_000),
     });
-    const raw = response.ok ? await readGatewayJson(response, 128_000) : null;
+    const raw = response.ok ? await readGatewayJson(response, 384_000) : null;
     if (!response.ok) await response.body?.cancel().catch(() => {});
     const parsed = report.safeParse(raw);
     if (!parsed.success) return { state: "unavailable" };

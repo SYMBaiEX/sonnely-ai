@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { computeProgress, kind, spec } from "./computeValidators";
+import { invoiceProvider, invoiceLineView } from "./providerInvoiceContract";
 import { gatewayDetails, gatewayReceipt } from "./usageMaxOutboxValidators";
 
 export default defineSchema({
@@ -108,12 +109,25 @@ export default defineSchema({
     receipt: gatewayReceipt,
     state: v.union(v.literal("queued"), v.literal("delivered"), v.literal("failed")),
     nextAt: v.optional(v.number()),
+    queuedAt: v.optional(v.number()),
     attempts: v.number(),
     purgeAt: v.number(),
   })
     .index("by_request", ["receipt.requestId"])
     .index("by_state_next", ["state", "nextAt"])
+    .index("by_state_and_queuedAt", ["state", "queuedAt"])
     .index("by_purge", ["purgeAt"]),
+  providerInvoices: defineTable({
+    provider: invoiceProvider,
+    invoiceId: v.string(),
+    recordedBy: v.id("accounts"),
+    lines: v.array(invoiceLineView),
+  }).index("by_provider_and_invoiceId", ["provider", "invoiceId"]),
+  providerInvoiceClaims: defineTable({
+    reference: v.string(),
+    invoice: v.id("providerInvoices"),
+    usage: v.id("usage"),
+  }).index("by_reference", ["reference"]),
   finance: defineTable({
     reconciled: v.number(),
     customerMicros: v.number(),

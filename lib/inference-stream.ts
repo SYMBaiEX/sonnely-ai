@@ -55,7 +55,7 @@ export function inferenceStream(options: {
   model: string;
   includeUsage: boolean;
   rememberId: (id: string) => void;
-  settle: (usage?: FinalUsage) => Promise<unknown>;
+  settle: (usage?: FinalUsage, observedFirstTokenAt?: number) => Promise<unknown>;
 }) {
   let readable = true;
   let finished: Promise<void>;
@@ -120,7 +120,7 @@ export function inferenceStream(options: {
             malformed = true;
           }
           if (malformed || !done || !terminal?.usage) {
-            await options.settle();
+            await options.settle(undefined, firstTokenAt);
             throw new Error(error);
           }
           error = "Sonnely could not finalize this stream. Check the usage ledger before retrying.";
