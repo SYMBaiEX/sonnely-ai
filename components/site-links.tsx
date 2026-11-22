@@ -28,11 +28,12 @@ const links = [
   ["/contact", "Contact"],
 ] as const;
 
-export function SiteLinks() {
+export function SiteLinks({ fromDocs = false }: { fromDocs?: boolean }) {
   const path = usePathname();
   const menu = useRef<HTMLDetailsElement>(null);
   const toggle = useRef<HTMLElement>(null);
   const currentProduct = isProductPage(path.slice(1));
+  const ProductLink = fromDocs ? "a" : Link;
 
   useEffect(() => {
     function dismiss(event: PointerEvent) {
@@ -67,7 +68,7 @@ export function SiteLinks() {
         <ul className={styles.panel} aria-label="Platform pages">
           {products.map(({ href, label, detail, icon: Icon }) => (
             <li key={href}>
-              <Link
+              <ProductLink
                 href={href}
                 aria-current={path === href ? "page" : undefined}
                 onClick={() => {
@@ -82,20 +83,23 @@ export function SiteLinks() {
                   <small>{detail}</small>
                 </span>
                 <ArrowUpRight size={14} className={styles.arrow} aria-hidden="true" />
-              </Link>
+              </ProductLink>
             </li>
           ))}
         </ul>
       </details>
-      {links.map(([href, label]) => (
-        <Link
-          key={href}
-          href={href}
-          aria-current={path === href ? "page" : path.startsWith(href + "/") ? "location" : undefined}
-        >
-          {label}
-        </Link>
-      ))}
+      {links.map(([href, label]) => {
+        const NavLink = fromDocs && href !== "/docs" ? "a" : Link;
+        return (
+          <NavLink
+            key={href}
+            href={href}
+            aria-current={path === href ? "page" : path.startsWith(href + "/") ? "location" : undefined}
+          >
+            {label}
+          </NavLink>
+        );
+      })}
     </nav>
   );
 }
