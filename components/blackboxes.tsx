@@ -239,6 +239,7 @@ export function Blackboxes({
   const [port, setPort] = useState("8080");
   const [formError, setFormError] = useState("");
   const composer = useRef<HTMLDialogElement>(null);
+  const quotePanel = useRef<HTMLElement>(null);
   const confirmEnd = useRef<HTMLDialogElement>(null);
   const detailHeading = useRef<HTMLHeadingElement>(null);
   const owner = Boolean(session?.profile);
@@ -950,7 +951,7 @@ export function Blackboxes({
                   </div>
                 </fieldset>
               </div>
-              <aside className={styles.quote} aria-label="Rental quote">
+              <aside className={styles.quote} aria-label="Rental quote" ref={quotePanel} tabIndex={-1}>
                 <h3>Maximum hold</h3>
                 <strong className={styles.price}>{creditBalance(quote.total)}</strong>
                 <p className={styles.hint}>
@@ -1019,7 +1020,16 @@ export function Blackboxes({
               </p>
             )}
           </div>
-          <div className={styles.dialogFooter}>
+          <div className={styles.dialogFooter + " " + styles.rentalFooter}>
+            <div className={styles.rentalSummary}>
+              <span>
+                {blackboxMachines[machine].name} · {disk} GB SSD ·{" "}
+                {minutes < 60 ? minutes + " min" : minutes / 60 + " hr"}
+              </span>
+              <button type="button" onClick={() => quotePanel.current?.focus()}>
+                Cost breakdown
+              </button>
+            </div>
             <button
               type="button"
               className="button quiet"

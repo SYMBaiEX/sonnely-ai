@@ -115,6 +115,15 @@ test("wallet account workflow scopes keys, referrals, and support requests", asy
   );
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.getByText("Local fixture", { exact: true })).toBeVisible();
+  const desktop = page.viewportSize()!;
+  await page.setViewportSize({ width: 390, height: 844 });
+  const record = page.getByRole("row").filter({ hasText: "Local fixture" });
+  await expect(record.getByText("Active", { exact: true })).toBeInViewport();
+  await expect(record.getByRole("button", { name: "Revoke", exact: true })).toBeInViewport();
+  expect(await page.locator(".key-records .table-wrap").evaluate((element) => element.scrollWidth)).toBe(
+    await page.locator(".key-records .table-wrap").evaluate((element) => element.clientWidth),
+  );
+  await page.setViewportSize(desktop);
   await page.getByRole("button", { name: "Revoke", exact: true }).click();
   await page.getByRole("button", { name: "Revoke key", exact: true }).click();
   await expect(page.getByText("Revoked", { exact: true })).toBeVisible();

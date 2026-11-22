@@ -181,6 +181,11 @@ test("both products show responsive paid quotes in both themes", async ({ page }
   const rentalOrder = page.getByRole("button", { name: /Rent Blackbox.*0\.028994/ });
   await expect(rentalOrder).toBeEnabled();
   await expect(rentalOrder).toBeInViewport();
+  const costBreakdown = page.getByRole("button", { name: "Cost breakdown", exact: true });
+  await expect(costBreakdown).toBeInViewport();
+  await costBreakdown.click();
+  await expect(page.getByRole("complementary", { name: "Rental quote" })).toBeFocused();
+  await expect(page.getByText("Sonnely fee", { exact: true })).toBeInViewport();
   await page.getByRole("radio", { name: "2 hr", exact: true }).check();
   await expect(page.getByRole("button", { name: /Rent Blackbox.*0\.16195/ })).toBeEnabled();
   await page.getByRole("radio", { name: /^Medium/ }).check();

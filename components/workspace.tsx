@@ -1,7 +1,7 @@
 "use client";
 
 import { UsageMax } from "./usage-max";
-import { useEffect, useEffectEvent, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowUpRight,
   BarChart3,
@@ -108,6 +108,11 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
   const [failure, setFailure] = useState("");
   const [busy, setBusy] = useState(false);
   const [revoke, setRevoke] = useState<Key | null>(null);
+  const revokeHeading = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (revoke) revokeHeading.current?.focus();
+  }, [revoke]);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -219,7 +224,9 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
       {signedIn && revoke && (
         <div className="panel callout">
           <div>
-            <h2>Revoke {revoke.name}?</h2>
+            <h2 ref={revokeHeading} tabIndex={-1}>
+              Revoke {revoke.name}?
+            </h2>
             <p>Clients using this key will lose API access immediately.</p>
           </div>
           <div className="actions">
@@ -232,33 +239,34 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
           </div>
         </div>
       )}
-      <div className="panel">
+      <div className="panel key-records">
         {signedIn && data?.length ? (
           <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  {["Name", "Key", "Created", "Last used", "Daily / total", "Status", "Actions"].map(
+            <table role="table" aria-label="Workspace API keys">
+              <thead role="rowgroup">
+                <tr role="row">
+                  {["Name", "Key", "Status", "Last used", "Created", "Daily / total", "Actions"].map(
                     (label) => (
-                      <th key={label}>{label}</th>
+                      <th role="columnheader" scope="col" key={label}>
+                        {label}
+                      </th>
                     ),
                   )}
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {data.map((item) => (
-                  <tr key={item.id}>
-                    <th scope="row">{item.name}</th>
-                    <td>
+                  <tr role="row" key={item.id}>
+                    <th role="rowheader" scope="row">
+                      {item.name}
+                    </th>
+                    <td role="cell" className="key-record-prefix">
                       <code>{item.prefix}…</code>
                     </td>
-                    <td>{date(item.created)}</td>
-                    <td>{item.lastUsed ? date(item.lastUsed) : "—"}</td>
-                    <td>
-                      {item.dailyCap !== null ? usd(item.dailyCap) : "—"} /{" "}
-                      {item.cap !== null ? usd(item.cap) : "—"}
-                    </td>
-                    <td>
+                    <td role="cell">
+                      <span className="key-record-label" aria-hidden="true">
+                        Status
+                      </span>
                       <span className="pill">
                         {item.revoked
                           ? "Revoked"
@@ -266,8 +274,30 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
                             ? "Expired"
                             : "Active"}
                       </span>
+                      {item.expires && !item.revoked ? (
+                        <small className="key-record-expiry">Expires {date(item.expires)} UTC</small>
+                      ) : null}
                     </td>
-                    <td>
+                    <td role="cell">
+                      <span className="key-record-label" aria-hidden="true">
+                        Last used
+                      </span>
+                      {item.lastUsed ? date(item.lastUsed) : "Never"}
+                    </td>
+                    <td role="cell">
+                      <span className="key-record-label" aria-hidden="true">
+                        Created
+                      </span>
+                      {date(item.created)}
+                    </td>
+                    <td role="cell">
+                      <span className="key-record-label" aria-hidden="true">
+                        Daily / total cap
+                      </span>
+                      {item.dailyCap !== null ? usd(item.dailyCap) : "—"} /{" "}
+                      {item.cap !== null ? usd(item.cap) : "—"}
+                    </td>
+                    <td role="cell" className="key-record-action">
                       {!item.revoked && (
                         <button type="button" className="button quiet small" onClick={() => setRevoke(item)}>
                           Revoke
@@ -281,17 +311,33 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
           </div>
         ) : (
           <Empty
-            title={signedIn && !data && !error ? "Loading keys…" : "No API keys to show"}
+            title={
+              signedIn && error
+                ? "API keys unavailable"
+                : signedIn && !data
+                  ? "Loading keys…"
+                  : "No API keys to show"
+            }
             icon={<KeyRound size={23} />}
           >
             <p>
-              {signedIn
-                ? "Create a key to call the API from your own client."
-                : "Connect a Solana wallet to open your workspace."}
+              {!signedIn
+                ? "Connect a Solana wallet to open your workspace."
+                : error
+                  ? "Try reloading the list."
+                  : data
+                    ? "Create a key to call the API from your own client."
+                    : "Getting your workspace keys."}
             </p>
-            <Link className="text-link" href="/docs/quickstart">
-              Read the quickstart <ArrowUpRight size={15} />
-            </Link>
+            {signedIn && error ? (
+              <button className="button quiet small" type="button" onClick={reload}>
+                Reload keys
+              </button>
+            ) : (
+              <Link className="text-link" href="/docs/quickstart">
+                Read the quickstart <ArrowUpRight size={15} />
+              </Link>
+            )}
           </Empty>
         )}
       </div>

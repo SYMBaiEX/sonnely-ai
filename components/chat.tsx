@@ -212,7 +212,7 @@ export function Chat({
 
   return (
     <div className={"chat-layout" + (showHistory ? " show-sessions" : "")}>
-      <aside className="sessions" aria-label="Conversation history">
+      <aside id="playground-history" className="sessions" aria-label="Conversation history">
         <div className="between">
           <strong>Conversations</strong>
           <button type="button" className="icon-button" aria-label="New chat" onClick={start} disabled={busy}>
@@ -263,7 +263,7 @@ export function Chat({
         ) : (
           <p className="caption">
             Your conversations appear here.{" "}
-            {localHistory ? "History stays on this device." : "History is off."}
+            {localHistory ? "History stays on this device." : "History saving is off."}
           </p>
         )}
         <Link className="text-link" href="/console/keys">
@@ -277,6 +277,7 @@ export function Chat({
             type="button"
             onClick={() => setShowHistory(!showHistory)}
             aria-expanded={showHistory}
+            aria-controls="playground-history"
           >
             <History size={16} /> History
           </button>
@@ -346,6 +347,7 @@ export function Chat({
             onChange={(e) => setText(e.target.value)}
             maxLength={12000}
             aria-label="Message"
+            enterKeyHint="send"
             placeholder="Write a message…"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && ready && text.trim()) {
@@ -354,7 +356,7 @@ export function Chat({
               }
             }}
           />
-          <div className="between">
+          <div className="between composer-controls">
             <label className="model-select">
               <select
                 aria-label="Inference model"
@@ -418,7 +420,7 @@ export function Chat({
                 ? "Live inference is temporarily unavailable."
                 : localHistory
                   ? "History stays in this browser."
-                  : "Conversation history is off."}
+                  : "Chats aren’t saved when you leave Playground."}
         </p>
       </section>
     </div>

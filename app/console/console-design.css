@@ -242,6 +242,26 @@
   background: var(--console-selected);
 }
 
+.console .key-record-label {
+  display: none;
+}
+
+.console .key-record-expiry {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.console .key-records th[scope="row"] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.console .key-record-action {
+  text-align: right;
+}
+
 .console .stat {
   min-width: 0;
   background: var(--card);
@@ -441,7 +461,133 @@
   }
 }
 
+@media (max-width: 920px) {
+  .console .key-records:has(table) {
+    border: 0;
+    background: transparent;
+  }
+
+  .console .key-records .table-wrap {
+    overflow: visible;
+  }
+
+  .console .key-records thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .console .key-records :is(table, tbody) {
+    display: grid;
+    gap: 10px;
+  }
+
+  .console .key-records tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+
+  .console .key-records tbody :is(th, td) {
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .console .key-records th[scope="row"] {
+    font-size: 0.95rem;
+  }
+
+  .console .key-records :is(th[scope="row"], .key-record-prefix, .key-record-action) {
+    grid-column: 1 / -1;
+  }
+
+  .console .key-record-prefix {
+    margin-top: -7px;
+    color: var(--muted);
+  }
+
+  .console .key-record-label {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .console .key-record-action:empty {
+    display: none;
+  }
+
+  .console .key-record-action .button {
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 600px) {
+  .console .chat-main {
+    padding-block: 14px 16px;
+  }
+
+  .console .chat-welcome {
+    padding-block: 16px 20px;
+  }
+
+  .console .chat-welcome .welcome-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .console .chat-welcome .welcome-mark svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .console .chat-welcome h1 {
+    margin-top: 10px;
+  }
+
+  .console .chat-welcome .prompts {
+    margin-top: 15px;
+  }
+
+  .console .chat-welcome .prompt {
+    padding-block: 7px;
+    min-height: 48px;
+  }
+
+  .console .composer textarea {
+    height: 64px;
+    min-height: 64px;
+  }
+
+  .console .composer-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .console .composer-controls:has(.model-select:nth-child(2)) .model-select:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .console .composer-controls select {
+    max-width: none;
+  }
+
+  .console .composer-controls .icon-send {
+    width: 44px;
+    height: 44px;
+  }
+
   .console .workspace-data-table :is(th, td) {
     padding-inline: 7px;
   }
