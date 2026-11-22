@@ -298,7 +298,7 @@ test("settlement survives a gateway outage, late cost is revised, and reporting 
     const initialFinance = (await db.query(api.finance.overview, { ...admin.auth, since: 0 })).finance;
     const invoice = {
       provider: "near-ai" as const,
-      invoiceId: "fixture-invoice",
+      invoiceId: "fixture-invoice-" + randomUUID(),
       lines: [{ reference: privateProviderId, costNanos: 100_050 }],
     };
     await expect(db.query(api.providerInvoices.preview, { ...member.auth, ...invoice })).rejects.toThrow(
