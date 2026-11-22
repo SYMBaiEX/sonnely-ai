@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 
 import { creditDeposit, settleUsage } from "./ledger";
+import { gatewayDetails } from "./usageMaxOutboxValidators";
 import { termsVersion } from "../lib/policy";
 import { accountFor, auth, requireAccount, secret, service, walletRole } from "./access";
 
@@ -340,6 +341,7 @@ export const settle = mutation({
     providerRequest: v.optional(v.string()),
     providerStatus: v.optional(v.number()),
     providerReportedCostNano: v.optional(v.number()),
+    usageMaxDetails: v.optional(gatewayDetails),
     outcome: v.optional(v.string()),
     status: v.union(v.literal("complete"), v.literal("failed"), v.literal("unreported")),
   },

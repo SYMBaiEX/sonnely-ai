@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { computeProgress, kind, spec } from "./computeValidators";
+import { gatewayDetails, gatewayReceipt } from "./usageMaxOutboxValidators";
 
 export default defineSchema({
   computeRuns: defineTable({
@@ -88,6 +89,7 @@ export default defineSchema({
     settledAt: v.optional(v.number()),
     providerCostNano: v.optional(v.number()),
     providerReportedCostNano: v.optional(v.number()),
+    usageMaxDetails: v.optional(gatewayDetails),
     reconciliation: v.optional(v.union(v.literal("pending"), v.literal("reconciled"))),
     status: v.union(
       v.literal("pending"),
@@ -102,6 +104,16 @@ export default defineSchema({
     .index("by_reconciliation", ["reconciliation"])
     .index("by_status", ["status"])
     .index("by_provider_request", ["providerRequest"]),
+  usageMaxOutbox: defineTable({
+    receipt: gatewayReceipt,
+    state: v.union(v.literal("queued"), v.literal("delivered"), v.literal("failed")),
+    nextAt: v.optional(v.number()),
+    attempts: v.number(),
+    purgeAt: v.number(),
+  })
+    .index("by_request", ["receipt.requestId"])
+    .index("by_state_next", ["state", "nextAt"])
+    .index("by_purge", ["purgeAt"]),
   finance: defineTable({
     reconciled: v.number(),
     customerMicros: v.number(),

@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
+import { enqueueGatewaySettlement } from "./usageMaxOutbox";
 
 export async function settleUsage(
   ctx: MutationCtx,
@@ -13,6 +14,7 @@ export async function settleUsage(
     providerRequest?: string;
     providerStatus?: number;
     providerReportedCostNano?: number;
+    usageMaxDetails?: Doc<"usage">["usageMaxDetails"];
     outcome?: string;
   },
 ) {
@@ -32,21 +34,33 @@ export async function settleUsage(
       await ctx.db.patch(key._id, { lifetime: key.lifetime - refund });
     }
   }
+  const settledAt = Date.now();
+  const providerReportedCostNano = row.provider === undefined ? undefined : args.providerReportedCostNano;
+  const knownUsage =
+    args.input > 0 || args.output > 0 ? { inputTokens: args.input, outputTokens: args.output } : undefined;
+  const usageMaxDetails =
+    args.usageMaxDetails ?? row.usageMaxDetails ?? (knownUsage && { usage: knownUsage });
   await ctx.db.patch(row._id, {
     input: args.input,
     output: args.output,
     cost,
     status: args.status,
-    settledAt: Date.now(),
+    settledAt,
+    ...(usageMaxDetails === undefined ? {} : { usageMaxDetails }),
     ...(args.providerStatus === undefined ? {} : { providerStatus: args.providerStatus }),
     ...(args.outcome ? { outcome: args.outcome } : {}),
     ...(args.providerRequest ? { providerRequest: args.providerRequest } : {}),
-    ...(row.provider !== undefined && args.providerReportedCostNano !== undefined
-      ? { providerReportedCostNano: args.providerReportedCostNano }
-      : {}),
+    ...(providerReportedCostNano === undefined ? {} : { providerReportedCostNano }),
     ...(row.provider === undefined && args.status === "complete" && args.providerRequest
       ? { reconciliation: "pending" }
       : {}),
+  });
+  await enqueueGatewaySettlement(ctx, row, {
+    status: args.status,
+    cost,
+    settledAt,
+    providerReportedCostNano: providerReportedCostNano ?? row.providerReportedCostNano,
+    usageMaxDetails,
   });
 }
 

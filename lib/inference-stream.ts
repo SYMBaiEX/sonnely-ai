@@ -6,6 +6,7 @@ import { SonnelyError } from "./sonnely-error";
 export const providerUsage = z.object({
   prompt_tokens: z.int().nonnegative(),
   completion_tokens: z.int().nonnegative(),
+  total_tokens: z.int().nonnegative().optional().catch(undefined),
   cost: z
     .number()
     .nonnegative()

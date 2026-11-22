@@ -9,6 +9,7 @@ import { CreditRecovery } from "./credit-recovery";
 import { computePlans } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
+import type { GatewayReport } from "@/lib/usagemax-gateway";
 import { payWithWallet, request, type Session } from "./wallet";
 
 type Overview = FunctionReturnType<typeof api.finance.overview> & {
@@ -16,6 +17,7 @@ type Overview = FunctionReturnType<typeof api.finance.overview> & {
   creditLiability: number | null;
   treasuryMicros: number | null;
   compute?: FunctionReturnType<typeof api.compute.adminSummary> | null;
+  gateway?: GatewayReport;
 };
 
 export function Admin({ session }: { session: Session | null }) {
@@ -159,6 +161,55 @@ export function Admin({ session }: { session: Session | null }) {
               </p>
             )}
           </section>
+          {data.gateway && data.gateway.state !== "disabled" && (
+            <section className="panel stack-panel">
+              <h2>UsageMax receipts</h2>
+              {data.gateway.state === "unavailable" ? (
+                <p className="caption">UsageMax reporting is unavailable. Local activity is shown above.</p>
+              ) : (
+                <>
+                  <dl className="admin-metrics">
+                    <div>
+                      <dt>Receipts returned</dt>
+                      <dd>{data.gateway.count.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Completed</dt>
+                      <dd>{data.gateway.completed.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Errors</dt>
+                      <dd>{data.gateway.errors.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Cancelled</dt>
+                      <dd>{data.gateway.cancelled.toLocaleString()}</dd>
+                    </div>
+                  </dl>
+                  <p className="caption">
+                    From {data.gateway.from} through {data.gateway.through} UTC. Refreshed{" "}
+                    {new Date(data.gateway.fetchedAt).toLocaleString()}.
+                  </p>
+                  <p className="caption">
+                    {data.gateway.latestSettledAt === null
+                      ? "No receipts returned in this window."
+                      : "Latest settlement " + new Date(data.gateway.latestSettledAt).toLocaleString() + "."}
+                  </p>
+                  {data.gateway.truncated && (
+                    <p className="caption">
+                      Counts cover the returned receipts. More receipts exist in this window.
+                    </p>
+                  )}
+                  {data.gateway.latestReceiptUrl && (
+                    <a className="caption" href={data.gateway.latestReceiptUrl}>
+                      Open latest receipt in UsageMax
+                    </a>
+                  )}
+                  <p className="caption">Analytics powered by UsageMax</p>
+                </>
+              )}
+            </section>
+          )}
           {data.compute && (
             <section className="panel stack-panel">
               <h2>Compute over 30 days</h2>

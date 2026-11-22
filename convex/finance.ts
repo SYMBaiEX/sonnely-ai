@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { auth, requireAdmin } from "./access";
+import { amendGatewayCost } from "./usageMaxOutbox";
 
 const payoutOrder = {
   reference: v.string(),
@@ -186,6 +187,7 @@ export const reconcile = mutation({
       if (!row || row.provider !== undefined || row.status !== "complete" || row.reconciliation !== "pending")
         continue;
       await ctx.db.patch(row._id, { reconciliation: "reconciled", providerCostNano: cost.costNanoUsd });
+      await amendGatewayCost(ctx, row._id, cost.costNanoUsd);
       ledger.reconciled++;
       ledger.customerMicros += row.cost;
       ledger.providerNano += cost.costNanoUsd;

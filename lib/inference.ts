@@ -11,6 +11,7 @@ import { providerRequestId } from "./provider-billing";
 import { providerIds, providerRoute } from "./provider-catalog";
 import { models } from "./models";
 import { backend, SonnelyError } from "./server";
+import type { GatewayReceipt } from "./usagemax-gateway";
 
 const message = z
   .object({
@@ -109,6 +110,8 @@ export async function infer(
   let providerRequest: string | undefined;
   let providerStatus: number | undefined;
   let providerReportedCostNano: number | undefined;
+  let gatewayUsage: GatewayReceipt["usage"] | undefined;
+  let gatewayResolvedModel: string | undefined;
   let providerReceipt: string | undefined;
   let phalaEvidence: Awaited<ReturnType<typeof phalaResponseEvidence>> | undefined;
   let tinfoilEvidence: Awaited<ReturnType<typeof import("./tinfoil").fetchTinfoil>>["evidence"] | undefined;
@@ -128,6 +131,11 @@ export async function infer(
       ...(providerStatus === undefined ? {} : { providerStatus }),
       ...(providerReportedCostNano === undefined ? {} : { providerReportedCostNano }),
       outcome,
+      usageMaxDetails: {
+        stream: input.stream === true,
+        ...(gatewayUsage ? { usage: gatewayUsage } : {}),
+        ...(gatewayResolvedModel ? { resolvedModel: gatewayResolvedModel } : {}),
+      },
     });
 
   function rememberId(completionId: string) {
@@ -135,11 +143,30 @@ export async function infer(
     if (isTinfoil) providerRequest = "tinfoil:" + completionId;
   }
 
-  async function recordUsage(completionId: string, usage: ProviderUsage, responseHash?: string) {
+  async function recordUsage(
+    completionId: string,
+    usage: ProviderUsage,
+    responseHash?: string,
+    reportedModel?: string,
+  ) {
     rememberId(completionId);
     tokensIn = usage.prompt_tokens;
     tokensOut = usage.completion_tokens;
     cached = Math.min(tokensIn, usage.prompt_tokens_details?.cached_tokens ?? 0);
+    const reportedCache = usage.prompt_tokens_details?.cached_tokens;
+    const reportedReasoning = usage.completion_tokens_details?.reasoning_tokens;
+    const knownCache =
+      typeof reportedCache === "number" && reportedCache <= tokensIn ? reportedCache : undefined;
+    const knownReasoning =
+      typeof reportedReasoning === "number" && reportedReasoning <= tokensOut ? reportedReasoning : undefined;
+    gatewayUsage = {
+      inputTokens: tokensIn - (knownCache ?? 0),
+      outputTokens: tokensOut - (knownReasoning ?? 0),
+      ...(knownCache === undefined ? {} : { cacheReadTokens: knownCache }),
+      ...(knownReasoning === undefined ? {} : { reasoningTokens: knownReasoning }),
+      ...(usage.total_tokens === undefined ? {} : { reportedTotalTokens: usage.total_tokens }),
+    };
+    gatewayResolvedModel = reportedModel;
     if (provider !== "near-ai" && usage.cost !== undefined)
       providerReportedCostNano = Math.round(usage.cost * 1e9);
     if (isPhala) {
@@ -256,7 +283,7 @@ export async function infer(
         rememberId,
         settle: async (final) => {
           try {
-            if (final) await recordUsage(final.id, final.usage, final.responseHash);
+            if (final) await recordUsage(final.id, final.usage, final.responseHash, final.reportedModel);
             else outcome = "stream_incomplete";
           } finally {
             await settle();
@@ -284,7 +311,7 @@ export async function infer(
     const parsed = result.safeParse(body);
     if (!parsed.success) throw new SonnelyError("The provider returned incomplete usage information.", 502);
     data = parsed.data;
-    await recordUsage(data.id, data.usage, responseHash);
+    await recordUsage(data.id, data.usage, responseHash, data.model);
   } finally {
     if (!streamOwnsSettlement) await settle();
   }

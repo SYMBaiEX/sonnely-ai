@@ -45,4 +45,22 @@ From the Dry Docks page, fill in the pinned MDN example and select a five-minute
 In **Console > Usage**, export up to 100 settled inference requests from the selected date range. Download a UsageMax telemetry batch or send it directly to a workspace with an advanced write-only collector key. Use a dedicated collector and retain the same installation UUID when sending again. The request carries model and provider names, counters, timestamps, and ledger charges. Sonnely creates stable opaque event keys for deduplication. No service credential or collector key stays in Sonnely after the send.
 
 - [Boat Billing](https://boat.dev/dashboard?tab=billing)
+
+For platform reporting, provision separate write and reporting credentials in the same UsageMax
+project. Deploy Convex before the Sonnely frontend. Set `USAGEMAX_GATEWAY_INGEST_TOKEN` on
+Convex and `USAGEMAX_GATEWAY_REPORT_TOKEN` on the frontend server. Set
+`USAGEMAX_GATEWAY_PROJECT_ID` there to link the latest receipt from Admin. Never expose the
+credentials to a client build.
+
+With ingestion enabled, each new final settlement queues an opaque receipt in Convex. Delivery
+runs asynchronously, retries with backoff, and expires outbox records after 30 days. NEAR provider
+cost reconciliation updates a queued or previously delivered receipt without altering its original
+settlement time or customer charge. Admin reads UsageMax only after validating the Sonnely
+administrator session and labels truncated reports. Wallet credits, payout calculations, and
+manual usage export continue to use Sonnely records.
+
+A local loopback Convex deployment only sends receipts when
+`USAGEMAX_GATEWAY_LOCAL_PORT` points to a loopback receiver. Run the focused receipt test against a
+disposable local deployment with `SONNELY_GATEWAY_LOCAL_TEST=1` and the local service secret.
+
 - [UsageMax telemetry API](https://usagemax.com/docs)

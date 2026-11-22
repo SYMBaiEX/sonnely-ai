@@ -25,6 +25,8 @@ import type * as referralPipeline from "../referralPipeline.js";
 import type * as relay from "../relay.js";
 import type * as sonnely from "../sonnely.js";
 import type * as usageExport from "../usageExport.js";
+import type * as usageMaxOutbox from "../usageMaxOutbox.js";
+import type * as usageMaxOutboxValidators from "../usageMaxOutboxValidators.js";
 
 import type {
   ApiFromModules,
@@ -50,6 +52,8 @@ declare const fullApi: ApiFromModules<{
   relay: typeof relay;
   sonnely: typeof sonnely;
   usageExport: typeof usageExport;
+  usageMaxOutbox: typeof usageMaxOutbox;
+  usageMaxOutboxValidators: typeof usageMaxOutboxValidators;
 }>;
 
 /**
