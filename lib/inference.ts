@@ -54,6 +54,7 @@ export async function infer(
   withReceipt = false,
   keepAlive?: (work: Promise<void>) => void,
 ) {
+  const requestAt = Date.now();
   const input = completion.parse(raw);
   if (input.stream_options && !input.stream)
     throw new SonnelyError("stream_options requires stream: true.", 400);
@@ -93,6 +94,7 @@ export async function infer(
       : {}),
   });
   const pilot = pilotWallet();
+  const reservationAt = Date.now();
   const id = await db.mutation(api.sonnely.reserve, {
     secret,
     ...auth,
@@ -119,6 +121,9 @@ export async function infer(
   let upstreamId: string | null = null;
   let streamOwnsSettlement = false;
   let outcome = "upstream_transport";
+  let providerAt = Date.now();
+  let providerDoneAt: number | undefined;
+  let verificationAt: number | undefined;
 
   const settle = () =>
     db.mutation(api.sonnely.settle, {
@@ -134,6 +139,15 @@ export async function infer(
       outcome,
       usageMaxDetails: {
         stream: input.stream === true,
+        attemptModel: route.upstreamModel,
+        timing: {
+          requestAt,
+          reservationAt,
+          providerAt,
+          providerDoneAt: providerDoneAt ?? Date.now(),
+          ...(verificationAt === undefined ? {} : { verificationAt }),
+          settlementAt: Date.now(),
+        },
         ...(gatewayUsage ? { usage: gatewayUsage } : {}),
         ...(gatewayResolvedModel ? { resolvedModel: gatewayResolvedModel } : {}),
         ...(gatewayFirstTokenAt === undefined ? {} : { firstTokenAt: gatewayFirstTokenAt }),
@@ -151,6 +165,7 @@ export async function infer(
     responseHash?: string,
     reportedModel?: string,
   ) {
+    providerDoneAt = Date.now();
     rememberId(completionId);
     tokensIn = usage.prompt_tokens;
     tokensOut = usage.completion_tokens;
@@ -172,6 +187,7 @@ export async function infer(
     if (provider !== "near-ai" && usage.cost !== undefined)
       providerReportedCostNano = Math.round(usage.cost * 1e9);
     if (isPhala) {
+      verificationAt = Date.now();
       phalaEvidence = await phalaResponseEvidence(
         upstreamKey!,
         providerReceipt,
@@ -237,6 +253,7 @@ export async function infer(
         redirect: "error",
         signal: AbortSignal.timeout(45_000),
       };
+      providerAt = Date.now();
       if (isTinfoil) {
         const { fetchTinfoil } = await import("./tinfoil");
         const upstream = await fetchTinfoil(init);
@@ -283,13 +300,14 @@ export async function infer(
         model: input.model,
         includeUsage: input.stream_options?.include_usage === true,
         rememberId,
-        settle: async (final) => {
+        settle: async (final, observedFirstTokenAt) => {
           try {
             if (final) {
               gatewayFirstTokenAt = final.firstTokenAt;
               await recordUsage(final.id, final.usage, final.responseHash, final.reportedModel);
             } else {
               outcome = "stream_incomplete";
+              gatewayFirstTokenAt = observedFirstTokenAt;
             }
           } finally {
             await settle();

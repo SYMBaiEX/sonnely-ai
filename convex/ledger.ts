@@ -61,6 +61,8 @@ export async function settleUsage(
     settledAt,
     providerReportedCostNano: providerReportedCostNano ?? row.providerReportedCostNano,
     usageMaxDetails,
+    outcome: args.outcome ?? row.outcome,
+    providerStatus: args.providerStatus ?? row.providerStatus,
   });
 }
 

@@ -60,6 +60,19 @@ settlement time or customer charge. Admin reads UsageMax only after validating t
 administrator session and labels truncated reports. Wallet credits, payout calculations, and
 manual usage export continue to use Sonnely records.
 
+In **Console > Admin > Inference ops**, filter private analytics by UTC period and group by day,
+model or provider. Open a trace to inspect its credit reservation, provider attempt, evidence
+verification and settlement. Pending requests can receive a recovery span when a hold is resolved.
+The report covers up to 2,000 newest retained receipts and labels incomplete reporting, missing cost
+coverage and outbox failures.
+
+For a finalized provider statement, paste up to 100 normalized CSV lines with
+`reference,cost_usd` under **Invoice reconciliation**. Use the billing reference shown in the provider
+report and the exact USD amount with up to nine decimal places. Preview matches and variances,
+then record the verified statement. Eligible receipts receive an invoice-confirmed revision, without
+modifying the customer ledger or payout accounting. Unmatched lines can be retried from invoice
+history. Historical rows outside the 30-day export window retain their reconciliation in Sonnely.
+
 A local loopback Convex deployment only sends receipts when
 `USAGEMAX_GATEWAY_LOCAL_PORT` points to a loopback receiver. Run the focused receipt test against a
 disposable local deployment with `SONNELY_GATEWAY_LOCAL_TEST=1` and the local service secret.

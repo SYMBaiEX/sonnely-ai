@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { AdminBoatCapacity } from "./admin-boat-capacity";
+import { AdminGateway } from "./admin-gateway";
 import { AdminCrm, type CrmView } from "./admin-crm";
 import { CreditRecovery } from "./credit-recovery";
 import { computePlans } from "@/lib/compute";
@@ -27,7 +28,7 @@ export function Admin({ session }: { session: Session | null }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [area, setArea] = useState<"overview" | CrmView>("overview");
+  const [area, setArea] = useState<"overview" | "gateway" | CrmView>("overview");
   const data = result?.wallet === wallet ? result?.value : undefined;
   const reload = useCallback(async () => {
     if (wallet && authorized) setResult({ wallet, value: await request<Overview>("admin") });
@@ -76,6 +77,7 @@ export function Admin({ session }: { session: Session | null }) {
               ["customers", "Customers"],
               ["support", "Support"],
               ["traces", "Traces"],
+              ["gateway", "Inference ops"],
             ] as const
           ).map(([key, label]) => (
             <button key={key} type="button" aria-pressed={area === key} onClick={() => setArea(key)}>
@@ -99,6 +101,8 @@ export function Admin({ session }: { session: Session | null }) {
           <h2>Administrator access required</h2>
           <p>Connect an authorized Solana wallet to view this workspace.</p>
         </section>
+      ) : area === "gateway" ? (
+        <AdminGateway key={wallet} />
       ) : area !== "overview" ? (
         <AdminCrm view={area} key={wallet + ":" + area} />
       ) : !data ? (

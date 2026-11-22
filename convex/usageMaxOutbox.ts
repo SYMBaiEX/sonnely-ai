@@ -8,7 +8,9 @@ import {
 } from "../lib/usagemax-gateway";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
+import { internalAction, internalMutation, query, type MutationCtx } from "./_generated/server";
+import { auth, requireAdmin } from "./access";
+import { traceFromSettlement } from "./usageMaxTrace";
 import { gatewayReceipt } from "./usageMaxOutboxValidators";
 
 const maxAttempts = 10;
@@ -34,24 +36,64 @@ type Receipt = typeof gatewayReceipt.type;
 type Job = { id: Id<"usageMaxOutbox">; receipt: Receipt; attempt: number };
 type Settlement = Pick<
   Doc<"usage">,
-  "status" | "cost" | "settledAt" | "providerReportedCostNano" | "usageMaxDetails"
+  | "status"
+  | "cost"
+  | "settledAt"
+  | "providerReportedCostNano"
+  | "usageMaxDetails"
+  | "outcome"
+  | "providerStatus"
 >;
 
 export function settlementReceipt(
   row: Pick<Doc<"usage">, "_creationTime" | "model" | "provider">,
   settlement: Settlement,
   requestId: string,
+  previous?: Receipt,
 ): Receipt | null {
-  if (!settlement.settledAt || !["complete", "failed"].includes(settlement.status)) return null;
+  if (!settlement.settledAt || settlement.status === "pending") return null;
+  const traceId = requestId.slice(0, 32);
+  const timing = settlement.usageMaxDetails?.timing;
+  const prior = previous?.trace;
+  const attemptModel = gatewaySlug.safeParse(settlement.usageMaxDetails?.attemptModel);
+  const trace = prior
+    ? {
+        billingStatus: "final" as const,
+        spans: [
+          { ...prior.spans[0], endedAt: settlement.settledAt },
+          ...prior.spans.slice(1),
+          {
+            spanId: traceId.slice(0, 14) + "06",
+            parentSpanId: prior.spans[0].spanId,
+            kind: "recovery" as const,
+            status: "ok" as const,
+            startedAt: settlement.settledAt,
+            endedAt: settlement.settledAt,
+          },
+        ],
+      }
+    : timing &&
+      traceFromSettlement(
+        traceId,
+        timing,
+        settlement.settledAt,
+        settlement.status,
+        row.provider ?? "near-ai",
+        attemptModel.success ? attemptModel.data : row.model,
+        settlement.outcome,
+        settlement.providerStatus,
+      );
+  if (settlement.status === "unreported" && !trace) return null;
+  const historyAt = previous?.settledAt ?? settlement.settledAt;
   const model = gatewaySlug.safeParse(row.model);
   if (!model.success) return null;
-  const startedAt = Math.min(Math.floor(row._creationTime), settlement.settledAt);
+  const startedAt = trace?.spans[0].startedAt ?? Math.min(Math.floor(row._creationTime), historyAt);
   const firstTokenAt = safeCount(settlement.usageMaxDetails?.firstTokenAt);
   const hasFirstToken =
     settlement.usageMaxDetails?.stream === true &&
     firstTokenAt !== undefined &&
     firstTokenAt >= startedAt &&
-    firstTokenAt <= settlement.settledAt;
+    firstTokenAt <= historyAt;
   const reportedCost = safeCount(settlement.providerReportedCostNano);
   const rawUsage = settlement.usageMaxDetails?.usage;
   const resolvedModel = gatewaySlug.safeParse(settlement.usageMaxDetails?.resolvedModel);
@@ -67,12 +109,13 @@ export function settlementReceipt(
   return {
     schemaVersion: 1,
     requestId,
-    traceId: requestId.slice(0, 32),
-    revision: 1,
+    traceId,
+    ...(trace ? { trace } : {}),
+    revision: (previous?.revision ?? 0) + 1,
     model: model.data,
     provider: row.provider ?? "near-ai",
     status: settlement.status === "complete" ? "ok" : "error",
-    settledAt: settlement.settledAt,
+    settledAt: historyAt,
     startedAt,
     ...(hasFirstToken ? { firstTokenAt } : {}),
     ...(settlement.usageMaxDetails?.stream === undefined
@@ -80,7 +123,8 @@ export function settlementReceipt(
       : { stream: settlement.usageMaxDetails.stream }),
     ...(resolvedModel.success ? { resolvedModel: resolvedModel.data } : {}),
     currency: "USD",
-    customerChargeNanos: safeCount(settlement.cost * 1_000) ?? null,
+    customerChargeNanos:
+      settlement.status === "unreported" ? null : (safeCount(settlement.cost * 1_000) ?? null),
     providerCostNanos: reportedCost ?? null,
     providerCostBasis: reportedCost === undefined ? "unknown" : "provider_reported",
     usage,
@@ -95,33 +139,59 @@ async function queued(ctx: MutationCtx, requestId: string) {
 }
 
 export async function enqueueGatewaySettlement(ctx: MutationCtx, row: Doc<"usage">, settlement: Settlement) {
-  if (!ingestToken() || settlement.status === "unreported") return;
+  if (!ingestToken()) return;
   const requestId = await gatewayRequestId(row._id);
-  const receipt = settlementReceipt(row, settlement, requestId);
-  if (!receipt || (await queued(ctx, requestId))) return;
+  const existing = await queued(ctx, requestId);
+  if (existing && (existing.receipt.trace?.billingStatus !== "pending" || existing.purgeAt <= Date.now()))
+    return;
+  const receipt = settlementReceipt(row, settlement, requestId, existing?.receipt);
+  if (!receipt) return;
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      receipt,
+      state: "queued",
+      nextAt: Date.now(),
+      queuedAt: Date.now(),
+      attempts: 0,
+    });
+    return;
+  }
   await ctx.db.insert("usageMaxOutbox", {
     receipt,
     state: "queued",
     nextAt: Date.now(),
+    queuedAt: Date.now(),
     attempts: 0,
     purgeAt: Date.now() + retentionMs,
   });
 }
 
-export async function amendGatewayCost(ctx: MutationCtx, id: Id<"usage">, providerCostNanos: number) {
+export async function amendGatewayCost(
+  ctx: MutationCtx,
+  id: Id<"usage">,
+  providerCostNanos: number,
+  basis: "provider_reported" | "invoice_confirmed" = "provider_reported",
+) {
   const row = await queued(ctx, await gatewayRequestId(id));
-  if (!row || row.purgeAt <= Date.now() || row.receipt.providerCostNanos === providerCostNanos) return;
+  if (!row || row.purgeAt <= Date.now() || row.receipt.trace?.billingStatus === "pending") return false;
+  if (row.receipt.providerCostBasis === "invoice_confirmed") {
+    return row.receipt.providerCostNanos === providerCostNanos && basis === "invoice_confirmed";
+  }
+  if (row.receipt.providerCostNanos === providerCostNanos && row.receipt.providerCostBasis === basis)
+    return true;
   await ctx.db.patch(row._id, {
     receipt: {
       ...row.receipt,
       revision: row.receipt.revision + 1,
       providerCostNanos,
-      providerCostBasis: "provider_reported",
+      providerCostBasis: basis,
     },
     state: "queued",
     nextAt: Date.now(),
+    queuedAt: Date.now(),
     attempts: 0,
   });
+  return true;
 }
 
 const job = v.object({ id: v.id("usageMaxOutbox"), receipt: gatewayReceipt, attempt: v.number() });
@@ -207,21 +277,75 @@ export const dispatch = internalAction({
     if (!token || !endpoint) return null;
     const jobs: Job[] = await ctx.runMutation(internal.usageMaxOutbox.claim, {});
     if (!jobs.length) return null;
-    const delivery = await deliverGatewayReceipts(
-      jobs.map((item) => item.receipt),
-      token,
-      fetch,
-      endpoint,
-    );
-    await ctx.runMutation(internal.usageMaxOutbox.finish, {
-      outcomes: jobs.map(({ id, receipt, attempt }) => {
-        const result = delivery.results?.get(receipt.requestId + ":" + receipt.revision);
-        const state: "failed" | "delivered" | "retry" =
-          delivery.rejected || result?.status === "conflict" ? "failed" : result ? "delivered" : "retry";
-        return { id, revision: receipt.revision, attempt, state };
-      }),
-      retryDelay: delivery.retryDelay ?? 0,
-    });
+    const batches: Job[][] = [];
+    let bytes = 15;
+    const encode = new TextEncoder();
+    for (const job of jobs) {
+      const size = encode.encode(JSON.stringify(job.receipt)).byteLength + 1;
+      if (!batches.length || bytes + size > 64 * 1024) {
+        batches.push([]);
+        bytes = 15;
+      }
+      batches.at(-1)!.push(job);
+      bytes += size;
+    }
+    for (const batch of batches) {
+      const delivery = await deliverGatewayReceipts(
+        batch.map(({ receipt }) => receipt),
+        token,
+        fetch,
+        endpoint,
+      );
+      await ctx.runMutation(internal.usageMaxOutbox.finish, {
+        outcomes: batch.map(({ id, receipt, attempt }) => {
+          const result = delivery.results?.get(receipt.requestId + ":" + receipt.revision);
+          const state: "failed" | "delivered" | "retry" =
+            delivery.rejected || result?.status === "conflict" ? "failed" : result ? "delivered" : "retry";
+          return { id, revision: receipt.revision, attempt, state };
+        }),
+        retryDelay: delivery.retryDelay ?? 0,
+      });
+    }
     return null;
+  },
+});
+
+export const adminHealth = query({
+  args: auth,
+  returns: v.object({
+    queued: v.number(),
+    failed: v.number(),
+    oldestQueuedAt: v.union(v.null(), v.number()),
+    truncated: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args);
+    const [queued, failed, oldest] = await Promise.all([
+      ctx.db
+        .query("usageMaxOutbox")
+        .withIndex("by_state_next", (q) => q.eq("state", "queued"))
+        .take(501),
+      ctx.db
+        .query("usageMaxOutbox")
+        .withIndex("by_state_next", (q) => q.eq("state", "failed"))
+        .take(501),
+      ctx.db
+        .query("usageMaxOutbox")
+        .withIndex("by_state_and_queuedAt", (q) => q.eq("state", "queued").gte("queuedAt", 0))
+        .first(),
+    ]);
+    return {
+      queued: Math.min(500, queued.length),
+      failed: Math.min(500, failed.length),
+      oldestQueuedAt: queued.length
+        ? queued
+            .slice(0, 500)
+            .reduce(
+              (minimum, row) => Math.min(minimum, row.queuedAt ?? row.purgeAt - retentionMs),
+              oldest?.queuedAt ?? Number.MAX_SAFE_INTEGER,
+            )
+        : null,
+      truncated: queued.length > 500 || failed.length > 500,
+    };
   },
 });

@@ -48,9 +48,9 @@ export default function PrivacyPage() {
         </p>
         <p>
           For service operations, Sonnely sends settled inference receipts to a private UsageMax project.
-          Receipts contain opaque request and trace identifiers, model and provider names, request timing,
-          status, token counts, and accounting amounts. These receipts exclude prompts, responses, wallet
-          addresses, and API keys.
+          Receipts contain opaque request and trace identifiers, model and provider names, timing for gateway
+          stages and provider attempts, status, token counts, and accounting amounts. These receipts exclude
+          prompts, responses, wallet addresses, and API keys.
         </p>
         <p>
           The optional UsageMax export sends model and provider names, token counts, timestamps, and settled

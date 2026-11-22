@@ -1,0 +1,156 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+.toolbar input {
+  flex: 1;
+  min-width: 12ch;
+}
+.toolbar select {
+  width: auto;
+}
+.table {
+  min-width: max-content;
+}
+.table th,
+.table td {
+  padding: 0.625rem 0.75rem;
+}
+.table th[scope="row"] {
+  text-transform: none;
+  letter-spacing: normal;
+}
+.trace,
+.stack {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+.trace {
+  padding-block: 1rem;
+  border-block-start: 1px solid var(--line);
+}
+.identifiers {
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.evidence {
+  text-transform: capitalize;
+}
+.spans {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+}
+.span {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(4rem, 1.5fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.55rem 0;
+}
+.span strong,
+.span :global(.caption) {
+  display: block;
+}
+.timeline {
+  position: relative;
+  height: 0.45rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+}
+.timeline span {
+  position: absolute;
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.timeline .failed {
+  background: var(--muted);
+}
+.duration,
+.recentStatus {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.alert,
+.recentRow,
+.recentStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.alert,
+.recentRow {
+  justify-content: space-between;
+}
+.alert {
+  padding-block: 0.625rem;
+  border-block-start: 1px solid var(--line);
+}
+.pill {
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.recent {
+  max-height: 19rem;
+  overflow: auto;
+  display: grid;
+  gap: 0.25rem;
+}
+.recentRow {
+  text-align: start;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  background: transparent;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.recentRow:hover,
+.recentRow[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.invoice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.invoice label {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.invoiceRows {
+  grid-column: 1 / -1;
+}
+.invoice button,
+.stack button {
+  justify-self: start;
+}
+@media (max-width: 660px) {
+  .invoice {
+    grid-template-columns: 1fr;
+  }
+  .span {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+  }
+  .timeline {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .recentRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
