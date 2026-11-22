@@ -1,0 +1,33 @@
+---
+title: API reference
+description: Endpoints, accepted fields, request limits, and the OpenAPI specification.
+---
+
+**Base URL** `https://sonnely.com/api/sonnely/v1`
+
+[Download the OpenAPI 3.1 specification](/api/openapi). Existing clients can also use `https://sonnely.com/v1`.
+
+| Method and path          | Authentication                        | Returns                                                                       |
+| ------------------------ | ------------------------------------- | ----------------------------------------------------------------------------- |
+| `GET /models`            | Public                                | Exact model IDs, route tiers, upstream names, and USD per million token rates |
+| `POST /chat/completions` | `Authorization: Bearer <Sonnely key>` | A completion or an event stream                                               |
+
+## Completion fields
+
+| Field                          | Behavior                                                                |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `model`                        | Required. Use the exact public ID from `/models`.                       |
+| `messages`                     | Required. Text-only objects with `role` and `content`.                  |
+| `max_tokens`                   | Optional output allowance. Defaults to 512.                             |
+| `provider.only`                | Optional array containing exactly one provider ID. Defaults to NEAR AI. |
+| `max_cost_microusd`            | Optional positive integer ceiling on the credit reservation.            |
+| `stream`                       | Set to `true` to receive [SSE](/docs/streaming).                        |
+| `stream_options.include_usage` | Set to `true` to include settled usage in the stream.                   |
+
+Send `Content-Type: application/json`. Add `X-Sonnely-Receipt: v1` to receive the [completion receipt](/docs/attestation#completion-receipts).
+
+## Request limits
+
+The gateway accepts up to 36,000 bytes of JSON, up to 32 messages with roles `system`, `user`, or `assistant`, and up to 12,000 characters per message. `max_tokens` accepts integers from 1 to 2,048.
+
+Use the Chat Completions interface. The gateway accepts plain text messages and the fields listed above. The Responses API, tool calls, embeddings, multimodal inputs, and arbitrary OpenAI parameters are outside this contract. See [errors and recovery](/docs/troubleshooting) for HTTP and stream failures.

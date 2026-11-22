@@ -98,7 +98,7 @@ const cards = [
     icon: Wallet,
     title: "Fund from a Solana wallet",
     description: "When checkout is enabled, fund credits with USDC and verify the finalized transfer.",
-    link: "/docs#settlement",
+    link: "/docs/billing",
     action: "See how settlement works",
     Preview: PaymentPreview,
   },

@@ -120,7 +120,7 @@ test("the request trace loops automatically and can be paused at any stop", asyn
   await expect(enclave).toHaveAttribute("aria-pressed", "true");
   await expect(map.getByRole("link", { name: "Attestation guide" })).toHaveAttribute(
     "href",
-    "/docs#verification",
+    "/docs/attestation",
   );
   await page.clock.fastForward(3600);
   await expect(map.getByText("Step 1 of 3")).toBeVisible();
@@ -237,7 +237,7 @@ test("the homepage offers a copyable request and links to the selected model", a
   );
   await expect(
     page.getByRole("navigation", { name: "Platform integrations" }).getByRole("link", { name: /NEAR AI/ }),
-  ).toHaveAttribute("href", "/docs#verification");
+  ).toHaveAttribute("href", "/inference#routing");
   await expect(list.getByRole("link", { name: /DeepSeek V4.1 Flash/ })).toHaveAttribute(
     "href",
     "/console?model=deepseek-ai%2FDeepSeek-V4.1-Flash-1017",

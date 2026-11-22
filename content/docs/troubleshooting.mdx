@@ -1,0 +1,21 @@
+---
+title: Errors and recovery
+description: Diagnose API errors, incomplete streams, and unsettled funding.
+---
+
+Read `error.message` in the response. If a stream has already started, it may deliver the error as an SSE event.
+
+| Status           | Check                                                                          |
+| ---------------- | ------------------------------------------------------------------------------ |
+| 400              | Compare JSON fields and provider selection with the [API contract](/docs/api). |
+| 401              | Verify the bearer token, key expiration, and revocation status.                |
+| 402              | Check credit balance, key budgets, and the request reservation ceiling.        |
+| 403              | Accept current terms and confirm the account is eligible.                      |
+| 404              | Choose a model ID from discovery.                                              |
+| 413 or 415       | Reduce the request below 36,000 bytes and send JSON.                           |
+| 429              | Allow the request limit to reset, then use a slower request rate.              |
+| 500, 502, or 503 | Check [status](/status) and the ledger before retrying.                        |
+
+## Report a billing issue
+
+In [Billing](/console/billing), resume a pending checkout or check its finalized transaction signature. For inference, look in [Usage](/console/usage) before retrying a disconnected or incomplete request. Share the billing reference, model, provider, and UTC time with [support](/contact). Keep API keys, prompt text, and private receipts out of support messages unless needed and shared securely.

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { artifactLimit } from "../lib/compute";
+import { defaultBlackboxDisk, defaultBlackboxMachine } from "../lib/blackbox-options";
 import type { Doc } from "./_generated/dataModel";
 
 type Run = Doc<"computeRuns">;
@@ -105,8 +106,8 @@ export async function prepareBlackbox(row: Run) {
       method: "POST",
       data: {
         name: resourceName(row),
-        instance_type: "tdx.small",
-        disk_size: 20,
+        instance_type: row.spec.machine ?? defaultBlackboxMachine,
+        disk_size: row.spec.disk ?? defaultBlackboxDisk,
         listed: false,
         compose_file: {
           name: resourceName(row),

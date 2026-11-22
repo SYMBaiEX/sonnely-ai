@@ -1,0 +1,18 @@
+---
+title: API keys and budgets
+description: Create, budget, rotate, and revoke keys from the console.
+---
+
+## Create a key
+
+In [API keys](/console/keys), give each app or deployment its own named key so you can identify its activity in Usage. Store it in a server-side secret store when it appears. Use the key as the bearer token for completion requests.
+
+## Set spend limits
+
+Set a daily budget, a lifetime budget, and an expiry when appropriate. Daily budgets reset at midnight UTC. Sonnely checks balance and the key budget against the maximum reservation before forwarding a request. Unused credit returns to the balance at settlement.
+
+Use `max_cost_microusd` for a per-request ceiling. A limit of `1000` permits a reservation of up to $0.001. Lower the output allowance or choose a route with lower rates if the reservation exceeds your cap.
+
+## Rotate or revoke
+
+Create a replacement, update your server-side configuration, and send a test request. Revoke the previous key after verifying the replacement. Revoke a compromised key immediately and review [Usage](/console/usage) by key.

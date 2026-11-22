@@ -133,7 +133,13 @@ export function Compute({
     if (actionInFlight.current) return false;
     const data = new FormData(event.currentTarget);
     const spec = blackbox
-      ? { kind, image: String(data.get("image") ?? "").trim(), port: Number(data.get("port")) }
+      ? {
+          kind,
+          image: String(data.get("image") ?? "").trim(),
+          port: Number(data.get("port")),
+          machine: String(data.get("machine")),
+          disk: Number(data.get("disk")),
+        }
       : {
           kind,
           repository: String(data.get("repository") ?? "")

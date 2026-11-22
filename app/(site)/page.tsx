@@ -39,7 +39,7 @@ export default function Home() {
       <div className="wrap home">
         <HomeDemo />
         <nav className="home-platform" aria-label="Platform integrations">
-          <Link href="/docs#settlement">
+          <Link href="/docs/billing">
             <Wallet size={18} aria-hidden="true" />
             <span>
               <strong>Solana</strong>
@@ -55,7 +55,7 @@ export default function Home() {
             </span>
             <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
-          <Link href="/docs#api">
+          <Link href="/docs/api">
             <Terminal size={18} aria-hidden="true" />
             <span>
               <strong>OpenAI-compatible API</strong>

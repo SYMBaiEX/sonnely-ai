@@ -159,7 +159,7 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
       <p className="caption">
         Displayed rates are for NEAR AI and include Sonnely’s 10% markup. The API catalog lists rates for each
         available provider. Sonnely forwards text requests through its HTTPS gateway.{" "}
-        <Link href="/docs#privacy">Read how data is handled ↗</Link>
+        <Link href="/docs/attestation#data-handling">Read how data is handled ↗</Link>
       </p>
     </>
   );

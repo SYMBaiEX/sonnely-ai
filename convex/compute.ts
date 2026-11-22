@@ -8,13 +8,14 @@ import {
   computeFee,
   computeMarkup,
   computePlans,
-  computeQuote,
+  computePrice,
   computeRetention,
   imagePattern,
   repositoryPattern,
   revisionPattern,
 } from "../lib/compute";
 import { termsVersion } from "../lib/policy";
+import { blackboxHourlyBase } from "../lib/blackbox-options";
 
 const leaseMs = 60_000;
 
@@ -146,7 +147,9 @@ export const open = mutation({
       .take(limit);
     if (capacity.length >= limit)
       throw new ConvexError("The pilot capacity limit was reached. Try again shortly.");
-    const reserve = computeQuote(spec.kind, minutes).total;
+    const hourlyBase =
+      spec.kind === "blackboxes" ? blackboxHourlyBase(spec.machine, spec.disk) : plan.hourlyBase;
+    const reserve = computePrice(hourlyBase, plan.unitSeconds, minutes * 60).total;
     if (account.balance < reserve) throw new ConvexError("Add credits to cover the quoted maximum.");
     const id = await ctx.db.insert("computeRuns", {
       account: account._id,
@@ -155,7 +158,7 @@ export const open = mutation({
       reference,
       minutes,
       reserve,
-      hourlyBase: plan.hourlyBase,
+      hourlyBase,
       unitSeconds: plan.unitSeconds,
       markup: computeMarkup,
       fixedFee: computeFee,

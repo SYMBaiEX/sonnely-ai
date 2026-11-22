@@ -1,0 +1,30 @@
+---
+title: Models and providers
+description: Discover available routes, select a provider, and estimate token costs.
+---
+
+## Read the live catalog
+
+[GET /models](/api/sonnely/v1/models) lists available model IDs and routes for the current deployment. The [model catalog](/models) also shows the NEAR directory. Directory entries and NEAR Incognito entries are informational unless the Sonnely API advertises them as available.
+
+NEAR AI is the default. DeepSeek V4.1 Flash 1017 can also route through Phala or Tinfoil when those routes are advertised. Model labels identify the API route. Matching labels alone do not establish identical weights or execution across providers.
+
+## Pin a request
+
+```json
+{
+  "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  "messages": [{ "role": "user", "content": "Describe a redwood forest in one sentence." }],
+  "provider": { "only": ["phala"] },
+  "max_tokens": 128,
+  "max_cost_microusd": 1000
+}
+```
+
+Use `near-ai`, `phala`, or `tinfoil` when that provider is present in the model’s `routes`. A request stays on its selected route, including during failure.
+
+## Compare prices
+
+Each route returns input, cached input, and output prices under `price_usd_per_million`. Published prices include Sonnely’s 10% inference markup. Reported token categories determine the final charge up to the reservation. Rates and routable models can change, so read discovery data at runtime.
+
+[Compare attestation and receipt evidence](/docs/attestation) before selecting a route for confidential workloads.

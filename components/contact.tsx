@@ -71,7 +71,7 @@ export function Contact() {
               payment reference or public transaction signature. Keep API keys, wallet recovery phrases and
               private prompt text out of the request.
             </p>
-            <Link className="text-link" href="/docs#errors">
+            <Link className="text-link" href="/docs/troubleshooting">
               API troubleshooting <ArrowUpRight size={16} />
             </Link>
             <Link className="text-link" href="/console/billing">

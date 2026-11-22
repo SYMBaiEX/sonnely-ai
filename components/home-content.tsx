@@ -27,21 +27,21 @@ const capabilities = [
     icon: Braces,
     title: "OpenAI-compatible requests",
     body: "Use your existing Chat Completions client with Sonnely’s endpoint and a model ID.",
-    href: "/docs#api",
+    href: "/docs/api",
     action: "See the API",
   },
   {
     icon: KeyRound,
     title: "A budget for each key",
     body: "Set daily and lifetime limits on each key. See tokens and charges in Usage.",
-    href: "/docs#keys",
+    href: "/docs/keys",
     action: "Set up API keys",
   },
   {
     icon: Wallet,
     title: "Solana sign-in and funding",
     body: "Sign in with your wallet and approve USDC top-ups when checkout is enabled.",
-    href: "/docs#settlement",
+    href: "/docs/billing",
     action: "See how funding works",
   },
 ] as const;
@@ -169,7 +169,7 @@ export function HomeResources() {
             <p>
               Send text Chat Completions requests with up to {limits.messages} messages and request up to{" "}
               {limits.maxOutputTokens.toLocaleString("en-US")} output tokens. See{" "}
-              <Link href="/docs#limits">request limits</Link> for the JSON size cap.
+              <Link href="/docs/api#request-limits">request limits</Link> for the JSON size cap.
             </p>
           </details>
           <details>
@@ -179,7 +179,7 @@ export function HomeResources() {
             <p>
               It records the model, key label, token counts, request status, and charge. The gateway reads
               prompt text during forwarding. Optional chat history lives in your browser.{" "}
-              <Link href="/docs#privacy">Read about data handling</Link>.
+              <Link href="/docs/attestation#data-handling">Read about data handling</Link>.
             </p>
           </details>
           <details>
@@ -189,7 +189,7 @@ export function HomeResources() {
             <p>
               Open Sonnely in Chrome on Seeker and choose Solana mobile wallet when connecting. At checkout,
               you can also open a Solana Pay link or scan its QR code with a compatible wallet.{" "}
-              <Link href="/docs#settlement">See the mobile checkout steps</Link>.
+              <Link href="/docs/billing">See the mobile checkout steps</Link>.
             </p>
           </details>
         </div>

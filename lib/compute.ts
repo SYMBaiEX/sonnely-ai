@@ -1,9 +1,11 @@
+import { blackboxHourlyBase, blackboxSize } from "./blackbox-options";
+
 export const computePlans = {
   blackboxes: {
     title: "Blackboxes",
     provider: "Phala Cloud",
-    size: "1 vCPU · 2 GB RAM · 20 GB disk",
-    hourlyBase: 60_780,
+    size: blackboxSize(),
+    hourlyBase: blackboxHourlyBase(),
     unitSeconds: 60,
     minutes: [15, 30, 60, 120],
   },

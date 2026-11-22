@@ -2,9 +2,13 @@
 
 ## Blackboxes
 
-Blackboxes rent Phala TDX compute in 15, 30, 60 or 120 minute windows. Each rental has 1 vCPU, 2 GB RAM and 20 GB disk. A customer supplies a public OCI image pinned by digest and the image’s HTTP port. Sonnely creates a measured Docker Compose configuration, sets a provider deletion deadline, verifies the hardware quote with Phala, and replays the RTMR3 event log to match the Compose, app, and instance measurements before showing the HTTPS endpoint.
+Blackboxes rent Phala TDX compute in 15, 30, 60 or 120 minute windows. Choose a Small (1 vCPU, 2 GB RAM), Medium (2 vCPU, 4 GB RAM), or Large (4 vCPU, 8 GB RAM) Phala TDX machine with 20, 40, or 80 GB of temporary SSD. Phala selects an available node. Choose the pinned NGINX, HTTP playground, or request inspector preset, or supply a public Docker Hub or GHCR image pinned by digest and its HTTP port. Sonnely creates a measured Docker Compose configuration, sets a provider deletion deadline, verifies the hardware quote with Phala, and replays the RTMR3 event log to match the Compose, app, and instance measurements before showing the HTTPS endpoint.
 
 Phala’s verifier checks the hardware quote. The downloadable evidence contains the quote, provider verification result and compose hashes. Customers can independently verify the workload measurements. Phala can publish attestation metadata. Application logs and system information are private. Use application authentication for sensitive traffic. The pilot has no secret injection or persistent disks.
+
+### Agent framework presets
+
+Hermes Agent, OpenClaw, ElizaOS, Mastra, and Pydantic AI have guided presets. Each starts with a Medium TDX machine, 40 GB of temporary SSD, and a suggested HTTP port. Supply a configured public Linux amd64 image pinned by digest. The image must start its own authenticated server and listen on the selected port. Frameworks that require runtime credentials need a secure way to load them. Keep credentials outside the image.
 
 ## Dry Docks
 
@@ -14,12 +18,12 @@ Boat starts the VM without account environment variables, credentials, or snapsh
 
 ## Charges
 
-Both products hold the maximum quote from a signed-in wallet’s Sonnely balance. A billed run costs the provider rate plus a 25% markup and a $0.01 run fee. The final receipt records runtime, base cost, fee and total. Unused held credits return to the wallet’s Sonnely balance. A Blackbox that never delivers evidence and a Boat start with zero metered usage are released without charge. Compute receipts stay outside the inference payout ledger.
+Both products hold the maximum quote from a signed-in wallet’s Sonnely balance. A Blackbox quote uses the selected Phala machine rate plus per-GB SSD pricing. A billed run costs the provider rate plus a 25% markup and a $0.01 run fee. The final receipt records runtime, base cost, fee and total. Unused held credits return to the wallet’s Sonnely balance. A Blackbox that never delivers evidence and a Boat start with zero metered usage are released without charge. Compute receipts stay outside the inference payout ledger.
 
-| Product    |      Base rate | Meter                                                                |
-| ---------- | -------------: | -------------------------------------------------------------------- |
-| Blackboxes | $0.060780/hour | CPU and storage, rounded up to a minute, capped by the rental window |
-| Dry Docks  |    $0.018/hour | Boat’s reported small VM usage, by the second                        |
+| Product    |           Base rate | Meter                                                            |
+| ---------- | ------------------: | ---------------------------------------------------------------- |
+| Blackboxes | From $0.060780/hour | CPU and SSD, rounded up to a minute, capped by the rental window |
+| Dry Docks  |         $0.018/hour | Boat’s reported small VM usage, by the second                    |
 
 ## Operations
 

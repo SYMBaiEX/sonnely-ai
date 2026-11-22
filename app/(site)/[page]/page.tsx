@@ -6,7 +6,6 @@ import { NearModelDirectory } from "@/components/near-model-directory";
 import { nearCatalog } from "@/lib/near-catalog";
 import { configuredProviders } from "@/lib/managed-access";
 import { ModelCatalog } from "@/components/shared";
-import { DeveloperGuide } from "@/components/developer-guide";
 import { Contact } from "@/components/contact";
 import { Scene } from "@/components/scene";
 import { JournalIndex } from "@/components/journal-index";
@@ -25,7 +24,6 @@ const pages = {
     "Pay for what you run",
     "Metered inference with a wallet-funded balance and optional per-key budgets.",
   ],
-  docs: ["Developer documentation", "Connect a wallet, create a scoped key, and send your first completion."],
   blog: ["Field notes", "A closer look at the gateway, the wallet, and how they fit together."],
   contact: ["Talk to Sonnely", "Tell us what you’re building or get help with your workspace."],
 } as const;
@@ -36,13 +34,13 @@ const entryActions = {
   inference: {
     section: "#routing",
     label: "Compare provider routes",
-    next: "/docs#quickstart",
+    next: "/docs/quickstart",
     action: "Try the API quickstart",
   },
   observability: {
     section: "#traces",
     label: "Explore a sample trace",
-    next: "/docs#inference-operations",
+    next: "/docs/observability",
     action: "Read the guide",
   },
   compute: {
@@ -74,12 +72,6 @@ const entryActions = {
     label: "Estimate a request",
     next: "/console/billing",
     action: "Open billing",
-  },
-  docs: {
-    section: "#quickstart",
-    label: "Send a request",
-    next: "/api/openapi",
-    action: "OpenAPI specification",
   },
 } as const;
 
@@ -176,7 +168,7 @@ export default async function Subpage({ params }: Props) {
           <section id="compute-pricing" className="panel stack-panel">
             <h2>Compute pricing</h2>
             <p>
-              A 15-minute Blackbox pilot rental is estimated at{" "}
+              A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
               {creditBalance(computeQuote("blackboxes", 15).total)}. The console shows the full reservation,
               including provider cost and Sonnely’s service fee, before you start.
             </p>
@@ -233,7 +225,6 @@ export default async function Subpage({ params }: Props) {
           <PlatformLinks compact />
         </>
       )}
-      {page === "docs" && <DeveloperGuide />}
       {page === "blog" && (
         <>
           <JournalIndex />

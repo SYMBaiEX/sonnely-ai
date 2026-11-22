@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { blackboxDiskSizes, blackboxMachineIds } from "../lib/blackbox-options";
 
 export const kind = v.union(v.literal("blackboxes"), v.literal("dry-docks"));
 export const result = v.union(
@@ -8,7 +9,13 @@ export const result = v.union(
   v.literal("expired"),
 );
 export const spec = v.union(
-  v.object({ kind: v.literal("blackboxes"), image: v.string(), port: v.number() }),
+  v.object({
+    kind: v.literal("blackboxes"),
+    image: v.string(),
+    port: v.number(),
+    machine: v.optional(v.union(...blackboxMachineIds.map((value) => v.literal(value)))),
+    disk: v.optional(v.union(...blackboxDiskSizes.map((value) => v.literal(value)))),
+  }),
   v.object({ kind: v.literal("dry-docks"), repository: v.string(), revision: v.string() }),
 );
 

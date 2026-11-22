@@ -10,3 +10,9 @@ node_modules/
 /.artifacts/
 
 /next-env.d.ts
+
+/.source/
+__pycache__/
+/sdk/*/dist/
+/sdk/python/src/*.egg-info/
+/sdk/python/build/

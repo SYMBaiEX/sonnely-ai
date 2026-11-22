@@ -1,0 +1,52 @@
+import { expect, test } from "@playwright/test";
+
+test("the Platform menu exposes all product pages on desktop and mobile", async ({ page }) => {
+  for (const width of [1280, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    const nav = page.getByRole("navigation", { name: "Main navigation" });
+    const trigger = nav.locator("summary");
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const panel = nav.getByRole("list", { name: "Platform pages" });
+    const routes = await panel
+      .getByRole("link")
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    expect(routes).toEqual(["/inference", "/observability", "/compute", "/blackboxes", "/dry-docks"]);
+
+    await page.keyboard.press("Tab");
+    await expect(panel.getByRole("link", { name: /Confidential inference/ })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    const box = await panel.boundingBox();
+    expect(box?.x).toBeGreaterThan(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    await panel.getByRole("link", { name: /Blackboxes/ }).click();
+    await expect(page).toHaveURL(/\/blackboxes$/);
+    await expect(panel).toBeHidden();
+  }
+});
+
+test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/docs/sdks");
+  await expect(page.getByRole("heading", { name: "SDKs", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  const search = await request.get("/api/search?query=Blackboxes");
+  expect(search.ok()).toBe(true);
+  expect(await search.text()).toContain("/docs/blackboxes");
+
+  for (const archive of ["sonnely-sdk-0.1.0.tgz", "sonnely_sdk-0.1.0-py3-none-any.whl"]) {
+    const asset = await request.get("/sdk/" + archive);
+    expect(asset.ok()).toBe(true);
+    expect((await asset.body()).length).toBeGreaterThan(1000);
+  }
+  const markdown = await request.get("/docs/api.md");
+  expect(markdown.headers()["content-type"]).toMatch(/^text\/markdown/);
+  expect(await markdown.text()).toContain("OpenAPI 3.1");
+  const legacy = await request.get("/docs/api-reference", { maxRedirects: 0 });
+  expect(legacy.status()).toBe(308);
+  expect(legacy.headers().location).toBe("/docs/api");
+});

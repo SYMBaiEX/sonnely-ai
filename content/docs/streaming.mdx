@@ -1,0 +1,17 @@
+---
+title: Streaming and usage
+description: Handle text deltas, settled token counts, completion receipts, and interrupted streams.
+---
+
+Send a normal completion request with `stream: true` and `stream_options: { "include_usage": true }`. Sonnely returns `text/event-stream`.
+
+## Read the events
+
+- Text arrives in `choices[].delta.content`. Some models also return `reasoning_content`.
+- A terminal JSON chunk has an empty `choices` array and the final `usage` when requested. If you opt in with `X-Sonnely-Receipt: v1`, the terminal chunk can also contain `sonnely_receipt`.
+- `data: [DONE]` follows settlement. Treat earlier output as provisional.
+- An `error` JSON event can arrive after HTTP 200. Detect it and surface it to the caller. The official [Sonnely SDKs](/docs/sdks) surface it as an exception and require the settlement marker.
+
+## Handle interruptions
+
+A disconnected client can still incur a charge if the upstream request finishes. Check [Usage](/console/usage) before retrying. Missing final upstream usage can leave a reserved amount open for review. Sonnely’s SDKs leave retry decisions with the caller.

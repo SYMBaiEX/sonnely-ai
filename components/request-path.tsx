@@ -28,7 +28,7 @@ const steps = [
     short: "Client",
     icon: Terminal,
     description: "Send a text request from the console or your OpenAI-compatible SDK over HTTPS.",
-    link: "/docs#quickstart",
+    link: "/docs/quickstart",
     action: "Integration guide",
   },
   {
@@ -38,7 +38,7 @@ const steps = [
     icon: Radio,
     description:
       "Sonnely can read the prompt while forwarding it. The usage ledger records request metadata and charges.",
-    link: "/docs#privacy",
+    link: "/docs/attestation#data-handling",
     action: "Data handling",
   },
   {
@@ -48,7 +48,7 @@ const steps = [
     icon: Cpu,
     description:
       "The model runs in NEAR AI’s hardware-isolated environment. NEAR AI publishes the attestation evidence.",
-    link: "/docs#verification",
+    link: "/docs/attestation",
     action: "Attestation guide",
   },
 ] as const;
