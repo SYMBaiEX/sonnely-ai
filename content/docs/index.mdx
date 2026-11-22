@@ -3,112 +3,80 @@ title: Sonnely documentation
 description: Build with confidential inference, fund a workspace, and rent attested compute.
 ---
 
-<Cards>
-  <Card
-    title="First API request"
-    href="/docs/quickstart"
-    description="Connect a wallet, create a key, and send a text completion."
-  />
-  <Card
-    title="Download an SDK"
-    href="/docs/sdks"
-    description="Install the TypeScript or Python client, or connect an OpenAI SDK."
-  />
-  <Card
-    title="Choose an inference provider"
-    href="/docs/providers"
-    description="Discover live routes, compare prices, and pin a request."
-  />
-  <Card
-    title="Rent a Blackbox"
-    href="/docs/blackboxes"
-    description="Start a container and inspect its workload attestation."
-  />
-</Cards>
+import { Box, Fingerprint, KeyRound, LifeBuoy, Rocket, Terminal } from "lucide-react";
+import { GuideGroup, GuideLink } from "@/app/docs/overview-links";
+
+<div className="docs-overview">
+  <Cards className="docs-start">
+    <Card
+      title="Send your first request"
+      href="/docs/quickstart"
+      icon={<Terminal aria-hidden="true" />}
+      description="Connect your wallet, create an API key, and send a test completion."
+    />
+    <Card
+      title="Install an SDK"
+      href="/docs/sdks"
+      icon={<Box aria-hidden="true" />}
+      description="Use Sonnely’s TypeScript or Python client."
+    />
+    <Card
+      title="Choose a provider"
+      href="/docs/providers"
+      icon={<Fingerprint aria-hidden="true" />}
+      description="Compare models, prices, and providers."
+    />
+    <Card
+      title="Rent a Blackbox"
+      href="/docs/blackboxes"
+      icon={<KeyRound aria-hidden="true" />}
+      description="Run a container and verify its attestation."
+    />
+  </Cards>
 
 ## Browse guides
 
-<ul className="docs-index">
-  <li>
-    <a id="quickstart" href="/docs/quickstart">
-      Quickstart
-    </a>
-  </li>
-  <li>
-    <a id="api" href="/docs/api">
-      API reference
-    </a>
-  </li>
-  <li>
-    <a id="providers" href="/docs/providers">
-      Provider routing
-    </a>
-  </li>
-  <li>
-    <a id="streaming" href="/docs/streaming">
-      Streaming and usage
-    </a>
-  </li>
-  <li>
-    <a id="keys" href="/docs/keys">
-      API keys and budgets
-    </a>
-  </li>
-  <li>
-    <a id="settlement" href="/docs/billing">
-      Credits and checkout
-    </a>
-  </li>
-  <li>
-    <a id="verification" href="/docs/attestation">
-      Confidentiality and attestation
-    </a>
-  </li>
-  <li>
-    <a id="receipts" href="/docs/attestation#completion-receipts">
-      Completion receipts
-    </a>
-  </li>
-  <li>
-    <a id="privacy" href="/docs/attestation#data-handling">
-      Data handling
-    </a>
-  </li>
-  <li>
-    <a id="blackboxes" href="/docs/blackboxes">
-      Blackbox rentals
-    </a>
-  </li>
-  <li>
-    <a id="cloud-builds" href="/docs/dry-docks">
-      Dry Docks
-    </a>
-  </li>
-  <li>
-    <a id="inference-operations" href="/docs/observability">
-      Usage and observability
-    </a>
-  </li>
-  <li>
-    <a id="usage-export" href="/docs/observability#export-to-usagemax">
-      UsageMax export
-    </a>
-  </li>
-  <li>
-    <a id="limits" href="/docs/api#request-limits">
-      Request limits
-    </a>
-  </li>
-  <li>
-    <a id="errors" href="/docs/troubleshooting">
-      Errors and recovery
-    </a>
-  </li>
-  <li>
-    <a id="migration" href="/docs/migration">
-      Migration
-    </a>
-  </li>
-</ul>
+<nav className="docs-guide-grid" aria-label="Browse guides">
+  <GuideGroup id="docs-get-started" title="Get started" icon={<Rocket size={16} aria-hidden="true" />}>
+    <GuideLink id="quickstart" href="/docs/quickstart" title="Quickstart" />
+    <GuideLink href="/docs/sdks" title="SDKs" />
+    <GuideLink id="keys" href="/docs/keys" title="API keys and budgets" />
+    <GuideLink id="settlement" href="/docs/billing" title="Credits and checkout" />
+    <GuideLink href="/docs/workspace" title="Workspace and referrals" />
+  </GuideGroup>
+  <GuideGroup id="docs-inference" title="Inference" icon={<Terminal size={16} aria-hidden="true" />}>
+    <GuideLink id="api" href="/docs/api" title="API reference" />
+    <GuideLink id="providers" href="/docs/providers" title="Provider routing" />
+    <GuideLink id="streaming" href="/docs/streaming" title="Streaming and usage" />
+    <GuideLink id="limits" href="/docs/api#request-limits" title="Request limits" />
+  </GuideGroup>
+  <GuideGroup
+    id="docs-confidentiality"
+    title="Confidentiality and compute"
+    icon={<Fingerprint size={16} aria-hidden="true" />}
+  >
+    <GuideLink id="verification" href="/docs/attestation" title="Confidentiality and attestation" />
+    <GuideLink id="receipts" href="/docs/attestation#completion-receipts" title="Completion receipts" />
+    <GuideLink id="privacy" href="/docs/attestation#data-handling" title="Data handling" />
+    <GuideLink id="blackboxes" href="/docs/blackboxes" title="Blackbox rentals" />
+    <GuideLink id="cloud-builds" href="/docs/dry-docks" title="Dry Docks" />
+  </GuideGroup>
+  <GuideGroup
+    id="docs-operations"
+    title="Operations and support"
+    icon={<LifeBuoy size={16} aria-hidden="true" />}
+  >
+    <GuideLink id="inference-operations" href="/docs/observability" title="Usage and observability" />
+    <GuideLink id="usage-export" href="/docs/observability#export-to-usagemax" title="UsageMax export" />
+    <GuideLink id="errors" href="/docs/troubleshooting" title="Errors and recovery" />
+    <GuideLink id="migration" href="/docs/migration" title="Migration" />
+  </GuideGroup>
+</nav>
 
-Check [service status](/status) or [contact support](/contact) if you need help with a live request or payment.
+  <aside className="docs-overview-support" aria-label="Support">
+    <span>Need help with a request or payment?</span>
+
+    [Service status](/status) [Contact support](/contact)
+
+  </aside>
+</div>

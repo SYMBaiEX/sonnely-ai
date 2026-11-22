@@ -9,6 +9,7 @@ import { creditBalance } from "@/lib/credit-amount";
 import { computeFee, computeMarkup, computePlans, computeQuote, type ComputeKind } from "@/lib/compute";
 import { request, type Session } from "./wallet";
 import { Blackboxes } from "./blackboxes";
+import { WorkspaceHeading } from "./workspace-heading";
 import styles from "./compute.module.css";
 
 export type ComputeSnapshot = FunctionReturnType<typeof api.compute.list>;
@@ -238,22 +239,18 @@ export function Compute({
 
   return (
     <div className={styles.workspace}>
-      <header className={styles.heading}>
-        <span className={styles.emblem}>
-          <Container size={25} aria-hidden />
-        </span>
-        <div>
-          <h1>{plan.title}</h1>
-          <p>
-            {comingSoon
-              ? "On-demand repository builds in isolated Linux VMs."
-              : "Build a pinned GitHub commit in a clean Linux VM. Watch the logs and retrieve the output after automatic teardown."}
-          </p>
-        </div>
-      </header>
+      <WorkspaceHeading
+        icon={Container}
+        title={plan.title}
+        description="Build a pinned GitHub commit in a clean Linux VM."
+      >
+        <Link href="/docs/dry-docks" className="button quiet">
+          Build guide <ArrowUpRight size={15} aria-hidden="true" />
+        </Link>
+      </WorkspaceHeading>
 
       {comingSoon ? (
-        <section className={"panel " + styles.panel} aria-labelledby="dry-docks-status">
+        <section className={"panel workspace-feature " + styles.panel} aria-labelledby="dry-docks-status">
           <h2 id="dry-docks-status">Coming soon</h2>
           <p className={styles.meta}>
             Build a pinned GitHub commit, follow the logs, and download the output. Each build runs in a

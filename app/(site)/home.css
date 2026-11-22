@@ -115,7 +115,6 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   .request-stage .scene-image {
     inset-block: -9%;
     transform: translateY(calc(var(--scene-offset) * 0.075)) scale(1.035);
-    transition: transform 220ms var(--ease-out);
   }
 }
 .request-track,
@@ -235,7 +234,7 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
 }
 .request-caption {
   display: grid;
-  grid-template-columns: minmax(138px, 0.48fr) minmax(200px, 1.65fr) auto;
+  grid-template-columns: minmax(138px, 0.48fr) minmax(0, 1.65fr) minmax(264px, 0.9fr);
   align-items: center;
   gap: 12px clamp(12px, 2.5vw, 38px);
   min-height: 88px;
@@ -257,10 +256,23 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   font: 500 11px var(--mono);
 }
 .request-caption-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: clamp(6px, 1.2vw, 16px);
+}
+.request-caption-copy,
+.request-caption-measure {
+  display: grid;
+  align-items: center;
+}
+.request-caption-copy > *,
+.request-caption-measure > p {
+  grid-area: 1 / 1;
+}
+.request-caption-measure {
+  visibility: hidden;
+  user-select: none;
 }
 .request-caption .request-tour-button {
   min-height: 44px;
@@ -286,6 +298,9 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
 }
 .request-caption a {
   min-height: 36px;
+}
+.request-caption a svg {
+  flex: none;
 }
 @media (max-width: 960px) {
   .hero-intro {
@@ -333,9 +348,6 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   }
   .request-caption a {
     min-height: 44px;
-  }
-  .request-caption-actions {
-    justify-content: space-between;
   }
 }
 @media (min-width: 570px) and (max-width: 780px) {

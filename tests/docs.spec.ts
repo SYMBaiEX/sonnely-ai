@@ -88,6 +88,30 @@ test("the shared docs header leads to the site and console on desktop and mobile
   }
 });
 
+test("the docs overview groups its guide links and fits a narrow phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("/docs");
+  await expect(page.getByRole("main").getByRole("link", { name: /Send your first request/ })).toHaveAttribute(
+    "href",
+    "/docs/quickstart",
+  );
+  const guides = page.getByRole("navigation", { name: "Browse guides" });
+  await expect(guides.getByRole("heading", { level: 3 })).toHaveText([
+    "Get started",
+    "Inference",
+    "Confidentiality and compute",
+    "Operations and support",
+  ]);
+  await expect(guides.getByRole("link")).toHaveCount(18);
+  await expect(guides.getByRole("link", { name: "Request limits" })).toHaveAttribute(
+    "href",
+    "/docs/api#request-limits",
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await guides.getByRole("link", { name: "SDKs", exact: true }).click();
+  await expect(page).toHaveURL(/\/docs\/sdks$/);
+});
+
 test("the docs sidebar groups pages and adopts the Sonnely palette in both themes", async ({
   page,
   context,

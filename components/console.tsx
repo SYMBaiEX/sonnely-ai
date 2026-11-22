@@ -23,6 +23,7 @@ import {
 import type { nearCatalog } from "@/lib/near-catalog";
 import type { Section } from "@/app/console/[[...section]]/page";
 import { creditBalance } from "@/lib/credit-amount";
+import { shorten } from "@/lib/models";
 import { Brand } from "./brand";
 import { Compute } from "./compute";
 import { CommandMenu } from "./command-menu";
@@ -35,6 +36,7 @@ import type { ProviderId } from "@/lib/provider-catalog";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
 import { TermsAcceptance } from "./terms-acceptance";
 import { useSession, WalletControl } from "./wallet";
+import { WorkspaceHeading } from "./workspace-heading";
 
 const nav = [
   { id: "chat", title: "Playground", path: "/console", Icon: MessageSquare },
@@ -149,6 +151,26 @@ export function Console({
           <Brand />
           <p className="mono rail-caption">Developer console</p>
         </div>
+        <Link
+          className="rail-identity"
+          href="/console/settings"
+          aria-label="Manage workspace identity"
+          onClick={() => setNavOpen(false)}
+        >
+          <span className="rail-identity-icon">
+            <Wallet size={17} aria-hidden="true" />
+          </span>
+          <span>
+            <strong>{profile ? profile.name || shorten(profile.wallet) : "Your workspace"}</strong>
+            <small>
+              {profile?.role === "admin"
+                ? "Administrator"
+                : profile
+                  ? "Solana wallet connected"
+                  : "Solana wallet access"}
+            </small>
+          </span>
+        </Link>
         <nav aria-label="Workspace navigation" className="rail-nav">
           <p className="mono">Inference</p>
           {sidebar(visibleNav.slice(0, 4))}
@@ -195,6 +217,13 @@ export function Console({
             </strong>
           </div>
           <div className="bar-controls">
+            {profile && (
+              <Link href="/console/billing" className="console-credit">
+                <Wallet size={16} aria-hidden="true" />
+                <span>Credits</span>
+                <strong>{creditBalance(profile.balance)}</strong>
+              </Link>
+            )}
             <button
               type="button"
               className="button quiet small command-toggle"
@@ -235,13 +264,15 @@ export function Console({
           )}
           {section === "models" && (
             <>
-              <header className="console-title">
-                <h1>Models</h1>
-                <p>Compare models available on Sonnely by workload and token cost.</p>
+              <WorkspaceHeading
+                icon={Cpu}
+                title="Models"
+                description="Compare models, inference providers, and token rates."
+              >
                 <Link href="#near-directory" className="text-link">
                   Browse the full NEAR directory <ArrowUpRight size={15} />
                 </Link>
-              </header>
+              </WorkspaceHeading>
               <ModelCatalog availableProviders={availableProviders} />
               {providerCatalog && <NearModelDirectory {...providerCatalog} />}
             </>

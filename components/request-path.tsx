@@ -162,14 +162,23 @@ export function RequestPath() {
             Step {active + 1} of {steps.length}
           </span>
         </div>
-        <div id="request-path-detail" aria-live={looping ? "off" : "polite"} aria-atomic="true">
-          <p key={step.label}>
-            <strong>{step.label}.</strong> {step.description}
-          </p>
+        <div className="request-caption-copy">
+          <div className="request-caption-measure" aria-hidden="true">
+            {steps.map(({ label, description }) => (
+              <p key={label}>
+                <strong>{label}.</strong> {description}
+              </p>
+            ))}
+          </div>
+          <div id="request-path-detail" aria-live={looping ? "off" : "polite"} aria-atomic="true">
+            <p key={step.label}>
+              <strong>{step.label}.</strong> {step.description}
+            </p>
+          </div>
         </div>
         <div className="request-caption-actions">
           <Link href={step.link} className="text-link">
-            {step.action} <ArrowUpRight size={15} />
+            <span>{step.action}</span> <ArrowUpRight size={15} />
           </Link>
           <button
             type="button"

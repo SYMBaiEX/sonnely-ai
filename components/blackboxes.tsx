@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { WorkspaceHeading } from "./workspace-heading";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -321,51 +322,44 @@ export function Blackboxes({
 
   return (
     <div className={styles.workspace}>
-      <header className={styles.hero}>
-        <div className={styles.heroTitle}>
-          <span className={styles.mark}>
-            <Box size={26} aria-hidden="true" />
-          </span>
-          <div>
-            <h1>Blackboxes</h1>
-            <p>Start from a container preset or bring your own image to a Phala confidential VM.</p>
-          </div>
+      <WorkspaceHeading
+        icon={Box}
+        title="Blackboxes"
+        description="Start from a container preset or bring your own image to a Phala confidential VM."
+      >
+        <Link className="button quiet" href="/docs/blackboxes">
+          Rental guide <ArrowUpRight size={15} aria-hidden="true" />
+        </Link>
+        <button className="button accent" type="button" onClick={() => configure()}>
+          <Plus size={18} aria-hidden="true" /> {owner ? "New rental" : "View rental options"}
+        </button>
+      </WorkspaceHeading>
+      <dl className={"panel " + styles.facts}>
+        <div>
+          <dt>
+            <Cpu size={16} aria-hidden="true" /> Resources
+          </dt>
+          <dd>1–4 vCPU · 2–8 GB RAM</dd>
         </div>
-        <div className={styles.actions}>
-          <Link className="button quiet" href="/docs/blackboxes">
-            Rental guide <ArrowUpRight size={15} aria-hidden="true" />
-          </Link>
-          <button className="button accent" type="button" onClick={() => configure()}>
-            <Plus size={18} aria-hidden="true" /> {owner ? "New rental" : "View rental options"}
-          </button>
+        <div>
+          <dt>
+            <Clock3 size={16} aria-hidden="true" /> Rental window
+          </dt>
+          <dd>15 min to 2 hr</dd>
         </div>
-        <dl className={styles.facts}>
-          <div>
-            <dt>
-              <Cpu size={16} aria-hidden="true" /> Resources
-            </dt>
-            <dd>1–4 vCPU · 2–8 GB RAM</dd>
-          </div>
-          <div>
-            <dt>
-              <Clock3 size={16} aria-hidden="true" /> Rental window
-            </dt>
-            <dd>15 min to 2 hr</dd>
-          </div>
-          <div>
-            <dt>
-              <Wallet size={16} aria-hidden="true" /> Starting hold
-            </dt>
-            <dd>{creditBalance(computeQuote("blackboxes", 15).total)}</dd>
-          </div>
-          <div>
-            <dt>
-              <ShieldCheck size={16} aria-hidden="true" /> Availability
-            </dt>
-            <dd>{access}</dd>
-          </div>
-        </dl>
-      </header>
+        <div>
+          <dt>
+            <Wallet size={16} aria-hidden="true" /> Starting hold
+          </dt>
+          <dd>{creditBalance(computeQuote("blackboxes", 15).total)}</dd>
+        </div>
+        <div>
+          <dt>
+            <ShieldCheck size={16} aria-hidden="true" /> Availability
+          </dt>
+          <dd>{access}</dd>
+        </div>
+      </dl>
 
       {loadError && (
         <div className={styles.notice} role="alert">

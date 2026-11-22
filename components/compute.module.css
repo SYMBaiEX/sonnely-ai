@@ -2,35 +2,6 @@
   display: grid;
   gap: clamp(1rem, 2vw, 1.5rem);
 }
-.heading {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding-block: 0.4rem 1rem;
-}
-.heading h1 {
-  font-size: clamp(2.45rem, 4.8vw, 4.2rem);
-  line-height: 1;
-  letter-spacing: -0.065em;
-  margin: 0;
-}
-.heading p {
-  max-width: 58ch;
-  color: var(--muted);
-  margin: 0.65rem 0 0;
-  line-height: 1.55;
-}
-.emblem {
-  flex: 0 0 3.3rem;
-  height: 3.3rem;
-  display: grid;
-  place-items: center;
-  border-radius: 1.05rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 10%, transparent);
-}
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(16rem, 1fr);
@@ -296,23 +267,6 @@
     width: 100%;
   }
 }
-@media (max-width: 460px) {
-  .emblem {
-    flex-basis: 2.6rem;
-    height: 2.6rem;
-    border-radius: 0.75rem;
-  }
-  .emblem svg {
-    width: 1.15rem;
-  }
-  .heading {
-    gap: 0.7rem;
-  }
-  .heading p {
-    font-size: 0.87rem;
-  }
-}
-
 .timeline {
   display: flex;
   flex-wrap: wrap;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ShieldCheck } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { AdminBoatCapacity } from "./admin-boat-capacity";
@@ -12,6 +13,7 @@ import { creditBalance } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
 import type { GatewayReport } from "@/lib/usagemax-gateway";
 import { payWithWallet, request, type Session } from "./wallet";
+import { WorkspaceHeading } from "./workspace-heading";
 
 type Overview = FunctionReturnType<typeof api.finance.overview> & {
   creditRecovery: FunctionReturnType<typeof api.creditRecovery.queue> | null;
@@ -53,11 +55,11 @@ export function Admin({ session }: { session: Session | null }) {
 
   return (
     <>
-      <header className="console-title section-head">
-        <div>
-          <h1>Admin</h1>
-          <p>Manage customers, support, request traces, and treasury operations.</p>
-        </div>
+      <WorkspaceHeading
+        icon={ShieldCheck}
+        title="Admin"
+        description="Manage customers, support, request traces, and treasury operations."
+      >
         {authorized && area === "overview" && (
           <button
             type="button"
@@ -68,7 +70,7 @@ export function Admin({ session }: { session: Session | null }) {
             Refresh
           </button>
         )}
-      </header>
+      </WorkspaceHeading>
       {authorized && (
         <nav className="segmented crm-navigation" aria-label="Admin workspace">
           {(
@@ -97,7 +99,8 @@ export function Admin({ session }: { session: Session | null }) {
         </p>
       )}
       {!authorized ? (
-        <section className="panel stack-panel">
+        <section className="panel stack-panel admin-access">
+          <ShieldCheck size={21} aria-hidden="true" />
           <h2>Administrator access required</h2>
           <p>Connect an authorized Solana wallet to view this workspace.</p>
         </section>

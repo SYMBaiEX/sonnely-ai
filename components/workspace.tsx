@@ -10,6 +10,7 @@ import {
   FileText,
   KeyRound,
   Plus,
+  Settings,
   Shield,
   Users,
   Wallet,
@@ -24,6 +25,7 @@ import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
 import { usernameHelp } from "@/lib/username";
 import { payWithWallet, request, type Session, type UsageRow } from "./wallet";
+import { WorkspaceHeading } from "./workspace-heading";
 
 type Profile = Session["profile"] | undefined;
 export type Preferences = { theme: Theme; localHistory: boolean; plain: boolean };
@@ -35,26 +37,6 @@ const date = (time: number) =>
 const shortDate = (time: number) =>
   new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" }).format(time);
 const day = (time: number) => new Date(time).toISOString().slice(0, 10);
-
-function Title({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children?: ReactNode;
-}) {
-  return (
-    <header className="console-title section-head">
-      <div>
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </div>
-      {children}
-    </header>
-  );
-}
 
 function Empty({ title, children, icon }: { title: string; children: ReactNode; icon: ReactNode }) {
   return (
@@ -169,7 +151,11 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
 
   return (
     <>
-      <Title title="API keys" description="Manage credentials, budgets, and expiration for your workspace.">
+      <WorkspaceHeading
+        icon={KeyRound}
+        title="API keys"
+        description="Issue keys, set spending limits, and revoke access."
+      >
         <button
           type="button"
           className="button accent"
@@ -182,7 +168,7 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
         >
           <Plus size={17} /> Create key
         </button>
-      </Title>
+      </WorkspaceHeading>
       <Failure message={failure || error} />
       {signedIn && !!key && (
         <section className="panel callout" aria-label="New API key">
@@ -363,7 +349,11 @@ export function Usage({
   const high = Math.max(1, ...series.map((point) => point.value));
   return (
     <>
-      <Title title="Usage" description="Track model requests, tokens, and spend. All dates are UTC.">
+      <WorkspaceHeading
+        icon={BarChart3}
+        title="Usage"
+        description="Track requests, tokens, and spend across models and providers. Dates are in UTC."
+      >
         <label className="control-label">
           Date range
           <select value={range} onChange={(e) => setRange(Number(e.target.value))}>
@@ -372,7 +362,7 @@ export function Usage({
             <option value={90}>Last 90 days</option>
           </select>
         </label>
-      </Title>
+      </WorkspaceHeading>
       <Failure message={liveRows ? "" : error} />
       <div className="stat-grid">
         {[
@@ -439,7 +429,8 @@ export function Usage({
                 <span
                   key={time}
                   title={shortDate(time) + " · " + (metric === "Spend" ? usd(value) : value)}
-                  style={{ height: Math.max(2, (value / high) * 100) + "%" }}
+                  data-empty={!value || undefined}
+                  style={{ height: value ? Math.max(1, (value / high) * 100) + "%" : "1px" }}
                 />
               ))}
             </div>
@@ -604,7 +595,11 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
 
   return (
     <>
-      <Title title="Billing" description="Add compute credits and track wallet payments." />
+      <WorkspaceHeading
+        icon={Wallet}
+        title="Billing"
+        description="Add compute credits, check your balance, and track wallet payments."
+      />
       <Failure message={failure || error} />
       {status && (
         <p role="status" className="status">
@@ -612,7 +607,7 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
         </p>
       )}
       <div className="billing-grid">
-        <section className="panel stack-panel">
+        <section className="panel stack-panel billing-balance">
           <div className="between">
             <h2>Compute balance</h2>
             <Wallet size={21} />
@@ -969,12 +964,13 @@ export function Referrals({ profile }: { profile: Profile }) {
   const rows = [...earlier, ...(data?.page ?? [])];
   return (
     <>
-      <Title
+      <WorkspaceHeading
+        icon={Users}
         title="Referrals"
         description="Track invitations from wallet sign-up through funding and first paid request."
       />
       <Failure message={error} />
-      <section className="panel callout">
+      <section className="panel callout referral-invite">
         <div>
           <span className="empty-icon">
             <Users size={22} />
@@ -1110,7 +1106,11 @@ export function SettingsPanel({
   }
   return (
     <>
-      <Title title="Settings" description="Manage your identity and device preferences." />
+      <WorkspaceHeading
+        icon={Settings}
+        title="Settings"
+        description="Edit your profile and choose how this device displays the console."
+      />
       <Failure message={error} />
       {notice && (
         <p role="status" className="status">

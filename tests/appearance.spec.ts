@@ -13,7 +13,17 @@ test("the theme follows the user across the site and all console pages", async (
   await switcher.click();
   await expect(site).toHaveAttribute("data-theme", "light");
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-day\.webp/);
-  for (const route of ["", "/models", "/keys", "/usage", "/billing", "/referrals", "/settings"]) {
+  for (const route of [
+    "",
+    "/models",
+    "/keys",
+    "/usage",
+    "/blackboxes",
+    "/dry-docks",
+    "/billing",
+    "/referrals",
+    "/settings",
+  ]) {
     await page.goto("/console" + route);
     await expect(site).toHaveAttribute("data-theme", "light");
     const current = page
@@ -21,6 +31,7 @@ test("the theme follows the user across the site and all console pages", async (
       .locator("[aria-current='page']");
     await expect(current).toHaveCount(1);
     await expect(current).toHaveCSS("box-shadow", "none");
+    await expect(page.locator("#console-navigation")).toHaveCSS("border-radius", "0px");
   }
   await page.getByRole("button", { name: "dark", exact: true }).click();
   await page.goto("/");
@@ -129,6 +140,24 @@ test("the request trace loops automatically and can be paused at any stop", asyn
   await expect(enclave).toHaveAttribute("aria-pressed", "true");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(map.getByRole("button", { name: "Motion off" })).toBeDisabled();
+});
+
+test("switching trace steps keeps the homepage content in place on narrow screens", async ({ page }) => {
+  for (const width of [320, 800]) {
+    await page.setViewportSize({ width, height: 840 });
+    await page.goto("/");
+    await page.evaluate(() => document.fonts.ready);
+    const quickstart = page.locator("#quickstart");
+    const map = page.getByRole("region", { name: "Follow the request" });
+    const position = () => quickstart.evaluate((element) => (element as HTMLElement).offsetTop);
+    const top = await position();
+    for (const name of ["Sonnely gateway", "NEAR AI enclave", "Your client"]) {
+      const step = map.getByRole("button", { name, exact: true });
+      await step.click();
+      await expect(step).toHaveAttribute("aria-pressed", "true");
+      expect(await position()).toBe(top);
+    }
+  }
 });
 
 test("the visualizer fades while reading, plays at the footer and shares its setting with the console", async ({
