@@ -108,6 +108,54 @@ test("public routes and console work across desktop and mobile", async ({ page }
   await expect(page.locator(".compact-brand img")).toHaveAttribute("src", "/brand/sonnely-crimson-192.png");
 });
 
+test("Playground saves chats only after opt-in and restores the selected conversation", async ({ page }) => {
+  const wallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: { profile: { wallet, name: "History fixture", balance: 1_000_000 }, inferenceEnabled: true },
+    }),
+  );
+  await page.route("**/api/sonnely/live", (route) => route.fulfill({ status: 204 }));
+  await page.route("**/api/sonnely/chat", (route) =>
+    route.fulfill({
+      contentType: "text/event-stream",
+      body: 'data: {"choices":[{"delta":{"content":"History fixture response"}}]}\n\ndata: [DONE]\n\n',
+    }),
+  );
+  await page.goto("/console");
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("Remember this chat");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  const reply = page.getByText("History fixture response", { exact: true });
+  await expect(reply).toBeVisible();
+  expect(await page.evaluate((key) => localStorage.getItem(key), "sonnely.chats." + wallet)).toBeNull();
+
+  await page.getByRole("button", { name: "Save chats on this device" }).click();
+  await expect(reply).toBeVisible();
+  await page.reload();
+  await expect(reply).toBeVisible();
+
+  await page.goto("/console?model=Qwen/Qwen3.6-35B-A3B-FP8");
+  await expect(page.getByRole("button", { name: /Choose model and provider/ })).toContainText("Qwen 3.6 35B");
+  await expect(reply).toHaveCount(0);
+  const sidebar = page.getByRole("complementary", { name: "Conversation history" });
+  await sidebar.getByRole("button", { name: "Remember this chat", exact: true }).click();
+  await expect(reply).toBeVisible();
+  await page.locator(".chat-tools").getByRole("button", { name: "New chat", exact: true }).click();
+  await page.goto("/console");
+  await expect(page.getByRole("heading", { name: "Start a conversation" })).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: "Remember this chat", exact: true })).toBeVisible();
+
+  await page
+    .getByRole("navigation", { name: "Workspace navigation" })
+    .getByRole("link", { name: "Settings" })
+    .click();
+  await page.getByRole("switch", { name: "Save on this device" }).click();
+  await expect(page.getByRole("switch", { name: "Save on this device" })).not.toBeChecked();
+  await page.goto("/console");
+  await expect(page.getByRole("button", { name: "Save chats on this device" })).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: "Remember this chat", exact: true })).toHaveCount(0);
+});
+
 test("wallet account workflow scopes keys, referrals, and support requests", async ({
   page,
   browser,

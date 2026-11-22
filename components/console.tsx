@@ -290,6 +290,7 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
 export function ConsoleScreen({
   section,
   initialModel,
+  restoreConversation,
   initialProvider,
   initialRun,
   availableProviders,
@@ -297,6 +298,7 @@ export function ConsoleScreen({
 }: {
   section: Section;
   initialModel: string;
+  restoreConversation: boolean;
   initialProvider: ProviderId;
   initialRun?: string;
   availableProviders: ProviderId[];
@@ -319,13 +321,23 @@ export function ConsoleScreen({
     <>
       {section === "chat" && (
         <Chat
-          key={(profile?.wallet ?? "guest") + ":" + initialModel + ":" + initialProvider}
+          key={
+            (profile?.wallet ?? "guest") +
+            ":" +
+            initialModel +
+            ":" +
+            initialProvider +
+            ":" +
+            restoreConversation
+          }
           session={session}
           initialModel={initialModel}
           initialProvider={initialProvider}
           availableProviders={availableProviders}
           refresh={refresh}
           localHistory={preferences.localHistory}
+          restoreConversation={restoreConversation}
+          enableHistory={() => change({ ...preferences, localHistory: true })}
           plain={preferences.plain}
         />
       )}

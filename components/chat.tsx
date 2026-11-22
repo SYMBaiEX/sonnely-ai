@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowUp,
   MessageSquare,
@@ -55,6 +55,8 @@ export function Chat({
   session,
   refresh,
   localHistory,
+  restoreConversation,
+  enableHistory,
   plain,
 }: {
   initialModel: string;
@@ -63,6 +65,8 @@ export function Chat({
   session: Session | null;
   refresh: () => Promise<void>;
   localHistory: boolean;
+  restoreConversation: boolean;
+  enableHistory: () => void;
   plain: boolean;
 }) {
   const [text, setText] = useState("");
@@ -79,6 +83,8 @@ export function Chat({
   const [showHistory, setShowHistory] = useState(false);
   const owner = session?.profile?.wallet ?? "guest";
   const storageKey = "sonnely.chats." + owner;
+  const selectionKey = storageKey + ".active";
+  const restored = useRef(false);
   const legacyStorageKey = "fathom.chats." + owner;
   const current = threads.find((thread) => thread.id === active);
   const activeSample = sample === null ? null : samples[sample];
@@ -91,31 +97,54 @@ export function Chat({
     : (current?.messages ?? []);
 
   useEffect(() => {
+    if (!localHistory || restored.current) return;
+    restored.current = true;
     try {
-      const saved = localHistory
-        ? (JSON.parse(
-            localStorage.getItem(storageKey) ?? localStorage.getItem(legacyStorageKey) ?? "[]",
-          ) as Thread[])
-        : [];
-      setThreads(Array.isArray(saved) ? saved : []);
-      setActive(null);
-    } catch {
-      setThreads([]);
-    }
-  }, [localHistory, storageKey, legacyStorageKey]);
-
-  function save(next: Thread[]) {
-    setThreads(next);
-    if (localHistory) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(next.slice(0, 50)));
-      } catch {
-        setError("Browser storage is full. This conversation remains in this tab.");
+      const saved: unknown = JSON.parse(
+        localStorage.getItem(storageKey) ?? localStorage.getItem(legacyStorageKey) ?? "[]",
+      );
+      if (!Array.isArray(saved)) return;
+      const history = saved as Thread[];
+      setThreads(history);
+      if (!restoreConversation) return;
+      const previous = localStorage.getItem(selectionKey);
+      const thread = previous === null ? history[0] : history.find((thread) => thread.id === previous);
+      if (thread) {
+        setActive(thread.id);
+        setModel(thread.model);
+        setProvider(thread.provider ?? "near-ai");
       }
+    } catch {
+      /* Playground remains usable when browser storage is unavailable. */
+    }
+  }, [localHistory, restoreConversation, storageKey, legacyStorageKey, selectionKey]);
+
+  function rememberSelection(id: string | null) {
+    try {
+      localStorage.setItem(selectionKey, id ?? "");
+    } catch {
+      /* Chat history can still load when the last selection could not be saved. */
     }
   }
 
+  function storeHistory(next: Thread[], id: string | null) {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next.slice(0, 50)));
+      rememberSelection(id);
+      return true;
+    } catch {
+      setError("Could not save chat history. These chats are still available in this tab.");
+      return false;
+    }
+  }
+
+  function save(next: Thread[], id: string | null) {
+    setThreads(next);
+    if (localHistory) storeHistory(next, id);
+  }
+
   function start() {
+    if (localHistory) rememberSelection(null);
     setActive(null);
     setShowHistory(false);
     setSample(null);
@@ -199,7 +228,7 @@ export function Chat({
       }
       if (!complete)
         throw new Error("The stream ended before billing was finalized. Check Usage before retrying.");
-      save(reply(content || "The provider returned no text."));
+      save(reply(content || "The provider returned no text."), id);
       await refresh();
     } catch (error) {
       setThreads(previous);
@@ -237,6 +266,7 @@ export function Chat({
                   className={thread.id === active ? "selected" : ""}
                   disabled={busy}
                   onClick={() => {
+                    if (localHistory) rememberSelection(thread.id);
                     setActive(thread.id);
                     setSample(null);
                     setModel(thread.model);
@@ -253,7 +283,10 @@ export function Chat({
                   aria-label={"Delete " + (thread.messages[0]?.content || "chat")}
                   disabled={busy}
                   onClick={() => {
-                    save(threads.filter((item) => item.id !== thread.id));
+                    save(
+                      threads.filter((item) => item.id !== thread.id),
+                      active === thread.id ? null : active,
+                    );
                     if (active === thread.id) start();
                   }}
                 >
@@ -387,7 +420,22 @@ export function Chat({
                 ? "Live inference is temporarily unavailable."
                 : localHistory
                   ? "History stays in this browser."
-                  : "Chats aren’t saved when you leave Playground."}
+                  : "Chat history is off."}
+          {session?.profile && !session.termsRequired && session.inferenceEnabled && !localHistory && (
+            <button
+              className="playground-history-save"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (!storeHistory(threads, active)) return;
+                restored.current = true;
+                enableHistory();
+                setError("");
+              }}
+            >
+              Save chats on this device
+            </button>
+          )}
         </p>
         {!messages.length && (
           <section className="playground-starters" aria-labelledby="playground-starters-title">

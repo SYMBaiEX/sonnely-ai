@@ -44,6 +44,7 @@ export default async function ConsolePage({ params, searchParams }: Props) {
       section={name as Section}
       providerCatalog={name === "models" ? await nearCatalog() : undefined}
       initialModel={initial.id}
+      restoreConversation={model === undefined && provider === undefined}
       initialRun={typeof run === "string" && /^[a-z0-9]{20,80}$/.test(run) ? run : undefined}
       initialProvider={provider === "phala" || provider === "tinfoil" ? provider : "near-ai"}
       availableProviders={configuredProviders()}

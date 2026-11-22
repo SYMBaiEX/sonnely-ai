@@ -156,12 +156,27 @@
 
 .console .chat-note {
   justify-content: flex-start;
+  flex-wrap: wrap;
   margin: 9px 3px 0;
   text-align: start;
 }
 
 .chat-note svg {
   flex: none;
+}
+
+.playground-history-save {
+  padding: 0 3px;
+  border: 0;
+  min-height: 26px;
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.playground-history-save:not(:disabled) {
+  cursor: pointer;
 }
 
 .playground-starters {
@@ -334,6 +349,10 @@
 }
 
 @media (max-width: 720px) {
+  .playground-history-save {
+    min-height: 44px;
+  }
+
   .console .chat-main {
     padding: 12px 10px 22px;
   }
