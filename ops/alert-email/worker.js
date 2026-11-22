@@ -4,7 +4,16 @@ async function deliver(env, message) {
   let inboxRetry = false;
   if (env.SONNELY_INBOX_TOKEN) {
     try {
-      return await env.SONNELY_INBOX.deliver(env.SONNELY_INBOX_TOKEN, message);
+      const response = await env.SONNELY_INBOX.fetch("https://sonnely-inbox.internal/deliver", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + env.SONNELY_INBOX_TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify(message),
+      });
+      if (!response.ok) throw new Error("Inbox delivery transport failed.");
+      const result = await response.json();
+      if (result.state === "delivered") return result;
+      if (!env.SONNELY_MAIL_TO) return result;
+      inboxRetry = result.state === "retry";
     } catch {
       inboxRetry = true;
     }
@@ -26,7 +35,7 @@ async function deliver(env, message) {
     const code =
       typeof error?.code === "string" && /^E_[A-Z0-9_]{1,60}$/.test(error.code) ? error.code : undefined;
     if (code === "E_RATE_LIMIT_EXCEEDED") return { state: "retry", code };
-    if (inboxRetry) return { state: "retry", code: "E_INBOX_TEMPORARY" };
+    if (inboxRetry) return { state: "retry", code: code ?? "E_INBOX_TEMPORARY" };
     return { state: code ? "failed" : "unconfirmed", code };
   }
 }
