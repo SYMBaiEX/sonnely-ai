@@ -5,16 +5,16 @@ description: Install the Sonnely clients for TypeScript and Python, or bring an 
 
 ## TypeScript or JavaScript
 
-Install the first-party server-side package from [npm](https://www.npmjs.com/package/sonnely-sdk) with Node.js 22 or newer.
+Install the first-party server-side package from [npm](https://www.npmjs.com/package/@sonnely/sdk) with Node.js 22 or newer.
 
 ```bash
-npm install sonnely-sdk
+npm install @sonnely/sdk
 ```
 
-A [versioned npm archive](https://sonnely.com/sdk/sonnely-sdk-0.1.2.tgz) is also available from Sonnely.
+A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.2.tgz) is also available from Sonnely.
 
 ```typescript
-import { Sonnely } from "sonnely-sdk";
+import { Sonnely } from "@sonnely/sdk";
 
 const sonnely = new Sonnely({ apiKey: process.env.SONNELY_API_KEY });
 const request = {

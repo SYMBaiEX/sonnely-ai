@@ -34,6 +34,7 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   await page.goto("/docs/sdks");
   await expect(page.getByRole("heading", { name: "SDKs", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await expect(page.getByText("npm install @sonnely/sdk", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open Search", exact: true }).click();
   await page.getByRole("dialog").getByRole("combobox").fill("Blackboxes");
   await page.getByRole("option").filter({ hasText: "Blackboxes" }).first().click();
@@ -46,7 +47,7 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   expect(search.ok()).toBe(true);
   expect(await search.text()).toContain("/docs/blackboxes");
 
-  for (const archive of ["sonnely-sdk-0.1.2.tgz", "sonnely_sdk-0.1.2-py3-none-any.whl"]) {
+  for (const archive of ["sonnely-typescript-0.1.2.tgz", "sonnely_sdk-0.1.2-py3-none-any.whl"]) {
     const asset = await request.get("/sdk/" + archive);
     expect(asset.ok()).toBe(true);
     expect((await asset.body()).length).toBeGreaterThan(1000);
