@@ -34,6 +34,14 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   await page.goto("/docs/sdks");
   await expect(page.getByRole("heading", { name: "SDKs", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.getByRole("button", { name: "Open Search", exact: true }).click();
+  await page.getByRole("dialog").getByRole("combobox").fill("Blackboxes");
+  await page.getByRole("option").filter({ hasText: "Blackboxes" }).first().click();
+  await expect(page).toHaveURL(/\/docs\/blackboxes$/);
+  await expect(page.getByRole("link", { name: "Console → Blackboxes" })).toHaveAttribute(
+    "href",
+    "https://sonnely.com/console/blackboxes",
+  );
   const search = await request.get("/api/search?query=Blackboxes");
   expect(search.ok()).toBe(true);
   expect(await search.text()).toContain("/docs/blackboxes");
