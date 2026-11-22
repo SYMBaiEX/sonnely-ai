@@ -485,6 +485,23 @@
   }
 }
 
+@media (max-width: 420px) {
+  .console .crm-navigation {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .console .crm-navigation > button {
+    grid-column: span 2;
+    min-height: 44px;
+  }
+
+  .console .crm-navigation > button:nth-last-child(-n + 2) {
+    grid-column: span 3;
+  }
+}
+
 @media (max-width: 360px) {
   .console .stat {
     padding-inline: 13px;
