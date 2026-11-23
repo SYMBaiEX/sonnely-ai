@@ -7,23 +7,23 @@ description: Diagnose API errors, incomplete streams, and unsettled funding.
 
 Read `error.message` in the response. An open stream may report the error in an SSE event even after HTTP 200. See [stream interruptions](/docs/streaming#handle-interruptions) for how to detect an incomplete stream.
 
-| Status           | Check                                                                                                                |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 400              | Check request fields, provider selection, and the per-request reservation ceiling in the [API reference](/docs/api). |
-| 401              | Verify the bearer token, key expiration, and revocation status.                                                      |
-| 402              | Check your credit balance and API key budgets.                                                                       |
-| 403              | Accept current terms and confirm the account is eligible.                                                            |
-| 404              | Choose a model ID from discovery.                                                                                    |
-| 409              | The idempotency key already started a request. Use the original reference to check Usage.                            |
-| 413 or 415       | Reduce the request below 36,000 bytes and send JSON.                                                                 |
-| 429              | Read the error for the limit you hit. If the response includes `Retry-After`, wait that long before retrying.        |
-| 500, 502, or 503 | Check [status](/status) and the ledger before retrying.                                                              |
+| Status           | Check                                                                                                         |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| 400              | Check request fields and the per-request reservation ceiling in the [API reference](/docs/api).               |
+| 401              | Verify the bearer token, key expiration, and revocation status.                                               |
+| 402              | Check your credit balance and API key budgets.                                                                |
+| 403              | Accept current terms and confirm the account is eligible.                                                     |
+| 404              | Choose a model ID from discovery.                                                                             |
+| 409              | The idempotency key already started a request. Use the original reference to check Usage.                     |
+| 413 or 415       | Reduce the request below 36,000 bytes and send JSON.                                                          |
+| 429              | Read the error for the limit you hit. If the response includes `Retry-After`, wait that long before retrying. |
+| 500, 502, or 503 | Check [status](/status) and the ledger before retrying.                                                       |
 
 ## Report a billing issue
 
 For a wallet payment, resume the checkout in Billing or check its finalized transaction signature. For inference, open **Recent requests** in Usage before retrying a disconnected or incomplete request.
 
-When contacting support, share the transaction signature or request reference, along with the model, provider, and UTC time for an inference request.
+When contacting support, share the transaction signature or request reference, along with the model and UTC time for an inference request.
 
 > **Keep secrets private.** Keep API keys, prompt text, and private receipts out of support messages unless needed and shared securely.
 

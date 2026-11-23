@@ -20,19 +20,13 @@ import { models } from "@/lib/models";
 function RouteSample() {
   return (
     <div className="gateway-sample gateway-route">
-      <p>Example provider route</p>
+      <p>Example route</p>
       <ul>
         <li data-selected="">
-          <Server size={15} aria-hidden="true" /> <strong>NEAR AI</strong>
+          <Server size={15} aria-hidden="true" /> <strong>Confidential TEE</strong>
           <span>
-            <Check size={13} aria-hidden="true" /> Pinned
+            <Check size={13} aria-hidden="true" /> Selected
           </span>
-        </li>
-        <li>
-          <Server size={15} aria-hidden="true" /> Phala
-        </li>
-        <li>
-          <Server size={15} aria-hidden="true" /> Tinfoil
         </li>
       </ul>
     </div>
@@ -85,9 +79,9 @@ const capabilities = [
     id: "route",
     icon: Fingerprint,
     title: "Confidential inference",
-    body: "Pick a confidential provider and check the evidence it publishes about where the model ran.",
+    body: "Run models on confidential compute and check the evidence published for each request.",
     href: "/inference#evidence",
-    action: "Verify the provider",
+    action: "Verify the attestation",
     Sample: RouteSample,
   },
   {
@@ -148,7 +142,7 @@ export function HomeCapabilities() {
           <p className="eyebrow">The gateway</p>
           <h2 id="capabilities-heading">From request to receipt.</h2>
         </div>
-        <p>Pick where a request runs, set a limit, and see what you were charged.</p>
+        <p>Send a request, set a limit, and see what you were charged.</p>
       </header>
       <ul className="gateway-grid" role="list">
         {capabilities.map(({ id, icon: Icon, title, body, href, action, Sample }) => (

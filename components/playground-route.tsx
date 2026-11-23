@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
 import { models } from "@/lib/models";
-import { providerNames, providerRoute, type ProviderId } from "@/lib/provider-catalog";
+import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
 
 export function PlaygroundRoute({
   model,
@@ -43,7 +43,7 @@ export function PlaygroundRoute({
       <button
         type="button"
         className="playground-route-trigger"
-        aria-label={`Choose model and provider. ${current.name}, ${providerNames[provider]}${available ? "" : " unavailable"}`}
+        aria-label={`Choose model. ${current.name}${available ? "" : " unavailable"}`}
         aria-haspopup="dialog"
         onClick={open}
         disabled={disabled}
@@ -54,15 +54,15 @@ export function PlaygroundRoute({
         <span className="playground-route-label">
           <strong>{current.name}</strong>
           <small>
-            {providerNames[provider]}
-            {available ? "" : " unavailable"}
+            {current.type}
+            {available ? "" : " · unavailable"}
           </small>
         </span>
         <ChevronDown size={15} aria-hidden="true" />
       </button>
       <dialog ref={dialog} className="playground-route-dialog panel" aria-labelledby="playground-route-title">
         <header>
-          <h2 id="playground-route-title">Model and provider</h2>
+          <h2 id="playground-route-title">Choose a model</h2>
           <button
             className="icon-button"
             type="button"
@@ -96,26 +96,6 @@ export function PlaygroundRoute({
               </label>
             ))}
           </fieldset>
-          <fieldset className="playground-providers">
-            <legend>Provider</legend>
-            {routes.length ? (
-              <div>
-                {routes.map((id) => (
-                  <label key={id}>
-                    <input
-                      type="radio"
-                      name="playground-provider"
-                      checked={draftProvider === id}
-                      onChange={() => setDraftProvider(id)}
-                    />
-                    <span>{providerNames[id]}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="caption">No providers available for this model.</p>
-            )}
-          </fieldset>
         </div>
         <footer>
           <button className="button quiet" type="button" onClick={() => dialog.current?.close()}>
@@ -130,7 +110,7 @@ export function PlaygroundRoute({
               dialog.current?.close();
             }}
           >
-            Apply route
+            Use model
           </button>
         </footer>
       </dialog>

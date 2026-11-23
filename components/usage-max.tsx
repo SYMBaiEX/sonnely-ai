@@ -75,9 +75,9 @@ export function UsageMax({ days, hasUsage }: { days: number; hasUsage: boolean }
             <summary>Send to my UsageMax workspace</summary>
             <form onSubmit={submit}>
               <p className="caption">
-                Create an advanced collector key in UsageMax. Each send includes model and provider names,
-                token counts, timestamps, and settled Sonnely charges. Sonnely uses the collector key for this
-                send and never saves it.
+                Create an advanced collector key in UsageMax. Each send includes model and route names, token
+                counts, timestamps, and settled Sonnely charges. Sonnely uses the collector key for this send
+                and never saves it.
               </p>
               <div className="usage-max-fields">
                 <label className="control-label">

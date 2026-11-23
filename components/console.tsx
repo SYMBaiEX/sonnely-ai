@@ -26,7 +26,7 @@ import {
 import { computeProducts, isComputeProduct, type ComputeFeatures } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
 import type { Theme } from "@/lib/appearance";
-import type { nearCatalog } from "@/lib/near-catalog";
+
 import type { Section } from "@/app/console/[[...section]]/page";
 import { creditBalance } from "@/lib/credit-amount";
 import { shorten } from "@/lib/models";
@@ -36,7 +36,7 @@ import { CommandMenu } from "./command-menu";
 import { setTheme, ThemeSurface, ThemeSwitch, useTheme } from "./appearance";
 import { Admin } from "./admin";
 import { Chat } from "./chat";
-import { NearModelDirectory } from "./near-model-directory";
+
 import { ModelCatalog } from "./shared";
 import type { ProviderId } from "@/lib/provider-catalog";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
@@ -371,7 +371,6 @@ export function ConsoleScreen({
   initialProvider,
   initialRun,
   availableProviders,
-  providerCatalog,
   intentsFunding,
 }: {
   section: Section;
@@ -381,7 +380,6 @@ export function ConsoleScreen({
   initialProvider: ProviderId;
   initialRun?: string;
   availableProviders: ProviderId[];
-  providerCatalog?: Awaited<ReturnType<typeof nearCatalog>>;
   intentsFunding?: { widgetUrl?: string };
 }) {
   const context = useContext(ConsoleContext);
@@ -426,14 +424,9 @@ export function ConsoleScreen({
           <WorkspaceHeading
             icon={Cpu}
             title="Models"
-            description="Compare models, inference providers, and token rates."
-          >
-            <Link href="#near-directory" className="text-link">
-              Browse the full NEAR directory <ArrowUpRight size={15} />
-            </Link>
-          </WorkspaceHeading>
+            description="Compare models, context windows, and token rates."
+          />
           <ModelCatalog availableProviders={availableProviders} />
-          {providerCatalog && <NearModelDirectory {...providerCatalog} />}
         </>
       )}
       {(section === "blackboxes" || section === "dry-docks") && (

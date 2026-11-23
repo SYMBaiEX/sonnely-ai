@@ -326,7 +326,7 @@ export function Blackboxes({
       <WorkspaceHeading
         icon={Box}
         title="Blackboxes"
-        description="Start from a container preset or bring your own image to a Phala confidential VM."
+        description="Start from a container preset or bring your own image to a confidential VM."
       >
         <Link className="button quiet" href="/docs/blackboxes">
           Rental guide <ArrowUpRight size={15} aria-hidden="true" />
@@ -530,7 +530,7 @@ export function Blackboxes({
                       <dd>{rental.seconds ?? 0} s</dd>
                     </div>
                     <div>
-                      <dt>Provider cost</dt>
+                      <dt>Compute cost</dt>
                       <dd>{creditBalance(rental.base ?? 0)}</dd>
                     </div>
                     <div>
@@ -628,7 +628,7 @@ export function Blackboxes({
           <div className={styles.agentQuickstart}>
             <h3>Agent frameworks</h3>
             <p className={styles.muted}>
-              Start with suggested Phala settings and bring your configured image.
+              Start with suggested machine settings and bring your configured image.
             </p>
             <div className={styles.quickstart}>
               {agentPresetIds.map((id) => {
@@ -754,7 +754,7 @@ export function Blackboxes({
         <div className={styles.dialogHead}>
           <div>
             <h2 id="blackbox-configure">Configure a Blackbox</h2>
-            <p className={styles.muted}>Pick a workload, then size your Phala confidential VM.</p>
+            <p className={styles.muted}>Pick a workload, then size your confidential VM.</p>
           </div>
           <button
             type="button"
@@ -892,7 +892,7 @@ export function Blackboxes({
                   </div>
                 )}
                 <fieldset disabled={pending}>
-                  <legend>Phala machine</legend>
+                  <legend>Machine</legend>
                   <div className={styles.machineGrid}>
                     {blackboxMachineIds.map((id) => {
                       const option = blackboxMachines[id];
@@ -959,7 +959,7 @@ export function Blackboxes({
                 </p>
                 <dl className={styles.details}>
                   <div>
-                    <dt>Provider cost</dt>
+                    <dt>Compute cost</dt>
                     <dd>{creditBalance(quote.base)}</dd>
                   </div>
                   <div>
@@ -976,7 +976,7 @@ export function Blackboxes({
                 <dl className={styles.placement}>
                   <div>
                     <dt>Placement</dt>
-                    <dd>Automatic · Phala Cloud</dd>
+                    <dd>Automatic</dd>
                   </div>
                   <div>
                     <dt>Workload access</dt>
@@ -984,13 +984,13 @@ export function Blackboxes({
                   </div>
                 </dl>
                 <p className={styles.hint}>
-                  Phala selects an available Intel TDX node. The VM and SSD are deleted at the end of the
-                  rental.
+                  An available Intel TDX node is selected automatically. The VM and SSD are deleted at the end
+                  of the rental.
                 </p>
                 <details className={styles.presetDetails}>
                   <summary>How pricing works</summary>
                   <p className={styles.hint}>
-                    The fee is {computeMarkup}% of provider cost plus {creditBalance(computeFee)} for a billed
+                    The fee is {computeMarkup}% of compute cost plus {creditBalance(computeFee)} for a billed
                     run. SSD usage costs {creditBalance(blackboxDiskHourlyRate)} per GB per hour. Runtime is
                     rounded up to the minute, and unused credits return after teardown.
                   </p>
@@ -1070,7 +1070,7 @@ export function Blackboxes({
           </button>
         </div>
         <p>
-          The workload will go offline and Phala will delete the VM and disk. Unused credits return once the
+          The workload will go offline and the VM and disk will be deleted. Unused credits return once the
           rental settles.
         </p>
         {actionError && (

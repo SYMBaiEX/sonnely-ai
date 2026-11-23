@@ -27,7 +27,7 @@ export function ModelGuide() {
         ))}
       </dl>
       <p>
-        The provider context window describes the underlying model. Sonnely currently accepts up to{" "}
+        The context window describes the underlying model. Sonnely currently accepts up to{" "}
         {limits.bodyBytes.toLocaleString("en-US")} bytes per request and returns up to{" "}
         {limits.maxOutputTokens.toLocaleString("en-US")} output tokens.
       </p>

@@ -622,7 +622,7 @@
   margin-bottom: clamp(6px, 1vw, 14px);
 }
 
-:is(.model-comparison, .near-directory) .section-head p {
+.model-comparison .section-head p {
   margin-top: 8px;
   color: var(--muted);
 }
@@ -675,57 +675,6 @@
 
 .page-models .catalog-row-actions :is(.text-link, .button) {
   min-height: 34px;
-}
-
-.page-models .near-directory {
-  padding-top: clamp(22px, 3.8vw, 52px);
-  margin-block: clamp(42px, 6vw, 86px);
-  border-top: 1px solid var(--line);
-}
-
-.page-models .near-route-guide {
-  gap: clamp(12px, 1.5vw, 20px);
-  margin-block: 14px 22px;
-}
-
-.page-models .near-route-guide > div {
-  padding: var(--market-inset);
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: linear-gradient(145deg, var(--market-paper), var(--glass-solid));
-}
-
-.page-models .near-route-guide dt {
-  color: var(--accent);
-}
-
-.page-models .near-route-guide dd {
-  color: var(--muted);
-}
-
-.page-models .near-directory > .caption {
-  margin-block: 9px;
-}
-
-.page-models .near-model-id {
-  font: 460 0.76rem var(--mono);
-}
-
-.page-models .near-directory [data-tier] {
-  display: inline-block;
-  padding: 4px 7px;
-  border-radius: 6px;
-  background: var(--active-fill);
-}
-
-.page-models .near-directory [data-tier="private-3p-tee"] {
-  color: light-dark(#563694, #dbc5fc);
-  background: light-dark(#ede5fa, #31223d);
-}
-
-.page-models .near-directory [data-tier="incognito"] {
-  color: var(--muted);
-  background: var(--raised);
 }
 
 .page-models .content-section {
@@ -876,7 +825,6 @@
 
 .market-page .reader-body > :is(h2:not(:first-child), section + section) {
   padding-top: clamp(12px, 2vw, 26px);
-  border-top: 1px solid var(--line);
 }
 
 .market-page .status-board dl > div {

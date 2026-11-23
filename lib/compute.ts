@@ -3,7 +3,7 @@ import { blackboxHourlyBase, blackboxSize } from "./blackbox-options";
 export const computePlans = {
   blackboxes: {
     title: "Blackboxes",
-    provider: "Phala Cloud",
+    provider: "Confidential cloud",
     size: blackboxSize(),
     hourlyBase: blackboxHourlyBase(),
     unitSeconds: 60,

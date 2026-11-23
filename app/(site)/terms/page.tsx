@@ -10,7 +10,7 @@ export const metadata = {
 const sections = [
   ["account", "Account and service"],
   ["credits", "Credits and charges"],
-  ["acceptable-use", "Acceptable use and provider terms"],
+  ["acceptable-use", "Acceptable use"],
   ["availability", "Model output and availability"],
   ["questions", "Questions"],
 ] as const;
@@ -46,12 +46,8 @@ export default function TermsPage() {
             Use Sonnely lawfully and only with inputs you have permission to submit. Respect privacy,
             intellectual-property rights, trade restrictions, and applicable model licenses. Do not use the
             service to harm others, abuse another system, or circumvent service safeguards or limits. Requests
-            processed by NEAR AI are subject to applicable restrictions in the{" "}
-            <a href="https://near.ai/acceptable-use-policy">NEAR AI Acceptable Use Policy</a> and{" "}
-            <a href="https://near.ai/terms-of-service">NEAR AI Cloud Terms</a>. Requests you route to Phala
-            are subject to <a href="https://phala.com/terms">Phala’s terms</a>. Requests you route to Tinfoil
-            are subject to <a href="https://tinfoil.sh/terms">Tinfoil’s terms</a>. Sonnely may limit or
-            suspend access for misuse or where a provider, network, or law requires it.
+            are subject to the acceptable-use policies of the compute providers that execute them. Sonnely may
+            limit or suspend access for misuse or where an upstream provider, network, or law requires it.
           </p>
           <h2 id={sections[3][0]}>{sections[3][1]}</h2>
           <p>

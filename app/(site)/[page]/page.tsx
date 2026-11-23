@@ -3,8 +3,6 @@ import Link from "next/link";
 import { ArrowDown, ArrowRight, ArrowUpRight, Boxes, Fingerprint, KeyRound, Wallet } from "lucide-react";
 import { ModelGuide } from "@/components/model-guide";
 import { CostExample } from "@/components/cost-example";
-import { NearModelDirectory } from "@/components/near-model-directory";
-import { nearCatalog } from "@/lib/near-catalog";
 import { configuredProviders, nearIntentsFundingEnabled } from "@/lib/managed-access";
 import { ModelCatalog } from "@/components/shared";
 import { Contact } from "@/components/contact";
@@ -20,10 +18,7 @@ import { markupPercent } from "@/lib/pricing";
 
 const pages = {
   ...productPages,
-  models: [
-    "Model catalog",
-    "Compare the models you can run, what they cost, and where they run. The NEAR AI directory is below.",
-  ],
+  models: ["Model catalog", "Compare the models you can run, what they cost, and the context they support."],
   pricing: [
     "Pay for what you run",
     "Add USDC to your balance and pay by the token. You can set a budget for each API key.",
@@ -42,7 +37,7 @@ const briefs = {
     title: "Inference API",
     rows: [
       ["Interface", "Chat Completions"],
-      ["Providers", "NEAR AI · Phala · Tinfoil"],
+      ["Routing", "Automatic"],
       ["Response", "Completion or stream"],
     ],
   },
@@ -64,7 +59,7 @@ const briefs = {
   blackboxes: {
     title: "Pilot configuration",
     rows: [
-      ["Provider", "Phala Cloud"],
+      ["Compute", "Confidential cloud"],
       ["Lease terms", computePlans.blackboxes.minutes.join(" · ") + " min"],
       ["15-minute estimate", creditBalance(computeQuote("blackboxes", 15).total)],
     ],
@@ -89,7 +84,7 @@ const briefs = {
     title: "Inference billing",
     rows: [
       ["Funding", "USDC on Solana"],
-      ["Meter", "Provider-reported tokens"],
+      ["Meter", "Reported tokens"],
       ["Sonnely markup", markupPercent + "%"],
     ],
   },
@@ -98,7 +93,7 @@ const briefs = {
     rows: [
       ["Workspace", "Access and API support"],
       ["Billing", "Payments and usage charges"],
-      ["Partners", "Provider integrations"],
+      ["Partners", "Infrastructure partnerships"],
     ],
   },
 } satisfies Partial<Record<Page, SiteBrief>>;
@@ -106,7 +101,7 @@ const briefs = {
 const entryActions = {
   inference: {
     section: "#routing",
-    label: "Compare provider routes",
+    label: "Explore confidential routing",
     next: "/docs/quickstart",
     action: "Try the API quickstart",
   },
@@ -180,7 +175,6 @@ export default async function Subpage({ params }: Props) {
   const features = computeFeatures();
   if (isComputeProduct(page) && !features[page]) notFound();
   const [title, description] = pages[page as Page];
-  const providerCatalog = page === "models" ? await nearCatalog() : null;
   const entryAction = Object.hasOwn(entryActions, page)
     ? entryActions[page as keyof typeof entryActions]
     : null;
@@ -214,18 +208,14 @@ export default async function Subpage({ params }: Props) {
             <header className="section-head">
               <div>
                 <h2 id="model-comparison-title">Available on Sonnely</h2>
-                <p>Compare token prices, provider context windows, and available routes.</p>
+                <p>Compare token prices and context windows.</p>
               </div>
-              <Link className="text-link" href="#near-directory">
-                Browse the NEAR directory <ArrowDown size={15} aria-hidden="true" />
-              </Link>
             </header>
             <ModelCatalog availableProviders={configuredProviders()} />
             <Link className="text-link model-explainer" href="/inference#routing">
-              How provider selection works <ArrowUpRight size={15} aria-hidden="true" />
+              How routing works <ArrowUpRight size={15} aria-hidden="true" />
             </Link>
           </section>
-          {providerCatalog && <NearModelDirectory {...providerCatalog} />}
           <ModelGuide />
         </>
       )}
@@ -259,7 +249,7 @@ export default async function Subpage({ params }: Props) {
               <article className="panel benefit">
                 <Fingerprint />
                 <h3>Token rates</h3>
-                <p>Published token rates include a {markupPercent}% Sonnely markup on provider list rates.</p>
+                <p>Published token rates include a {markupPercent}% Sonnely markup on compute costs.</p>
                 <Link className="text-link" href="/models#available-models">
                   Compare token rates <ArrowUpRight size={16} />
                 </Link>
@@ -319,7 +309,7 @@ export default async function Subpage({ params }: Props) {
                 <summary>How do API key budgets work?</summary>
                 <p>
                   Sonnely reserves a maximum estimated charge before sending each request. It releases the
-                  difference when the provider reports usage. Unreported usage can leave a reservation pending
+                  difference when usage settles. Unreported usage can leave a reservation pending
                   reconciliation.
                 </p>
               </details>

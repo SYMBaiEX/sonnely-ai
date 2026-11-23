@@ -24,14 +24,12 @@ export default function PrivacyPage() {
         <article className="panel reader-body">
           <h2 id={sections[0][0]}>{sections[0][1]}</h2>
           <p>
-            Sonnely’s HTTPS gateway receives your prompt and forwards it to the selected inference provider,
-            NEAR AI, Phala, or Tinfoil. The gateway does not provide end-to-end encryption from your device to
-            the model enclave. The Sonnely usage ledger stores request metadata, such as model, token counts,
-            charge, status, and provider request ID. It does not store prompt or response bodies. Optional
-            console chat history is stored in your browser. See the{" "}
-            <a href="https://near.ai/privacy-policy">NEAR AI Privacy Policy</a>,{" "}
-            <a href="https://phala.com/privacy">Phala Privacy Policy</a>, and{" "}
-            <a href="https://tinfoil.sh/privacy">Tinfoil Privacy Policy</a> for provider data handling.
+            Sonnely’s HTTPS gateway receives your prompt and forwards it to a confidential inference provider
+            for execution. The gateway does not provide end-to-end encryption from your device to the model
+            enclave. The Sonnely usage ledger stores request metadata, such as model, token counts, charge,
+            status, and request IDs. It does not store prompt or response bodies. Optional console chat
+            history is stored in your browser. Contact us for the data handling terms that apply to the
+            compute providers that execute requests.
           </p>
           <h2 id={sections[1][0]}>{sections[1][1]}</h2>
           <p>
@@ -52,16 +50,16 @@ export default function PrivacyPage() {
             When available, Dry Docks sends the public repository URL and pinned commit to a Boat sandbox.
             Sonnely keeps build logs and downloadable artifacts for seven days after teardown, and retains the
             run and billing receipt in your workspace. When available, Blackboxes sends the selected image and
-            port to Phala and publishes workload attestation metadata.
+            port to its compute provider and publishes workload attestation metadata.
           </p>
           <p>
             For service operations, Sonnely sends settled inference receipts to a private UsageMax project.
-            Receipts contain opaque request and trace identifiers, model and provider names, timing for
-            gateway stages and provider attempts, status, token counts, and accounting amounts. These receipts
-            exclude prompts, responses, wallet addresses, and API keys.
+            Receipts contain opaque request and trace identifiers, model and route names, timing for gateway
+            stages and request attempts, status, token counts, and accounting amounts. These receipts exclude
+            prompts, responses, wallet addresses, and API keys.
           </p>
           <p>
-            The optional UsageMax export sends model and provider names, token counts, timestamps, and settled
+            The optional UsageMax export sends model and route names, token counts, timestamps, and settled
             Sonnely charges to the collector you choose. The send uses your UsageMax collector key for that
             request. Sonnely does not keep that key or export prompt bodies, responses, wallet addresses, or
             API-key labels.

@@ -1,13 +1,12 @@
 import { notFound } from "next/navigation";
 import { ConsoleScreen } from "@/components/console";
 import { adminAreas } from "@/lib/admin-areas";
-import { nearCatalog } from "@/lib/near-catalog";
 import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
 import { intentsEmbedUrl } from "@/lib/intent-funding";
 import { configuredProviders, nearIntentsFundingEnabled } from "@/lib/managed-access";
-import { providerIds, providerRoute } from "@/lib/provider-catalog";
+import { providerRoute } from "@/lib/provider-catalog";
 
 const sections = [
   "chat",
@@ -25,7 +24,7 @@ const sections = [
 export type Section = (typeof sections)[number];
 type Props = {
   params: Promise<{ section?: string[] }>;
-  searchParams: Promise<{ model?: string; provider?: string; run?: string }>;
+  searchParams: Promise<{ model?: string; run?: string }>;
 };
 
 export async function generateMetadata({ params }: Props) {
@@ -40,7 +39,7 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function ConsolePage({ params, searchParams }: Props) {
-  const [{ section }, { model, provider, run }] = await Promise.all([params, searchParams]);
+  const [{ section }, { model, run }] = await Promise.all([params, searchParams]);
   const name = section?.[0] ?? "chat";
   const adminArea = name === "admin" && section?.[1] ? section[1] : undefined;
   const badDepth =
@@ -56,21 +55,18 @@ export default async function ConsolePage({ params, searchParams }: Props) {
     models.find((item) => item.id === model) ??
     models.find((item) => availableProviders.some((id) => providerRoute(item, id))) ??
     models[0];
-  const pinnedProvider = providerIds.find((id) => id === provider);
-  const initialProvider =
-    pinnedProvider ?? availableProviders.find((id) => providerRoute(initial, id)) ?? initial.provider;
+  const initialProvider = availableProviders.find((id) => providerRoute(initial, id)) ?? initial.provider;
   return (
     <ConsoleScreen
       section={name as Section}
       features={features}
-      providerCatalog={name === "models" ? await nearCatalog() : undefined}
       intentsFunding={
         name === "billing" && nearIntentsFundingEnabled()
           ? { widgetUrl: intentsEmbedUrl(process.env.SONNELY_INTENTS_WIDGET_URL) }
           : undefined
       }
       initialModel={initial.id}
-      restoreConversation={model === undefined && provider === undefined}
+      restoreConversation={model === undefined}
       initialRun={typeof run === "string" && /^[a-z0-9]{20,80}$/.test(run) ? run : undefined}
       initialProvider={initialProvider}
       availableProviders={availableProviders}

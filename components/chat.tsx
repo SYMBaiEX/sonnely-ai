@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { models } from "@/lib/models";
-import { providerNames, providerRoute, type ProviderId } from "@/lib/provider-catalog";
+import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
 import { readSse } from "@/lib/sse";
 import { CopyButton } from "./shared";
 import { PlaygroundRoute } from "./playground-route";
@@ -42,7 +42,6 @@ function transcript(thread: Thread, format: "md" | "txt") {
     (format === "md" ? "# " : "") + title,
     "",
     "Model: " + name(thread.model) + " (" + thread.model + ")",
-    "Provider: " + providerNames[thread.provider ?? "near-ai"],
     "Exported: " + new Date().toLocaleString(),
     "",
   ];
@@ -63,14 +62,14 @@ const samples = [
     title: "Private inference",
     prompt: "What is a trusted execution environment?",
     reply:
-      "A trusted execution environment (TEE) is an isolated part of a computer designed to protect data while it’s being processed. An attestation report can help a client check what software and hardware are running inside it. In Sonnely’s setup, the model provider’s enclave and the Sonnely gateway are separate trust boundaries.",
+      "A trusted execution environment (TEE) is an isolated part of a computer designed to protect data while it’s being processed. An attestation report can help a client check what software and hardware are running inside it. In Sonnely’s setup, the confidential enclave that runs the model and the Sonnely gateway are separate trust boundaries.",
   },
   {
     icon: KeyRound,
     title: "Key budgets",
     prompt: "Show a simple API key budget example.",
     reply:
-      "If a key has a $5 daily limit and a $30 lifetime limit, requests stop when either budget would be exceeded. The gateway reserves an estimate before running each request, then releases the remainder after the provider reports usage.",
+      "If a key has a $5 daily limit and a $30 lifetime limit, requests stop when either budget would be exceeded. The gateway reserves an estimate before running each request, then releases the remainder after usage settles.",
   },
   {
     icon: Wallet,
@@ -205,9 +204,7 @@ export function Chat({
       : payload.slice(-32);
     const entry = models.find((item) => item.id === runModel);
     if (!entry || !availableProviders.some((route) => providerRoute(entry, route) && route === runProvider)) {
-      setError(
-        providerNames[runProvider] + " is unavailable for this model. Choose an available provider.",
-      );
+      setError("That model is temporarily unavailable. Try another model.");
       return;
     }
     const input = {
@@ -282,7 +279,7 @@ export function Chat({
       }
       if (!complete)
         throw new Error("The stream ended before billing was finalized. Check Usage before retrying.");
-      save(reply(content || "The provider returned no text."), id);
+      save(reply(content || "The model returned no text."), id);
       await refresh();
     } catch (error) {
       if (controller.signal.aborted) {
@@ -469,9 +466,7 @@ export function Chat({
                         "Model")}
                 </div>
                 <p>{message.content}</p>
-                {message.role === "assistant" && (
-                  <CopyButton value={message.content} label="Copy response" />
-                )}
+                {message.role === "assistant" && <CopyButton value={message.content} label="Copy response" />}
                 {!activeSample && (
                   <div className="message-footer">
                     <span className="message-stamp">
@@ -495,12 +490,7 @@ export function Chat({
                         </button>
                       )}
                       {index === messages.length - 1 && ready && (
-                        <button
-                          type="button"
-                          className="button quiet small"
-                          disabled={busy}
-                          onClick={retry}
-                        >
+                        <button type="button" className="button quiet small" disabled={busy} onClick={retry}>
                           <RotateCcw size={13} aria-hidden="true" /> Retry
                         </button>
                       )}
@@ -520,11 +510,7 @@ export function Chat({
           {editIndex !== null && (
             <p className="playground-editing" role="status">
               <span>Editing an earlier message. Sending replaces it and anything after it.</span>
-              <button
-                type="button"
-                className="playground-history-save"
-                onClick={() => setEditIndex(null)}
-              >
+              <button type="button" className="playground-history-save" onClick={() => setEditIndex(null)}>
                 Cancel
               </button>
             </p>

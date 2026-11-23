@@ -1,50 +1,32 @@
 ---
-title: Models and providers
-description: Discover available routes, select a provider, and estimate token costs.
+title: Models and rates
+description: Discover available models and estimate token costs.
 ---
 
 ## Read the live catalog
 
-[GET /models](/api/sonnely/v1/models) lists available model IDs and routes for the current deployment. The [model catalog](/models) also shows the NEAR directory. Directory entries and NEAR Incognito entries are informational unless the Sonnely API advertises them as available.
+[GET /models](/api/sonnely/v1/models) lists the model IDs available on the current deployment with their rates and context windows. The [model catalog](/models) shows the same list with published pricing.
 
-NEAR AI is the default. DeepSeek V4.1 Flash 1017 can also route through Phala or Tinfoil when discovery lists those routes. Check the actual route and its capabilities when choosing a provider. Matching model labels alone do not establish identical weights or execution.
-
-## Pin a request
-
-Set `provider.only` to a single provider advertised under the model’s `routes`. The example pins Phala and sets a $0.001 maximum reservation.
-
-```json title="Request body · Pin Phala"
-{
-  "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
-  "messages": [{ "role": "user", "content": "Describe a redwood forest in one sentence." }],
-  "provider": { "only": ["phala"] },
-  "max_tokens": 128,
-  "max_cost_microusd": 1000
-}
-```
-
-Use `near-ai`, `phala`, or `tinfoil` when that provider is present in the model’s `routes`.
-
-> **Route pinning.** A pinned request stays on its selected route, including during failure.
+Routing is automatic. Sonnely selects a confidential execution environment for each request and meters the usage it reports back.
 
 ## Compare prices
 
-Read `price_usd_per_million` on the selected route. Published prices include Sonnely’s 10% inference markup.
+Published prices include Sonnely’s 10% inference markup and are quoted per million tokens.
 
 <div className="docs-guide-facts">
 
 - **Input.** Uncached tokens in your request.
 - **Cached input.** Prompt tokens reported as cache hits.
-- **Output.** Completion tokens reported by the provider.
+- **Output.** Completion tokens reported with the response.
 
 </div>
 
-Reported token categories determine the final charge up to the reservation. Read discovery at runtime for current rates and available routes.
+Reported token categories determine the final charge up to the reservation. Read discovery at runtime for current rates.
 
 <nav className="docs-guide-next" aria-label="Related guides and resources">
 
-- [Discover live routes](/api/sonnely/v1/models)
-- [Compare evidence](/docs/attestation#evidence-by-provider)
+- [Discover live models](/api/sonnely/v1/models)
+- [Review attestation evidence](/docs/attestation#evidence)
 - [Understand reservations](/docs/billing#understand-reservations)
 
 </nav>

@@ -325,10 +325,10 @@ export function Compute({
 
           <aside className={"panel " + styles.panel} aria-labelledby="compute-price">
             <h2 id="compute-price">Pricing</h2>
-            <p className={styles.meta}>{creditBalance(plan.hourlyBase)}/hr provider rate.</p>
+            <p className={styles.meta}>{creditBalance(plan.hourlyBase)}/hr compute rate.</p>
             <dl className={styles.pricing}>
               <div>
-                <dt>Provider cost at {minutes} min</dt>
+                <dt>Compute cost at {minutes} min</dt>
                 <dd>{creditBalance(quote.base)}</dd>
               </div>
               <div>
@@ -418,7 +418,7 @@ export function Compute({
                   </p>
                   {!run.active && (
                     <p className={styles.hint}>
-                      Provider cost {creditBalance(run.base ?? 0)} · Sonnely fee {creditBalance(run.fee ?? 0)}
+                      Compute cost {creditBalance(run.base ?? 0)} · Sonnely fee {creditBalance(run.fee ?? 0)}
                     </p>
                   )}
                   <DockTimeline run={run} />

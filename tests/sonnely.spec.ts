@@ -63,13 +63,13 @@ test("public routes and console work across desktop and mobile", async ({ page }
     .filter({ has: page.getByRole("heading", { name: "Qwen 3.6 35B", exact: true }) })
     .getByRole("link", { name: "Open in chat" })
     .click();
-  const route = page.getByRole("button", { name: /Choose model and provider/ });
+  const route = page.getByRole("button", { name: /Choose model/ });
   await expect(route).toContainText("Qwen 3.6 35B");
   await route.click();
-  const picker = page.getByRole("dialog", { name: "Model and provider" });
+  const picker = page.getByRole("dialog", { name: "Choose a model" });
   await expect(picker.getByRole("radio", { name: /^Qwen 3.6 35B/ })).toBeChecked();
   await picker.getByText("GLM 5.3 Flash", { exact: true }).click();
-  await picker.getByRole("button", { name: "Apply route" }).click();
+  await picker.getByRole("button", { name: "Use model" }).click();
   await expect(route).toContainText("GLM 5.3 Flash");
   await expect(route).toBeFocused();
   await page.getByRole("button", { name: "What is a trusted execution environment?" }).click();
@@ -402,36 +402,6 @@ test("launch endpoints describe this Solana workspace and its actual API", async
   expect(spec.components.schemas.CompletionRequest.properties.model.enum).toEqual(
     modelList.data.map((item: { id: string }) => item.id),
   );
-});
-
-test("the NEAR directory distinguishes privacy routes and Sonnely availability", async ({ page }) => {
-  await page.goto("/models");
-  const directory = page.getByRole("region", { name: "NEAR AI model directory" });
-  const table = directory.getByRole("table");
-  const providerIds = await table.locator(".near-model-id").allTextContents();
-  expect(providerIds.length).toBeGreaterThan(models.length);
-  await expect(table.getByText("Available on Sonnely", { exact: true })).toHaveCount(models.length);
-  const search = directory.getByRole("searchbox");
-  const privacy = directory.getByRole("combobox", { name: "NEAR privacy tier" });
-  await search.fill("deepseek-ai/DeepSeek-V4.1-Flash-1017-abliterated");
-  await privacy.selectOption("private-tee");
-  await expect(table.getByRole("row")).toHaveCount(2);
-  await expect(table.getByText("NEAR catalog only", { exact: true })).toBeVisible();
-  await privacy.selectOption("incognito");
-  await expect(directory.getByText("No provider models match these filters.")).toBeVisible();
-  await search.fill("openai/gpt-6.2-sol");
-  await expect(table.getByText("Incognito", { exact: true })).toBeVisible();
-  await search.fill("moonshotai/kimi-k3");
-  await privacy.selectOption("private-3p-tee");
-  await expect(table.getByText("Private 3P TEE", { exact: true })).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-
-  await page.setViewportSize({ width: 1080, height: 900 });
-  await page.goto("/console/models");
-  await expect(directory.locator(".near-model-id")).toHaveText(providerIds);
-  await expect(table.getByText("Available on Sonnely", { exact: true })).toHaveCount(models.length);
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(1080);
 });
 
 test("workspace setup accepts terms, saves a name and offers optional funding on mobile", async ({

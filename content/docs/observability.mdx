@@ -5,7 +5,7 @@ description: Track token usage and charges, export settled requests, and underst
 
 ## Inspect usage
 
-Open Usage and choose a UTC date range. In **Request breakdown**, choose **By model**, **By provider**, or **By key**.
+Open Usage and choose a UTC date range. In **Request breakdown**, choose **By model** or **By key**.
 
 <div className="docs-guide-facts">
 
@@ -23,7 +23,7 @@ For the exact charge for one request, open **Recent requests** and find its row.
 
 ## Export to UsageMax
 
-Export up to 100 settled inference requests from the selected period. A batch contains model, provider, timestamps, token counts, and ledger charges.
+Export up to 100 settled inference requests from the selected period. A batch contains model, timestamps, token counts, and ledger charges.
 
 - **Download a batch** to import it yourself.
 - **Send to a collector** with a write-only UsageMax key. Reuse the installation UUID for deduplication and store collector credentials in UsageMax or your secret manager.
@@ -32,7 +32,7 @@ Export up to 100 settled inference requests from the selected period. A batch co
 
 ## Platform reconciliation
 
-Authorized Sonnely operators can inspect request spans, provider attempts, evidence checks, holds and final settlements in Admin. NEAR per-request cost lookups run on a schedule. Finalized invoice exports can be imported separately and matched against provider billing references. Reconciliation can revise the provider cost record without changing the customer charge. Treasury payout approval and wallet signing are manual.
+Authorized Sonnely operators can inspect request spans, inference attempts, evidence checks, holds and final settlements in Admin. Per-request cost lookups run on a schedule. Finalized invoice exports can be imported separately and matched against billing references. Reconciliation can revise the compute cost record without changing the customer charge. Treasury payout approval and wallet signing are manual.
 
 Alerts can be delivered through the configured operations inbox. Admin reports delivery status, unmatched fees, open holds, and truncated report coverage.
 

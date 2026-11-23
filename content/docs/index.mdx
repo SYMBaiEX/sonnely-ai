@@ -28,16 +28,16 @@ import { GuideGroup, GuideLink, StartLink } from "@/app/docs/overview-links";
       description="Use Sonnely’s TypeScript or Python client."
     />
     <StartLink
-      title="Choose a provider"
+      title="Choose a model"
       href="/docs/providers"
       icon={<Fingerprint aria-hidden="true" />}
-      description="Compare models, prices, and providers."
+      description="Compare models, context windows, and prices."
     />
     <StartLink
       title="Verify a completion"
       href="/docs/attestation"
       icon={<ShieldCheck aria-hidden="true" />}
-      description="Understand what each provider’s evidence verifies."
+      description="Understand what the route evidence verifies."
     />
   </div>
 
@@ -53,7 +53,7 @@ import { GuideGroup, GuideLink, StartLink } from "@/app/docs/overview-links";
   </GuideGroup>
   <GuideGroup id="docs-inference" title="Inference" icon={<Terminal size={16} aria-hidden="true" />}>
     <GuideLink id="api" href="/docs/api" title="API reference" />
-    <GuideLink id="providers" href="/docs/providers" title="Provider routing" />
+    <GuideLink id="providers" href="/docs/providers" title="Models and rates" />
     <GuideLink id="streaming" href="/docs/streaming" title="Streaming and usage" />
     <GuideLink id="limits" href="/docs/api#request-limits" title="Request limits" />
   </GuideGroup>

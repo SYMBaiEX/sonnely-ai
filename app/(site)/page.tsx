@@ -21,8 +21,7 @@ export default function Home() {
           </h1>
           <div className="hero-content">
             <p className="hero-description">
-              Confidential inference for your apps. Choose NEAR AI, Phala, or Tinfoil through one
-              OpenAI-compatible API.
+              Confidential inference for your apps through one OpenAI-compatible API.
             </p>
             <div className="actions">
               <Link href="/console" className="button accent">
@@ -54,8 +53,8 @@ export default function Home() {
               <Fingerprint size={18} aria-hidden="true" />
             </span>
             <span>
-              <strong>Confidential providers</strong>
-              <small>NEAR AI, Phala, and Tinfoil</small>
+              <strong>Confidential compute</strong>
+              <small>Hardware-isolated execution</small>
             </span>
             <ArrowUpRight size={14} aria-hidden="true" />
           </Link>

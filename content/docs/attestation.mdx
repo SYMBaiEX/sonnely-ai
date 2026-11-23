@@ -1,41 +1,35 @@
 ---
 title: Confidentiality and attestation
-description: Understand the gateway boundary and evidence available from NEAR, Phala, and Tinfoil.
+description: Understand the gateway boundary and the evidence available for each request.
 ---
 
 ## Data handling
 
 Requests travel over HTTPS to the Sonnely gateway, which reads the prompt to validate and forward the request.
 
-> **Gateway boundary.** The Sonnely gateway is outside the provider’s trusted execution environment.
+> **Gateway boundary.** The Sonnely gateway is outside the trusted execution environment that runs the model.
 
-Sonnely’s ledger records account, model, provider, token, status and charge metadata. Optional chat history lives in the browser and can be cleared in [Settings](/console/settings). See the [Privacy Notice](/privacy) for details.
+Sonnely’s ledger records account, model, token, status and charge metadata. Optional chat history lives in the browser and can be cleared in [Settings](/console/settings). See the [Privacy Notice](/privacy) for details.
 
-## Evidence by provider
+## Evidence
 
-| Provider | Evidence                                                                                                                                                                                                                 |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| NEAR AI  | Private TEE routes. With a receipt, Sonnely attempts to match NEAR’s ECDSA payload to upstream byte hashes and recover the declared signer. Bind the signer to an attested deployment before relying on hardware claims. |
-| Phala    | Sonnely checks the ACI payload and reported route from Phala. Independently check the receipt signature, keyset and hardware evidence when your policy requires it.                                                      |
-| Tinfoil  | The Tinfoil SDK verifies the router and encrypts the gateway-to-router request. The customer-to-Sonnely leg uses ordinary HTTPS.                                                                                         |
+Every route executes inside a trusted execution environment and supplies evidence describing that environment. The optional completion receipt records which checks passed for a given request so you can verify the attestation before relying on a specific hardware or software claim.
 
 ## Completion receipts
 
-Send `X-Sonnely-Receipt: v1` to include `sonnely_receipt` in the response. A receipt records the provider, requested model, provider completion ID, billing reference, charge in millionths of a dollar, and SHA-256 hashes of the request and response exchanged with the upstream provider or SDK.
+Send `X-Sonnely-Receipt: v1` to include `sonnely_receipt` in the response. A receipt records the route, requested model, completion ID, billing reference, charge in millionths of a dollar, and SHA-256 hashes of the request and response exchanged upstream.
 
 > **Keep receipts private.** The hashes can confirm guesses about their contents.
 
-- `signature_matched` identifies a match between the NEAR payload and declared signing address.
-- `aci_payload_matched` identifies Phala’s matched payload and route.
-- `attested_router` identifies Tinfoil’s verified router release.
+- `signature_matched` identifies a match between the upstream payload and its declared signing address.
+- `aci_payload_matched` identifies a matched attestation payload and route.
+- `attested_router` identifies a verified router release.
 
-Use the receipt schema for field definitions and other statuses. For independent verification, follow the documentation for the provider that carried the request.
+Use the receipt schema for field definitions and other statuses. The evidence fields present depend on the route that carried the request. [Contact us](/contact) if you need verification guidance for a specific route.
 
 <nav className="docs-guide-next" aria-label="Related guides and resources">
 
 - [Open receipt schema](/api/openapi)
-- [NEAR verification](https://docs.near.ai/cloud/verification)
-- [Phala verification](https://phala.com/confidential-ai-models/verification)
-- [Tinfoil verification](https://docs.tinfoil.sh/verification/verification-in-tinfoil)
+- [Review data handling](/privacy)
 
 </nav>

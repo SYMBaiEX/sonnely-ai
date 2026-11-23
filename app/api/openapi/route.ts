@@ -35,7 +35,7 @@ const spec = {
     title: "Sonnely Inference API",
     version: "1.0.0",
     description:
-      "Confidential text inference through NEAR AI, Phala or Tinfoil, metered in compute credits funded with Solana mainnet USDC.",
+      "Confidential text inference on attested compute, metered in compute credits funded with Solana mainnet USDC.",
   },
   servers: [
     { url: apiOrigin + apiBasePath },
@@ -197,7 +197,8 @@ const spec = {
                 items: { enum: providerIds },
               },
             },
-            description: "Pin the request to one provider. The default is NEAR AI. There is no fallback.",
+            description:
+              "Pin the request to one advertised route. Routing is automatic by default. There is no fallback.",
           },
           max_cost_microusd: {
             type: "integer",

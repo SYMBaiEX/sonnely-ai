@@ -73,7 +73,6 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
 }
 .doc-body section + section {
   padding-top: 26px;
-  border-top: 1px solid var(--line);
 }
 .page-pricing .faq details {
   background: var(--card);
@@ -1291,34 +1290,6 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   .terms-banner-layout {
     grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.5fr);
   }
-}
-
-.near-directory {
-  margin-block: clamp(2.5rem, 5vw, 4.5rem);
-}
-
-.near-directory .section-head p {
-  max-width: 55ch;
-}
-
-.near-route-guide {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
-  gap: 1.5rem;
-  margin-block: 1.5rem 2rem;
-}
-
-.near-route-guide dt {
-  font-weight: 600;
-}
-
-.near-route-guide dd {
-  margin: 0.3rem 0 0;
-}
-
-.near-model-id {
-  overflow-wrap: anywhere;
-  margin-block: 0.2rem;
 }
 
 .crm-navigation {

@@ -8,21 +8,19 @@ export const dynamic = "force-dynamic";
 
 export default async function StatusPage() {
   const health = await serviceHealth();
-  const providerLabel = (provider: string) => {
-    const state = health.probes[provider];
-    return state === "ok"
-      ? "Reachable"
-      : state === "unavailable"
+  const probeStates = Object.values(health.probes);
+  const routingLabel = probeStates.every((state) => state === "ok")
+    ? "Operational"
+    : probeStates.some((state) => state === "ok")
+      ? "Degraded"
+      : probeStates.some((state) => state === "unavailable")
         ? "Unavailable"
-        : state === "disabled"
+        : probeStates.some((state) => state === "disabled")
           ? "Disabled"
           : "Check pending";
-  };
   const services = [
     ["Account service", health.checks.accountService, "Connected", "Unavailable"],
-    ["NEAR AI", health.probes["near-ai"] === "ok", "Reachable", providerLabel("near-ai")],
-    ["Phala", health.probes["phala"] === "ok", "Reachable", providerLabel("phala")],
-    ["Tinfoil", health.probes["tinfoil"] === "ok", "Reachable", providerLabel("tinfoil")],
+    ["Inference routing", probeStates.every((state) => state === "ok"), "Operational", routingLabel],
     ["Mainnet USDC", health.checks.mainnetPaymentsConfigured, "Configured", "Unavailable"],
     ["Deposit recovery", health.checks.depositRecovery, "Running", "Check pending"],
   ] as const;

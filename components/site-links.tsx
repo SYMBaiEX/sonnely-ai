@@ -20,7 +20,7 @@ const products = [
   {
     href: "/inference",
     label: "Confidential inference",
-    detail: "Models and provider routing",
+    detail: "Models and routing",
     icon: Fingerprint,
   },
   { href: "/observability", label: "Observability", detail: "Traces and UsageMax", icon: Radio },

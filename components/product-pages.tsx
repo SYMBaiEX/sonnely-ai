@@ -3,8 +3,6 @@ import { Activity, ArrowRight, ArrowUpRight, Boxes, Cpu, Fingerprint, Terminal }
 import { computeFeatures, computeProducts } from "@/lib/compute-features";
 import { artifactLimit, computeMarkup, computePlans, computeQuote } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
-import { models } from "@/lib/models";
-import { listModelRoutes, providerIds } from "@/lib/provider-catalog";
 import type { ProductPage } from "@/lib/product-pages";
 import { ReaderNavigation } from "./site-lead";
 import { TracePreview } from "./trace-preview";
@@ -14,7 +12,7 @@ const products = [
   {
     href: "/inference",
     label: "Confidential inference",
-    description: "Pin a provider route, stream a completion, and verify its receipt.",
+    description: "Send a request, stream a completion, and verify its receipt.",
     icon: Cpu,
   },
   {
@@ -113,26 +111,26 @@ function Observability() {
     <>
       <ProductSection id="traces" title="Follow the whole request.">
         <p>
-          See where a request spent time, from reserving credits and calling the provider to evidence
+          See where a request spent time, from reserving credits and executing the request to evidence
           verification and settlement. A pending billing hold stays visible while it is investigated.
         </p>
         <TracePreview />
         <p>
           Trace data contains timing, route, and billing metadata. Prompts and responses stay out of UsageMax
-          receipts. Workspace users can see their own tokens and charges in Usage. Gateway traces and provider
+          receipts. Workspace users can see their own tokens and charges in Usage. Gateway traces and compute
           costs are restricted to authorized operators.
         </p>
       </ProductSection>
-      <ProductSection id="analytics" title="Compare providers and models.">
+      <ProductSection id="analytics" title="Compare models and days.">
         <p>
-          Group the private report by provider, model, or UTC day. Compare attempts, errors, input and output
-          tokens, p50, p95 and p99 latency, first-token time, and known provider cost. Cost coverage shows how
-          many requests have evidence. Margin covers only requests with both charges and known costs.
+          Group the private report by model or UTC day. Compare attempts, errors, input and output tokens,
+          p50, p95 and p99 latency, first-token time, and known compute cost. Cost coverage shows how many
+          requests have evidence. Margin covers only requests with both charges and known costs.
         </p>
         <ProductSample label="Report controls">
           <SampleFacts
             rows={[
-              ["Group by", "Provider · Model · UTC day"],
+              ["Group by", "Model · UTC day"],
               ["Window", "Up to 30 days"],
               ["Coverage", "Up to 2,000 receipts"],
             ]}
@@ -140,12 +138,12 @@ function Observability() {
         </ProductSample>
         <NextLink href="/docs/observability#export-to-usagemax">Export your workspace usage</NextLink>
       </ProductSection>
-      <ProductSection id="reconciliation" title="Reconcile a provider statement.">
+      <ProductSection id="reconciliation" title="Reconcile a statement.">
         <p>
-          Operators preview finalized invoice lines against Sonnely’s provider billing references. Matches,
-          cost variances, duplicate references, and unmatched lines have separate outcomes. Recording the
-          statement publishes eligible invoice-confirmed cost revisions to UsageMax and keeps an audit history
-          in Sonnely.
+          Operators preview finalized invoice lines against Sonnely’s billing references. Matches, cost
+          variances, duplicate references, and unmatched lines have separate outcomes. Recording the statement
+          publishes eligible invoice-confirmed cost revisions to UsageMax and keeps an audit history in
+          Sonnely.
         </p>
         <ProductSample label="Normalized invoice line · example">
           <pre>
@@ -156,10 +154,10 @@ function Observability() {
       </ProductSection>
       <ProductSection id="alerts" title="Surface problems early.">
         <p>
-          Scheduled alerts flag provider attempt errors, high latency, and pending billing recovery. Admin
-          shows open and resolved incidents alongside the current state of receipt delivery.
+          Scheduled alerts flag request errors, high latency, and pending billing recovery. Admin shows open
+          and resolved incidents alongside the current state of receipt delivery.
         </p>
-        <ProductSample label="Provider alert thresholds">
+        <ProductSample label="Alert thresholds">
           <SampleFacts
             rows={[
               ["Evaluation interval", "5 minutes"],
@@ -167,7 +165,7 @@ function Observability() {
               ["p95 latency", "5 seconds"],
             ]}
           />
-          <p className="caption">Provider alerts use at least five attempts in the previous hour.</p>
+          <p className="caption">Alerts use at least five attempts in the previous hour.</p>
         </ProductSample>
       </ProductSection>
       <ProductSection id="evaluations" title="Evaluate before you roll out.">
@@ -183,27 +181,22 @@ function Observability() {
 }
 
 function Inference() {
-  const routes = listModelRoutes(models[0], providerIds);
   return (
     <>
-      <ProductSection id="routing" title="Choose the route.">
+      <ProductSection id="routing" title="Sonnely picks the route.">
         <p>
-          DeepSeek V4.1 Flash is available through NEAR AI, Phala, and Tinfoil. Additional live text models
-          use supported NEAR AI Private TEE routes. Query the model API for current availability and exact
-          per-route pricing.
+          Every request runs on confidential compute selected by the gateway. Choose a model ID from the
+          catalog; Sonnely routes it to an available attested execution environment and meters the tokens it
+          reports back.
         </p>
-        <ProductSample label="Route example · DeepSeek V4.1 Flash">
-          <ul className={styles.routeList}>
-            {routes.map(({ provider, provider_name }) => (
-              <li key={provider}>
-                <strong>{provider_name}</strong>
-                <code>{provider}</code>
-              </li>
-            ))}
-          </ul>
-          <pre>
-            <code>{'{ "provider": { "only": ["phala"] } }'}</code>
-          </pre>
+        <ProductSample label="What a request needs">
+          <SampleFacts
+            rows={[
+              ["Model", "Catalog ID"],
+              ["Route", "Automatic confidential"],
+              ["Budget", "Optional per-request cap"],
+            ]}
+          />
         </ProductSample>
         <NextLink href="/models#available-models">Compare models and prices</NextLink>
       </ProductSection>
@@ -232,21 +225,20 @@ function Inference() {
       </ProductSection>
       <ProductSection id="evidence" title="Know the privacy boundary.">
         <p>
-          The provider’s trusted execution environment protects inference at the provider. Sonnely’s HTTPS
-          gateway can read the request while forwarding it. Each route supplies its own evidence, so verify
-          the provider and claim in the optional Sonnely receipt before relying on a specific attestation
-          guarantee.
+          A trusted execution environment protects the model while it runs. Sonnely’s HTTPS gateway can read
+          the request while forwarding it. Each route supplies its own evidence, so verify the claim in the
+          optional Sonnely receipt before relying on a specific attestation guarantee.
         </p>
         <ProductSample label="What each layer handles">
           <SampleFacts
             rows={[
               ["Sonnely gateway", "Validation, forwarding, settlement"],
-              ["Provider TEE", "Model execution"],
-              ["Receipt", "Provider-specific evidence"],
+              ["Confidential TEE", "Model execution"],
+              ["Receipt", "Route evidence"],
             ]}
           />
         </ProductSample>
-        <NextLink href="/docs/attestation">Review evidence by provider</NextLink>
+        <NextLink href="/docs/attestation">Review attestation evidence</NextLink>
       </ProductSection>
     </>
   );
@@ -261,9 +253,7 @@ function Compute() {
           const Icon = id === "blackboxes" ? Fingerprint : Terminal;
           const title = computePlans[id].title;
           const detail =
-            id === "blackboxes"
-              ? "Attested confidential VMs on Phala Cloud"
-              : "Isolated public-repository builds on Boat";
+            id === "blackboxes" ? "Attested confidential VMs" : "Isolated public-repository builds on Boat";
           const content = (
             <>
               <Icon aria-hidden="true" size={20} />
@@ -299,9 +289,9 @@ function Blackboxes() {
     <>
       <ProductSection id="rental" title="Rent an attested VM.">
         <p>
-          Blackboxes are paid, time-limited CVMs on Phala Cloud. Start from an NGINX, HTTP playground, or
-          request inspector preset, or bring a public image pinned by digest. Choose your TDX machine,
-          temporary SSD size, and rental term before reviewing the credit hold.
+          Blackboxes are paid, time-limited confidential VMs. Start from an NGINX, HTTP playground, or request
+          inspector preset, or bring a public image pinned by digest. Choose your TDX machine, temporary SSD
+          size, and rental term before reviewing the credit hold.
         </p>
         <ProductSample label="Blackbox pilot configuration">
           <dl className={styles.sampleStats}>
@@ -320,8 +310,8 @@ function Blackboxes() {
           </dl>
         </ProductSample>
         <p>
-          Quotes include metered provider cost, a {computeMarkup}% service markup, and a fixed fee for a
-          billable run. Pilot availability depends on your account and provider capacity.
+          Quotes include metered compute cost, a {computeMarkup}% service markup, and a fixed fee for a
+          billable run. Pilot availability depends on your account and capacity.
         </p>
       </ProductSection>
       <ProductSection id="attestation" title="Inspect the evidence.">
@@ -391,7 +381,7 @@ const pageContent = {
 
 const pageSections = {
   inference: [
-    ["routing", "Provider routing"],
+    ["routing", "Routing"],
     ["streaming", "Streaming"],
     ["evidence", "Privacy boundary"],
   ],

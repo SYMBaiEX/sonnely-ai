@@ -4,7 +4,6 @@
   align-items: start;
   gap: clamp(1rem, 3.8vw, 3.6rem);
   padding-block-start: clamp(1rem, 2.3vw, 2rem);
-  border-block-start: 1px solid var(--line);
 }
 .index {
   display: grid;
@@ -79,7 +78,6 @@
 .related {
   gap: 1rem;
   padding-block-start: clamp(16px, 2.5vw, 28px);
-  border-block-start: 1px solid var(--line);
 }
 .linkList,
 .routeList,

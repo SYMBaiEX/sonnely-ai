@@ -50,10 +50,11 @@ function useRemote<T>(enabled: boolean, route: string) {
 }
 
 function SupportThread({ id, reload }: { id: string; reload: () => void }) {
-  const { data, error, reload: reloadThread } = useRemote<Thread | null>(
-    true,
-    "support-thread?id=" + encodeURIComponent(id),
-  );
+  const {
+    data,
+    error,
+    reload: reloadThread,
+  } = useRemote<Thread | null>(true, "support-thread?id=" + encodeURIComponent(id));
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
 
@@ -112,9 +113,7 @@ function SupportThread({ id, reload }: { id: string; reload: () => void }) {
               placeholder="Add details or follow up on this request."
             />
           </label>
-          {data.state === "resolved" && (
-            <p className="caption">Replying reopens this request.</p>
-          )}
+          {data.state === "resolved" && <p className="caption">Replying reopens this request.</p>}
           <button className="button quiet" disabled={busy}>
             {busy ? "Sending…" : "Send reply"}
           </button>
@@ -178,7 +177,7 @@ function NewRequest({ email, done }: { email?: string; done: () => void }) {
           Topic
           <select name="topic" defaultValue="Workspace support">
             <option>Workspace support</option>
-            <option>Provider partnership</option>
+            <option>Infrastructure partnership</option>
             <option>Billing</option>
             <option>Product feedback</option>
           </select>
@@ -276,8 +275,7 @@ export function SupportPanel({ profile }: { profile: Profile }) {
                       onToggle={(event) => {
                         if (!event.currentTarget.open) return;
                         markSeen(row.id, row.lastReplyAt);
-                        if (!expanded[row.id])
-                          setExpanded((current) => ({ ...current, [row.id]: true }));
+                        if (!expanded[row.id]) setExpanded((current) => ({ ...current, [row.id]: true }));
                       }}
                     >
                       <summary>

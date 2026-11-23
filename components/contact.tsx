@@ -8,7 +8,7 @@ import { SonnelySocialLink } from "@/components/sonnely-social-link";
 const supportTopics = [
   [Code2, "Workspace support", "API errors, keys, sign-in, and model access"],
   [CreditCard, "Billing", "USDC payments, credit balances, and charges"],
-  [Send, "Provider partnership", "Model providers and integration questions"],
+  [Send, "Infrastructure partnership", "Infrastructure and integration questions"],
 ] as const;
 
 export function Contact() {
@@ -101,7 +101,7 @@ export function Contact() {
           Topic
           <select name="topic" value={topic} onChange={(event) => setTopic(event.target.value)}>
             <option>Workspace support</option>
-            <option>Provider partnership</option>
+            <option>Infrastructure partnership</option>
             <option>Billing</option>
             <option>Product feedback</option>
           </select>

@@ -43,11 +43,10 @@ const steps = [
   },
   {
     point: 7,
-    label: "NEAR AI enclave",
+    label: "Confidential enclave",
     short: "Private TEE",
     icon: Cpu,
-    description:
-      "The model runs in NEAR AI’s hardware-isolated environment. NEAR AI publishes the attestation evidence.",
+    description: "The model runs in a hardware-isolated environment that publishes attestation evidence.",
     link: "/docs/attestation",
     action: "Attestation guide",
   },

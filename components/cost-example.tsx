@@ -32,7 +32,7 @@ export function CostExample() {
         </span>
         <div>
           <h2 id="cost-example-heading">Estimate a request</h2>
-          <p>Compare uncached text requests at Sonnely’s published NEAR AI route rates.</p>
+          <p>Compare uncached text requests at Sonnely’s published token rates.</p>
         </div>
       </header>
       <div className="estimate-inputs">
@@ -90,7 +90,7 @@ export function CostExample() {
         </dl>
       </div>
       <footer>
-        <p>Actual charges use provider-reported usage and account for cached input.</p>
+        <p>Actual charges use reported usage and account for cached input.</p>
         <Link className="text-link" href="/models#model-rates">
           Compare model rates <ArrowUpRight size={15} aria-hidden="true" />
         </Link>

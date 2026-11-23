@@ -7,7 +7,7 @@ import { apiBasePath } from "@/lib/api-contract";
 import { formatRate, markedUpRates } from "@/lib/pricing";
 import { routeLabels } from "@/lib/model-privacy";
 import { models } from "@/lib/models";
-import { providerNames, providerRoute, type ProviderId } from "@/lib/provider-catalog";
+import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
 
 export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
   const [status, setStatus] = useState("");
@@ -65,14 +65,14 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
       </p>
       {displayed.length > 0 && (
         <div className="panel catalog-list" id="model-rates">
-          <table aria-label="Model rates and provider context" role="table">
+          <table aria-label="Model rates and context" role="table">
             <thead role="rowgroup">
               <tr role="row">
                 <th role="columnheader" scope="col">
                   Model
                 </th>
                 <th role="columnheader" scope="col">
-                  Provider context
+                  Context
                 </th>
                 <th role="columnheader" scope="col">
                   Input / 1M
@@ -91,7 +91,6 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
             <tbody role="rowgroup">
               {displayed.map((model) => {
                 const routes = availableProviders.filter((id) => providerRoute(model, id));
-                const extraRoutes = routes.slice(1);
                 return (
                   <tr role="row" key={model.id}>
                     <th role="rowheader" scope="row">
@@ -103,15 +102,12 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
                           <h3>{model.name}</h3>
                           <p>{model.summary}</p>
                           <span className="model-tier">{routeLabels[model.privacyRoute]} · Confidential</span>
-                          {routes.length > 1 && (
-                            <p className="caption">{routes.map((id) => providerNames[id]).join(" · ")}</p>
-                          )}
                         </div>
                       </div>
                     </th>
                     {(
                       [
-                        ["Provider context", model.context],
+                        ["Context", model.context],
                         ["Input / 1M", formatRate(markedUpRates(model).input)],
                         ["Cached / 1M", formatRate(markedUpRates(model).cache)],
                         ["Output / 1M", formatRate(markedUpRates(model).output)],
@@ -133,15 +129,6 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
                         ) : (
                           <span className="caption">Unavailable</span>
                         )}
-                        {extraRoutes.map((id) => (
-                          <Link
-                            key={id}
-                            href={"/console?provider=" + id + "&model=" + encodeURIComponent(model.id)}
-                            className="text-link"
-                          >
-                            Open with {providerNames[id]} <ArrowUpRight size={15} />
-                          </Link>
-                        ))}
                         <CopyButton value={model.id} label="Copy model ID" />
                       </div>
                     </td>
@@ -158,9 +145,8 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
         </p>
       )}
       <p className="caption">
-        Displayed rates are for NEAR AI and include Sonnely’s 10% markup. The API catalog lists rates for each
-        available provider. Sonnely forwards text requests through its HTTPS gateway.{" "}
-        <Link href="/docs/attestation#data-handling">Read how data is handled ↗</Link>
+        Displayed rates include Sonnely’s 10% markup on compute costs. Sonnely forwards text requests through
+        its HTTPS gateway. <Link href="/docs/attestation#data-handling">Read how data is handled ↗</Link>
       </p>
     </>
   );

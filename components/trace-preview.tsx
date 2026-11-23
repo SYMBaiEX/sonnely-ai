@@ -13,18 +13,18 @@ const stages = [
     detail: "Place a hold for the estimated request cost.",
   },
   {
-    name: "Provider attempt",
+    name: "Inference",
     start: 96,
     end: 936,
     icon: Radio,
-    detail: "Send the request to Phala and collect the completion and token usage.",
+    detail: "Run the request on confidential compute and collect the completion and token usage.",
   },
   {
     name: "Verify evidence",
     start: 936,
     end: 1128,
     icon: Fingerprint,
-    detail: "Check the evidence available for the provider route.",
+    detail: "Check the evidence available for the request.",
   },
   {
     name: "Write settlement",
@@ -44,7 +44,7 @@ export function TracePreview() {
     <figure className={styles.trace}>
       <figcaption>
         <span>
-          <Radio size={17} aria-hidden="true" /> Example trace · Phala
+          <Radio size={17} aria-hidden="true" /> Example trace
         </span>
         <span className={styles.traceStatus}>
           <CircleCheck size={15} aria-hidden="true" /> Settled

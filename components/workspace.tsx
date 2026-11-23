@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
-import { providerNames } from "@/lib/provider-catalog";
+
 import { creditBalance, creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import { intentFunds, type FundingQuote, type IntentFund } from "@/lib/intent-funding";
 import { MotionSwitch } from "./ambient-motion";
@@ -456,7 +456,7 @@ export function Usage({
   liveRows?: UsageRow[];
 }) {
   const [metric, setMetric] = useState<"Spend" | "Tokens" | "Requests">("Spend");
-  const [group, setGroup] = useState<"Model" | "Provider" | "Key">("Model");
+  const [group, setGroup] = useState<"Model" | "Key">("Model");
   const [view, setView] = useState<"Chart" | "Table">("Chart");
   const { data, error } = useRemote<UsageRow[]>(signedIn, "usage?days=" + range);
   const usage = signedIn ? (liveRows ?? data) : null;
@@ -477,7 +477,6 @@ export function Usage({
   const tokens = rows.reduce((sum, row) => sum + row.input + row.output, 0);
   const grouped = Map.groupBy(rows, (row) => {
     if (group === "Model") return models.find((model) => model.id === row.model)?.name ?? row.model;
-    if (group === "Provider") return providerNames[row.provider] ?? "NEAR AI";
     return row.keyName;
   });
   const daily = Map.groupBy(rows, (row) => day(row.time));
@@ -505,12 +504,11 @@ export function Usage({
       return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
     };
     const lines = [
-      "time,model,provider,input,output,cost,status",
+      "time,model,input,output,cost,status",
       ...rows.map((row) =>
         [
           new Date(row.time).toISOString(),
           row.model,
-          row.provider,
           row.input,
           row.output,
           creditDecimal(row.cost),
@@ -643,7 +641,7 @@ export function Usage({
         <div className="between controls">
           <h2 id="request-breakdown">Request breakdown</h2>
           <div className="segmented" aria-label="Group usage">
-            {(["Model", "Provider", "Key"] as const).map((value) => (
+            {(["Model", "Key"] as const).map((value) => (
               <button
                 type="button"
                 key={value}
@@ -709,7 +707,6 @@ export function Usage({
               <thead>
                 <tr>
                   <th>Request</th>
-                  <th>Provider</th>
                   <th>Tokens</th>
                   <th>Billing</th>
                 </tr>
@@ -723,7 +720,6 @@ export function Usage({
                         {date(row.time)} · <CopyButton value={row.id} label="Copy request reference" />
                       </div>
                     </th>
-                    <td>{providerNames[row.provider]}</td>
                     <td>{(row.input + row.output).toLocaleString()}</td>
                     <td>
                       {row.status === "complete"

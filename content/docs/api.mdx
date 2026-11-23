@@ -39,7 +39,7 @@ curl https://sonnely.com/api/sonnely/v1/chat/completions \
 | `model`                        | Required. Use the exact public ID from `/models`.                       |
 | `messages`                     | Required. Text-only objects with `role` and `content`.                  |
 | `max_tokens`                   | Optional output allowance. Defaults to 512.                             |
-| `provider.only`                | Optional array containing exactly one provider ID. Defaults to NEAR AI. |
+| `provider.only`                | Optional array containing exactly one route ID advertised by `/models`. |
 | `max_cost_microusd`            | Optional positive integer ceiling on the credit reservation.            |
 | `stream`                       | Set to `true` to receive [SSE](/docs/streaming).                        |
 | `stream_options.include_usage` | Set to `true` to include settled usage in the stream.                   |

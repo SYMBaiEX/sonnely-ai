@@ -115,7 +115,7 @@ test("winter artwork switches across the site and the console at Chicago midnigh
 
 test("request stages, catalog ordering and keyboard navigation work", async ({ page }) => {
   await page.goto("/");
-  const station = page.getByRole("button", { name: "NEAR AI enclave" });
+  const station = page.getByRole("button", { name: "Confidential enclave" });
   await station.focus();
   await page.keyboard.press("Enter");
   await expect(station).toHaveAttribute("aria-pressed", "true");
@@ -124,7 +124,7 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   await page.goto("/models");
   await page.getByRole("combobox", { name: "Sort models" }).selectOption("input");
   await expect(
-    page.getByRole("table", { name: "Model rates and provider context" }).getByRole("heading").first(),
+    page.getByRole("table", { name: "Model rates and context" }).getByRole("heading").first(),
   ).toHaveText("Qwen 3.8 27B");
   await page.goto("/console");
   await page.getByRole("button", { name: "Quick navigation" }).click();
@@ -144,7 +144,7 @@ test("the request trace loops automatically and can be paused at any stop", asyn
   await page.goto("/");
   const map = page.getByRole("region", { name: "Follow the request" });
   const gateway = map.getByRole("button", { name: "Sonnely gateway" });
-  const enclave = map.getByRole("button", { name: "NEAR AI enclave" });
+  const enclave = map.getByRole("button", { name: "Confidential enclave" });
   const pause = map.getByRole("button", { name: "Pause trace" });
   const resume = map.getByRole("button", { name: "Resume trace" });
 
@@ -183,7 +183,7 @@ test("switching trace steps keeps the homepage content in place on narrow screen
     const map = page.getByRole("region", { name: "Follow the request" });
     const position = () => quickstart.evaluate((element) => (element as HTMLElement).offsetTop);
     const top = await position();
-    for (const name of ["Sonnely gateway", "NEAR AI enclave", "Your client"]) {
+    for (const name of ["Sonnely gateway", "Confidential enclave", "Your client"]) {
       const step = map.getByRole("button", { name, exact: true });
       await step.click();
       await expect(step).toHaveAttribute("aria-pressed", "true");
@@ -341,7 +341,9 @@ test("the homepage offers a copyable request and links to the selected model", a
     "/models#available-models",
   );
   await expect(
-    page.getByRole("navigation", { name: "Platform integrations" }).getByRole("link", { name: /NEAR AI/ }),
+    page
+      .getByRole("navigation", { name: "Platform integrations" })
+      .getByRole("link", { name: /Confidential compute/ }),
   ).toHaveAttribute("href", "/inference#routing");
   await expect(list.getByRole("link", { name: /DeepSeek V4.1 Flash/ })).toHaveAttribute(
     "href",
@@ -410,7 +412,7 @@ test("the example trace exposes timing and lets readers inspect each stage by ke
   await evidence.press("Enter");
   await expect(evidence).toHaveAttribute("aria-pressed", "true");
   await expect(trace.getByText("936–1,128 ms")).toBeVisible();
-  await expect(trace.getByText("Check the evidence available for the provider route.")).toBeVisible();
+  await expect(trace.getByText("Check the evidence available for the request.")).toBeVisible();
 });
 
 test("journal filtering, contact topics and mobile navigation remain usable", async ({ page }) => {

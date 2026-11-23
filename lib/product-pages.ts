@@ -1,11 +1,11 @@
 export const productPages = {
   inference: [
     "Confidential inference",
-    "Choose a confidential provider, stream responses, and meter every request through one OpenAI-compatible API.",
+    "Send a request, stream the response, and meter every call through one OpenAI-compatible API.",
   ],
   observability: [
     "Inference observability",
-    "Trace inference through the gateway, compare usage and latency, and reconcile provider costs with UsageMax.",
+    "Trace inference through the gateway, compare usage and latency, and reconcile compute costs with UsageMax.",
   ],
   compute: [
     "Compute on Sonnely",
@@ -13,7 +13,7 @@ export const productPages = {
   ],
   blackboxes: [
     "Blackboxes",
-    "Rent a confidential VM powered by Phala Cloud. Deploy a pinned container image and inspect the workload attestation.",
+    "Rent an attested confidential VM. Deploy a pinned container image and inspect the workload attestation.",
   ],
   "dry-docks": [
     "Dry Docks",
