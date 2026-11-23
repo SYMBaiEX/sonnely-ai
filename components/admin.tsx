@@ -7,8 +7,9 @@ import { ShieldCheck } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { AdminBoatCapacity } from "./admin-boat-capacity";
-import { AdminGateway, AdminInvoices } from "./admin-gateway";
-import { AdminCrm, type CrmView } from "./admin-crm";
+import { AdminInvoices } from "./admin-gateway";
+import { AdminCrm } from "./admin-crm";
+import { adminTabs } from "./admin-tabs";
 import { CreditRecovery } from "./credit-recovery";
 import { computePlans } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
@@ -33,7 +34,7 @@ export function Admin({ session, features }: { session: Session | null; features
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [area, setArea] = useState<"overview" | "gateway" | CrmView>("overview");
+  const [area, setArea] = useState<string>("overview");
   const data = result?.wallet === wallet ? result?.value : undefined;
   const reload = useCallback(async () => {
     if (wallet && authorized) setResult({ wallet, value: await request<Overview>("admin") });
@@ -98,16 +99,8 @@ export function Admin({ session, features }: { session: Session | null; features
       </WorkspaceHeading>
       {authorized && (
         <nav className="segmented crm-navigation" aria-label="Admin workspace">
-          {(
-            [
-              ["overview", "Overview"],
-              ["customers", "Customers"],
-              ["support", "Support"],
-              ["traces", "Traces"],
-              ["gateway", "Inference ops"],
-            ] as const
-          ).map(([key, label]) => (
-            <button key={key} type="button" aria-pressed={area === key} onClick={() => setArea(key)}>
+          {adminTabs.map(({ id, label }) => (
+            <button key={id} type="button" aria-pressed={area === id} onClick={() => setArea(id)}>
               {label}
             </button>
           ))}
@@ -129,10 +122,8 @@ export function Admin({ session, features }: { session: Session | null; features
           <h2>Administrator access required</h2>
           <p>Connect an authorized Solana wallet to view this workspace.</p>
         </section>
-      ) : area === "gateway" ? (
-        <AdminGateway key={wallet} />
       ) : area !== "overview" ? (
-        <AdminCrm view={area} key={wallet + ":" + area} />
+        (adminTabs.find((tab) => tab.id === area)?.render?.(wallet ?? "") ?? null)
       ) : !data ? (
         <p className="caption" role="status">
           {error ? "Platform activity is unavailable." : "Loading platform activity…"}
