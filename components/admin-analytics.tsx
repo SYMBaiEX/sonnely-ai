@@ -5,6 +5,7 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { models, shorten, usd } from "@/lib/models";
 import { providerNames } from "@/lib/provider-catalog";
+import { EmptyState, Skeleton } from "./admin/ui";
 import { CopyButton } from "./shared";
 import { request } from "./wallet";
 
@@ -100,7 +101,7 @@ export function AdminAnalytics() {
             {current.error}
           </p>
         ) : !data || !totals ? (
-          <p role="status">Loading analytics…</p>
+          <Skeleton rows={5} />
         ) : (
           <>
             <div className="stat-grid">
@@ -162,8 +163,8 @@ export function AdminAnalytics() {
                   <thead>
                     <tr>
                       <th>Customer</th>
-                      <th>Spend</th>
-                      <th>Requests</th>
+                      <th className="num">Spend</th>
+                      <th className="num">Requests</th>
                       <th>Wallet</th>
                     </tr>
                   </thead>
@@ -171,7 +172,7 @@ export function AdminAnalytics() {
                     {data.topCustomers.map((row) => (
                       <tr key={row.id}>
                         <th scope="row">
-                          <span className="crm-identity">
+                          <span className="crm-identity" title={row.wallet}>
                             <strong>
                               {row.name || (row.username ? "@" + row.username : shorten(row.wallet))}
                             </strong>
@@ -181,8 +182,8 @@ export function AdminAnalytics() {
                             </span>
                           </span>
                         </th>
-                        <td>{usd(row.spend)}</td>
-                        <td>{row.requests.toLocaleString()}</td>
+                        <td className="num">{usd(row.spend)}</td>
+                        <td className="num">{row.requests.toLocaleString()}</td>
                         <td>
                           <CopyButton value={row.wallet} label="Copy customer wallet" />
                         </td>
@@ -192,7 +193,10 @@ export function AdminAnalytics() {
                 </table>
               </div>
             ) : (
-              <p className="caption">No completed spend in this range.</p>
+              <EmptyState
+                title="No customer spend"
+                hint="Customers with completed, costed requests in this range will appear here."
+              />
             )}
           </section>
           <section className="panel breakdown">
@@ -208,23 +212,26 @@ export function AdminAnalytics() {
                   <thead>
                     <tr>
                       <th>Model</th>
-                      <th>Spend</th>
-                      <th>Requests</th>
+                      <th className="num">Spend</th>
+                      <th className="num">Requests</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.topModels.map((row) => (
                       <tr key={row.model}>
                         <th scope="row">{modelName(row.model)}</th>
-                        <td>{usd(row.spend)}</td>
-                        <td>{row.requests.toLocaleString()}</td>
+                        <td className="num">{usd(row.spend)}</td>
+                        <td className="num">{row.requests.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <p className="caption">No completed spend in this range.</p>
+              <EmptyState
+                title="No model spend"
+                hint="Completed requests with recorded provider cost will appear here."
+              />
             )}
           </section>
           <section className="panel breakdown">
@@ -240,16 +247,16 @@ export function AdminAnalytics() {
                   <thead>
                     <tr>
                       <th>Provider</th>
-                      <th>Requests</th>
-                      <th>Share</th>
+                      <th className="num">Requests</th>
+                      <th className="num">Share</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.providerSplit.map((row) => (
                       <tr key={row.provider}>
                         <th scope="row">{providerNames[row.provider] ?? row.provider}</th>
-                        <td>{row.requests.toLocaleString()}</td>
-                        <td>
+                        <td className="num">{row.requests.toLocaleString()}</td>
+                        <td className="num">
                           {providerTotal
                             ? Math.round((row.requests / providerTotal) * 100) + "%"
                             : "—"}
@@ -260,7 +267,10 @@ export function AdminAnalytics() {
                 </table>
               </div>
             ) : (
-              <p className="caption">No requests in this range.</p>
+              <EmptyState
+                title="No requests"
+                hint="Provider traffic will appear here once requests complete in this range."
+              />
             )}
           </section>
         </>

@@ -5,6 +5,8 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
+import { EmptyState, Pill } from "./admin/ui";
+import { CopyButton } from "./shared";
 import { request } from "./wallet";
 
 type Queue = FunctionReturnType<typeof api.creditRecovery.queue>;
@@ -22,36 +24,49 @@ export function CreditRecovery({
   const row = data?.held.find(({ id }) => id === selected);
   return (
     <section className="panel stack-panel">
-      <h2>Held credits</h2>
+      <h2 id="credit-recovery-heading">Held credits</h2>
       <p className="caption">
         Review the provider record before resolving a reservation. In-flight requests appear here after five
         minutes.
       </p>
       {!data ? (
-        <p role="status">The recovery queue is unavailable.</p>
+        <EmptyState
+          title="Recovery queue unavailable"
+          hint="Refresh the admin overview to retry fetching held credits."
+        />
       ) : data.held.length ? (
-        <div className="table-wrap">
+        <div
+          className="table-wrap"
+          role="region"
+          aria-labelledby="credit-recovery-heading"
+          tabIndex={0}
+        >
           <table>
             <thead>
               <tr>
                 <th>Wallet</th>
                 <th>Model</th>
                 <th>Received</th>
-                <th>Held</th>
+                <th className="num">Held</th>
                 <th>Review</th>
               </tr>
             </thead>
             <tbody>
               {data.held.map((item) => (
                 <tr key={item.id}>
-                  <td title={item.wallet}>{shorten(item.wallet)}</td>
+                  <td>
+                    <span className="cell-copy">
+                      <code title={item.wallet}>{shorten(item.wallet)}</code>
+                      <CopyButton value={item.wallet} label="Copy wallet" />
+                    </span>
+                  </td>
                   <th scope="row">{models.find(({ id }) => id === item.model)?.name ?? item.model}</th>
                   <td>{new Date(item.created).toLocaleString()}</td>
-                  <td>{creditBalance(item.cost)}</td>
+                  <td className="num">{creditBalance(item.cost)}</td>
                   <td>
                     <button
                       type="button"
-                      className="button quiet"
+                      className="button quiet small"
                       aria-expanded={selected === item.id}
                       onClick={() => select(selected === item.id ? "" : item.id)}
                     >
@@ -64,7 +79,10 @@ export function CreditRecovery({
           </table>
         </div>
       ) : (
-        <p className="caption">No reservations need review.</p>
+        <EmptyState
+          title="No held credits"
+          hint="In-flight requests appear here after five minutes when a reservation needs review."
+        />
       )}
       {row && (
         <form
@@ -92,11 +110,14 @@ export function CreditRecovery({
           }}
         >
           <p className="caption">
-            Request <code>{row.id}</code> · {row.status}
+            Request <code title={row.id}>{row.id}</code>{" "}
+            <CopyButton value={row.id} label="Copy request ID" />{" "}
+            <Pill tone={row.status === "pending" ? "warn" : "muted"}>{row.status}</Pill>
           </p>
           {row.providerRequest && (
             <p className="caption">
-              NEAR request <code>{row.providerRequest}</code>
+              NEAR request <code title={row.providerRequest}>{row.providerRequest}</code>{" "}
+              <CopyButton value={row.providerRequest} label="Copy provider request ID" />
             </p>
           )}
           <label>
@@ -127,8 +148,10 @@ export function CreditRecovery({
               <li key={item.id}>
                 <p>
                   {new Date(item.created).toLocaleString()} · {shorten(item.admin)} ·{" "}
-                  {item.resolution === "release" ? "Released" : "Settled"} {creditBalance(item.held)} held ·{" "}
-                  {creditBalance(item.charged)} charged
+                  <Pill tone={item.resolution === "release" ? "info" : "ok"}>
+                    {item.resolution === "release" ? "Released" : "Settled"}
+                  </Pill>{" "}
+                  {creditBalance(item.held)} held · {creditBalance(item.charged)} charged
                 </p>
                 <p className="caption">
                   <code>{item.usage}</code> · {item.evidence}
