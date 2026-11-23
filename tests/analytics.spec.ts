@@ -1,19 +1,17 @@
+import { localFixtureWallets } from "./fixtures/wallets";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import type { Id } from "../convex/_generated/dataModel";
 import { models } from "../lib/models";
 
-test("admin analytics rolls daily activity into series and leaderboards", async ({
-  baseURL,
-  request,
-}) => {
+test("admin analytics rolls daily activity into series and leaderboards", async ({ baseURL, request }) => {
   test.skip(!baseURL || new URL(baseURL).hostname !== "127.0.0.1", "Local Convex fixture");
   process.loadEnvFile(".env.local");
   if (!process.env.CONVEX_URL?.startsWith("http://127.0.0.1:")) throw new Error("Local Convex required");
   const { backend, hash } = await import("../lib/server");
   const { api } = await import("../convex/_generated/api");
   const { db, secret } = backend();
-  const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+  const adminWallet = localFixtureWallets().admin;
 
   async function signIn(wallet: string) {
     const token = randomUUID();

@@ -2,6 +2,8 @@
 
 Solana-native private inference workspace with a public model catalog, docs, journal, and support. The console provides wallet sessions, browser-local optional chat history, scoped API keys, usage, and Solana Pay.
 
+[Website](https://sonnely.com) · [Console](https://sonnely.com/console) · [Documentation](https://docs.sonnely.com)
+
 ## Run locally
 
 Use Node 22 and pnpm. Install dependencies with `pnpm install`.
@@ -12,20 +14,22 @@ Use Node 22 and pnpm. Install dependencies with `pnpm install`.
 
 Run `pnpm check` and `pnpm build` to verify the app. With a local Convex deployment and Next server configured, run `SONNELY_TEST_URL=http://localhost:3000 pnpm exec playwright test` for browser checks.
 
+For tests that exercise admin roles or billing reconciliation, configure your local Convex deployment with the synthetic addresses in [tests/fixtures/wallets.ts](tests/fixtures/wallets.ts). Add both admin and treasury to `SONNELY_ADMIN_WALLETS`, then set `SONNELY_TREASURY_WALLET` and `SONNELY_PROFIT_WALLET`. To use different fixture addresses, set the corresponding `SONNELY_TEST_*_WALLET` overrides in your local `.env.local` and configure the same addresses in local Convex.
+
 ## Deployment configuration
 
 Set `CONVEX_URL` and `SONNELY_SERVICE_SECRET` in the deployment environment. Set the matching secret in Convex. Deploy Convex functions before deploying the frontend.
 
-| Variable                 | Purpose                                                                                                                      |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `NEAR_AI_API_KEY`        | Managed text completions through NEAR AI. Install a dedicated, funded project key with a restricted upstream spending limit. |
-| `PHALA_AI_API_KEY`       | Optional Phala Private AI inference key. Enables the explicit Phala route for DeepSeek V4.1 Flash 1017.                      |
-| `TINFOIL_API_KEY`        | Optional Tinfoil inference key. Enables the attested DeepSeek V4.1 Flash 1017 route.                                         |
-| `SOLANA_TREASURY`        | Public wallet address for USDC transfers.                                                                                    |
-| `SOLANA_RPC_URL`         | Solana RPC matching the billing cluster.                                                                                     |
-| `SOLANA_BILLING_CLUSTER` | Defaults to `devnet`. Mainnet checkout also requires an enabled inference provider. Devnet receipts never create spendable credits.       |
-| `SONNELY_NEAR_INTENTS_FUNDING` | Defaults to `false`. Set to `true` to enable the NEAR Intents funding UI and quote API. |
-| `NEAR_INTENTS_API_KEY`   | Optional 1Click credential for the server-backed quote API when NEAR Intents funding is enabled. |
+| Variable                       | Purpose                                                                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `NEAR_AI_API_KEY`              | Managed text completions through NEAR AI. Install a dedicated, funded project key with a restricted upstream spending limit.        |
+| `PHALA_AI_API_KEY`             | Optional Phala Private AI inference key. Enables the explicit Phala route for DeepSeek V4.1 Flash 1017.                             |
+| `TINFOIL_API_KEY`              | Optional Tinfoil inference key. Enables the attested DeepSeek V4.1 Flash 1017 route.                                                |
+| `SOLANA_TREASURY`              | Public wallet address for USDC transfers.                                                                                           |
+| `SOLANA_RPC_URL`               | Solana RPC matching the billing cluster.                                                                                            |
+| `SOLANA_BILLING_CLUSTER`       | Defaults to `devnet`. Mainnet checkout also requires an enabled inference provider. Devnet receipts never create spendable credits. |
+| `SONNELY_NEAR_INTENTS_FUNDING` | Defaults to `false`. Set to `true` to enable the NEAR Intents funding UI and quote API.                                             |
+| `NEAR_INTENTS_API_KEY`         | Optional 1Click credential for the server-backed quote API when NEAR Intents funding is enabled.                                    |
 
 The API supports `GET /api/sonnely/v1/models` and `POST /api/sonnely/v1/chat/completions`. Choose an available provider with `provider.only`. Set `stream: true` for SSE and `stream_options.include_usage: true` to receive the final token totals. Sonnely settles reported usage before emitting `[DONE]`. The provider may finish and incur a charge after a client disconnects. `max_cost_microusd` caps the credit reservation before inference. Use Node 22.23.4 or newer in the Node 22 line to run the Tinfoil SDK. See the [provider comparison](docs/inference-providers.md) for evidence and accounting details.
 
@@ -47,7 +51,6 @@ In Admin, open Held credits to investigate an unreported request or a pending re
 
 Public mode is controlled by `SONNELY_PUBLIC_INFERENCE=true`. It enables new production inference and mainnet checkout with current terms acceptance, including requests made with existing keys. Existing payments and provider costs can still reconcile while new inference is disabled. Obtain provider approval and review the customer terms before enabling public mode. Accepted versions and timestamps are persisted in Convex. The public API schema is at `/api/openapi`.
 
-
 ## Documentation and SDK releases
 
 Fumadocs reads the versioned MDX in [content/docs](content/docs). Update the corresponding guides when an API, billing, privacy, or product behavior changes. The deployment serves the same docs at `/docs` and on the documentation domain. The public OpenAPI spec is generated by the gateway.
@@ -61,3 +64,7 @@ uv build --wheel --out-dir public/sdk sdk/python
 ```
 
 Commit the versioned package files in `public/sdk`. Keeping immutable URLs lets existing installs remain reproducible. Use a new version when changing a client.
+
+## License
+
+[MIT](LICENSE)

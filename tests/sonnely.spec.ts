@@ -1,3 +1,4 @@
+import { fixtureWallet } from "./fixtures/wallets";
 import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { test, expect, type BrowserContext } from "@playwright/test";
 import bs58 from "bs58";
@@ -116,7 +117,7 @@ test("public routes and console work across desktop and mobile", async ({ page }
 });
 
 test("Playground saves chats only after opt-in and restores the selected conversation", async ({ page }) => {
-  const wallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+  const wallet = fixtureWallet;
   await page.route("**/api/sonnely/session", (route) =>
     route.fulfill({
       json: { profile: { wallet, name: "History fixture", balance: 1_000_000 }, inferenceEnabled: true },
@@ -411,7 +412,7 @@ test("workspace setup accepts terms, saves a name and offers optional funding on
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   const profile = {
-    wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk",
+    wallet: fixtureWallet,
     balance: 0,
     name: "",
     onboarding: "pending",

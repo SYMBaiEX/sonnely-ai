@@ -1,8 +1,9 @@
+import { fixtureWallet } from "./fixtures/wallets";
 import { test, expect, devices } from "@playwright/test";
 
 test.use({ ...devices["Pixel 7"], defaultBrowserType: "chromium" });
 
-const wallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+const wallet = fixtureWallet;
 const reference = "11111111111111111111111111111113";
 const firstReference = "11111111111111111111111111111112";
 

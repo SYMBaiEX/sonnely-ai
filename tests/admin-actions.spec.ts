@@ -1,3 +1,4 @@
+import { localFixtureWallets } from "./fixtures/wallets";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { models } from "../lib/models";
@@ -12,7 +13,7 @@ test("admin account actions adjust balances, suspend inference, revoke keys, and
   const { backend, hash } = await import("../lib/server");
   const { api } = await import("../convex/_generated/api");
   const { db, secret } = backend();
-  const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+  const adminWallet = localFixtureWallets().admin;
 
   async function signIn(wallet: string) {
     const token = randomUUID();

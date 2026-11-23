@@ -1,3 +1,4 @@
+import { fixtureWallet } from "./fixtures/wallets";
 import { mock } from "node:test";
 import { devices, expect, test } from "@playwright/test";
 import type { Doc } from "../convex/_generated/dataModel";
@@ -150,7 +151,7 @@ test("both products show responsive paid quotes in both themes", async ({ page }
     route.fulfill({
       json: {
         profile: {
-          wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk",
+          wallet: fixtureWallet,
           name: "Compute fixture",
           balance: 1_000_000,
         },
@@ -224,7 +225,7 @@ test("Dry Dock run links load an owner detail and display live logs and settled 
     route.fulfill({
       json: {
         profile: {
-          wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk",
+          wallet: fixtureWallet,
           name: "Run fixture",
           balance: 1_000_000,
         },
@@ -361,7 +362,7 @@ test("Blackbox rentals expose controls, attestation and final charges on mobile"
   await page.route("**/api/sonnely/session", (route) =>
     route.fulfill({
       json: {
-        profile: { wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk", balance: 1_000_000 },
+        profile: { wallet: fixtureWallet, balance: 1_000_000 },
         cluster: "mainnet",
         enabled: true,
       },
@@ -456,7 +457,7 @@ test("agent framework presets guide a configured image through the rental form",
   await page.route("**/api/sonnely/session", (route) =>
     route.fulfill({
       json: {
-        profile: { wallet: "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk", balance: 1_000_000 },
+        profile: { wallet: fixtureWallet, balance: 1_000_000 },
         enabled: true,
         cluster: "mainnet",
       },

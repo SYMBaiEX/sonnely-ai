@@ -1,3 +1,4 @@
+import { localFixtureWallets } from "./fixtures/wallets";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
@@ -21,7 +22,7 @@ test("the operators directory reflects env roles and named ticket assignment che
       })
     ).stdout;
 
-  const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+  const adminWallet = localFixtureWallets().admin;
   const supportWallet = "fixture-support-" + randomUUID();
   const financeWallet = "fixture-finance-" + randomUUID();
   const memberWallet = "fixture-member-" + randomUUID();

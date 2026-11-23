@@ -1,7 +1,8 @@
+import { localFixtureWallets } from "./fixtures/wallets";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { termsVersion } from "../lib/policy";
-import { models } from "../lib/models";
+import { models, shorten } from "../lib/models";
 
 test("referral milestones and the admin workspace follow actual account activity", async ({
   baseURL,
@@ -14,7 +15,7 @@ test("referral milestones and the admin workspace follow actual account activity
   const { backend, hash } = await import("../lib/server");
   const { api } = await import("../convex/_generated/api");
   const { db, secret } = backend();
-  const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+  const adminWallet = localFixtureWallets().admin;
 
   async function signIn(wallet: string, invite?: string) {
     const token = randomUUID();
@@ -155,7 +156,7 @@ test("referral milestones and the admin workspace follow actual account activity
     if (new URL(entry.url()).pathname === "/api/sonnely/session") sessionRequests.push(entry.url());
   });
   await page.goto("/console/billing");
-  const walletButton = page.getByRole("button", { name: /^8jN1/ });
+  const walletButton = page.getByRole("button", { name: shorten(adminWallet), exact: true });
   await expect(walletButton).toBeVisible();
   const originalWalletButton = await walletButton.elementHandle();
   const workspace = page.getByRole("navigation", { name: "Workspace navigation" });
@@ -266,7 +267,7 @@ test("customer flags, filtered lists, and saved segments stay admin-scoped", asy
   const { backend, hash } = await import("../lib/server");
   const { api } = await import("../convex/_generated/api");
   const { db, secret } = backend();
-  const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+  const adminWallet = localFixtureWallets().admin;
 
   async function signIn(wallet: string) {
     const token = randomUUID();

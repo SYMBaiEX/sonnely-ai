@@ -1,12 +1,9 @@
+import { localFixtureWallets } from "./fixtures/wallets";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { termsVersion } from "../lib/policy";
 import { models } from "../lib/models";
 import { markedUpRates, requestCharge } from "../lib/pricing";
-
-const treasury = "X7D5MRGHootjNgKWSgG2Q79f2jHiHpSfduei8t9J4Hg";
-const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
-const recipient = "8RFMcU7Ai7wtRsJTZbF9L8MsaiSZ1kefdDfNSCRZBDht";
 
 test("10% rate card retains fractional cached prices and backs the charge", () => {
   expect(markedUpRates(models[0])).toEqual({ input: 0.33, cache: 0.0066, output: 1.32 });
@@ -26,6 +23,7 @@ test("wallet roles, tenant isolation and payout reconciliation are enforced in C
 }) => {
   test.skip(!baseURL || new URL(baseURL).hostname !== "127.0.0.1", "Local Convex fixture");
   process.loadEnvFile(".env.local");
+  const { admin: adminWallet, treasury, profit: recipient } = localFixtureWallets();
   const { backend, hash } = await import("../lib/server");
   const { api } = await import("../convex/_generated/api");
   if (!process.env.CONVEX_URL?.startsWith("http://127.0.0.1:")) throw new Error("Local Convex required");
