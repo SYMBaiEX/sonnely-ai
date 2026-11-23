@@ -1,58 +1,58 @@
-"use client";
-
-import { useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Wallet } from "lucide-react";
 import { CopyButton } from "./shared";
 
 export function IntentsCheckout({
   url,
   wallet,
-  canFund,
+  unavailableReason,
 }: {
   url: string;
   wallet?: string;
-  canFund: boolean;
+  unavailableReason?: string;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <section className="panel stack-panel intents-checkout" aria-labelledby="other-crypto">
-      <div className="between">
-        <h2 id="other-crypto">Fund with other crypto</h2>
+    <section className="panel intents-checkout" aria-labelledby="other-crypto">
+      <header className="intents-header">
+        <div>
+          <h2 id="other-crypto">Swap crypto to fund your wallet</h2>
+          <p className="caption">Turn supported tokens into USDC on Solana.</p>
+        </div>
         <span className="pill">NEAR Intents</span>
-      </div>
-      {!wallet ? (
-        <p className="caption">Connect your Solana wallet to start a swap.</p>
+      </header>
+      {!wallet || unavailableReason ? (
+        <p className="intents-notice caption">
+          {wallet ? unavailableReason : "Connect your Solana wallet to start a swap."}
+        </p>
       ) : (
-        <>
-          <p className="caption">
-            In NEAR Intents, select USDC on Solana and enter this recipient address. When the USDC arrives,
-            use <a href="#buy-credits">Buy credits</a>.
-          </p>
-          <div className="intents-recipient">
-            <code>{wallet}</code>
-            <CopyButton value={wallet} label="Copy Solana address" />
+        <div className="intents-body">
+          <div className="intents-guide">
+            <div className="intents-recipient">
+              <div>
+                <h3>
+                  <Wallet size={17} aria-hidden /> Your Solana wallet
+                </h3>
+                <code>{wallet}</code>
+              </div>
+              <CopyButton value={wallet} label="Copy Solana address" />
+            </div>
+            <p className="caption">
+              Paste this address into the swap’s recipient field, then <a href="#buy-credits">buy credits</a>{" "}
+              once the USDC arrives.
+            </p>
           </div>
-          {open && canFund ? (
-            <>
-              <iframe
-                className="intents-widget"
-                title="NEAR Intents swap"
-                src={url}
-                referrerPolicy="no-referrer"
-                sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-                allow="clipboard-write"
-              />
-              <a className="text-link" href={url} target="_blank" rel="noopener noreferrer">
-                Open NEAR Intents in a new tab <ArrowUpRight size={16} aria-hidden />
-              </a>
-            </>
-          ) : (
-            <button type="button" className="button quiet" onClick={() => setOpen(true)} disabled={!canFund}>
-              Open NEAR Intents <ArrowUpRight size={16} aria-hidden />
-            </button>
-          )}
-        </>
+          <iframe
+            key={wallet}
+            className="intents-widget"
+            title="NEAR Intents swap"
+            src={url}
+            referrerPolicy="no-referrer"
+            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            allow="clipboard-write"
+          />
+          <a className="text-link intents-popout" href={url} target="_blank" rel="noopener noreferrer">
+            Open swap in a new tab <ArrowUpRight size={15} aria-hidden />
+          </a>
+        </div>
       )}
     </section>
   );

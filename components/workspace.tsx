@@ -876,11 +876,17 @@ export function Billing({
           <IntentsCheckout
             url={intentsWidgetUrl}
             wallet={profile?.wallet}
-            canFund={session.billingEnabled && !session.termsRequired}
+            unavailableReason={
+              session.termsRequired
+                ? "Accept the current terms above to use NEAR Intents."
+                : !session.billingEnabled
+                  ? "Swaps are temporarily unavailable."
+                  : undefined
+            }
           />
         )}
         {session?.cluster === "mainnet" && !intentsWidgetUrl && (
-          <section className="panel stack-panel">
+          <section className="panel stack-panel billing-swap-fallback">
             <div className="between">
               <h2>Fund with other crypto</h2>
               <span className="pill">NEAR Intents</span>
@@ -1013,82 +1019,82 @@ export function Billing({
             )}
           </section>
         )}
-      </div>
-      <section className="panel breakdown">
-        <h2 id="payment-history">Payment history</h2>
-        {profile && data?.length ? (
-          <div
-            className="table-wrap workspace-data-table payment-history"
-            role="region"
-            aria-labelledby="payment-history"
-            tabIndex={0}
-          >
-            <table>
-              <thead>
-                <tr>
-                  <th>Date (UTC)</th>
-                  <th>Network</th>
-                  <th>USDC</th>
-                  <th>Status</th>
-                  <th>Reference</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((item) => (
-                  <tr key={item.reference}>
-                    <td>{date(item.time)}</td>
-                    <td>{item.cluster}</td>
-                    <td>{creditBalance(item.amount)}</td>
-                    <td>
-                      {item.signature ? (
-                        <a
-                          className="text-link"
-                          href={
-                            "https://explorer.solana.com/tx/" +
-                            item.signature +
-                            (item.cluster === "devnet" ? "?cluster=devnet" : "")
-                          }
-                        >
-                          Finalized <ArrowUpRight size={13} />
-                        </a>
-                      ) : (
-                        <div className="payment-status">
-                          <span className="caption">Awaiting payment</span>
-                          <button
-                            className="text-link"
-                            type="button"
-                            aria-label="Resume payment"
-                            disabled={!!pending}
-                            onClick={() => {
-                              if (order?.reference !== item.reference)
-                                void run("resume", () => resumePayment(item.reference));
-                            }}
-                          >
-                            Resume
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <CopyButton value={item.reference} label="Copy payment reference" />
-                    </td>
+        <section className="panel breakdown billing-history">
+          <h2 id="payment-history">Payment history</h2>
+          {profile && data?.length ? (
+            <div
+              className="table-wrap workspace-data-table payment-history"
+              role="region"
+              aria-labelledby="payment-history"
+              tabIndex={0}
+            >
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date (UTC)</th>
+                    <th>Network</th>
+                    <th>USDC</th>
+                    <th>Status</th>
+                    <th>Reference</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="caption" role="status">
-            {!profile
-              ? "Connect a wallet to view payment history and request quotes."
-              : error
-                ? "Payment history is unavailable."
-                : data
-                  ? "No payments to show."
-                  : "Loading payment history…"}
-          </p>
-        )}
-      </section>
+                </thead>
+                <tbody>
+                  {data.map((item) => (
+                    <tr key={item.reference}>
+                      <td>{date(item.time)}</td>
+                      <td>{item.cluster}</td>
+                      <td>{creditBalance(item.amount)}</td>
+                      <td>
+                        {item.signature ? (
+                          <a
+                            className="text-link"
+                            href={
+                              "https://explorer.solana.com/tx/" +
+                              item.signature +
+                              (item.cluster === "devnet" ? "?cluster=devnet" : "")
+                            }
+                          >
+                            Finalized <ArrowUpRight size={13} />
+                          </a>
+                        ) : (
+                          <div className="payment-status">
+                            <span className="caption">Awaiting payment</span>
+                            <button
+                              className="text-link"
+                              type="button"
+                              aria-label="Resume payment"
+                              disabled={!!pending}
+                              onClick={() => {
+                                if (order?.reference !== item.reference)
+                                  void run("resume", () => resumePayment(item.reference));
+                              }}
+                            >
+                              Resume
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <CopyButton value={item.reference} label="Copy payment reference" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="caption" role="status">
+              {!profile
+                ? "Connect a wallet to view payment history and request quotes."
+                : error
+                  ? "Payment history is unavailable."
+                  : data
+                    ? "No payments to show."
+                    : "Loading payment history…"}
+            </p>
+          )}
+        </section>
+      </div>
     </>
   );
 }
