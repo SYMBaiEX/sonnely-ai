@@ -7,8 +7,10 @@ import {
   BarChart3,
   CircleHelp,
   Code2,
+  Download,
   FileText,
   KeyRound,
+  MonitorSmartphone,
   Plus,
   Settings,
   Shield,
@@ -18,7 +20,7 @@ import {
 import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 import { providerNames } from "@/lib/provider-catalog";
-import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
+import { creditBalance, creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import { intentFunds, type FundingQuote, type IntentFund } from "@/lib/intent-funding";
 import { MotionSwitch } from "./ambient-motion";
 import { IntentsCheckout } from "./intents-checkout";
@@ -100,6 +102,7 @@ type Key = {
   expires: number | null;
   revoked: boolean;
   lastUsed?: number;
+  todaySpent: number;
 };
 
 export function Keys({ signedIn }: { signedIn: boolean }) {
@@ -109,6 +112,7 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
   const [failure, setFailure] = useState("");
   const [busy, setBusy] = useState(false);
   const [revoke, setRevoke] = useState<Key | null>(null);
+  const [editing, setEditing] = useState<Key | null>(null);
   const revokeHeading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -135,6 +139,31 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
       reload();
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Could not create the key.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function update(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing) return;
+    const fields = new FormData(event.currentTarget);
+    const cap = (field: string) => (fields.get(field) ? Number(fields.get(field)) : null);
+    setBusy(true);
+    setFailure("");
+    try {
+      const expires = fields.get("expires");
+      await request("update-key", {
+        id: editing.id,
+        name: fields.get("name") || editing.name,
+        cap: cap("cap"),
+        dailyCap: cap("daily"),
+        expires: expires ? Date.parse(String(expires) + "T23:59:59Z") : null,
+      });
+      setEditing(null);
+      reload();
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : "Could not update the key.");
     } finally {
       setBusy(false);
     }
@@ -222,6 +251,56 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
           </div>
         </form>
       )}
+      {signedIn && editing && (
+        <form className="panel stack-panel" onSubmit={update} key={editing.id}>
+          <h2>Edit {editing.name}</h2>
+          <div className="form-row">
+            <label>
+              Name
+              <input name="name" maxLength={60} defaultValue={editing.name} />
+            </label>
+            <label>
+              Daily cap (USD)
+              <input
+                name="daily"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="Optional"
+                defaultValue={editing.dailyCap === null ? "" : editing.dailyCap / 1_000_000}
+              />
+            </label>
+            <label>
+              Lifetime cap (USD)
+              <input
+                name="cap"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="Optional"
+                defaultValue={editing.cap === null ? "" : editing.cap / 1_000_000}
+              />
+            </label>
+            <label>
+              Expires (UTC)
+              <input
+                name="expires"
+                type="date"
+                min={day(Date.now())}
+                defaultValue={editing.expires ? day(editing.expires) : ""}
+              />
+            </label>
+          </div>
+          <div className="actions">
+            <button type="submit" className="button accent" disabled={busy}>
+              {busy ? "Saving…" : "Save changes"}
+            </button>
+            <button type="button" className="button quiet" onClick={() => setEditing(null)} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
       {signedIn && revoke && (
         <div className="panel callout">
           <div>
@@ -297,12 +376,29 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
                       </span>
                       {item.dailyCap !== null ? usd(item.dailyCap) : "—"} /{" "}
                       {item.cap !== null ? usd(item.cap) : "—"}
+                      <small className="key-record-expiry">Today {creditBalance(item.todaySpent)}</small>
                     </td>
                     <td role="cell" className="key-record-action">
                       {!item.revoked && (
-                        <button type="button" className="button quiet small" onClick={() => setRevoke(item)}>
-                          Revoke
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="button quiet small"
+                            onClick={() => {
+                              setEditing(item);
+                              setFailure("");
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="button quiet small"
+                            onClick={() => setRevoke(item)}
+                          >
+                            Revoke
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>
@@ -403,6 +499,34 @@ export function Usage({
     return { time, value };
   });
   const high = Math.max(1, ...series.map((point) => point.value));
+  function exportCsv() {
+    const escape = (value: string | number) => {
+      const text = String(value);
+      return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+    };
+    const lines = [
+      "time,model,provider,input,output,cost,status",
+      ...rows.map((row) =>
+        [
+          new Date(row.time).toISOString(),
+          row.model,
+          row.provider,
+          row.input,
+          row.output,
+          creditDecimal(row.cost),
+          row.status,
+        ]
+          .map(escape)
+          .join(","),
+      ),
+    ];
+    const url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "sonnely-usage-" + day(Date.now()) + ".csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
   return (
     <>
       <WorkspaceHeading
@@ -410,6 +534,9 @@ export function Usage({
         title="Usage"
         description="Track requests, tokens, and spend across models and providers. Dates are in UTC."
       >
+        <button type="button" className="button quiet" disabled={!rows.length} onClick={exportCsv}>
+          <Download size={15} /> Export CSV
+        </button>
         <label className="control-label">
           Date range
           <select value={range} onChange={(e) => setRange(Number(e.target.value))}>
@@ -647,6 +774,7 @@ export function Billing({
   const [submitted, setSubmitted] = useState(false);
   const [signature, setSignature] = useState("");
   const [pending, setPending] = useState("");
+  const [cancel, setCancel] = useState("");
   const quoting = pending === "quote" || pending === "prepare-swap";
   const [failure, setFailure] = useState<{ action: string; message: string }>();
   const [status, setStatus] = useState("");
@@ -1055,16 +1183,49 @@ export function Billing({
                       <td>{creditBalance(item.amount)}</td>
                       <td>
                         {item.signature ? (
-                          <a
-                            className="text-link"
-                            href={
-                              "https://explorer.solana.com/tx/" +
-                              item.signature +
-                              (item.cluster === "devnet" ? "?cluster=devnet" : "")
-                            }
-                          >
-                            Finalized <ArrowUpRight size={13} />
-                          </a>
+                          <div className="payment-status">
+                            <a
+                              className="text-link"
+                              href={
+                                "https://explorer.solana.com/tx/" +
+                                item.signature +
+                                (item.cluster === "devnet" ? "?cluster=devnet" : "")
+                              }
+                            >
+                              Finalized <ArrowUpRight size={13} />
+                            </a>
+                            <CopyButton
+                              value={`Sonnely USDC receipt ${creditBalance(item.amount)} ${item.cluster} ${item.signature}`}
+                              label="Copy receipt"
+                            />
+                          </div>
+                        ) : cancel === item.reference ? (
+                          <div className="payment-status">
+                            <span className="caption">Cancel this payment?</span>
+                            <button
+                              className="text-link"
+                              type="button"
+                              disabled={!!pending}
+                              onClick={() =>
+                                void run("cancel", async () => {
+                                  await request("cancel-deposit", { reference: item.reference });
+                                  if (order?.reference === item.reference) setOrder(null);
+                                  setCancel("");
+                                  reload();
+                                })
+                              }
+                            >
+                              Confirm cancel
+                            </button>
+                            <button
+                              className="text-link"
+                              type="button"
+                              disabled={!!pending}
+                              onClick={() => setCancel("")}
+                            >
+                              Keep
+                            </button>
+                          </div>
                         ) : (
                           <div className="payment-status">
                             <span className="caption">Awaiting payment</span>
@@ -1079,6 +1240,14 @@ export function Billing({
                               }}
                             >
                               Resume
+                            </button>
+                            <button
+                              className="text-link"
+                              type="button"
+                              disabled={!!pending}
+                              onClick={() => setCancel(item.reference)}
+                            >
+                              Cancel
                             </button>
                           </div>
                         )}
@@ -1235,6 +1404,8 @@ export function Referrals({ profile }: { profile: Profile }) {
   );
 }
 
+type ActiveSession = { id: string; created: number; expires: number; current: boolean };
+
 export function SettingsPanel({
   profile,
   refresh,
@@ -1249,6 +1420,27 @@ export function SettingsPanel({
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const sessions = useRemote<ActiveSession[]>(Boolean(profile), "sessions");
+  async function signOutOthers() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const { removed } = await request<{ removed: number }>("signout-others", {});
+      setSigningOut(false);
+      sessions.reload();
+      setNotice(
+        removed
+          ? `Signed out ${removed} other session${removed === 1 ? "" : "s"}.`
+          : "No other sessions to sign out.",
+      );
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not sign out other sessions.");
+    } finally {
+      setBusy(false);
+    }
+  }
   async function rename(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fields = new FormData(e.currentTarget);
@@ -1383,6 +1575,65 @@ export function SettingsPanel({
             <span />
           </button>
         </div>
+      </section>
+      <section className="panel stack-panel settings-panel">
+        <div className="between">
+          <h2>Active sessions</h2>
+          <MonitorSmartphone size={20} />
+        </div>
+        {profile && sessions.data?.length ? (
+          sessions.data.map((item) => (
+            <div className="settings-row" key={item.id}>
+              <div>
+                <strong>{item.current ? "This session" : "Signed in " + date(item.created)}</strong>
+                <p>Expires {date(item.expires)} UTC</p>
+              </div>
+              {item.current && <span className="pill">Current</span>}
+            </div>
+          ))
+        ) : (
+          <p className="caption" role="status">
+            {!profile
+              ? "Connect a wallet to see active sessions."
+              : sessions.error
+                ? "Active sessions are unavailable."
+                : "Loading sessions…"}
+          </p>
+        )}
+        {profile &&
+          (sessions.data?.length ?? 0) > 1 &&
+          (signingOut ? (
+            <div className="settings-row">
+              <div>
+                <strong>Sign out other sessions?</strong>
+                <p>Other devices will need to sign in again.</p>
+              </div>
+              <div className="actions">
+                <button type="button" className="button quiet" disabled={busy} onClick={signOutOthers}>
+                  Sign out others
+                </button>
+                <button
+                  type="button"
+                  className="button quiet"
+                  disabled={busy}
+                  onClick={() => setSigningOut(false)}
+                >
+                  Keep
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="actions">
+              <button
+                type="button"
+                className="button quiet"
+                disabled={busy}
+                onClick={() => setSigningOut(true)}
+              >
+                Sign out other sessions
+              </button>
+            </div>
+          ))}
       </section>
       <div className="actions">
         <Link className="button quiet" href="/docs/attestation#data-handling">

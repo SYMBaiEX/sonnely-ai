@@ -101,6 +101,7 @@ export async function GET(request: NextRequest, context: Context) {
       );
     }
     if (task === "history") return json(await db.query(api.sonnely.history, auth));
+    if (task === "sessions") return json(await db.query(api.sonnely.listSessions, auth));
     if (task === "payment") {
       const reference = address.parse(request.nextUrl.searchParams.get("reference"));
       const order = await db.query(api.sonnely.depositDetails, { ...auth, reference });
@@ -262,6 +263,34 @@ export async function POST(request: NextRequest, context: Context) {
     if (task === "revoke") {
       const { id } = z.object({ id: field(64) }).parse(raw);
       await db.mutation(api.sonnely.revokeKey, { ...auth, id: id as Id<"keys"> });
+      return json({ ok: true });
+    }
+    if (task === "update-key") {
+      const fields = z
+        .object({
+          id: field(64),
+          name: field(60),
+          cap: priceCap,
+          dailyCap: priceCap,
+          expires: z.number().int().gt(Date.now()).nullable(),
+        })
+        .parse(raw);
+      await db.mutation(api.sonnely.updateKey, {
+        ...auth,
+        id: fields.id as Id<"keys">,
+        name: fields.name,
+        cap: fields.cap === null ? null : Math.round(fields.cap * 1_000_000),
+        dailyCap: fields.dailyCap === null ? null : Math.round(fields.dailyCap * 1_000_000),
+        expires: fields.expires,
+      });
+      return json({ ok: true });
+    }
+    if (task === "signout-others") {
+      return json({ removed: await db.mutation(api.sonnely.signOutOthers, auth) });
+    }
+    if (task === "cancel-deposit") {
+      const { reference } = z.object({ reference: address }).parse(raw);
+      await db.mutation(api.sonnely.cancelDeposit, { ...auth, reference });
       return json({ ok: true });
     }
     if (task === "contact") {

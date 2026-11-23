@@ -177,6 +177,7 @@ export const listKeys = query({
       expires: optionalNumber,
       revoked: v.boolean(),
       lastUsed: v.optional(v.number()),
+      todaySpent: v.number(),
     }),
   ),
   handler: async (ctx, args) => {
@@ -187,17 +188,27 @@ export const listKeys = query({
       .withIndex("by_account", (q) => q.eq("account", account._id))
       .order("desc")
       .take(100);
-    return keys.map(({ _id, _creationTime, name, prefix, cap, dailyCap, expires, revoked, lastUsed }) => ({
-      id: _id,
-      created: _creationTime,
-      name,
-      prefix,
-      cap,
-      dailyCap,
-      expires,
-      revoked,
-      lastUsed,
-    }));
+    const today = new Date().toISOString().slice(0, 10);
+    return Promise.all(
+      keys.map(async ({ _id, _creationTime, name, prefix, cap, dailyCap, expires, revoked, lastUsed }) => ({
+        id: _id,
+        created: _creationTime,
+        name,
+        prefix,
+        cap,
+        dailyCap,
+        expires,
+        revoked,
+        lastUsed,
+        todaySpent:
+          (
+            await ctx.db
+              .query("keyDays")
+              .withIndex("by_key_day", (q) => q.eq("key", _id).eq("day", today))
+              .unique()
+          )?.spent ?? 0,
+      })),
+    );
   },
 });
 
@@ -527,6 +538,101 @@ export const throttleQuote = mutation({
       throw new ConvexError("Quote limit reached. Wait a few seconds.");
     }
     await ctx.db.patch(account._id, { lastQuote: now });
+    return null;
+  },
+});
+
+export const updateKey = mutation({
+  args: {
+    ...auth,
+    id: v.id("keys"),
+    name: v.string(),
+    cap: optionalNumber,
+    dailyCap: optionalNumber,
+    expires: optionalNumber,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await requireAccount(ctx, args.session);
+    const key = await ctx.db.get(args.id);
+    if (!key || key.account !== account._id || key.revoked) throw new ConvexError("Key unavailable.");
+    const name = args.name.trim();
+    if (!name || name.length > 60) throw new ConvexError("Name must be 1-60 characters.");
+    for (const cap of [args.cap, args.dailyCap])
+      if (cap !== null && (!Number.isSafeInteger(cap) || cap < 10_000))
+        throw new ConvexError("Spending caps start at $0.01.");
+    await ctx.db.patch(key._id, {
+      name,
+      cap: args.cap,
+      dailyCap: args.dailyCap,
+      expires: args.expires,
+    });
+    return null;
+  },
+});
+
+export const listSessions = query({
+  args: auth,
+  returns: v.array(
+    v.object({
+      id: v.id("sessions"),
+      created: v.number(),
+      expires: v.number(),
+      current: v.boolean(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await requireAccount(ctx, args.session);
+    // No by_account index on sessions; a bounded filtered scan fits this small table.
+    const rows = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("account"), account._id))
+      .take(50);
+    return rows.map(({ _id, _creationTime, hash, expires }) => ({
+      id: _id,
+      created: _creationTime,
+      expires,
+      current: hash === args.session,
+    }));
+  },
+});
+
+export const signOutOthers = mutation({
+  args: auth,
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await requireAccount(ctx, args.session);
+    const rows = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("account"), account._id))
+      .take(50);
+    let removed = 0;
+    for (const row of rows) {
+      if (row.hash === args.session) continue;
+      await ctx.db.delete(row._id);
+      removed++;
+    }
+    return removed;
+  },
+});
+
+export const cancelDeposit = mutation({
+  args: { ...auth, reference: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await requireAccount(ctx, args.session);
+    const row = await ctx.db
+      .query("deposits")
+      .withIndex("by_reference", (q) => q.eq("reference", args.reference))
+      .unique();
+    if (!row || row.account !== account._id) throw new ConvexError("Payment request unavailable.");
+    if (row.signature || row.finalizedAt !== undefined)
+      throw new ConvexError("This payment is already finalized.");
+    await ctx.db.delete(row._id);
     return null;
   },
 });
