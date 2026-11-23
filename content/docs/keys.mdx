@@ -5,13 +5,19 @@ description: Create, budget, rotate, and revoke keys from the console.
 
 ## Create a key
 
-In [API keys](/console/keys), give each app or deployment its own named key so you can identify its activity in Usage. Store it in a server-side secret store when it appears. Use the key as the bearer token for completion requests.
+In API keys, choose **Create key** and give each app or deployment its own name. You can find the name in **Request breakdown → By key** in [Usage](/console/usage#request-breakdown).
+
+> **The full key appears once.** Copy it into your server’s secret store. Completion requests use it as the bearer token.
 
 ## Set spend limits
 
-- **Daily budget.** The limit resets at midnight UTC.
-- **Lifetime budget.** This caps spending over the life of the key.
-- **Expiry.** Set an end date for temporary keys.
+<div className="docs-guide-facts">
+
+- **Daily cap (USD).** Resets at midnight UTC.
+- **Lifetime cap (USD).** Caps cumulative spend on the key.
+- **Expires (UTC).** The key expires at the end of the selected date.
+
+</div>
 
 Sonnely checks your balance and the key’s budgets against the maximum reservation before forwarding a request. Unused credit returns at settlement.
 
@@ -19,6 +25,20 @@ Use `max_cost_microusd` for a per-request ceiling. A limit of `1000` permits a r
 
 ## Rotate or revoke
 
-Create a replacement, update your server-side configuration, and send a test request. Revoke the previous key after verifying the replacement.
+<div className="docs-guide-procedure">
+
+1. **Create a replacement.** Copy the new key into your server’s configuration.
+2. **Test it.** Send a request and confirm it appears under the new key in Usage.
+3. **Revoke the old key.** Clients still using it will lose API access immediately.
+
+</div>
 
 > **Compromised key?** Revoke it immediately and review [Usage](/console/usage) by key.
+
+<nav className="docs-guide-next" aria-label="Related guides and resources">
+
+- [Open API keys](/console/keys)
+- [Set up a test key](/docs/quickstart#set-up-your-workspace)
+- [View request breakdown](/console/usage#request-breakdown)
+
+</nav>

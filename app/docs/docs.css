@@ -668,6 +668,7 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   background: color-mix(in srgb, var(--card) 82%, var(--active-fill));
   color: var(--muted);
   font-style: normal;
+  quotes: none;
 }
 
 #nd-page .docs-guide blockquote > p {
@@ -773,15 +774,15 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   margin: -1rem;
 }
 
-.docs-event-sequence {
+:is(.docs-event-sequence, .docs-guide-procedure) {
   margin-block: 1.25rem;
-  padding: 0.15rem clamp(0.7rem, 2.8vw, 1.25rem);
+  padding: 0.2rem clamp(0.75rem, 2.8vw, 1.25rem);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--card);
 }
 
-#nd-page .docs-guide .docs-event-sequence li + li {
+#nd-page .docs-guide :is(.docs-event-sequence, .docs-guide-procedure) li + li {
   margin-block-start: 0.6rem;
   padding-block-start: 0.6rem;
   border-block-start: 1px solid var(--line);
@@ -808,11 +809,13 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
 #nd-page .docs-guide .docs-guide-next a {
   display: inline-flex;
   align-items: center;
+  gap: 0.7rem;
   min-height: 44px;
   padding: 0.45rem 0.85rem;
   border: 1px solid var(--line);
   border-radius: 0.65rem;
   background: var(--card);
+  color: var(--ink);
   font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
@@ -820,4 +823,62 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
 
 #nd-page .docs-guide .docs-guide-next a:is(:hover, :focus-visible) {
   background: var(--active-fill);
+  color: var(--accent);
+}
+
+.docs-guide-next a::after {
+  content: "";
+  flex: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-block-start: 1.5px solid var(--accent);
+  border-inline-end: 1.5px solid var(--accent);
+  transform: rotate(45deg);
+}
+
+.docs-guide-next a[href^="https://"]::after {
+  width: 0.48rem;
+  height: 0.48rem;
+  background: linear-gradient(135deg, transparent 43%, var(--accent) 45% 55%, transparent 57%);
+  transform: none;
+}
+
+#nd-page .docs-guide .docs-guide-facts ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0.65rem;
+  margin: 1rem 0 1.25rem;
+  padding: 0;
+}
+
+#nd-page .docs-guide .docs-guide-facts li {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--card) 86%, var(--active-fill));
+  box-shadow: inset 0 1px 0 var(--rim);
+  list-style: none;
+  font-size: 0.875rem;
+  line-height: 1.57;
+}
+
+.docs-guide-facts li > strong {
+  display: block;
+  margin-block-end: 0.3rem;
+}
+
+.docs-guide > div:has(> table) {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+#nd-page .docs-guide table :is(th, td):first-child {
+  width: clamp(5rem, 14vw, 9rem);
+  font-weight: 610;
+}
+
+#nd-page .docs-guide table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--card) 65%, var(--raised));
 }

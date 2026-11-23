@@ -1,6 +1,12 @@
 import { defineConfig, defineDocs } from "fumadocs-mdx/config";
 
 const guideWrappers = new Set(["Step", "Steps", "Tab", "Tabs"]);
+const guideLayoutClasses = new Set([
+  "docs-event-sequence",
+  "docs-guide-facts",
+  "docs-guide-next",
+  "docs-guide-procedure",
+]);
 
 export const docs = defineDocs({
   dir: "content/docs",
@@ -14,7 +20,8 @@ export const docs = defineDocs({
             (attribute) =>
               attribute.type === "mdxJsxAttribute" &&
               attribute.name === "className" &&
-              (attribute.value === "docs-event-sequence" || attribute.value === "docs-guide-next"),
+              typeof attribute.value === "string" &&
+              guideLayoutClasses.has(attribute.value),
           );
           return guideLayout ? "children-only" : true;
         },

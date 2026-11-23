@@ -686,10 +686,10 @@ html[data-initial-theme="light"] .theme-root,
 }
 
 .theme-switch[data-light="true"] {
-  --switch-glow: #d78d27;
-  --switch-metal: #ffd57e;
-  --switch-core: #fff5d5;
-  --switch-lit: #733900;
+  --switch-glow: color-mix(in srgb, var(--accent) 65%, white);
+  --switch-metal: color-mix(in srgb, var(--active-fill) 72%, var(--accent));
+  --switch-core: color-mix(in srgb, var(--card) 72%, var(--active-fill));
+  --switch-lit: var(--accent);
 }
 
 .theme-switch-thumb {

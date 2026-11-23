@@ -7,11 +7,22 @@ Dry Docks builds a pinned public GitHub commit in a temporary Boat Linux VM.
 
 ## Planned workflow
 
+<div className="docs-guide-procedure">
+
 1. **Pick a commit.** Enter a public repository and full commit SHA.
 2. **Check the quote.** Review the build window and credit quote.
 3. **Follow logs.** Watch output from `npm ci` and `npm run build`.
 4. **Download the build.** Get the first matching output directory from `dist`, `build`, `out`, or `.next`. The archive limit is 5 MiB.
 
+</div>
+
 > **Build isolation.** The planned VM receives no user credentials and has no inbound endpoint.
 
-Sonnely requests deletion after stopping the run and settles the receipt after deletion is confirmed. Logs and artifacts are intended to expire after seven days. Check the [Dry Docks product page](/dry-docks) for availability.
+Sonnely requests deletion after stopping the run and settles the receipt after deletion is confirmed. Logs and artifacts are intended to expire after seven days.
+
+<nav className="docs-guide-next" aria-label="Related guides and resources">
+
+- [Check Dry Docks availability](/dry-docks)
+- [See the compute roadmap](/compute)
+
+</nav>

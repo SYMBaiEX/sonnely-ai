@@ -7,7 +7,7 @@ description: Discover available routes, select a provider, and estimate token co
 
 [GET /models](/api/sonnely/v1/models) lists available model IDs and routes for the current deployment. The [model catalog](/models) also shows the NEAR directory. Directory entries and NEAR Incognito entries are informational unless the Sonnely API advertises them as available.
 
-NEAR AI is the default. DeepSeek V4.1 Flash 1017 can also route through Phala or Tinfoil when those routes are advertised. Model labels identify the API route. Matching labels alone do not establish identical weights or execution across providers.
+NEAR AI is the default. DeepSeek V4.1 Flash 1017 can also route through Phala or Tinfoil when discovery lists those routes. Check the actual route and its capabilities when choosing a provider. Matching model labels alone do not establish identical weights or execution.
 
 ## Pin a request
 
@@ -29,6 +29,22 @@ Use `near-ai`, `phala`, or `tinfoil` when that provider is present in the model�
 
 ## Compare prices
 
-Each route returns input, cached input, and output prices under `price_usd_per_million`. Published prices include Sonnely’s 10% inference markup. Reported token categories determine the final charge up to the reservation. Rates and routable models can change, so read discovery data at runtime.
+Read `price_usd_per_million` on the selected route. Published prices include Sonnely’s 10% inference markup.
 
-[Compare attestation and receipt evidence](/docs/attestation) before selecting a route for confidential workloads.
+<div className="docs-guide-facts">
+
+- **Input.** Uncached tokens in your request.
+- **Cached input.** Prompt tokens reported as cache hits.
+- **Output.** Completion tokens reported by the provider.
+
+</div>
+
+Reported token categories determine the final charge up to the reservation. Read discovery at runtime for current rates and available routes.
+
+<nav className="docs-guide-next" aria-label="Related guides and resources">
+
+- [Discover live routes](/api/sonnely/v1/models)
+- [Compare evidence](/docs/attestation#evidence-by-provider)
+- [Understand reservations](/docs/billing#understand-reservations)
+
+</nav>

@@ -12,11 +12,13 @@ test("the theme follows the user across the site and all console pages", async (
 
   const thumb = switcher.locator(".theme-switch-thumb");
   await expect(thumb).toHaveCSS("transform", "none");
+  await expect(switcher.locator(".theme-switch-moon")).toHaveCSS("color", "rgb(255, 232, 241)");
   await switcher.focus();
   await page.keyboard.press("Space");
   await expect(site).toHaveAttribute("data-theme", "light");
   await expect(switcher).toHaveAttribute("aria-checked", "true");
   await expect(thumb).toHaveCSS("transform", /^matrix/);
+  await expect(switcher.locator(".theme-switch-sun")).toHaveCSS("color", "rgb(36, 66, 194)");
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-day\.webp/);
   for (const route of [
     "",
