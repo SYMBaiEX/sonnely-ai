@@ -133,7 +133,28 @@ export async function adminCrm(
     }
     case "traces": {
       const status = z.enum(["all", "pending", "complete", "failed", "unreported"]).parse(filter);
-      return json(await db.query(api.crm.traces, { ...auth, status, search, page }));
+      const filters = z
+        .object({
+          model: z.string().trim().max(60).optional(),
+          provider: z.string().trim().max(60).optional(),
+          since: z.coerce.number().int().nonnegative().optional(),
+        })
+        .parse({
+          model: params.get("model") ?? undefined,
+          provider: params.get("provider") ?? undefined,
+          since: params.get("since") ?? undefined,
+        });
+      return json(
+        await db.query(api.crm.traces, {
+          ...auth,
+          status,
+          search,
+          page,
+          ...(filters.model ? { model: filters.model } : {}),
+          ...(filters.provider ? { provider: filters.provider } : {}),
+          ...(filters.since === undefined ? {} : { since: filters.since }),
+        }),
+      );
     }
     case "analytics": {
       const parsed = z
