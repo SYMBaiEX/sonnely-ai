@@ -94,11 +94,13 @@ export async function adminCrm(
         .enum(["true", "false"])
         .optional()
         .parse(params.get("active") ?? undefined);
+      const sort = z.enum(["recent", "spend", "balance"]).parse(params.get("sort") ?? "recent");
       return json(
         await db.query(api.crm.customers, {
           ...auth,
           search,
           page,
+          sort,
           filter: {
             ...(flag ? { flag } : {}),
             funded,

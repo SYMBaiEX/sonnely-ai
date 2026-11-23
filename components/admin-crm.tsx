@@ -3,7 +3,14 @@
 import { useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
 import { request } from "./wallet";
-import { BulkFlagBar, CustomerFilters, CustomersTable } from "./admin/customers";
+import {
+  BulkFlagBar,
+  CustomerFilters,
+  CustomersTable,
+  ExportCustomers,
+  SegmentChips,
+  type CustomerSort,
+} from "./admin/customers";
 import { CustomerWorkspace } from "./admin/customer";
 import {
   ticketStates,
@@ -16,6 +23,7 @@ import {
 } from "./admin/shared";
 import { TicketList } from "./admin/support";
 import { TracesPanel } from "./admin/traces";
+import { Skeleton } from "./admin/ui";
 
 export { useCrm };
 export type { CrmView };
@@ -26,6 +34,7 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
   const [flag, setFlag] = useState("");
   const [funded, setFunded] = useState("any");
   const [activeOnly, setActiveOnly] = useState(false);
+  const [sort, setSort] = useState<CustomerSort>("recent");
   const [selected, setSelected] = useState<Customer["id"][]>([]);
   const [bulkFlag, setBulkFlag] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -41,6 +50,7 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
     if (flag) params.set("flag", flag);
     if (funded !== "any") params.set("funded", funded);
     if (activeOnly) params.set("active", "true");
+    if (sort !== "recent") params.set("sort", sort);
   }
   const state = useCrm<CrmPage>(view === "traces" ? "" : "admin-crm?" + params, revision);
   const segments = useCrm<Segment[]>(view === "customers" ? "admin-crm?view=segments" : "", revision);
@@ -184,6 +194,8 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
               setFunded={setFunded}
               activeOnly={activeOnly}
               setActiveOnly={setActiveOnly}
+              sort={sort}
+              setSort={setSort}
               segmentId={segmentId}
               setSegmentId={setSegmentId}
               segments={segments}
@@ -195,7 +207,18 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
               setTrail={setTrail}
             />
           )}
+          {view === "customers" && (
+            <ExportCustomers rows={(state?.data?.page ?? []) as Customer[]} />
+          )}
         </div>
+      )}
+      {view === "customers" && (
+        <SegmentChips
+          segments={segments}
+          segmentId={segmentId}
+          setSegmentId={setSegmentId}
+          applySegment={applySegment}
+        />
       )}
       {view === "customers" && selected.length > 0 && (
         <BulkFlagBar
@@ -216,7 +239,11 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
           {state.error}
         </p>
       ) : !state?.data ? (
-        <p role="status">Loading {title[view].toLowerCase()}…</p>
+        view === "customers" ? (
+          <Skeleton rows={6} />
+        ) : (
+          <p role="status">Loading {title[view].toLowerCase()}…</p>
+        )
       ) : (
         <>
           {view === "customers" && (
