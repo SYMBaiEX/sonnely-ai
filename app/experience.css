@@ -151,6 +151,20 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   max-height: min(52dvh, 400px);
   overflow: auto;
 }
+.command-group + .command-group {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.command-heading {
+  margin: 0;
+  padding: 4px 12px 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .command-result {
   width: 100%;
   display: grid;

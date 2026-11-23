@@ -179,6 +179,42 @@
   cursor: pointer;
 }
 
+.playground-editing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.console .message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.message-stamp {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.message-stamp:empty {
+  display: none;
+}
+
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+
 .playground-starters {
   display: grid;
   gap: 9px;

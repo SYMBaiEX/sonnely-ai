@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { computeProducts, isComputeProduct, type ComputeFeatures } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
+import type { Theme } from "@/lib/appearance";
 import type { nearCatalog } from "@/lib/near-catalog";
 import type { Section } from "@/app/console/[[...section]]/page";
 import { creditBalance } from "@/lib/credit-amount";
@@ -83,7 +84,10 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
   const navPanel = useRef<HTMLElement>(null);
   const [palette, setPalette] = useState(false);
   const [prefs, setPrefs] = useState(defaults);
+  const [origin, setOrigin] = useState("");
   const theme = useTheme();
+
+  useEffect(() => setOrigin(window.location.origin), []);
 
   useEffect(() => {
     try {
@@ -287,7 +291,16 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
             </button>
           </div>
         </header>
-        <CommandMenu open={palette} onClose={() => setPalette(false)} pages={visibleNav} />
+        <CommandMenu
+          open={palette}
+          onClose={() => setPalette(false)}
+          pages={visibleNav}
+          onToggleTheme={() => {
+            const cycle: Theme[] = ["light", "dark", "system"];
+            change({ ...prefs, theme: cycle[(cycle.indexOf(theme) + 1) % cycle.length] });
+          }}
+          inviteUrl={profile && origin ? origin + "/console?ref=" + profile.referral : undefined}
+        />
         <main id="console-content" className={section === "chat" ? "console-chat" : "console-content"}>
           {failure && (
             <p role="alert" className="error">
