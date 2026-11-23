@@ -303,7 +303,7 @@ export async function POST(request: NextRequest, context: Context) {
     if (!profile) throw new SonnelyError("Sign in with a Solana wallet.", 401);
     if (task.startsWith("admin-")) {
       const delegated =
-        (profile.role === "support" && task === "admin-ticket") ||
+        (profile.role === "support" && (task === "admin-ticket" || task.startsWith("admin-task-"))) ||
         (profile.role === "finance" && (task === "admin-invoice-preview" || task === "admin-invoice-record"));
       if (profile.role !== "admin" && !delegated)
         throw new SonnelyError("Administrator access required.", 403);

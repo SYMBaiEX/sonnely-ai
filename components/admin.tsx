@@ -26,6 +26,74 @@ type Overview = FunctionReturnType<typeof api.finance.overview> & {
   compute?: FunctionReturnType<typeof api.compute.adminSummary> | null;
   gateway?: GatewayReport;
 };
+type FollowUp = FunctionReturnType<typeof api.crmTasks.mine>[number];
+
+function FollowUpsDue({ open }: { open: () => void }) {
+  const [state, setState] = useState<{ data?: FollowUp[]; error?: string }>();
+  useEffect(() => {
+    let active = true;
+    void request<FollowUp[]>("admin-crm?view=tasks")
+      .then((data) => {
+        if (active) setState({ data });
+      })
+      .catch((error: Error) => {
+        if (active) setState({ error: error.message });
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  if (!state?.data?.length) return null;
+  const now = Date.now();
+  const week = now + 7 * 86_400_000;
+  const overdue = state.data.filter((row) => row.dueAt !== undefined && row.dueAt < now).length;
+  const dueSoon = state.data.filter(
+    (row) => row.dueAt !== undefined && row.dueAt >= now && row.dueAt <= week,
+  ).length;
+  const rows = [...state.data].sort(
+    (a, b) => (a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER),
+  );
+  return (
+    <section className="panel stack-panel">
+      <h2>Follow-ups due</h2>
+      <dl className="admin-metrics">
+        <div>
+          <dt>Overdue</dt>
+          <dd>{overdue.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Next 7 days</dt>
+          <dd>{dueSoon.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Open</dt>
+          <dd>{state.data.length.toLocaleString()}</dd>
+        </div>
+      </dl>
+      <div className="crm-records">
+        {rows.slice(0, 8).map((row) => {
+          const late = row.dueAt !== undefined && row.dueAt < now;
+          return (
+            <div key={row.id} className="crm-record crm-task">
+              <span>
+                <strong>{row.title}</strong>
+                <span className={"caption" + (late ? " crm-overdue" : "")}>
+                  {row.name || shorten(row.wallet)} ·{" "}
+                  {row.dueAt === undefined ? "No due date" : "Due " + new Date(row.dueAt).toLocaleString()}
+                  {late ? " · Overdue" : ""}
+                </span>
+              </span>
+              <button type="button" className="button quiet small" onClick={open}>
+                Open customer
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {state.data.length > 8 && <p className="caption">Showing the 8 most urgent follow-ups.</p>}
+    </section>
+  );
+}
 
 export function Admin({ session, features }: { session: Session | null; features: ComputeFeatures }) {
   const wallet = session?.profile?.wallet;
@@ -153,6 +221,7 @@ export function Admin({ session, features }: { session: Session | null; features
               </dl>
             </section>
           )}
+          <FollowUpsDue open={() => setArea("customers")} />
           <section className="panel stack-panel">
             <h2>Activity over 30 days</h2>
             <dl className="admin-metrics">

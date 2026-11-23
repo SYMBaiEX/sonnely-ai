@@ -118,6 +118,37 @@ test("referral milestones and the admin workspace follow actual account activity
     db.mutation(api.crm.updateTicket, { ...guest.auth, id: ticket, state: "resolved", assignment: "claim" }),
   ).rejects.toThrow("Administrator access required");
 
+  const followUp = await db.mutation(api.crmTasks.create, {
+    ...admin.auth,
+    account,
+    title: "Check the first invoice",
+    dueAt: Date.now() - 60_000,
+  });
+  await expect(db.mutation(api.crmTasks.create, { ...guest.auth, account, title: "Denied" })).rejects.toThrow(
+    "Administrator access required",
+  );
+  await expect(db.query(api.crmTasks.listForAccount, { ...guest.auth, account })).rejects.toThrow(
+    "Administrator access required",
+  );
+  expect(await db.query(api.crmTasks.listForAccount, { ...admin.auth, account })).toMatchObject([
+    { id: followUp, title: "Check the first invoice", assignee: adminWallet, doneAt: undefined },
+  ]);
+  expect((await db.query(api.crm.customer, { ...admin.auth, id: account }))?.tasks).toMatchObject([
+    { id: followUp, title: "Check the first invoice" },
+  ]);
+  expect(await db.query(api.crmTasks.mine, { ...admin.auth, openOnly: true })).toMatchObject([
+    { id: followUp, account, wallet: expect.any(String) },
+  ]);
+  await db.mutation(api.crmTasks.complete, { ...admin.auth, id: followUp });
+  expect((await db.query(api.crmTasks.listForAccount, { ...admin.auth, account }))[0].doneAt).toEqual(
+    expect.any(Number),
+  );
+  expect(
+    (await db.query(api.crmTasks.mine, { ...admin.auth, openOnly: true })).map((row) => row.id),
+  ).not.toContain(followUp);
+  await db.mutation(api.crmTasks.reopen, { ...admin.auth, id: followUp });
+  expect((await db.query(api.crmTasks.mine, { ...admin.auth, openOnly: true }))[0].id).toBe(followUp);
+
   await page.context().addCookies([{ name: "sonnely_session", value: admin.token, url: baseURL! }]);
   const sessionRequests: string[] = [];
   page.on("request", (entry) => {
@@ -148,6 +179,15 @@ test("referral milestones and the admin workspace follow actual account activity
   await page.getByRole("textbox", { name: "Internal note" }).fill("Checked deposit and paid inference.");
   await page.getByRole("button", { name: "Add note" }).click();
   await expect(page.getByText("Checked deposit and paid inference.", { exact: true })).toBeVisible();
+  const pending = page.locator(".crm-record").filter({ hasText: "Check the first invoice" });
+  await expect(pending.getByText("Overdue")).toBeVisible();
+  await page.getByRole("textbox", { name: "Follow-up" }).fill("Confirm usage receipts");
+  await page.getByRole("button", { name: "Add follow-up" }).click();
+  const created = page.locator(".crm-record").filter({ hasText: "Confirm usage receipts" });
+  await expect(created).toBeVisible();
+  await expect(created.getByText("Overdue")).toHaveCount(0);
+  await created.getByRole("button", { name: "Done" }).click();
+  await expect(created.getByRole("button", { name: "Reopen" })).toBeVisible();
 
   await adminNav.getByRole("button", { name: "Support", exact: true }).click();
   await page.getByRole("combobox", { name: "Support status" }).selectOption("open");
@@ -178,4 +218,11 @@ test("referral milestones and the admin workspace follow actual account activity
       })
     ).page,
   ).toMatchObject([{ id, providerStatus: 200, outcome: "complete", cost: 40, settled: expect.any(Number) }]);
+
+  await adminNav.getByRole("button", { name: "Overview" }).click();
+  await expect(page.getByRole("heading", { name: "Follow-ups due" })).toBeVisible();
+  const listed = page.locator(".crm-record").filter({ hasText: "Check the first invoice" });
+  await expect(listed.getByText("Overdue")).toBeVisible();
+  await listed.getByRole("button", { name: "Open customer" }).click();
+  await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
 });

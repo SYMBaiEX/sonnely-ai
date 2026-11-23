@@ -16,6 +16,7 @@ type CustomerDetail = NonNullable<FunctionReturnType<typeof api.crm.customer>>;
 type Ticket = FunctionReturnType<typeof api.crm.tickets>["page"][number];
 type Trace = FunctionReturnType<typeof api.crm.traces>["page"][number];
 type OperatorOption = FunctionReturnType<typeof api.operators.operators>[number];
+type Task = CustomerDetail["tasks"][number];
 type CrmPage = { page: (Customer | Ticket | Trace)[]; isDone: boolean; continueCursor: string };
 
 const localTime = (date: number) => new Date(date).toLocaleString();
@@ -521,10 +522,58 @@ function AccountActions({ id, data, refresh }: { id: string; data: CustomerDetai
   );
 }
 
+function FollowUpList({
+  rows,
+  busy,
+  update,
+}: {
+  rows: Task[];
+  busy: boolean;
+  update: (action: string, id: string) => void;
+}) {
+  const open = rows.filter((row) => row.doneAt === undefined);
+  const done = rows.filter((row) => row.doneAt !== undefined);
+  const ordered = [
+    ...open.sort((a, b) => (a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER)),
+    ...done,
+  ];
+  return ordered.length ? (
+    <div className="crm-records">
+      {ordered.map((row) => {
+        const overdue = row.doneAt === undefined && row.dueAt !== undefined && row.dueAt < Date.now();
+        return (
+          <div key={row.id} className={"crm-record crm-task" + (row.doneAt === undefined ? "" : " crm-done")}>
+            <span>
+              <strong>{row.title}</strong>
+              <span className={"caption" + (overdue ? " crm-overdue" : "")}>
+                {row.dueAt === undefined ? "No due date" : "Due " + localTime(row.dueAt)}
+                {overdue ? " · Overdue" : ""} · {shorten(row.assignee)}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="button quiet small"
+              disabled={busy}
+              onClick={() =>
+                update(row.doneAt === undefined ? "admin-task-done" : "admin-task-reopen", row.id)
+              }
+            >
+              {row.doneAt === undefined ? "Done" : "Reopen"}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  ) : (
+    <p className="caption">No follow-ups recorded.</p>
+  );
+}
+
 function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [noteError, setNoteError] = useState("");
+  const [taskError, setTaskError] = useState("");
   const state = useCrm<CustomerDetail | null>(
     "admin-crm?view=customer&id=" + encodeURIComponent(id),
     revision,
@@ -543,6 +592,41 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
       refresh();
     } catch (error) {
       setNoteError(error instanceof Error ? error.message : "Could not save your note.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const due = String(fields.get("due") ?? "");
+    setBusy(true);
+    setTaskError("");
+    try {
+      await request("admin-task-create", {
+        account: id,
+        title: fields.get("title"),
+        ...(due ? { dueAt: new Date(due + "T23:59:59").getTime() } : {}),
+      });
+      form.reset();
+      refresh();
+    } catch (error) {
+      setTaskError(error instanceof Error ? error.message : "Could not save the follow-up.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateTask(action: string, task: string) {
+    setBusy(true);
+    setTaskError("");
+    try {
+      await request(action, { id: task });
+      refresh();
+    } catch (error) {
+      setTaskError(error instanceof Error ? error.message : "Could not update the follow-up.");
     } finally {
       setBusy(false);
     }
@@ -657,6 +741,38 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
             ) : (
               <p className="caption">No admin activity recorded.</p>
             )}
+          </section>
+          <section className="panel stack-panel">
+            <h2>Follow-ups</h2>
+            <form className="recovery-form" onSubmit={(event) => void addTask(event)}>
+              <label>
+                Follow-up
+                <input
+                  name="title"
+                  type="text"
+                  maxLength={160}
+                  required
+                  placeholder="Check in with the customer."
+                />
+              </label>
+              <label>
+                Due date
+                <input name="due" type="date" />
+              </label>
+              <button className="button quiet" disabled={busy}>
+                {busy ? "Saving…" : "Add follow-up"}
+              </button>
+              {taskError && (
+                <p role="alert" className="error">
+                  {taskError}
+                </p>
+              )}
+            </form>
+            <FollowUpList
+              rows={data.tasks}
+              busy={busy}
+              update={(action, task) => void updateTask(action, task)}
+            />
           </section>
           <section className="panel stack-panel">
             <h2>Recent payments</h2>

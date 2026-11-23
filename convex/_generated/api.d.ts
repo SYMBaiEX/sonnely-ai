@@ -19,6 +19,7 @@ import type * as computeValidators from "../computeValidators.js";
 import type * as computeWorker from "../computeWorker.js";
 import type * as creditRecovery from "../creditRecovery.js";
 import type * as crm from "../crm.js";
+import type * as crmTasks from "../crmTasks.js";
 import type * as crons from "../crons.js";
 import type * as depositRecovery from "../depositRecovery.js";
 import type * as finance from "../finance.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   computeWorker: typeof computeWorker;
   creditRecovery: typeof creditRecovery;
   crm: typeof crm;
+  crmTasks: typeof crmTasks;
   crons: typeof crons;
   depositRecovery: typeof depositRecovery;
   finance: typeof finance;

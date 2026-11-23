@@ -1438,6 +1438,28 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   border-top: 1px solid var(--line);
 }
 
+.crm-task {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.crm-task > span:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.crm-done {
+  opacity: 0.55;
+}
+
+.crm-overdue {
+  color: light-dark(#782135, #ffbbbf);
+}
+
 .workspace-compute-links {
   display: flex;
   flex-wrap: wrap;
