@@ -351,12 +351,10 @@
 }
 @media (min-width: 691px) {
   .brand {
+    --wordmark-ink: var(--scene-ink);
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    font-size: 1.3rem;
-    font-weight: 640;
-    letter-spacing: -0.045em;
   }
   .brand :global(.brand-icon) {
     width: 42px;

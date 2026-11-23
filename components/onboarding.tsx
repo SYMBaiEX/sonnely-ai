@@ -6,7 +6,7 @@ import { Activity, ArrowLeft, ArrowRight, Check, KeyRound, MessageSquare, Wallet
 import { TermsAcceptance } from "./terms-acceptance";
 import { request, WalletControl, type Session } from "./wallet";
 import { ThemeSwitch } from "./appearance";
-import { BrandMark } from "./brand";
+import { BrandMark, BrandWordmark } from "./brand";
 import styles from "./onboarding.module.css";
 
 const tour = [
@@ -123,7 +123,8 @@ export function Onboarding({
       <div className={styles.shell}>
         <aside className={styles.scene} aria-hidden="true">
           <div className={styles.brand}>
-            <BrandMark /> Sonnely
+            <BrandMark />
+            <BrandWordmark />
           </div>
           <div className={styles.stage}>
             <div className={styles.orbit}>

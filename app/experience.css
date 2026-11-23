@@ -651,11 +651,23 @@ html[data-initial-theme="light"] .theme-root,
 }
 
 .brand-wordmark {
+  --wordmark-color: var(--wordmark-ink, var(--ink));
   display: block;
-  width: 84px;
-  height: 27px;
-  background: currentColor;
+  width: 100px;
+  aspect-ratio: 180 / 47;
+  flex-shrink: 0;
+  background: linear-gradient(
+    175deg,
+    var(--wordmark-color) 32%,
+    color-mix(in srgb, var(--wordmark-color) 84%, var(--accent))
+  );
   mask: url("/brand/sonnely-wordmark.svg") center / contain no-repeat;
+}
+@media (forced-colors: active) {
+  .brand-wordmark {
+    background: LinkText;
+    forced-color-adjust: none;
+  }
 }
 .brand-icon {
   background: var(--brand-art, url("/brand/sonnely-crimson.svg")) center / contain no-repeat;
@@ -976,10 +988,10 @@ html[data-initial-theme="light"] .theme-root,
     display: inline-flex;
   }
   .compact-brand .brand-wordmark {
-    width: 61px;
+    width: 70px;
   }
   .site-header .brand-wordmark {
-    width: 65px;
+    width: 74px;
   }
 }
 

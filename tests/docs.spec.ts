@@ -64,10 +64,16 @@ test("the shared docs header leads to the site and console on desktop and mobile
 
     const header = page.getByRole("banner", { name: "Sonnely" });
     const nav = header.getByRole("navigation", { name: "Main navigation" });
-    await expect(header.getByRole("link", { name: "Sonnely", exact: true })).toHaveAttribute(
-      "href",
-      "https://sonnely.com",
-    );
+    const logo = header.getByRole("link", { name: "Sonnely", exact: true });
+    const theme = header.getByRole("switch", { name: "Switch color theme" });
+    await expect(logo).toHaveAttribute("href", "https://sonnely.com");
+    await expect(logo.locator(".brand-wordmark")).toBeVisible();
+    await expect(logo.locator(".brand-wordmark")).toHaveCSS("mask-image", /sonnely-wordmark\.svg/);
+    await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-crimson\.svg/);
+    await theme.click();
+    await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-blue\.svg/);
+    await theme.click();
+    await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-crimson\.svg/);
     await expect(nav.getByRole("link", { name: "Docs" })).toHaveAttribute("aria-current", "location");
     await nav.locator("summary").click();
     await expect(nav.getByRole("link", { name: /^Compute/ })).toBeVisible();
