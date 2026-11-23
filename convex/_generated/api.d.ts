@@ -23,6 +23,7 @@ import type * as crm from "../crm.js";
 import type * as crmTasks from "../crmTasks.js";
 import type * as crons from "../crons.js";
 import type * as depositRecovery from "../depositRecovery.js";
+import type * as events from "../events.js";
 import type * as finance from "../finance.js";
 import type * as launchGuard from "../launchGuard.js";
 import type * as ledger from "../ledger.js";
@@ -64,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   crmTasks: typeof crmTasks;
   crons: typeof crons;
   depositRecovery: typeof depositRecovery;
+  events: typeof events;
   finance: typeof finance;
   launchGuard: typeof launchGuard;
   ledger: typeof ledger;

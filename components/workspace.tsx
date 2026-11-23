@@ -376,7 +376,7 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
                       </span>
                       {item.dailyCap !== null ? usd(item.dailyCap) : "—"} /{" "}
                       {item.cap !== null ? usd(item.cap) : "—"}
-                      <small className="key-record-expiry">Today {creditBalance(item.todaySpent)}</small>
+                      <small className="key-record-expiry">Today {creditBalance(item.todaySpent ?? 0)}</small>
                     </td>
                     <td role="cell" className="key-record-action">
                       {!item.revoked && (
