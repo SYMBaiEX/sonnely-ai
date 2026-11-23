@@ -37,7 +37,11 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   await expect(page.getByText("npm install @sonnely/sdk", { exact: true })).toBeVisible();
   await expect(page.getByText("python -m pip install sonnely-sdk", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open Search", exact: true }).click();
-  await page.getByRole("dialog").getByRole("combobox").fill("Confidentiality");
+  const searchInput = page.getByRole("dialog").getByRole("combobox");
+  await expect(searchInput).toBeFocused();
+  await expect(searchInput).toHaveCSS("border-width", "0px");
+  await expect(searchInput).toHaveCSS("outline-style", "none");
+  await searchInput.fill("Confidentiality");
   await page.getByRole("option").filter({ hasText: "Confidentiality and attestation" }).first().click();
   await expect(page).toHaveURL(/\/docs\/attestation(?:#.*)?$/);
   const search = await request.get("/api/search?query=Blackboxes");
@@ -151,25 +155,26 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   await page.goto("/docs/streaming");
   const sidebar = page.getByRole("complementary", { name: "Documentation sidebar" });
   await expect(sidebar.locator(".docs-sidebar-section")).toHaveText(["Get started", "Inference", "Support"]);
-  await expect(sidebar.getByRole("link", { name: "Streaming and usage" })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  const currentLink = sidebar.getByRole("link", { name: "Streaming and usage" });
+  await expect(currentLink).toHaveAttribute("aria-current", "page");
+  await expect(currentLink).toHaveCSS("box-shadow", "none");
   const shell = page.locator(".docs-shell");
   const forest = shell.locator(".console-world");
   const visualizer = shell.locator(".ambient-visualizer");
   const motion = sidebar.getByRole("switch", { name: "Ambient motion" });
   const header = page.getByRole("banner", { name: "Sonnely" });
   await expect(shell).toHaveCSS("background-color", "rgb(12, 11, 14)");
-  await expect(header).toHaveCSS("background-color", "rgb(12, 11, 14)");
+  await expect(header).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(sidebar).toHaveCSS("background-color", "rgb(12, 11, 14)");
+  await expect(forest).toHaveCSS("position", "fixed");
+  await expect(forest).toHaveCSS("top", "0px");
   await expect(forest).toHaveCSS("background-image", /winter-night\.webp/);
   await expect(forest).toHaveCSS("animation-name", "workspace-scene-in");
   await expect(visualizer).toBeVisible();
   const switcher = header.getByRole("switch", { name: "Switch color theme" });
   await switcher.click();
   await expect(shell).toHaveCSS("background-color", "rgb(238, 240, 250)");
-  await expect(header).toHaveCSS("background-color", "rgb(238, 240, 250)");
+  await expect(header).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(sidebar).toHaveCSS("background-color", "rgb(238, 240, 250)");
   await expect(forest).toHaveCSS("background-image", /winter-day\.webp/);
   await motion.click();
@@ -191,6 +196,7 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   );
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(header).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(page.locator("#nd-subnav")).toHaveCSS("background-color", "rgb(238, 240, 250)");
   await page.getByRole("button", { name: "Open Sidebar" }).click();
   const mobile = page

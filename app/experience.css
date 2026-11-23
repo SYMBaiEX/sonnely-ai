@@ -140,6 +140,11 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   border: 0;
   background: transparent;
   box-shadow: none;
+  outline: none;
+  padding-inline: 0;
+}
+.command-search:has(input:focus-visible) > svg {
+  color: var(--accent);
 }
 .command-results {
   padding-top: 8px;

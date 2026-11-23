@@ -107,7 +107,11 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   ).toHaveText("Qwen 3.8 27B");
   await page.goto("/console");
   await page.getByRole("button", { name: "Quick navigation" }).click();
-  await page.getByRole("searchbox", { name: "Find a workspace page" }).fill("usage");
+  const commandInput = page.getByRole("searchbox", { name: "Find a workspace page" });
+  await expect(commandInput).toBeFocused();
+  await expect(commandInput).toHaveCSS("border-width", "0px");
+  await expect(commandInput).toHaveCSS("outline-style", "none");
+  await commandInput.fill("usage");
   await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("button", { name: "Usage", exact: true })).toBeFocused();
   await page.keyboard.press("Enter");

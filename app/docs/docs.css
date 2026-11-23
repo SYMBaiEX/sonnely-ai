@@ -68,12 +68,22 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   z-index: 35;
 }
 
-.docs-shell > .site-header,
 .docs-shell :is(#nd-sidebar[data-collapsed="false"], #nd-subnav) {
   background-color: var(--surface);
 }
 
 .docs-shell .site-nav a[aria-current="location"] {
+  color: var(--accent);
+}
+
+html:has(.docs-shell) input[aria-controls="fd-search-list"] {
+  border: 0;
+  background: transparent;
+  outline: none;
+  padding-inline: 0;
+}
+
+html:has(.docs-shell) div:has(> input[aria-controls="fd-search-list"]:focus-visible) > svg {
   color: var(--accent);
 }
 
@@ -394,7 +404,6 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
 }
 
 .docs-sidebar-link[aria-current="page"] {
-  box-shadow: inset 3px 0 0 var(--accent);
   background: var(--active-fill);
   border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
   color: var(--ink);
