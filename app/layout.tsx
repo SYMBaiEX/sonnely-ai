@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   description:
     "A Solana-native workspace for confidential inference, model discovery, and metered API access.",
   icons: {
-    icon: { url: "/brand/sonnely-crimson.svg", type: "image/svg+xml", sizes: "any" },
-    apple: { url: "/apple-icon.png?v=crimson", sizes: "180x180", type: "image/png" },
+    icon: { url: "/brand/sonnely-icon.svg", type: "image/svg+xml", sizes: "any" },
+    apple: { url: "/apple-icon.png?v=2", sizes: "180x180", type: "image/png" },
   },
 };
 

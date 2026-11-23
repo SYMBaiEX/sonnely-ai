@@ -1,11 +1,13 @@
 import Link from "next/link";
 
+export function BrandMark() {
+  return <span className="brand-icon" aria-hidden="true" />;
+}
+
 export function Brand({ href = "/" }: { href?: string }) {
   return (
     <Link href={href} className="brand" aria-label="Sonnely">
-      <span className="brand-icon" aria-hidden="true">
-        <img src="/brand/sonnely-crimson-192.png" width={34} height={34} alt="" />
-      </span>
+      <BrandMark />
       <span className="brand-wordmark" aria-hidden="true" />
     </Link>
   );

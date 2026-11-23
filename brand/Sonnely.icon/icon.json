@@ -1,19 +1,70 @@
 {
   "fill": {
-    "linear-gradient": [
-      "extended-srgb:0.17255,0.06667,0.10588,1.00000",
-      "extended-srgb:0.03922,0.03137,0.05098,1.00000"
-    ]
+    "automatic-gradient": "extended-srgb:0.12941,0.08235,0.13725,1.00000"
   },
   "groups": [
     {
-      "name": "Crimson glass",
+      "name": "Upper lens",
       "layers": [
-        { "name": "S ribbon", "image-name": "Ribbon.svg", "glass": true },
-        { "name": "Beveled reflections", "image-name": "Reflections.svg", "glass": false }
+        {
+          "glass": true,
+          "image-name": "upper.png",
+          "name": "Upper lens"
+        }
       ],
-      "specular": true
+      "specular": true,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.2
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.25
+      }
+    },
+    {
+      "name": "Lower lens",
+      "layers": [
+        {
+          "glass": true,
+          "image-name": "lower.png",
+          "name": "Lower lens"
+        }
+      ],
+      "specular": true,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.2
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.16
+      }
+    },
+    {
+      "name": "Frosted plate",
+      "layers": [
+        {
+          "glass": false,
+          "image-name": "plate.png",
+          "name": "Frosted plate"
+        }
+      ],
+      "specular": false,
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
     }
   ],
-  "supported-platforms": { "squares": "shared", "circles": ["watchOS"] }
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
 }

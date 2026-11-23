@@ -92,20 +92,17 @@ test("public routes and console work across desktop and mobile", async ({ page }
   }
   await page.setViewportSize({ width: 320, height: 720 });
   await page.goto("/");
-  await expect(page.locator(".site-nav .brand-icon img")).toBeVisible();
-  await expect(page.locator(".site-nav .brand-icon img")).toHaveAttribute(
-    "src",
-    "/brand/sonnely-crimson-192.png",
-  );
+  await expect(page.locator(".site-nav .brand-icon")).toBeVisible();
+  await expect(page.locator(".site-nav .brand-icon")).toHaveCSS("background-image", /sonnely-blue\.svg/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   await page.goto("/console");
-  await expect(page.locator(".compact-brand img")).toBeVisible();
+  await expect(page.locator(".compact-brand .brand-icon")).toBeVisible();
   await route.click();
   await expect(picker.getByRole("button", { name: "Apply route" })).toBeInViewport();
   await picker.getByRole("button", { name: "Cancel" }).click();
   await expect(route).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
-  await expect(page.locator(".compact-brand img")).toHaveAttribute("src", "/brand/sonnely-crimson-192.png");
+  await expect(page.locator(".compact-brand .brand-icon")).toHaveCSS("background-image", /sonnely-blue\.svg/);
 });
 
 test("Playground saves chats only after opt-in and restores the selected conversation", async ({ page }) => {
@@ -423,6 +420,7 @@ test("the NEAR directory distinguishes privacy routes and Sonnely availability",
 test("workspace setup accepts terms, saves a name and offers optional funding on mobile", async ({
   page,
 }) => {
+  await page.clock.setFixedTime(new Date("2026-12-01T12:00:00Z"));
   await page.setViewportSize({ width: 320, height: 720 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   const profile = {
@@ -465,6 +463,19 @@ test("workspace setup accepts terms, saves a name and offers optional funding on
   await setup.getByRole("checkbox").check();
   await accept.click();
   await setup.getByRole("textbox", { name: /Display name/ }).fill("River");
+  const theme = setup.getByRole("switch", { name: "Switch color theme" });
+  const scene = setup.locator("aside");
+  await expect(theme).toHaveAttribute("aria-checked", "false");
+  await expect(scene).toHaveCSS("background-image", /winter-night\.webp/);
+  await theme.click();
+  await expect(theme).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".console")).toHaveAttribute("data-theme", "light");
+  await expect(scene).toHaveCSS("background-image", /winter-day\.webp/);
+  await expect(scene).toHaveCSS("color", "rgb(23, 40, 88)");
+  await expect(setup.getByRole("textbox", { name: /Display name/ })).toHaveValue("River");
+  await theme.click();
+  await expect(page.locator(".console")).toHaveAttribute("data-theme", "dark");
+  await expect(scene).toHaveCSS("color", "rgb(255, 243, 241)");
   await setup.getByRole("button", { name: "Continue" }).click();
   await expect(setup.getByRole("heading", { name: "Add your first credits" })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);

@@ -5,6 +5,7 @@
   --feature-night: url("/sanctuary-night.webp");
   --art: var(--art-night);
   --feature-art: var(--feature-night);
+  --brand-art: url("/brand/sonnely-crimson.svg");
 }
 html[data-season="winter"] .theme-root {
   --art-day: url("/winter-day.webp");
@@ -16,12 +17,14 @@ html[data-initial-theme="light"] .theme-root,
 .theme-root[data-theme="light"] {
   --art: var(--art-day);
   --feature-art: var(--feature-day);
+  --brand-art: url("/brand/sonnely-blue.svg");
 }
 @media (prefers-color-scheme: light) {
   html[data-initial-theme="system"] .theme-root,
   .theme-root[data-theme="system"] {
     --art: var(--art-day);
     --feature-art: var(--feature-day);
+    --brand-art: url("/brand/sonnely-blue.svg");
   }
 }
 
@@ -654,10 +657,8 @@ html[data-initial-theme="light"] .theme-root,
   background: currentColor;
   mask: url("/brand/sonnely-wordmark.svg") center / contain no-repeat;
 }
-.brand-icon img {
-  display: block;
-  width: 100%;
-  height: 100%;
+.brand-icon {
+  background: var(--brand-art, url("/brand/sonnely-crimson.svg")) center / contain no-repeat;
 }
 /* The thumb carries the active lamp while the track keeps both modes visible. */
 .theme-switch {

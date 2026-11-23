@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Activity, ArrowLeft, ArrowRight, Check, KeyRound, MessageSquare, Wallet, X } from "lucide-react";
 import { TermsAcceptance } from "./terms-acceptance";
 import { request, WalletControl, type Session } from "./wallet";
+import { ThemeSwitch } from "./appearance";
+import { BrandMark } from "./brand";
 import styles from "./onboarding.module.css";
 
 const tour = [
@@ -121,7 +123,7 @@ export function Onboarding({
       <div className={styles.shell}>
         <aside className={styles.scene} aria-hidden="true">
           <div className={styles.brand}>
-            <img src="/brand/sonnely-crimson-192.png" width={34} height={34} alt="" /> Sonnely
+            <BrandMark /> Sonnely
           </div>
           <div className={styles.stage}>
             <div className={styles.orbit}>
@@ -153,15 +155,18 @@ export function Onboarding({
                 </li>
               ))}
             </ol>
-            <button
-              className={styles.close}
-              type="button"
-              onClick={close}
-              disabled={busy}
-              aria-label="Close setup"
-            >
-              <X size={19} />
-            </button>
+            <div className={styles.toolbarControls}>
+              <ThemeSwitch />
+              <button
+                className={styles.close}
+                type="button"
+                onClick={close}
+                disabled={busy}
+                aria-label="Close setup"
+              >
+                <X size={19} />
+              </button>
+            </div>
           </header>
           <div className={styles.step} key={step}>
             <h2 id="onboarding-title" ref={title} tabIndex={-1}>
