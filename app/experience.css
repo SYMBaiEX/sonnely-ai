@@ -476,149 +476,6 @@ html[data-initial-theme="light"] .theme-root,
   scroll-margin-top: var(--site-anchor-offset, 110px);
 }
 
-.preview-data figcaption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.preview-data figcaption svg {
-  color: var(--accent);
-}
-.workspace-visual {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: var(--raised);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-.workspace-visual > img {
-  position: absolute;
-  z-index: -2;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.workspace-visual::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: linear-gradient(155deg, var(--haze), color-mix(in srgb, var(--surface) 38%, transparent));
-}
-.workspace-previews {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(12px, 2.15vw, 28px);
-}
-.workspace-preview {
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  align-items: start;
-  gap: 6px;
-  min-width: 0;
-}
-.workspace-preview h3 {
-  font-size: clamp(17px, 1.55vw, 22px);
-}
-.workspace-preview > p {
-  color: var(--muted);
-  font-size: 14px;
-}
-.workspace-preview > .text-link {
-  min-height: 40px;
-  justify-self: start;
-}
-.workspace-visual {
-  display: grid;
-  place-items: center;
-  padding: clamp(12px, 2vw, 24px);
-  margin-bottom: 5px;
-  min-height: 194px;
-}
-.workspace-visual > img {
-  transition: transform 450ms var(--ease-out);
-}
-@media (hover: hover) {
-  .workspace-preview:hover .workspace-visual > img {
-    transform: scale(1.055);
-  }
-}
-.preview-data {
-  width: min(100%, 310px);
-  margin: 0;
-  padding: 13px;
-  border-radius: 8px;
-}
-.preview-data figcaption {
-  justify-content: start;
-  font-size: 13px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--line);
-}
-.preview-data figcaption small {
-  margin-inline-start: auto;
-  color: var(--muted);
-}
-.preview-name {
-  padding: 10px 0 6px;
-  font-size: 14px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.preview-data dl {
-  display: grid;
-  gap: 6px;
-  font-size: 12px;
-}
-.preview-data dl div {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-}
-.preview-data dt {
-  color: var(--muted);
-}
-.preview-data dd {
-  font-weight: 560;
-  font-variant-numeric: tabular-nums;
-}
-.preview-usage-bar {
-  display: flex;
-  gap: 3px;
-  margin: 1px 0 8px;
-  height: 5px;
-}
-.preview-usage-bar span:first-child {
-  width: 87%;
-  border-radius: 5px;
-  background: var(--action);
-}
-.preview-usage-bar span:last-child {
-  flex: 1;
-  border-radius: 5px;
-  background: var(--line);
-}
-
-@media (max-width: 720px) {
-  .workspace-previews {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-  }
-  .workspace-visual {
-    min-height: 172px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .workspace-preview:hover .workspace-visual > img {
-    transform: none;
-  }
-}
-
 .catalog-list {
   container: catalog / inline-size;
   scroll-margin-top: var(--site-anchor-offset, 110px);
@@ -802,41 +659,86 @@ html[data-initial-theme="light"] .theme-root,
   width: 100%;
   height: 100%;
 }
+/* The thumb carries the active lamp while the track keeps both modes visible. */
 .theme-switch {
+  --switch-edge: 4px;
+  --switch-glow: #f47b9c;
+  --switch-metal: #59273d;
+  --switch-core: #291521;
+  --switch-lit: #ffe8f1;
   position: relative;
   isolation: isolate;
-  flex: 0 0 auto;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   place-items: center;
-  width: 64px;
-  height: 40px;
-  padding: 4px;
+  width: 74px;
+  height: 44px;
+  padding: var(--switch-edge);
   border: 1px solid var(--line);
-  background: var(--glass);
-  box-shadow: inset 0 1px 0 var(--rim);
   border-radius: 999px;
+  background: linear-gradient(180deg, var(--surface), var(--card));
   color: var(--muted);
+  box-shadow:
+    inset 0 2px 5px var(--shadow),
+    0 1px 0 var(--rim);
+  cursor: pointer;
 }
-.theme-switch::before {
-  content: "";
+
+.theme-switch[data-light="true"] {
+  --switch-glow: #d78d27;
+  --switch-metal: #ffd57e;
+  --switch-core: #fff5d5;
+  --switch-lit: #733900;
+}
+
+.theme-switch-thumb {
   position: absolute;
+  inset: var(--switch-edge) auto var(--switch-edge) var(--switch-edge);
   z-index: -1;
-  left: 4px;
-  top: 4px;
-  bottom: 4px;
-  width: calc(50% - 4px);
-  border-radius: 999px;
-  background: var(--active-fill);
-  border: 1px solid var(--rim);
-  transition: transform 0.24s var(--ease-out);
+  width: calc((100% - 2 * var(--switch-edge)) / 2);
+  border: 1px solid color-mix(in srgb, var(--switch-glow) 76%, transparent);
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 10%, var(--switch-metal), var(--switch-core) 76%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--switch-glow) 42%, transparent),
+    0 0 12px color-mix(in srgb, var(--switch-glow) 36%, transparent);
 }
-.theme-switch[data-light="true"]::before {
+
+.theme-switch[data-light="true"] .theme-switch-thumb {
   transform: translateX(100%);
 }
-.theme-switch[data-light="false"] svg:first-child,
-.theme-switch[data-light="true"] svg:last-child {
-  color: var(--ink);
+
+.theme-switch-icon {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.theme-switch[data-light="false"] .theme-switch-moon,
+.theme-switch[data-light="true"] .theme-switch-sun {
+  color: var(--switch-lit);
+  filter: drop-shadow(0 0 3px var(--switch-glow));
+}
+
+.theme-switch:hover {
+  border-color: color-mix(in srgb, var(--line) 55%, var(--switch-glow));
+}
+
+.theme-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .theme-switch-thumb {
+    transition:
+      transform 240ms var(--ease-out),
+      box-shadow 180ms ease;
+  }
+  .theme-switch:active .theme-switch-thumb {
+    scale: 0.9;
+  }
 }
 .console-theme {
   display: inline-flex;
@@ -1045,8 +947,7 @@ html[data-initial-theme="light"] .theme-root,
 }
 @media (max-width: 620px) {
   .theme-switch {
-    width: 55px;
-    height: 44px;
+    width: 62px;
   }
   .journal-feature {
     grid-template-columns: minmax(0, 1fr);

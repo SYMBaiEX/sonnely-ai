@@ -130,86 +130,88 @@ export function HomeDemo() {
       </div>
       <div className="home-api" data-reveal="fade">
         <div className="home-api-endpoint">
-          <span>POST</span>
+          <span className="home-api-method">POST</span>
           <code>{completionPath}</code>
         </div>
-        <div className="home-api-request">
-          <div className="home-api-pane-head">
-            <div
-              className="home-api-segments"
-              role="group"
-              aria-label="Request language"
-              style={{ "--segment": languages.indexOf(language) } as CSSProperties}
-            >
-              {languages.map((option) => (
-                <button
-                  type="button"
-                  key={option}
-                  aria-pressed={language === option}
-                  onClick={() => setLanguage(option)}
-                >
-                  {option}
-                </button>
-              ))}
+        <div className="home-api-panes">
+          <div className="home-api-request">
+            <div className="home-api-pane-head">
+              <div
+                className="home-api-segments"
+                role="group"
+                aria-label="Request language"
+                style={{ "--segment": languages.indexOf(language) } as CSSProperties}
+              >
+                {languages.map((option) => (
+                  <button
+                    type="button"
+                    key={option}
+                    aria-pressed={language === option}
+                    onClick={() => setLanguage(option)}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+              <CopyButton key={language + active} value={lines.join("\n")} label="Copy request" />
             </div>
-            <CopyButton key={language + active} value={lines.join("\n")} label="Copy request" />
-          </div>
-          <pre className="home-api-code" aria-label={language + " request"}>
-            <code>
-              {lines.map((line, index) => (
-                <span className="home-api-line" key={index}>
-                  <span aria-hidden="true">{index + 1}</span>
-                  <span>
-                    {line.split(codeToken).map((token, index) =>
-                      index % 2 === 0 ? (
-                        token
-                      ) : (
-                        <span
-                          className={token.startsWith('"') ? "home-api-string" : "home-api-keyword"}
-                          key={index}
-                        >
-                          {token}
-                        </span>
-                      ),
-                    )}
+            <pre className="home-api-code" aria-label={language + " request"}>
+              <code>
+                {lines.map((line, index) => (
+                  <span className="home-api-line" key={index}>
+                    <span aria-hidden="true">{index + 1}</span>
+                    <span>
+                      {line.split(codeToken).map((token, index) =>
+                        index % 2 === 0 ? (
+                          token
+                        ) : (
+                          <span
+                            className={token.startsWith('"') ? "home-api-string" : "home-api-keyword"}
+                            key={index}
+                          >
+                            {token}
+                          </span>
+                        ),
+                      )}
+                    </span>
                   </span>
-                </span>
-              ))}
-            </code>
-          </pre>
-        </div>
-        <div className="home-api-response" aria-labelledby="home-api-response-title">
-          <div className="home-api-pane-head">
-            <h3 id="home-api-response-title">Sample response</h3>
-            <button
-              className="button quiet small"
-              type="button"
-              aria-pressed={showJson}
-              onClick={() => setShowJson(!showJson)}
-            >
-              JSON
-            </button>
+                ))}
+              </code>
+            </pre>
           </div>
-          <div className="home-api-result" aria-live="polite">
-            {showJson ? (
-              <pre key={active} aria-label="Sample response JSON">
-                <code>{JSON.stringify(sampleResponse, null, 2)}</code>
-              </pre>
-            ) : (
-              <p key={active} className={active === 1 ? "mono" : undefined}>
-                {output}
-              </p>
-            )}
-          </div>
-          <div className="home-api-response-footer">
-            <span>{model.name}</span>
-            <Link
-              className="text-link"
-              href={"/console?model=" + encodeURIComponent(model.id)}
-              aria-label={"Open " + model.name + " in playground"}
-            >
-              Open in playground <ArrowUpRight size={14} aria-hidden />
-            </Link>
+          <div className="home-api-response" aria-labelledby="home-api-response-title">
+            <div className="home-api-pane-head">
+              <h3 id="home-api-response-title">Sample response</h3>
+              <button
+                className="button quiet small"
+                type="button"
+                aria-pressed={showJson}
+                onClick={() => setShowJson(!showJson)}
+              >
+                JSON
+              </button>
+            </div>
+            <div className="home-api-result" aria-live="polite">
+              {showJson ? (
+                <pre key={active} aria-label="Sample response JSON">
+                  <code>{JSON.stringify(sampleResponse, null, 2)}</code>
+                </pre>
+              ) : (
+                <p key={active} className={active === 1 ? "mono" : undefined}>
+                  {output}
+                </p>
+              )}
+            </div>
+            <div className="home-api-response-footer">
+              <span>{model.name}</span>
+              <Link
+                className="text-link"
+                href={"/console?model=" + encodeURIComponent(model.id)}
+                aria-label={"Open " + model.name + " in playground"}
+              >
+                Open in playground <ArrowUpRight size={14} aria-hidden />
+              </Link>
+            </div>
           </div>
         </div>
       </div>

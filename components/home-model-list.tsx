@@ -6,7 +6,7 @@ import { formatRate, markedUpRates } from "@/lib/pricing";
 
 export function HomeModelList() {
   return (
-    <section className="section" aria-labelledby="home-models-heading">
+    <section className="section home-models" aria-labelledby="home-models-heading">
       <div className="section-head">
         <h2 id="home-models-heading">Choose your model.</h2>
         <Link href="/models#available-models" className="text-link">
@@ -16,9 +16,9 @@ export function HomeModelList() {
       <div className="home-model-catalog" data-reveal="fade">
         <div className="home-model-columns" aria-hidden="true">
           <span>Model</span>
-          <span>Inference</span>
+          <span>Privacy route</span>
           <span>Context window</span>
-          <span>Input / output per 1M</span>
+          <span>Input / output per 1M tokens</span>
         </div>
         <ul className="home-model-list" role="list">
           {models.map((model) => {

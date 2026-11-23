@@ -40,7 +40,9 @@ export default function Home() {
         <HomeDemo />
         <nav className="home-platform" data-reveal="fade" aria-label="Platform integrations">
           <Link href="/docs/billing">
-            <Wallet size={18} aria-hidden="true" />
+            <span className="home-platform-icon">
+              <Wallet size={18} aria-hidden="true" />
+            </span>
             <span>
               <strong>Solana</strong>
               <small>Wallet sign-in and USDC funding</small>
@@ -48,7 +50,9 @@ export default function Home() {
             <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
           <Link href="/inference#routing">
-            <Fingerprint size={18} aria-hidden="true" />
+            <span className="home-platform-icon">
+              <Fingerprint size={18} aria-hidden="true" />
+            </span>
             <span>
               <strong>Confidential providers</strong>
               <small>NEAR AI, Phala, and Tinfoil</small>
@@ -56,7 +60,9 @@ export default function Home() {
             <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
           <Link href="/docs/api">
-            <Terminal size={18} aria-hidden="true" />
+            <span className="home-platform-icon">
+              <Terminal size={18} aria-hidden="true" />
+            </span>
             <span>
               <strong>OpenAI-compatible API</strong>
               <small>Chat Completions</small>
@@ -68,23 +74,23 @@ export default function Home() {
         <HomeModelList />
         <HomeWorkloads />
         <WorkspacePreview />
-        <PlatformLinks />
+        <PlatformLinks className="home-directory" />
         <HomeResources />
-        <section className="closing home-closing" data-reveal="fade">
+        <section className="closing home-closing" aria-labelledby="home-closing-heading" data-reveal="fade">
           <Scene />
           <div>
-            <h2>Start in the console.</h2>
+            <h2 id="home-closing-heading">Start in the console.</h2>
             <p>
               Try a sample in the playground. When you’re ready to run a live request, connect your Solana
               wallet.
             </p>
           </div>
           <div className="actions">
-            <Link className="button quiet" href="/docs/sdks">
-              SDKs <ArrowUpRight size={15} aria-hidden="true" />
-            </Link>
             <Link className="button accent" href="/console">
               Open console <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+            <Link className="button quiet" href="/docs/sdks">
+              SDKs <ArrowUpRight size={15} aria-hidden="true" />
             </Link>
           </div>
         </section>

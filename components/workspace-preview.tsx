@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState, type KeyboardEvent } from "react";
 import { Activity, ArrowUpRight, KeyRound, Wallet } from "lucide-react";
 
 function KeyPreview() {
@@ -74,6 +77,7 @@ function PaymentPreview() {
 const cards = [
   {
     id: "keys",
+    label: "API keys",
     previewTitle: "API key",
     icon: KeyRound,
     title: "Give each app its own key",
@@ -84,6 +88,7 @@ const cards = [
   },
   {
     id: "usage",
+    label: "Usage",
     previewTitle: "Request ledger",
     icon: Activity,
     title: "See what a request cost",
@@ -95,6 +100,7 @@ const cards = [
   },
   {
     id: "funding",
+    label: "Funding",
     previewTitle: "Solana Pay receipt",
     icon: Wallet,
     title: "Fund from a Solana wallet",
@@ -106,33 +112,94 @@ const cards = [
 ];
 
 export function WorkspacePreview() {
+  const [active, setActive] = useState(0);
+
+  function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number;
+    switch (event.key) {
+      case "ArrowUp":
+        next = (index + cards.length - 1) % cards.length;
+        break;
+      case "ArrowDown":
+        next = (index + 1) % cards.length;
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = cards.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    setActive(next);
+    event.currentTarget.parentElement?.querySelectorAll("button")[next]?.focus();
+  }
+
   return (
-    <section className="section" aria-labelledby="workspace-title">
+    <section className="section home-workspace" aria-labelledby="workspace-title">
       <div className="section-head">
         <h2 id="workspace-title">Keys, usage, and credits.</h2>
         <Link className="text-link" href="/pricing">
           See pricing <ArrowUpRight size={16} />
         </Link>
       </div>
-      <div className="workspace-previews" role="list">
-        {cards.map(({ id, previewTitle, icon: Icon, title, description, link, action, Preview }) => (
-          <article className="workspace-preview" role="listitem" key={id} data-reveal="rise">
-            <div className={"workspace-visual workspace-visual-" + id}>
-              <img src={"/homepage/" + id + ".webp"} alt="" width={840} height={560} loading="lazy" />
-              <figure className="preview-data glass">
-                <figcaption>
-                  <Icon size={15} aria-hidden /> <strong>{previewTitle}</strong>
-                  <small>Example</small>
-                </figcaption>
-                <Preview />
-              </figure>
-            </div>
-            <h3>{title}</h3>
-            <p>{description}</p>
-            <Link className="text-link" href={link}>
-              {action} <ArrowUpRight size={16} />
-            </Link>
-          </article>
+      <div className="workspace-showcase" data-reveal="fade">
+        <div
+          className="workspace-tabs"
+          role="tablist"
+          aria-orientation="vertical"
+          aria-label="Workspace preview"
+        >
+          {cards.map(({ id, label, icon: Icon }, index) => (
+            <button
+              id={"workspace-tab-" + id}
+              type="button"
+              role="tab"
+              key={id}
+              aria-selected={active === index}
+              aria-controls={"workspace-panel-" + id}
+              tabIndex={active === index ? 0 : -1}
+              onClick={() => setActive(index)}
+              onKeyDown={(event) => navigate(event, index)}
+            >
+              <Icon size={18} aria-hidden /> {label}
+            </button>
+          ))}
+        </div>
+        {cards.map(({ id, previewTitle, icon: Icon, title, description, link, action, Preview }, index) => (
+          <div
+            className="workspace-preview"
+            id={"workspace-panel-" + id}
+            role="tabpanel"
+            aria-labelledby={"workspace-tab-" + id}
+            hidden={index !== active}
+            tabIndex={0}
+            key={id}
+          >
+            {index === active && (
+              <>
+                <div className="workspace-visual">
+                  <img src={"/homepage/" + id + ".webp"} alt="" width={840} height={560} loading="lazy" />
+                  <figure className="preview-data">
+                    <figcaption>
+                      <Icon size={15} aria-hidden /> <strong>{previewTitle}</strong>
+                      <small>Example</small>
+                    </figcaption>
+                    <Preview />
+                  </figure>
+                </div>
+                <div className="workspace-preview-copy">
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                  <Link className="text-link" href={link}>
+                    {action} <ArrowUpRight size={16} aria-hidden />
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
         ))}
       </div>
     </section>

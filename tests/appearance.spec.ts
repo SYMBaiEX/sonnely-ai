@@ -10,8 +10,13 @@ test("the theme follows the user across the site and all console pages", async (
   await expect(site).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-night\.webp/);
 
-  await switcher.click();
+  const thumb = switcher.locator(".theme-switch-thumb");
+  await expect(thumb).toHaveCSS("transform", "none");
+  await switcher.focus();
+  await page.keyboard.press("Space");
   await expect(site).toHaveAttribute("data-theme", "light");
+  await expect(switcher).toHaveAttribute("aria-checked", "true");
+  await expect(thumb).toHaveCSS("transform", /^matrix/);
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-day\.webp/);
   for (const route of [
     "",
@@ -319,19 +324,20 @@ test("the homepage offers a copyable request and links to the selected model", a
     await list.evaluate((element) => element.clientWidth),
   );
   const previews = page.getByRole("region", { name: "Keys, usage, and credits." });
-  await expect(previews.locator("figure")).toHaveCount(3);
-  await previews.scrollIntoViewIfNeeded();
+  const keys = previews.getByRole("tab", { name: "API keys" });
+  await expect(keys).toHaveAttribute("aria-selected", "true");
+  await keys.focus();
+  await keys.press("ArrowDown");
+  const usage = previews.getByRole("tab", { name: "Usage" });
+  await expect(usage).toBeFocused();
+  await expect(previews.getByRole("tabpanel", { name: "Usage" })).toContainText("Input tokens");
+  await usage.press("End");
+  const funding = previews.getByRole("tabpanel", { name: "Funding" });
+  await expect(funding).toContainText("Finalized");
+  await funding.scrollIntoViewIfNeeded();
   await expect
-    .poll(() =>
-      previews
-        .locator("img")
-        .evaluateAll((images) =>
-          images.every(
-            (image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
-          ),
-        ),
-    )
-    .toBe(true);
+    .poll(() => funding.locator("img").evaluate((image: HTMLImageElement) => image.naturalWidth))
+    .toBeGreaterThan(0);
   const faq = page.getByRole("region", { name: "Good to know." });
   const firstQuestion = faq.locator("summary").filter({ hasText: "What can I try without a wallet?" });
   await firstQuestion.focus();

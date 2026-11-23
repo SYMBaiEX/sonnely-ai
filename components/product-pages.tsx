@@ -29,10 +29,16 @@ const products = [
   },
 ];
 
-export function PlatformLinks({ compact = false }: { compact?: boolean }) {
+export function PlatformLinks({
+  compact = false,
+  className = "",
+}: {
+  compact?: boolean;
+  className?: string;
+}) {
   return (
     <section
-      className={compact ? styles.related : "section " + styles.index}
+      className={(compact ? styles.related : "section " + styles.index) + " " + className}
       aria-labelledby="platform-links-heading"
     >
       <div className={styles.indexIntro}>

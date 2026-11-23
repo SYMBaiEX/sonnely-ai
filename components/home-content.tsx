@@ -143,9 +143,11 @@ const workloads = [
 export function HomeCapabilities() {
   return (
     <section className="section home-capabilities" aria-labelledby="capabilities-heading">
-      <p className="eyebrow">The gateway</p>
       <header className="section-head">
-        <h2 id="capabilities-heading">From request to receipt.</h2>
+        <div>
+          <p className="eyebrow">The gateway</p>
+          <h2 id="capabilities-heading">From request to receipt.</h2>
+        </div>
         <p>Pick where a request runs, set a limit, and see what you were charged.</p>
       </header>
       <ul className="gateway-grid" role="list">
@@ -186,7 +188,9 @@ export function HomeWorkloads() {
       <div className="home-workload-grid">
         {workloads.map(({ icon: Icon, title, prompt, model }) => (
           <article className="workload-card" key={title} data-reveal="rise">
-            <Icon size={20} aria-hidden="true" />
+            <span className="home-feature-icon">
+              <Icon size={20} aria-hidden="true" />
+            </span>
             <h3>{title}</h3>
             <blockquote>“{prompt}”</blockquote>
             <Link className="text-link" href={"/console?model=" + encodeURIComponent(model.id)}>
@@ -204,7 +208,7 @@ const featured = ["read-a-gateway-trace", "choose-a-model", "credits-and-quotes"
 export function HomeResources() {
   return (
     <>
-      <section className="section" aria-labelledby="guides-heading">
+      <section className="section home-guides" aria-labelledby="guides-heading">
         <div className="section-head">
           <h2 id="guides-heading">Practical guides.</h2>
           <Link className="text-link" href="/blog">

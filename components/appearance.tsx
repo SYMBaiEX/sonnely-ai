@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { Moon, Sun } from "lucide-react";
 
 import { readTheme, themeKey, type Theme } from "@/lib/appearance";
 
 import { AmbientVisualizer, useAmbientMotion } from "./ambient-motion";
+import { ThemeControl } from "./theme-control";
 
 const changeEvent = "sonnely:theme";
 
@@ -52,18 +52,5 @@ export function ThemeSwitch() {
     return () => media.removeEventListener("change", update);
   }, []);
   const light = theme === "light" || (theme === "system" && systemLight);
-  return (
-    <button
-      className="theme-switch"
-      type="button"
-      role="switch"
-      aria-checked={light}
-      data-light={light}
-      onClick={() => setTheme(light ? "dark" : "light")}
-      aria-label="Switch color theme"
-    >
-      <Moon size={15} aria-hidden />
-      <Sun size={15} aria-hidden />
-    </button>
-  );
+  return <ThemeControl light={light} toggle={() => setTheme(light ? "dark" : "light")} />;
 }
