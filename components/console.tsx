@@ -21,7 +21,6 @@ import {
   ShieldCheck,
   Users,
   Wallet,
-  X,
 } from "lucide-react";
 import { computeProducts, isComputeProduct, type ComputeFeatures } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
@@ -273,13 +272,15 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
             <WalletControl session={session} refresh={refresh} checkingAccount={checkingAccount} />
             <button
               type="button"
-              className="button quiet console-menu-toggle"
+              className="mobile-menu-control console-menu-toggle"
               aria-expanded={navOpen}
               aria-controls="console-navigation"
               aria-label={navOpen ? "Close workspace menu" : "Open workspace menu"}
               onClick={(event) => toggleNavigation(event.currentTarget)}
             >
-              {navOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+              <span className="mobile-menu-glyph" aria-hidden="true">
+                <span />
+              </span>
             </button>
           </div>
         </header>

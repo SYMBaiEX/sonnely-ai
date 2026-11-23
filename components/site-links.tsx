@@ -11,17 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ArrowUpRight,
-  Box,
-  ChevronDown,
-  Container,
-  Fingerprint,
-  Menu,
-  Radio,
-  Terminal,
-  X,
-} from "lucide-react";
+import { ArrowUpRight, Box, ChevronDown, Container, Fingerprint, Radio, Terminal } from "lucide-react";
 import { isComputeProduct, type ComputeFeatures } from "@/lib/compute-features";
 import { isProductPage } from "@/lib/product-pages";
 import styles from "./site-links.module.css";
@@ -189,7 +179,7 @@ export function SiteLinks({
         {consoleAction}
         <button
           ref={mobileToggle}
-          className={styles.mobileToggle}
+          className="mobile-menu-control"
           type="button"
           aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
           aria-controls={navigationId}
@@ -202,7 +192,9 @@ export function SiteLinks({
             }
           }}
         >
-          {mobileOpen ? <X size={21} aria-hidden="true" /> : <Menu size={21} aria-hidden="true" />}
+          <span className="mobile-menu-glyph" aria-hidden="true">
+            <span />
+          </span>
         </button>
       </div>
     </>

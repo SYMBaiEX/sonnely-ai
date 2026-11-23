@@ -87,17 +87,32 @@ test("the shared docs header leads to the site and console on desktop and mobile
     const nav = header.getByRole("navigation", { name: "Main navigation" });
     const logo = header.getByRole("link", { name: "Sonnely", exact: true });
     const theme = header.getByRole("switch", { name: "Switch color theme" });
+    const thumb = theme.locator(".theme-switch-thumb");
+    const hamburger = header.getByRole("button", { name: "Open navigation", exact: true });
     await expect(logo).toHaveAttribute("href", "https://sonnely.com");
     await expect(logo.locator(".brand-wordmark")).toBeVisible();
     await expect(logo.locator(".brand-wordmark")).toHaveCSS("mask-image", /sonnely-wordmark\.svg\?v=2/);
     await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-crimson\.svg/);
+    if (width === 320) {
+      await expect(thumb).toHaveCSS("width", "34px");
+      await expect(thumb).toHaveCSS("height", "34px");
+      await expect(theme).toHaveCSS("height", "44px");
+      await expect(hamburger).toHaveCSS("height", "44px");
+      await expect(hamburger).toBeInViewport({ ratio: 1 });
+    }
     await theme.click();
     await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-blue\.svg/);
+    if (width === 320) {
+      await expect(thumb).toHaveCSS("transform", "matrix(1, 0, 0, 1, 38, 0)");
+    }
     await theme.click();
     await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-crimson\.svg/);
     if (width === 320) {
       await expect(nav).toBeHidden();
-      await header.getByRole("button", { name: "Open navigation", exact: true }).click();
+      await hamburger.click();
+      const close = header.getByRole("button", { name: "Close navigation", exact: true });
+      await expect(close).toHaveAttribute("aria-expanded", "true");
+      await expect(close.locator(".mobile-menu-glyph > span")).toHaveCSS("opacity", "0");
     }
     await expect(nav.getByRole("link", { name: "Docs" })).toHaveAttribute("aria-current", "location");
     await nav.locator("summary").click();
