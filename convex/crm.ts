@@ -27,12 +27,18 @@ const identity = v.object({
   role: v.string(),
   onboarding: v.optional(v.union(v.literal("pending"), v.literal("fund"), v.literal("later"))),
 });
-const listed = v.object({ ...identity.fields, flags: v.array(v.string()) });
+const listed = v.object({
+  ...identity.fields,
+  flags: v.array(v.string()),
+  funded: v.boolean(),
+  active: v.boolean(),
+});
 const customerFilter = v.object({
   flag: v.optional(v.string()),
   funded: v.optional(v.union(v.literal("any"), v.literal("funded"), v.literal("unfunded"))),
   active: v.optional(v.boolean()),
 });
+const customerSort = v.union(v.literal("recent"), v.literal("spend"), v.literal("balance"));
 const trace = v.object({
   id: v.id("usage"),
   account: v.id("accounts"),
@@ -190,6 +196,7 @@ export const customers = query({
     ...auth,
     search: v.string(),
     filter: v.optional(customerFilter),
+    sort: v.optional(customerSort),
     page: paginationOptsValidator,
   },
   returns: v.object({ page: v.array(listed), ...paging }),
@@ -210,51 +217,78 @@ export const customers = query({
     const funded =
       args.filter?.funded === "funded" || args.filter?.funded === "unfunded" ? args.filter.funded : undefined;
     const active = args.filter?.active;
-    if (!flag && !funded && active === undefined) {
+    const sort = args.sort ?? "recent";
+    const since = Date.now() - 30 * 86_400_000;
+    const signals = async (account: Id<"accounts">) => {
+      const [deposit, request] = await Promise.all([
+        ctx.db
+          .query("deposits")
+          .withIndex("by_account_cluster_signature", (q) =>
+            q.eq("account", account).eq("cluster", "mainnet").gt("signature", undefined),
+          )
+          .first(),
+        ctx.db
+          .query("usage")
+          .withIndex("by_account_status_time", (q) =>
+            q.eq("account", account).eq("status", "complete").gt("_creationTime", since),
+          )
+          .first(),
+      ]);
+      return { funded: Boolean(deposit), active: Boolean(request) };
+    };
+    if (!flag && !funded && active === undefined && sort === "recent") {
       const result = await rows.paginate({ ...args.page, numItems: 30 });
       return {
         page: await Promise.all(
           result.page.map(async (row) => ({
             ...customerDoc(row),
             flags: await flagNames(ctx, row._id),
+            ...(await signals(row._id)),
           })),
         ),
         isDone: result.isDone,
         continueCursor: result.continueCursor,
       };
     }
-    // Filtered scans cap at 200 recent candidates and skip cursor paging.
-    const since = Date.now() - 30 * 86_400_000;
+    // Filtered and sorted scans cap at 200 recent candidates and skip cursor paging.
     const enriched = await Promise.all(
       (await rows.take(200)).map(async (row) => {
-        const [flags, deposit, request] = await Promise.all([
-          flagNames(ctx, row._id),
-          ctx.db
-            .query("deposits")
-            .withIndex("by_account_cluster_signature", (q) =>
-              q.eq("account", row._id).eq("cluster", "mainnet").gt("signature", undefined),
-            )
-            .first(),
-          ctx.db
-            .query("usage")
-            .withIndex("by_account_status_time", (q) =>
-              q.eq("account", row._id).eq("status", "complete").gt("_creationTime", since),
-            )
-            .first(),
-        ]);
-        return { row, flags, funded: Boolean(deposit), active: Boolean(request) };
+        const [flags, signal] = await Promise.all([flagNames(ctx, row._id), signals(row._id)]);
+        return { row, flags, ...signal };
       }),
     );
+    const matches = enriched.filter(
+      (entry) =>
+        (!flag || entry.flags.includes(flag)) &&
+        (!funded || (funded === "funded") === entry.funded) &&
+        (active === undefined || entry.active === active),
+    );
+    const scored = await Promise.all(
+      matches.map(async (entry) => ({
+        ...entry,
+        score:
+          sort === "balance"
+            ? entry.row.balance
+            : sort === "spend"
+              ? (
+                  await ctx.db
+                    .query("usage")
+                    .withIndex("by_account_status_time", (q) =>
+                      q.eq("account", entry.row._id).eq("status", "complete"),
+                    )
+                    .collect()
+                ).reduce((sum, usage) => sum + usage.cost, 0)
+              : 0,
+      })),
+    );
+    if (sort !== "recent") scored.sort((a, b) => b.score - a.score);
     return {
-      page: enriched
-        .filter(
-          (entry) =>
-            (!flag || entry.flags.includes(flag)) &&
-            (!funded || (funded === "funded") === entry.funded) &&
-            (active === undefined || entry.active === active),
-        )
-        .slice(0, Math.min(args.page.numItems, 30))
-        .map((entry) => ({ ...customerDoc(entry.row), flags: entry.flags })),
+      page: scored.slice(0, Math.min(args.page.numItems, 30)).map((entry) => ({
+        ...customerDoc(entry.row),
+        flags: entry.flags,
+        funded: entry.funded,
+        active: entry.active,
+      })),
       isDone: true,
       continueCursor: "",
     };

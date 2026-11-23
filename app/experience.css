@@ -1899,6 +1899,8 @@ details.stack-panel[open] > summary.crm-section-head::after {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
 /* === customer360 === */
 
 .crm-head {
@@ -2051,4 +2053,91 @@ details.stack-panel[open] > summary.crm-section-head::after {
 .cell-copy > code {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* === customers-surface === */
+
+.crm-customer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.crm-cell-avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+}
+
+.crm-cell-avatar-0 {
+  background: light-dark(#e7eefb, #2a3852);
+  color: light-dark(#3a5aa6, #b7c9ee);
+}
+
+.crm-cell-avatar-1 {
+  background: light-dark(#e6f2ea, #25392d);
+  color: light-dark(#2f7d4f, #9fd2b4);
+}
+
+.crm-cell-avatar-2 {
+  background: light-dark(#f6ecdd, #3e3224);
+  color: light-dark(#9a6b16, #e3c084);
+}
+
+.crm-cell-avatar-3 {
+  background: light-dark(#f2e7f3, #3a2a42);
+  color: light-dark(#83488a, #d4a6dc);
+}
+
+.crm-cell-avatar-4 {
+  background: light-dark(#e3eff0, #223a3c);
+  color: light-dark(#2b6b70, #97ccd1);
+}
+
+.crm-segments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.crm-chip {
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: 500 12px var(--mono);
+  cursor: pointer;
+}
+
+.crm-chip:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.crm-chip.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--accent);
+}
+
+.crm-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.crm-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
 }
