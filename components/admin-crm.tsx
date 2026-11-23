@@ -38,7 +38,7 @@ const outcomes: Record<string, string> = {
   phala_route_mismatch: "Phala serving route mismatch",
 };
 
-function useCrm<T>(route: string, revision: number) {
+export function useCrm<T>(route: string, revision: number) {
   const [state, setState] = useState<{ route: string; revision: number; data?: T; error?: string }>();
   useEffect(() => {
     let active = true;

@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { auth, requireAdmin, requireOperator, walletRole } from "./access";
+import { recordAudit } from "./events";
 import { termsVersion } from "../lib/policy";
 import { firstConversion } from "./referralPipeline";
 import { taskDoc } from "./crmTasks";
@@ -442,8 +443,16 @@ export const addNote = mutation({
     const admin = await requireAdmin(ctx, args);
     const note = args.note.trim();
     if (!note || note.length > 2000) throw new ConvexError("Write a note of up to 2,000 characters.");
-    if (!(await ctx.db.get(args.account))) throw new ConvexError("Account unavailable.");
+    const account = await ctx.db.get(args.account);
+    if (!account) throw new ConvexError("Account unavailable.");
     await ctx.db.insert("crmEvents", { admin: admin._id, account: args.account, kind: "note", note });
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "crm.note",
+      targetKind: "account",
+      targetId: args.account,
+      summary: "Note added to " + account.wallet,
+    });
     return null;
   },
 });
@@ -494,6 +503,13 @@ export const updateTicket = mutation({
       ticket: ticket._id,
       kind: "ticket",
       note: "Support status changed from " + old + " to " + args.state + assignment,
+    });
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "crm.ticket",
+      targetKind: "ticket",
+      targetId: args.id,
+      summary: "Ticket " + args.id + " -> " + args.state,
     });
     return null;
   },

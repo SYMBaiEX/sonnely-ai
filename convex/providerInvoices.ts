@@ -4,6 +4,7 @@ import { invoiceBillingReference, invoiceLineLimit, invoiceReference } from "../
 import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { auth, requireOperator } from "./access";
+import { recordAudit } from "./events";
 import { amendGatewayCost } from "./usageMaxOutbox";
 
 import { invoiceProvider, invoiceLineView, invoiceLine, invoiceInput } from "./providerInvoiceContract";
@@ -132,7 +133,15 @@ export const record = mutation({
   returns: v.array(invoiceLineView),
   handler: async (ctx, args) => {
     const admin = await requireOperator(ctx, args, "finance");
-    return recordInvoice(ctx, args, admin._id);
+    const lines = await recordInvoice(ctx, args, admin._id);
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "invoice.record",
+      targetKind: "invoice",
+      targetId: args.provider + "/" + args.invoiceId,
+      summary: "Recorded " + args.provider + " invoice " + args.invoiceId,
+    });
+    return lines;
   },
 });
 

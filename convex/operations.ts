@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import { internalAction, internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { alertFallbackConfigured, sendAlertFallback } from "./alertFallback";
 import { auth, requireAdmin, secret, service } from "./access";
+import { recordAudit } from "./events";
 import { applyNearCosts, providerCost } from "./finance";
 import { alertDeliveryState, gatewayIncident, operationState, providerCheck } from "./operationsContract";
 import { z } from "zod";
@@ -377,18 +378,26 @@ export const queueTest = mutation({
   args: auth,
   returns: v.id("alertDeliveries"),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args);
+    const admin = await requireAdmin(ctx, args);
     if (
       !(process.env.SONNELY_OPERATIONS_TOKEN && process.env.SONNELY_EMAIL_ENABLED === "true") &&
       !alertFallbackConfigured()
     )
       throw new ConvexError("External alerts are not configured.");
-    return enqueue(
+    const id = await enqueue(
       ctx,
       "test:" + Math.floor(Date.now() / (10 * minute)),
       "[Sonnely] Operational alert test",
       "This is a test of Sonnely’s scheduled alert delivery. No incident was opened.\n\nReview " + adminUrl,
     );
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "operations.alert-test",
+      targetKind: "operations",
+      targetId: id,
+      summary: "Queued a test alert email",
+    });
+    return id;
   },
 });
 
