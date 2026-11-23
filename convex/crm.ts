@@ -55,6 +55,36 @@ const support = v.object({
   state,
   assignedWallet: v.optional(v.string()),
 });
+const timelineItem = v.object({
+  id: v.union(v.id("accountEvents"), v.id("crmEvents")),
+  time: v.number(),
+  kind: v.string(),
+  actor: v.string(),
+  summary: v.optional(v.string()),
+  note: v.optional(v.string()),
+});
+const customerStats = v.object({
+  totalDeposits: v.number(),
+  totalSpend: v.number(),
+  requestCount: v.number(),
+  lastActiveAt: v.optional(v.number()),
+  referredCount: v.number(),
+});
+const referral = v.object({
+  id: v.id("accounts"),
+  wallet: v.string(),
+  username: v.optional(v.string()),
+  joined: v.number(),
+  funded: v.boolean(),
+  active: v.boolean(),
+});
+const apiKey = v.object({
+  id: v.id("keys"),
+  name: v.string(),
+  prefix: v.string(),
+  revoked: v.boolean(),
+  lastUsed: v.optional(v.number()),
+});
 const paging = { isDone: v.boolean(), continueCursor: v.string() };
 
 function customerDoc(row: Doc<"accounts">) {
@@ -216,14 +246,7 @@ export const customer = query({
           adminWallet: v.string(),
         }),
       ),
-      keys: v.array(
-        v.object({
-          id: v.id("keys"),
-          name: v.string(),
-          prefix: v.string(),
-          revoked: v.boolean(),
-        }),
-      ),
+      keys: v.array(apiKey),
       activity: v.array(
         v.object({
           id: v.id("crmEvents"),
@@ -244,6 +267,9 @@ export const customer = query({
           created: v.number(),
         }),
       ),
+      timeline: v.array(timelineItem),
+      stats: customerStats,
+      referrals: v.array(referral),
     }),
   ),
   handler: async (ctx, args) => {
@@ -253,13 +279,15 @@ export const customer = query({
     const [
       inviter,
       deposits,
-      traces,
+      usageRows,
       tickets,
       notes,
+      events,
+      referred,
+      keys,
       conversion,
       flagRows,
       adjustmentRows,
-      keyRows,
       followUps,
     ] = await Promise.all([
       account.invitedBy ? ctx.db.get(account.invitedBy) : null,
@@ -267,12 +295,12 @@ export const customer = query({
         .query("deposits")
         .withIndex("by_account", (q) => q.eq("account", account._id))
         .order("desc")
-        .take(12),
+        .take(500),
       ctx.db
         .query("usage")
         .withIndex("by_account", (q) => q.eq("account", account._id))
         .order("desc")
-        .take(12),
+        .take(5000),
       ctx.db
         .query("tickets")
         .withIndex("by_account", (q) => q.eq("account", account._id))
@@ -282,7 +310,21 @@ export const customer = query({
         .query("crmEvents")
         .withIndex("by_account", (q) => q.eq("account", account._id))
         .order("desc")
-        .take(20),
+        .take(40),
+      ctx.db
+        .query("accountEvents")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(40),
+      ctx.db
+        .query("accounts")
+        .withIndex("by_inviter", (q) => q.eq("invitedBy", account._id))
+        .collect(),
+      ctx.db
+        .query("keys")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(25),
       firstConversion(ctx, account._id),
       ctx.db
         .query("accountFlags")
@@ -294,23 +336,47 @@ export const customer = query({
         .order("desc")
         .take(12),
       ctx.db
-        .query("keys")
-        .withIndex("by_account", (q) => q.eq("account", account._id))
-        .order("desc")
-        .take(25),
-      ctx.db
         .query("crmTasks")
         .withIndex("by_account", (q) => q.eq("account", account._id))
         .order("desc")
         .take(20),
     ]);
+    const noteRows = await Promise.all(
+      notes.map(async (row) => ({
+        id: row._id,
+        time: row._creationTime,
+        actor: (await ctx.db.get(row.admin))?.wallet ?? "Unavailable",
+        kind: row.kind,
+        note: row.note,
+      })),
+    );
+    const timeline = [
+      ...events.map((row) => ({
+        id: row._id,
+        time: row._creationTime,
+        kind: row.kind,
+        actor: row.actor,
+        summary: row.summary,
+        note: undefined,
+      })),
+      ...noteRows.map((row) => ({
+        id: row.id,
+        time: row.time,
+        kind: row.kind,
+        actor: row.actor,
+        summary: undefined,
+        note: row.note,
+      })),
+    ]
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 40);
     return {
       customer: customerDoc(account),
       ...conversion,
       acceptedTerms: account.termsVersion,
       acceptedAt: account.termsAcceptedAt,
       inviter: inviter ? customerDoc(inviter) : undefined,
-      deposits: deposits.map((row) => ({
+      deposits: deposits.slice(0, 12).map((row) => ({
         id: row._id,
         time: row.finalizedAt ?? row._creationTime,
         amount: row.amount,
@@ -318,7 +384,7 @@ export const customer = query({
         reference: row.reference,
         signature: row.signature,
       })),
-      traces: traces.map(traceDoc),
+      traces: usageRows.slice(0, 12).map(traceDoc),
       tickets: await Promise.all(tickets.map((row) => ticketDoc(ctx, row))),
       suspended: flagRows.some((row) => row.flag === "suspended"),
       flags: flagRows.map((row) => row.flag),
@@ -332,22 +398,39 @@ export const customer = query({
           adminWallet: (await ctx.db.get(row.admin))?.wallet ?? "Unavailable",
         })),
       ),
-      keys: keyRows.map((row) => ({
+      keys: keys.map((row) => ({
         id: row._id,
         name: row.name,
         prefix: row.prefix,
         revoked: row.revoked,
+        lastUsed: row.lastUsed,
       })),
-      activity: await Promise.all(
-        notes.map(async (row) => ({
-          id: row._id,
-          time: row._creationTime,
-          actor: (await ctx.db.get(row.admin))?.wallet ?? "Unavailable",
-          kind: row.kind,
-          note: row.note,
-        })),
-      ),
+      activity: noteRows.slice(0, 20),
       tasks: await Promise.all(followUps.map((row) => taskDoc(ctx, row))),
+      timeline,
+      stats: {
+        totalDeposits: deposits
+          .filter((row) => row.finalizedAt !== undefined)
+          .reduce((sum, row) => sum + row.amount, 0),
+        totalSpend: usageRows
+          .filter((row) => row.status === "complete")
+          .reduce((sum, row) => sum + row.cost, 0),
+        requestCount: usageRows.length,
+        lastActiveAt: usageRows[0]?._creationTime,
+        referredCount: referred.length,
+      },
+      referrals: await Promise.all(
+        referred
+          .sort((a, b) => b._creationTime - a._creationTime)
+          .slice(0, 10)
+          .map(async (row) => ({
+            id: row._id,
+            wallet: row.wallet,
+            username: row.username,
+            joined: row._creationTime,
+            ...(await firstConversion(ctx, row._id)),
+          })),
+      ),
     };
   },
 });

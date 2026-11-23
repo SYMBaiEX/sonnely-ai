@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Search } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
@@ -569,7 +569,26 @@ function FollowUpList({
   );
 }
 
-function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
+function CrmSection({
+  title,
+  children,
+  open = true,
+}: {
+  title: string;
+  children: ReactNode;
+  open?: boolean;
+}) {
+  return (
+    <details className="panel stack-panel" open={open}>
+      <summary className="crm-section-head">
+        <h2>{title}</h2>
+      </summary>
+      {children}
+    </details>
+  );
+}
+
+function CustomerWorkspace({ id, back, open }: { id: string; back: () => void; open: (id: string) => void }) {
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [noteError, setNoteError] = useState("");
@@ -703,10 +722,120 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
                 </dd>
               </div>
             </dl>
+            <dl className="admin-metrics">
+              <div>
+                <dt>Total deposits</dt>
+                <dd>{creditBalance(data.stats.totalDeposits)}</dd>
+              </div>
+              <div>
+                <dt>Total spend</dt>
+                <dd>{creditBalance(data.stats.totalSpend)}</dd>
+              </div>
+              <div>
+                <dt>Requests</dt>
+                <dd>{data.stats.requestCount.toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>Last active</dt>
+                <dd>{data.stats.lastActiveAt === undefined ? "—" : localTime(data.stats.lastActiveAt)}</dd>
+              </div>
+              <div>
+                <dt>Referrals</dt>
+                <dd>{data.stats.referredCount.toLocaleString()}</dd>
+              </div>
+            </dl>
           </section>
           <AccountActions id={id} data={data} refresh={refresh} />
-          <section className="panel stack-panel">
-            <h2>Account activity</h2>
+          <CrmSection title="Timeline">
+            {data.timeline.length ? (
+              <ul className="crm-activity">
+                {data.timeline.map((item) => (
+                  <li key={item.id}>
+                    <p className="crm-note">
+                      <span className="crm-state">{item.kind}</span> {item.summary ?? item.note}
+                    </p>
+                    <p className="caption">
+                      {localTime(item.time)} ·{" "}
+                      {item.actor.length > 20 ? shorten(item.actor) : item.actor}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="caption">No events recorded.</p>
+            )}
+          </CrmSection>
+          <CrmSection title="Referred accounts" open={data.referrals.length > 0}>
+            {data.referrals.length ? (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Account</th>
+                      <th>Joined</th>
+                      <th>Funded</th>
+                      <th>Active</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.referrals.map((row) => (
+                      <tr key={row.id}>
+                        <th scope="row">
+                          {row.username ? "@" + row.username : shorten(row.wallet)}
+                        </th>
+                        <td>{localTime(row.joined)}</td>
+                        <td>{row.funded ? <span className="crm-state">Funded</span> : "—"}</td>
+                        <td>{row.active ? <span className="crm-state">Active</span> : "—"}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button quiet small"
+                            onClick={() => open(row.id)}
+                          >
+                            View account <ArrowRight size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="caption">No referred accounts.</p>
+            )}
+          </CrmSection>
+          <CrmSection title="API keys" open={data.keys.length > 0}>
+            {data.keys.length ? (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Prefix</th>
+                      <th>Last used</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.keys.map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.name}</td>
+                        <td>
+                          <code>{row.prefix}…</code>
+                        </td>
+                        <td>{row.lastUsed === undefined ? "—" : localTime(row.lastUsed)}</td>
+                        <td>{row.revoked ? "Revoked" : "Active"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="caption">No API keys.</p>
+            )}
+          </CrmSection>
+          <CrmSection title="Account activity">
             <form className="recovery-form" onSubmit={(event) => void addNote(event)}>
               <label>
                 Internal note
@@ -741,9 +870,8 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
             ) : (
               <p className="caption">No admin activity recorded.</p>
             )}
-          </section>
-          <section className="panel stack-panel">
-            <h2>Follow-ups</h2>
+          </CrmSection>
+          <CrmSection title="Follow-ups">
             <form className="recovery-form" onSubmit={(event) => void addTask(event)}>
               <label>
                 Follow-up
@@ -773,9 +901,8 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
               busy={busy}
               update={(action, task) => void updateTask(action, task)}
             />
-          </section>
-          <section className="panel stack-panel">
-            <h2>Recent payments</h2>
+          </CrmSection>
+          <CrmSection title="Recent payments">
             {data.deposits.length ? (
               <div className="table-wrap">
                 <table>
@@ -815,15 +942,13 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
             ) : (
               <p className="caption">No payment drafts.</p>
             )}
-          </section>
-          <section className="panel stack-panel">
-            <h2>Recent requests</h2>
+          </CrmSection>
+          <CrmSection title="Recent requests">
             <TraceList rows={data.traces} />
-          </section>
-          <section className="panel stack-panel">
-            <h2>Support history</h2>
+          </CrmSection>
+          <CrmSection title="Support history">
             <TicketList rows={data.tickets} refresh={refresh} />
-          </section>
+          </CrmSection>
         </>
       )}
     </section>
@@ -840,7 +965,8 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
   const params = new URLSearchParams({ view, filter, search, ...(cursor ? { cursor } : {}) });
   const state = useCrm<CrmPage>("admin-crm?" + params, revision);
   const refresh = () => setRevision((value) => value + 1);
-  if (account) return <CustomerWorkspace id={account} back={() => setAccount("")} />;
+  if (account)
+    return <CustomerWorkspace id={account} back={() => setAccount("")} open={setAccount} />;
 
   const description = {
     customers: "Find a wallet and review its account, referrals, payments, requests, and support history.",

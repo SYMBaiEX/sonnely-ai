@@ -225,4 +225,36 @@ test("referral milestones and the admin workspace follow actual account activity
   await expect(listed.getByText("Overdue")).toBeVisible();
   await listed.getByRole("button", { name: "Open customer" }).click();
   await expect(page.getByRole("heading", { name: "Customers", exact: true })).toBeVisible();
+
+  await db.mutation(api.sonnely.createKey, {
+    ...guest.auth,
+    name: "fixture key",
+    prefix: "sk-fixture",
+    hash: randomUUID(),
+    cap: null,
+    dailyCap: null,
+    expires: null,
+  });
+  const fixtureKeys = await db.query(api.sonnely.listKeys, guest.auth);
+  await db.mutation(api.sonnely.revokeKey, { ...guest.auth, id: fixtureKeys[0].id });
+
+  const detail = await db.query(api.crm.customer, { ...admin.auth, id: account });
+  expect(detail).not.toBeNull();
+  const kinds = detail!.timeline.map((item) => item.kind);
+  expect(kinds).toContain("session");
+  expect(kinds).toContain("profile");
+  expect(kinds).toContain("terms");
+  expect(kinds).toContain("key");
+  expect(kinds).toContain("billing");
+  expect(kinds).toContain("support");
+  expect(kinds).toContain("note");
+  expect(detail!.stats).toMatchObject({
+    totalDeposits: 1_000_000,
+    totalSpend: 40,
+    requestCount: 1,
+    referredCount: 0,
+  });
+  expect(detail!.stats.lastActiveAt).toEqual(expect.any(Number));
+  expect(detail!.keys).toMatchObject([{ name: "fixture key", prefix: "sk-fixture", revoked: true }]);
+  expect(detail!.referrals).toEqual([]);
 });

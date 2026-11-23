@@ -1438,6 +1438,11 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   border-top: 1px solid var(--line);
 }
 
+.crm-activity .crm-state {
+  margin-inline-start: 0;
+  margin-inline-end: 6px;
+}
+
 .crm-task {
   display: flex;
   align-items: center;
@@ -1458,6 +1463,37 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
 
 .crm-overdue {
   color: light-dark(#782135, #ffbbbf);
+}
+
+details.stack-panel > summary.crm-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+details.stack-panel > summary.crm-section-head::-webkit-details-marker {
+  display: none;
+}
+
+details.stack-panel > summary.crm-section-head h2 {
+  margin: 0;
+}
+
+details.stack-panel > summary.crm-section-head::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border: solid var(--muted);
+  border-width: 0 1px 1px 0;
+  transform: rotate(45deg);
+}
+
+details.stack-panel[open] > summary.crm-section-head::after {
+  transform: rotate(225deg);
 }
 
 .workspace-compute-links {
