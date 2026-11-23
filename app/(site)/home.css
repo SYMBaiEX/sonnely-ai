@@ -674,7 +674,7 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
 }
 
 .home {
-  --home-gap: clamp(54px, 8vw, 114px);
+  --home-gap: clamp(64px, 8.8vw, 128px);
   --home-panel: light-dark(#f9fbff, #171218);
   --home-chrome: light-dark(#eaf0fc, #231923);
   --home-divider: light-dark(#ced8ef, #3c2c39);
@@ -682,11 +682,22 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   --home-collection-gap: clamp(12px, 1.65vw, 22px);
 }
 .home > .section {
+  --home-section-gap: var(--home-gap);
+  position: relative;
   padding-top: 0;
-  margin-top: var(--home-gap);
+  margin-top: var(--home-section-gap);
+}
+.home > .section::before {
+  content: "";
+  position: absolute;
+  inset: calc(var(--home-section-gap) * -0.48) 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent) 0 28px, var(--home-divider) 28px 70%, transparent);
+  transform-origin: left center;
+  pointer-events: none;
 }
 .home > :is(.home-workloads, .home-guides) {
-  margin-top: clamp(48px, 6.4vw, 92px);
+  --home-section-gap: clamp(52px, 7vw, 100px);
 }
 .home .section-head {
   flex-wrap: nowrap;
@@ -1592,6 +1603,63 @@ html[data-initial-theme="light"] .site .home {
 
 .home-faq .faq details[open] {
   border-color: color-mix(in srgb, var(--accent) 44%, var(--home-divider));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) and (view-timeline-name: --home-section) {
+    .site[data-motion="on"] .home > .section {
+      view-timeline-name: --home-section;
+    }
+
+    .site[data-motion="on"] .home > .section::before {
+      animation: home-section-rule linear both;
+      animation-timeline: --home-section;
+      animation-range: entry 0% entry 44%;
+    }
+
+    .site[data-motion="on"] .home :is(.section-head, .home-section-intro, .home-quickstart-intro) {
+      --site-reveal-shift: 18px;
+    }
+
+    .site[data-motion="on"] .home :is(.resource-row:first-child, .home-closing) {
+      view-timeline-name: --home-artwork;
+    }
+
+    .site[data-motion="on"] .home .resource-row:first-child::before,
+    .site[data-motion="on"] .home-closing .scene {
+      animation: home-artwork-drift linear both;
+      animation-timeline: --home-artwork;
+      animation-range: cover 0% cover 100%;
+    }
+
+    .site[data-motion="on"] .home .resource-row:first-child::before {
+      inset-block-start: -16px;
+    }
+
+    .site[data-motion="on"] .home-closing .scene {
+      inset-block: -16px;
+    }
+
+    @keyframes home-section-rule {
+      from {
+        opacity: 0.42;
+        scale: 0.56 1;
+      }
+      to {
+        opacity: 1;
+        scale: 1 1;
+      }
+    }
+
+    @keyframes home-artwork-drift {
+      from {
+        translate: 0 -12px;
+      }
+      to {
+        translate: 0 12px;
+      }
+    }
+  }
 }
 
 .site:has(> #content > .home) .site-footer {

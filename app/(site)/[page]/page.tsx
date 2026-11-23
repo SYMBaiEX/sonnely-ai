@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowDown, ArrowRight, ArrowUpRight, Fingerprint, KeyRound, Wallet } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Boxes, Fingerprint, KeyRound, Wallet } from "lucide-react";
 import { ModelGuide } from "@/components/model-guide";
 import { CostExample } from "@/components/cost-example";
 import { NearModelDirectory } from "@/components/near-model-directory";
@@ -206,17 +206,25 @@ export default async function Subpage({ params }: Props) {
       {isProductPage(page) && <ProductContent page={page} />}
       {page === "models" && (
         <>
-          <div className="section-head" id="available-models">
-            <h2>Available on Sonnely</h2>
-            <Link className="text-link" href="#near-directory">
-              Browse the NEAR directory
+          <section
+            className="model-comparison"
+            id="available-models"
+            aria-labelledby="model-comparison-title"
+          >
+            <header className="section-head">
+              <div>
+                <h2 id="model-comparison-title">Available on Sonnely</h2>
+                <p>Compare token prices, provider context windows, and available routes.</p>
+              </div>
+              <Link className="text-link" href="#near-directory">
+                Browse the NEAR directory <ArrowDown size={15} aria-hidden="true" />
+              </Link>
+            </header>
+            <ModelCatalog availableProviders={configuredProviders()} />
+            <Link className="text-link model-explainer" href="/inference#routing">
+              How provider selection works <ArrowUpRight size={15} aria-hidden="true" />
             </Link>
-          </div>
-          <p className="caption">
-            DeepSeek V4.1 Flash has routes through NEAR AI, Phala, and Tinfoil.{" "}
-            <Link href="/inference#routing">See how provider selection works</Link>.
-          </p>
-          <ModelCatalog availableProviders={configuredProviders()} />
+          </section>
           {providerCatalog && <NearModelDirectory {...providerCatalog} />}
           <ModelGuide />
         </>
@@ -224,98 +232,120 @@ export default async function Subpage({ params }: Props) {
       {page === "pricing" && (
         <>
           <CostExample />
-          <div className="model-cards price-cards">
-            <article className="panel benefit">
-              <Wallet />
-              <h2>USDC credits</h2>
-              <p>
-                Choose your top-up amount in USDC after signing in and accepting the current terms. Credits
-                post automatically when the Solana transfer finalizes.
-              </p>
-              <Link className="text-link" href="/console/billing">
-                Billing console <ArrowUpRight size={16} />
-              </Link>
-            </article>
-            <article className="panel benefit">
-              <KeyRound />
-              <h2>Per-key budgets</h2>
-              <p>Set limits on daily and total spend, choose an expiration, and revoke keys immediately.</p>
-              <Link className="text-link" href="/console/keys">
-                Manage keys <ArrowUpRight size={16} />
-              </Link>
-            </article>
-            <article className="panel benefit">
-              <Fingerprint />
-              <h2>Token rates</h2>
-              <p>Published token rates include a {markupPercent}% Sonnely markup on provider list rates.</p>
-              <Link className="text-link" href="/models#available-models">
-                Compare token rates <ArrowUpRight size={16} />
-              </Link>
-            </article>
-          </div>
-          <section id="compute-pricing" className="panel stack-panel">
-            <h2>Compute pricing</h2>
-            {features.blackboxes ? (
-              <>
+          <section className="pricing-essentials" aria-labelledby="billing-basics">
+            <header className="section-head">
+              <h2 id="billing-basics">How billing works</h2>
+            </header>
+            <div className="model-cards price-cards">
+              <article className="panel benefit">
+                <Wallet />
+                <h3>USDC credits</h3>
                 <p>
-                  A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
-                  {creditBalance(computeQuote("blackboxes", 15).total)}. Review the full reservation before
-                  starting.
+                  Choose your top-up amount in USDC after signing in and accepting the current terms. Credits
+                  post automatically when the Solana transfer finalizes.
                 </p>
-                <Link className="text-link" href="/blackboxes#rental">
-                  Explore Blackbox rentals <ArrowUpRight size={15} aria-hidden="true" />
+                <Link className="text-link" href="/console/billing">
+                  Billing console <ArrowUpRight size={16} />
                 </Link>
-              </>
-            ) : (
-              <p>Blackboxes · Coming soon</p>
-            )}
-            {features["dry-docks"] ? (
-              <Link className="text-link" href="/dry-docks">
-                Explore Dry Docks
-              </Link>
-            ) : (
-              <p>Dry Docks · Coming soon</p>
-            )}
+              </article>
+              <article className="panel benefit">
+                <KeyRound />
+                <h3>Per-key budgets</h3>
+                <p>Set limits on daily and total spend, choose an expiration, and revoke keys immediately.</p>
+                <Link className="text-link" href="/console/keys">
+                  Manage keys <ArrowUpRight size={16} />
+                </Link>
+              </article>
+              <article className="panel benefit">
+                <Fingerprint />
+                <h3>Token rates</h3>
+                <p>Published token rates include a {markupPercent}% Sonnely markup on provider list rates.</p>
+                <Link className="text-link" href="/models#available-models">
+                  Compare token rates <ArrowUpRight size={16} />
+                </Link>
+              </article>
+            </div>
           </section>
-          <section className="faq">
-            <h2>Billing questions</h2>
-            <details>
-              <summary>What do I need to buy credits?</summary>
-              <p>
-                Use a compatible wallet with USDC on Solana and enough SOL for network fees and token account
-                setup if needed. Sign in with the wallet that will pay and approve the transfer from Billing.
-              </p>
-            </details>
-            <details>
-              <summary>How do API key budgets work?</summary>
-              <p>
-                Sonnely reserves a maximum estimated charge before sending each request. It releases the
-                difference when the provider reports usage. Unreported usage can leave a reservation pending
-                reconciliation.
-              </p>
-            </details>
-            {nearIntentsFundingEnabled() && (
-              <details>
-                <summary>Can I add funds through NEAR Intents?</summary>
+          <section id="compute-pricing" className="compute-pricing" aria-labelledby="compute-pricing-title">
+            <header>
+              <Boxes size={22} aria-hidden="true" />
+              <h2 id="compute-pricing-title">Compute pricing</h2>
+            </header>
+            <div className="compute-pricing-options">
+              {features.blackboxes ? (
+                <>
+                  <p>
+                    A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
+                    {creditBalance(computeQuote("blackboxes", 15).total)}. Review the full reservation before
+                    starting.
+                  </p>
+                  <Link className="text-link" href="/blackboxes#rental">
+                    Explore Blackbox rentals <ArrowUpRight size={15} aria-hidden="true" />
+                  </Link>
+                </>
+              ) : (
                 <p>
-                  Swap a supported asset into USDC in your Solana wallet, then use Buy credits in Billing.
+                  <strong>Blackboxes</strong> <span>Coming soon</span>
+                </p>
+              )}
+              {features["dry-docks"] ? (
+                <Link className="text-link" href="/dry-docks">
+                  Explore Dry Docks
+                </Link>
+              ) : (
+                <p>
+                  <strong>Dry Docks</strong> <span>Coming soon</span>
+                </p>
+              )}
+            </div>
+          </section>
+          <section className="pricing-questions" aria-labelledby="billing-questions">
+            <header>
+              <h2 id="billing-questions">Billing questions</h2>
+              <Link className="text-link" href="/docs/billing">
+                Credits and checkout <ArrowUpRight size={15} aria-hidden="true" />
+              </Link>
+            </header>
+            <div className="faq">
+              <details name="billing-questions">
+                <summary>What do I need to buy credits?</summary>
+                <p>
+                  Use a compatible wallet with USDC on Solana and enough SOL for network fees and token
+                  account setup if needed. Sign in with the wallet that will pay and approve the transfer from
+                  Billing.
                 </p>
               </details>
-            )}
-            <details>
-              <summary>Where can I see what a request cost?</summary>
-              <p>
-                Open Usage in the console to review token counts, request status and charges. Billing lists
-                payment receipts separately.
-              </p>
-            </details>
-            <details>
-              <summary>Do devnet payments create credits?</summary>
-              <p>
-                Devnet payments verify the checkout path. Spendable credits require a verified mainnet
-                payment.
-              </p>
-            </details>
+              <details name="billing-questions">
+                <summary>How do API key budgets work?</summary>
+                <p>
+                  Sonnely reserves a maximum estimated charge before sending each request. It releases the
+                  difference when the provider reports usage. Unreported usage can leave a reservation pending
+                  reconciliation.
+                </p>
+              </details>
+              {nearIntentsFundingEnabled() && (
+                <details name="billing-questions">
+                  <summary>Can I add funds through NEAR Intents?</summary>
+                  <p>
+                    Swap a supported asset into USDC in your Solana wallet, then use Buy credits in Billing.
+                  </p>
+                </details>
+              )}
+              <details name="billing-questions">
+                <summary>Where can I see what a request cost?</summary>
+                <p>
+                  Open Usage in the console to review token counts, request status and charges. Billing lists
+                  payment receipts separately.
+                </p>
+              </details>
+              <details name="billing-questions">
+                <summary>Do devnet payments create credits?</summary>
+                <p>
+                  Devnet payments verify the checkout path. Spendable credits require a verified mainnet
+                  payment.
+                </p>
+              </details>
+            </div>
           </section>
           <PlatformLinks compact />
         </>

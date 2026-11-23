@@ -27,9 +27,13 @@ export function CostExample() {
   return (
     <section className="panel estimate" aria-labelledby="cost-example-heading">
       <header>
-        <Calculator size={21} aria-hidden="true" />
-        <h2 id="cost-example-heading">Estimate a request</h2>
-        <p>Compare uncached text requests at Sonnely’s published NEAR AI route rates.</p>
+        <span className="estimate-icon">
+          <Calculator size={21} aria-hidden="true" />
+        </span>
+        <div>
+          <h2 id="cost-example-heading">Estimate a request</h2>
+          <p>Compare uncached text requests at Sonnely’s published NEAR AI route rates.</p>
+        </div>
       </header>
       <div className="estimate-inputs">
         <label>
@@ -50,6 +54,7 @@ export function CostExample() {
             min={0}
             max={limits.bodyBytes}
             step={1}
+            aria-invalid={inputTokens === null}
             value={input}
             onChange={(event) => setInput(event.target.value)}
           />
@@ -62,6 +67,7 @@ export function CostExample() {
             min={0}
             max={limits.maxOutputTokens}
             step={1}
+            aria-invalid={outputTokens === null}
             value={output}
             onChange={(event) => setOutput(event.target.value)}
           />
@@ -72,9 +78,16 @@ export function CostExample() {
         <output aria-live="polite">
           {estimate === null ? "Check token counts" : creditBalance(estimate)}
         </output>
-        <p>
-          {formatRate(rates.input)} input · {formatRate(rates.output)} output per 1M tokens
-        </p>
+        <dl aria-label="Rates per million tokens">
+          <div>
+            <dt>Input / 1M tokens</dt>
+            <dd>{formatRate(rates.input)}</dd>
+          </div>
+          <div>
+            <dt>Output / 1M tokens</dt>
+            <dd>{formatRate(rates.output)}</dd>
+          </div>
+        </dl>
       </div>
       <footer>
         <p>Actual charges use provider-reported usage and account for cached input.</p>

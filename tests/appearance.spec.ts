@@ -221,6 +221,12 @@ test("public anchors clear the mobile header and follow motion preferences", asy
   const tile = page.locator(".gateway-tile").first();
   await expect(root).toHaveCSS("scroll-behavior", "smooth");
   await expect(tile).toHaveCSS("animation-name", "site-reveal");
+  const effects = () =>
+    page.evaluate(() => ({
+      rule: getComputedStyle(document.querySelector(".home-capabilities")!, "::before").animationName,
+      art: getComputedStyle(document.querySelector(".resource-row")!, "::before").animationName,
+    }));
+  await expect.poll(effects).toEqual({ rule: "home-section-rule", art: "home-artwork-drift" });
   await page
     .getByRole("region", { name: "Private AI." })
     .getByRole("link", { name: "API quickstart" })
@@ -239,11 +245,13 @@ test("public anchors clear the mobile header and follow motion preferences", asy
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(root).toHaveCSS("scroll-behavior", "auto");
   await expect(tile).toHaveCSS("animation-name", "none");
+  await expect.poll(effects).toEqual({ rule: "none", art: "none" });
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.getByRole("switch", { name: "Ambient motion" }).click();
   await expect(root).toHaveCSS("scroll-behavior", "auto");
   await expect(tile).toHaveCSS("animation-name", "none");
+  await expect.poll(effects).toEqual({ rule: "none", art: "none" });
 });
 
 test("the homepage offers a copyable request and links to the selected model", async ({ page, context }) => {
@@ -354,10 +362,28 @@ test("the pricing estimate updates with model and token inputs", async ({ page }
   await expect(estimate.locator("output")).toHaveText("$0.00462");
   await estimate.getByLabel("Model").selectOption({ label: "GLM 5.3 Flash" });
   await expect(estimate.locator("output")).toHaveText("$0.00143");
+  await expect(estimate.getByText("Input / 1M tokens", { exact: true })).toBeVisible();
   await estimate.getByLabel("Output tokens").fill("0");
   await expect(estimate.locator("output")).toHaveText("$0.00088");
   await estimate.getByLabel("Output tokens").fill("-1");
   await expect(estimate.locator("output")).toHaveText("Check token counts");
+  await expect(estimate.getByLabel("Output tokens")).toHaveAttribute("aria-invalid", "true");
+});
+
+test("the example trace exposes timing and lets readers inspect each stage by keyboard", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/observability");
+  const trace = page.getByRole("region", { name: "Follow the whole request." });
+  await expect(trace.getByRole("button", { name: /Provider attempt/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const evidence = trace.getByRole("button", { name: /Verify evidence/ });
+  await evidence.focus();
+  await evidence.press("Enter");
+  await expect(evidence).toHaveAttribute("aria-pressed", "true");
+  await expect(trace.getByText("936–1,128 ms")).toBeVisible();
+  await expect(trace.getByText("Check the evidence available for the provider route.")).toBeVisible();
 });
 
 test("journal filtering, contact topics and mobile navigation remain usable", async ({ page }) => {

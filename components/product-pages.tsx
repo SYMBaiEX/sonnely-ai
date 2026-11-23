@@ -6,6 +6,8 @@ import { creditBalance } from "@/lib/credit-amount";
 import { models } from "@/lib/models";
 import { listModelRoutes, providerIds } from "@/lib/provider-catalog";
 import type { ProductPage } from "@/lib/product-pages";
+import { ReaderNavigation } from "./site-lead";
+import { TracePreview } from "./trace-preview";
 import styles from "./product-pages.module.css";
 
 const products = [
@@ -41,7 +43,7 @@ export function PlatformLinks({
       className={(compact ? styles.related : "section " + styles.index) + " " + className}
       aria-labelledby="platform-links-heading"
     >
-      <div className={styles.indexIntro}>
+      <div className={styles.indexIntro} data-reveal="rise">
         <h2 id="platform-links-heading">
           {compact ? "Explore the platform" : "Inference, from API to operations."}
         </h2>
@@ -67,8 +69,10 @@ export function PlatformLinks({
 
 function ProductSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className={styles.section}>
-      <h2>{title}</h2>
+    <section id={id} className={styles.section} aria-labelledby={id + "-heading"}>
+      <div className={styles.sectionTitle} data-reveal="rise">
+        <h2 id={id + "-heading"}>{title}</h2>
+      </div>
       <div className={styles.body}>{children}</div>
     </section>
   );
@@ -104,13 +108,6 @@ function SampleFacts({ rows }: { rows: readonly (readonly [string, string])[] })
   );
 }
 
-const traceSample = [
-  { name: "Reserve credits", start: 0, end: 8 },
-  { name: "Provider attempt", start: 8, end: 78 },
-  { name: "Verify evidence", start: 78, end: 94 },
-  { name: "Write settlement", start: 94, end: 100 },
-];
-
 function Observability() {
   return (
     <>
@@ -119,32 +116,7 @@ function Observability() {
           See where a request spent time, from reserving credits and calling the provider to evidence
           verification and settlement. A pending billing hold stays visible while it is investigated.
         </p>
-        <ProductSample label="Example trace · Phala">
-          <dl className={styles.sampleStats}>
-            <div>
-              <dt>First token</dt>
-              <dd>780 ms</dd>
-            </div>
-            <div>
-              <dt>Gateway time</dt>
-              <dd>1.2 s</dd>
-            </div>
-            <div>
-              <dt>Billing</dt>
-              <dd>Settled</dd>
-            </div>
-          </dl>
-          <ol className={styles.waterfall}>
-            {traceSample.map(({ name, start, end }) => (
-              <li key={name}>
-                <span>{name}</span>
-                <div aria-hidden="true">
-                  <span style={{ insetInlineStart: start + "%", width: end - start + "%" }} />
-                </div>
-              </li>
-            ))}
-          </ol>
-        </ProductSample>
+        <TracePreview />
         <p>
           Trace data contains timing, route, and billing metadata. Prompts and responses stay out of UsageMax
           receipts. Workspace users can see their own tokens and charges in Usage. Gateway traces and provider
@@ -442,17 +414,13 @@ export function ProductContent({ page }: { page: ProductPage }) {
   const Content = pageContent[page];
   const sections = pageSections[page];
   return (
-    <div className={styles.page}>
-      {sections.length > 0 && (
-        <nav className={styles.jump} aria-label="On this page">
-          {sections.map(([id, title]) => (
-            <a key={id} href={"#" + id}>
-              {title}
-            </a>
-          ))}
-        </nav>
-      )}
-      <Content />
+    <div className={styles.product}>
+      <div className={sections.length ? styles.withNavigation : undefined}>
+        {sections.length > 0 && <ReaderNavigation sections={sections} />}
+        <div className={styles.page}>
+          <Content />
+        </div>
+      </div>
       <PlatformLinks compact />
     </div>
   );

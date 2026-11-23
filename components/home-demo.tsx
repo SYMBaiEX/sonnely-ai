@@ -93,7 +93,7 @@ export function HomeDemo() {
 
   return (
     <section className="home-quickstart" id="quickstart" aria-labelledby="home-quickstart-heading">
-      <div className="home-quickstart-intro">
+      <div className="home-quickstart-intro" data-reveal="rise">
         <h2 id="home-quickstart-heading">Your first API request.</h2>
         <p>
           <Link href="/console/keys">Create an API key</Link> and export it as <code>SONNELY_API_KEY</code>.

@@ -232,7 +232,7 @@ export function HomeResources() {
         </div>
       </section>
       <section className="section home-split home-faq" aria-labelledby="questions-heading">
-        <div className="home-section-intro">
+        <div className="home-section-intro" data-reveal="rise">
           <h2 id="questions-heading">Good to know.</h2>
           <Link className="text-link" href="/contact">
             Contact Sonnely <ArrowUpRight size={16} />

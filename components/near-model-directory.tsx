@@ -129,7 +129,9 @@ export function NearModelDirectory({
                     <span className="catalog-mobile-label" aria-hidden="true">
                       Privacy tier
                     </span>
-                    <span className="model-tier">{routeLabels[model.route]}</span>
+                    <span className="model-tier" data-tier={model.route}>
+                      {routeLabels[model.route]}
+                    </span>
                   </td>
                   <td className="catalog-value" role="cell">
                     <span className="catalog-mobile-label" aria-hidden="true">
