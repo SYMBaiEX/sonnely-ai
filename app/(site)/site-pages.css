@@ -3,6 +3,10 @@
   --site-anchor-offset: 112px;
   --market-paper: light-dark(#f8faff, #191319);
   --market-inset: clamp(15px, 2.5vw, 32px);
+  --workspace-scene-opacity: 0.46;
+}
+.site > .workspace-scene {
+  mask-image: radial-gradient(ellipse 94% 78% at 77% 10%, #000 16%, transparent 90%);
 }
 .site :where(#content [id]) {
   scroll-margin-block-start: var(--site-anchor-offset);

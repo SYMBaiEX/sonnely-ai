@@ -7,9 +7,6 @@
 .site:has(> #content > .hero) .site-nav {
   box-shadow: inset 0 1px 0 var(--rim);
 }
-.site:has(> #content > .hero) > .workspace-scene {
-  display: none;
-}
 .hero {
   padding-block: clamp(36px, 4.9vw, 74px) clamp(40px, 6vw, 90px);
 }

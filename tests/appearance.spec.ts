@@ -10,7 +10,9 @@ test("the theme follows the user across the site and all console pages", async (
   const switcher = page.getByRole("switch", { name: "Switch color theme" });
   await expect(site).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-night\.webp/);
-  await expect(backdrop).toBeHidden();
+  await expect(backdrop).toBeVisible();
+  await expect(backdrop).toHaveCSS("background-image", /forest-night\.webp/);
+  await expect(backdrop).toHaveCSS("animation-name", "workspace-scene-in");
 
   const thumb = switcher.locator(".theme-switch-thumb");
   await expect(thumb).toHaveCSS("transform", "none");
@@ -22,6 +24,7 @@ test("the theme follows the user across the site and all console pages", async (
   await expect(thumb).toHaveCSS("transform", /^matrix/);
   await expect(switcher.locator(".theme-switch-sun")).toHaveCSS("color", "rgb(36, 66, 194)");
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-day\.webp/);
+  await expect(backdrop).toHaveCSS("background-image", /forest-day\.webp/);
   await page
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Models" })
@@ -100,7 +103,8 @@ test("winter artwork switches across the site and the console at Chicago midnigh
   await expect(closing).toHaveCSS("background-image", /signal-day\.webp/);
   await page.goto("/console");
   await expect(page.locator(".workspace-scene")).toHaveCSS("background-image", /forest-day\.webp/);
-  await expect(page.locator(".workspace-scene")).toHaveCSS("opacity", "0.52");
+  await expect(page.locator(".workspace-scene")).toHaveCSS("opacity", "0.46");
+  await expect(page.locator(".ambient-visualizer")).toHaveCSS("opacity", "0.42");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".chat-layout")).toHaveCSS("background-color", /\/ 0\.36\)$/);
   await expect(page.locator(".console-bar")).toHaveCSS("background-color", /\/ 0\.78\)$/);
