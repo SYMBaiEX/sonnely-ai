@@ -43,6 +43,7 @@ export default async function DocumentationPage({ params }: Props) {
   const page = docsSource.getPage((await params).slug);
   if (!page) notFound();
   const Content = page.data.body;
+  const kind = page.url === "/docs" ? "overview" : page.url === "/docs/api" ? "api" : "guide";
   const markdownUrl = page.url === "/docs" ? "/llms.mdx/docs/content.md" : page.url + ".md";
   return (
     <DocsPage
@@ -50,10 +51,7 @@ export default async function DocumentationPage({ params }: Props) {
       tableOfContent={{ style: "block" }}
       tableOfContentPopover={{ style: "block" }}
     >
-      <header
-        className="docs-article-header"
-        data-docs-page={page.url === "/docs" ? "overview" : page.url === "/docs/api" ? "api" : undefined}
-      >
+      <header className="docs-article-header" data-docs-page={kind}>
         <DocsTitle>{page.data.title}</DocsTitle>
         <DocsDescription>{page.data.description}</DocsDescription>
         <div className="docs-page-actions">
@@ -61,7 +59,7 @@ export default async function DocumentationPage({ params }: Props) {
           <a href={markdownUrl}>View Markdown</a>
         </div>
       </header>
-      <DocsBody>
+      <DocsBody className={kind === "guide" ? "docs-guide" : undefined}>
         <Content components={components} />
       </DocsBody>
     </DocsPage>

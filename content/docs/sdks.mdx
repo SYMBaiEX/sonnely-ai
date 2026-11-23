@@ -3,45 +3,74 @@ title: SDKs
 description: Install the Sonnely clients for TypeScript and Python, or bring an OpenAI-compatible client.
 ---
 
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+Use a funded key from the [quickstart](/docs/quickstart) and set `SONNELY_API_KEY` in your server environment. Choose either **Completion** or **Streaming** below. Each run sends one billable request.
+
 ## TypeScript or JavaScript
 
 Install the first-party server-side package from [npm](https://www.npmjs.com/package/@sonnely/sdk) with Node.js 22 or newer.
 
-```bash
+```bash title="Terminal · Install the TypeScript SDK"
 npm install @sonnely/sdk
 ```
 
-A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.2.tgz) is also available from Sonnely.
+A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.2.tgz) is also available from Sonnely. Save the example as `complete.mjs` or `stream.mjs` and run it with Node.js.
 
-```typescript
+<Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
+<Tab value="Completion">
+
+```javascript title="complete.mjs"
 import { Sonnely } from "@sonnely/sdk";
 
 const sonnely = new Sonnely({ apiKey: process.env.SONNELY_API_KEY });
 const request = {
   model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
-  messages: [{ role: "user" as const, content: "Write one line about a forest." }],
+  messages: [{ role: "user", content: "Write one line about a forest." }],
   max_tokens: 128,
 };
 
-const result = await sonnely.complete(request, { receipt: true });
+const result = await sonnely.complete(request);
 console.log(result.choices[0]?.message.content);
+console.log(result.usage);
+```
+
+</Tab>
+<Tab value="Streaming">
+
+```javascript title="stream.mjs"
+import { Sonnely } from "@sonnely/sdk";
+
+const sonnely = new Sonnely({ apiKey: process.env.SONNELY_API_KEY });
+const request = {
+  model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  messages: [{ role: "user", content: "Write one line about a forest." }],
+  max_tokens: 128,
+};
+
 for await (const chunk of sonnely.stream(request)) {
   process.stdout.write(chunk.choices[0]?.delta.content ?? "");
-  if (chunk.usage) console.log(chunk.usage);
+  if (chunk.usage) console.log("\n", chunk.usage);
 }
 ```
+
+</Tab>
+</Tabs>
 
 ## Python
 
 Install the first-party client from [PyPI](https://pypi.org/project/sonnely-sdk/) with Python 3.10 or newer.
 
-```bash
+```bash title="Terminal · Install the Python SDK"
 python -m pip install sonnely-sdk
 ```
 
-A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.2-py3-none-any.whl) is also available from Sonnely.
+A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.2-py3-none-any.whl) is also available from Sonnely. Save the example as `complete.py` or `stream.py` and run it with Python.
 
-```python
+<Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
+<Tab value="Completion">
+
+```python title="complete.py"
 import os
 from sonnely import Sonnely
 
@@ -51,25 +80,50 @@ request = {
     "messages": [{"role": "user", "content": "Write one line about a forest."}],
     "max_tokens": 128,
 }
-result = sonnely.complete(request, receipt=True)
+
+result = sonnely.complete(request)
 print(result["choices"][0]["message"]["content"])
+print(result["usage"])
+```
+
+</Tab>
+<Tab value="Streaming">
+
+```python title="stream.py"
+import os
+from sonnely import Sonnely
+
+sonnely = Sonnely(api_key=os.environ["SONNELY_API_KEY"])
+request = {
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "messages": [{"role": "user", "content": "Write one line about a forest."}],
+    "max_tokens": 128,
+}
 
 for chunk in sonnely.stream(request):
     for choice in chunk.get("choices", []):
-        print(choice["delta"].get("content") or "", end="")
+        print(choice["delta"].get("content") or "", end="", flush=True)
     if chunk.get("usage"):
-        print(chunk["usage"])
+        print("\n", chunk["usage"])
 ```
 
-Both clients offer public `models()`, provider selection through `provider.only`, reservation ceilings through `max_cost_microusd`, and opted-in completion receipts. The streamed examples send a second billable request. The clients surface stream errors, and wait for `[DONE]` before ending normally. Keep your API key on a server.
+</Tab>
+</Tabs>
+
+> **Streaming confirms settlement.** Both clients request final usage by default, surface stream errors, and require `[DONE]` before ending normally.
+
+Both clients also provide public `models()`, route pinning through `provider.only`, per-request ceilings through `max_cost_microusd`, and optional [completion receipts](/docs/attestation#completion-receipts).
 
 ## Existing OpenAI SDKs
 
 Keep your current SDK and set its base URL to `https://sonnely.com/api/sonnely/v1` and API key to your Sonnely key. Use Chat Completions and a Sonnely model ID. The examples below use the base `openai` packages and disable automatic retries for billable calls.
 
-**JavaScript**
+<Tabs className="docs-example-tabs" items={["JavaScript", "Python"]}>
+<Tab value="JavaScript">
 
-```javascript
+Install with `npm install openai`.
+
+```javascript title="complete.mjs"
 import OpenAI from "openai";
 
 const client = new OpenAI({
@@ -85,9 +139,12 @@ const completion = await client.chat.completions.create({
 console.log(completion.choices[0]?.message.content);
 ```
 
-**Python**
+</Tab>
+<Tab value="Python">
 
-```python
+Install with `python -m pip install openai`.
+
+```python title="complete.py"
 import os
 from openai import OpenAI
 
@@ -103,5 +160,8 @@ completion = client.chat.completions.create(
 )
 print(completion.choices[0].message.content)
 ```
+
+</Tab>
+</Tabs>
 
 Use the [OpenAPI spec](/api/openapi) or the [cURL quickstart](/docs/quickstart) for other runtimes.

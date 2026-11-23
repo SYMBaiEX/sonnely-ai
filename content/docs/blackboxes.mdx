@@ -7,14 +7,16 @@ Blackboxes is a paid pilot for eligible wallets. Open [Console → Blackboxes](/
 
 ## Start a rental
 
-1. Pick **NGINX web server**, **HTTP playground**, or **Request inspector** to use a pinned image. Pick **Custom container** to supply a public Docker Hub or GHCR digest and an HTTP port.
-2. Select a Small (1 vCPU, 2 GB), Medium (2 vCPU, 4 GB), or Large (4 vCPU, 8 GB) TDX machine, and 20, 40, or 80 GB of temporary SSD. Phala selects placement.
-3. Choose 15, 30, 60, or 120 minutes. Review the maximum credit hold before renting.
-4. Wait for verification in the rental details. Open the HTTPS endpoint after attestation and download the evidence if you need an independent record.
+1. **Choose an image.** Pick **NGINX web server**, **HTTP playground**, or **Request inspector** to use a pinned image. Pick **Custom container** to supply a public Docker Hub or GHCR digest and an HTTP port.
+2. **Size the machine.** Select a Small (1 vCPU, 2 GB), Medium (2 vCPU, 4 GB), or Large (4 vCPU, 8 GB) TDX machine, and 20, 40, or 80 GB of temporary SSD. Phala selects placement.
+3. **Set the rental window.** Choose 15, 30, 60, or 120 minutes. Review the maximum credit hold before renting.
+4. **Check attestation.** Wait for verification in the rental details. Open the HTTPS endpoint after attestation and download the evidence if you need an independent record.
 
 ## Agent framework presets
 
-Hermes Agent, OpenClaw, ElizaOS, Mastra, and Pydantic AI have guided presets. They start with a Medium machine, 40 GB of SSD, and a suggested HTTP port. Supply your configured Linux amd64 image pinned by digest. Protect the public endpoint with your own application authentication and keep credentials out of the image. The pilot does not inject runtime secrets.
+Hermes Agent, OpenClaw, ElizaOS, Mastra, and Pydantic AI have guided presets. They start with a Medium machine, 40 GB of SSD, and a suggested HTTP port. Supply your configured Linux amd64 image pinned by digest.
+
+> **Public endpoint.** Add application authentication and keep credentials out of the image. The pilot does not inject runtime secrets.
 
 ## Attestation and teardown
 

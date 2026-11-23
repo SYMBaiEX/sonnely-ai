@@ -1,35 +1,68 @@
 ---
 title: Quickstart
-description: Fund a workspace and make a confidential text completion on Sonnely.
+description: Set up your workspace and send your first confidential text completion.
 ---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+<Steps>
+<Step>
 
 ## Set up your workspace
 
-1. Open the [console](/console) and choose **Set up your workspace**. Connect a Solana wallet. On mobile, use your wallet’s browser or Chrome on Solana Seeker. You can try a built-in sample before funding.
-2. Accept the current terms, optionally set a display name, and choose whether to add credits in [Billing](/console/billing). Follow the [funding guide](/docs/billing) for Solana Pay.
-3. Create an [API key](/console/keys). Copy it when it appears and store it as a server-side secret named `SONNELY_API_KEY`.
+1. **Connect your wallet.** Open the [console](/console), choose **Set up your workspace**, and connect a Solana wallet. On mobile, use your wallet’s browser or Chrome on Solana Seeker. You can try a built-in sample before funding.
+2. **Add credits.** Accept the current terms, set a display name if you like, and follow the [funding guide](/docs/billing) to add Solana USDC in Billing.
+3. **Create an API key.** Open [API keys](/console/keys), create a key, and copy it when it appears. Set it as the `SONNELY_API_KEY` environment variable in the shell where you’ll run the example.
+
+> **Keep your key server-side.** In an app, load it from your server’s environment or secret manager.
+
+</Step>
+<Step>
 
 ## Find a model ID
 
-```bash
-curl -sS https://sonnely.com/api/sonnely/v1/models
+This endpoint is public. Use an exact model ID from the response. Each entry shows the available provider routes and their rates.
+
+```bash title="Terminal · List available models"
+curl -fsS https://sonnely.com/api/sonnely/v1/models
 ```
 
-The response shows Sonnely model IDs, available provider routes, and prices. Set the `model` field to an ID from that response.
+</Step>
+<Step>
 
 ## Send a completion
 
-```bash
-curl -sS https://sonnely.com/api/sonnely/v1/chat/completions \
-  -H "Authorization: Bearer $SONNELY_API_KEY" \
+This example sends one billable request. If you choose another model from discovery, replace the model ID before running it.
+
+```bash title="Terminal · Send a text completion"
+curl -sS --fail-with-body https://sonnely.com/api/sonnely/v1/chat/completions \
+  -H "Authorization: Bearer ${SONNELY_API_KEY:?Set SONNELY_API_KEY first}" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
-    "messages": [{"role": "user", "content": "Suggest one name for a snowy forest village."}],
+    "messages": [
+      {"role": "user", "content": "Suggest one name for a snowy forest village."}
+    ],
     "max_tokens": 128
   }'
 ```
 
-Read the answer from `choices[0].message.content` and token counts from `usage`. The charge and request status appear in [Usage](/console/usage) after settlement.
+</Step>
+<Step>
 
-Continue with [SDK installation](/docs/sdks), [streaming](/docs/streaming), or [provider selection](/docs/providers).
+## Read the result
+
+- **Answer** is in `choices[0].message.content`.
+- **Token counts** are in `usage`, including `prompt_tokens`, `completion_tokens`, and `total_tokens`.
+- **Final charge and request status** appear in [Usage](/console/usage) after settlement.
+
+</Step>
+</Steps>
+
+<nav className="docs-guide-next" aria-label="Continue the quickstart">
+
+- [Install an SDK](/docs/sdks)
+- [Stream a response](/docs/streaming)
+- [Choose a provider](/docs/providers)
+
+</nav>

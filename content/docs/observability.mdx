@@ -5,11 +5,20 @@ description: Track token usage and charges, export settled requests, and underst
 
 ## Inspect usage
 
-Open [Usage](/console/usage) and choose a UTC date range. Switch between spend, tokens, and request counts. Group by model or API key to identify activity. The balance may include fractions of a cent, so use the displayed precision when comparing small requests.
+Open [Usage](/console/usage) and choose a UTC date range. Group by model or API key to identify activity.
+
+- **Spend** shows what settled requests charged. Use the displayed precision when comparing fractions of a cent.
+- **Tokens** shows the volume billed over the period.
+- **Requests** counts activity for the selected period.
 
 ## Export to UsageMax
 
-Export up to 100 settled inference requests from the selected period. Download a telemetry batch or send it using an advanced write-only UsageMax collector key. Reuse the same installation UUID for consistent deduplication. The export includes model, provider, timestamps, token counts and ledger charges. Store collector credentials in UsageMax or your secret manager. [UsageMax collector documentation](https://usagemax.com/docs)
+Export up to 100 settled inference requests from the selected period. A batch contains model, provider, timestamps, token counts, and ledger charges.
+
+- **Download a batch** to import it yourself.
+- **Send to a collector** with a write-only UsageMax key. Reuse the installation UUID for deduplication and store collector credentials in UsageMax or your secret manager.
+
+[UsageMax collector documentation](https://usagemax.com/docs)
 
 ## Platform reconciliation
 

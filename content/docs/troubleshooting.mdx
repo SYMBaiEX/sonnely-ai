@@ -3,7 +3,9 @@ title: Errors and recovery
 description: Diagnose API errors, incomplete streams, and unsettled funding.
 ---
 
-Read `error.message` in the response. If a stream has already started, it may deliver the error as an SSE event.
+## Diagnose a failed request
+
+Read `error.message` in the response. An open stream may report the error in an SSE event even after HTTP 200. See [stream interruptions](/docs/streaming#handle-interruptions) for how to detect an incomplete stream.
 
 | Status           | Check                                                                          |
 | ---------------- | ------------------------------------------------------------------------------ |
@@ -18,4 +20,6 @@ Read `error.message` in the response. If a stream has already started, it may de
 
 ## Report a billing issue
 
-In [Billing](/console/billing), resume a pending checkout or check its finalized transaction signature. For inference, look in [Usage](/console/usage) before retrying a disconnected or incomplete request. Share the billing reference, model, provider, and UTC time with [support](/contact). Keep API keys, prompt text, and private receipts out of support messages unless needed and shared securely.
+In [Billing](/console/billing), resume a pending checkout or check its finalized transaction signature. For inference, look in [Usage](/console/usage) before retrying a disconnected or incomplete request. Share the billing reference, model, provider, and UTC time with [support](/contact).
+
+> **Keep secrets private.** Keep API keys, prompt text, and private receipts out of support messages unless needed and shared securely.

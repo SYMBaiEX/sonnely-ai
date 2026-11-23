@@ -576,22 +576,248 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   text-underline-offset: 0.22em;
 }
 
-#nd-page:has([data-docs-page="api"]) .prose table {
+#nd-page :is(.docs-guide, .prose:has(.docs-api-entry)) table {
   min-width: 0;
   width: 100%;
   table-layout: fixed;
   background: var(--card);
 }
 
-#nd-page:has([data-docs-page="api"]) .prose table :is(td, th) {
+#nd-page :is(.docs-guide, .prose:has(.docs-api-entry)) table :is(td, th) {
   padding: 0.65rem 0.75rem;
   overflow-wrap: anywhere;
 }
 
-#nd-page:has([data-docs-page="api"]) .prose table th {
+#nd-page :is(.docs-guide, .prose:has(.docs-api-entry)) table th {
   background: var(--raised);
 }
 
-#nd-page:has([data-docs-page="api"]) .prose table :is(th, td):first-child {
+#nd-page :is(.docs-guide, .prose:has(.docs-api-entry)) table :is(th, td):first-child {
   width: 38%;
+}
+
+.docs-article-header[data-docs-page="guide"] {
+  background:
+    radial-gradient(
+      ellipse at right top,
+      color-mix(in srgb, var(--active-fill) 48%, transparent),
+      transparent 64%
+    ),
+    linear-gradient(150deg, var(--card), var(--surface));
+}
+
+.docs-article-header[data-docs-page="guide"] h1 {
+  font-size: clamp(1.8rem, 3.7vw, 2.85rem);
+}
+
+#nd-page .docs-guide {
+  min-width: 0;
+  color: var(--muted);
+  font-size: clamp(0.9375rem, 1.1vw, 1.02rem);
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+}
+
+#nd-page .docs-guide :is(h2, h3, strong) {
+  color: var(--ink);
+  font-weight: 640;
+}
+
+#nd-page .docs-guide > h2 {
+  margin-block-start: clamp(2.25rem, 4.4vw, 3.5rem);
+}
+
+#nd-page .docs-guide > h2:first-child {
+  margin-block-start: 0;
+}
+
+.docs-guide p {
+  text-wrap: pretty;
+}
+
+.docs-guide :where(li + li) {
+  margin-block-start: 0.5rem;
+}
+
+.docs-guide li::marker {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+#nd-page .docs-guide :where(p, li) a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 68%, transparent);
+  text-underline-offset: 0.22em;
+}
+
+#nd-page .docs-guide :where(p, li) a:hover {
+  text-decoration-color: currentColor;
+}
+
+.docs-guide :not(pre) > code {
+  font-family: var(--mono);
+}
+
+#nd-page .docs-guide blockquote {
+  margin: 1.3rem 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--card) 82%, var(--active-fill));
+  color: var(--muted);
+  font-style: normal;
+}
+
+#nd-page .docs-guide blockquote > p {
+  margin: 0;
+}
+
+#nd-page .docs-guide figure.shiki {
+  margin: 1rem 0 1.3rem;
+  min-width: 0;
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: inset 0 1px 0 var(--rim);
+}
+
+.docs-guide figure.shiki:has(figcaption) > div:first-child {
+  height: auto;
+  min-height: 44px;
+  background: color-mix(in srgb, var(--raised) 65%, var(--card));
+}
+
+.docs-guide figure.shiki figcaption {
+  color: var(--ink);
+  font: 550 0.75rem var(--mono);
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.docs-guide figure.shiki button {
+  width: 40px;
+  height: 40px;
+}
+
+.docs-guide figure.shiki button[data-checked] {
+  color: var(--color-fd-success);
+}
+
+.docs-guide pre {
+  font-family: var(--mono);
+  overflow-wrap: normal;
+}
+
+.docs-guide .fd-steps {
+  margin-block-start: 0.7rem;
+  border-color: var(--line);
+}
+
+.docs-guide .fd-step + .fd-step {
+  margin-block-start: clamp(1.7rem, 4vw, 2.85rem);
+}
+
+.docs-guide .fd-step::before {
+  background: var(--active-fill);
+  color: var(--accent);
+  box-shadow: 0 0 0 3px var(--surface);
+  font: 650 0.8rem var(--mono);
+}
+
+#nd-page .docs-guide .fd-step > h2 {
+  margin: 0 0 0.8rem;
+  font-size: clamp(1.25rem, 2vw, 1.65rem);
+  letter-spacing: -0.035em;
+  line-height: 1.35;
+}
+
+#nd-page .docs-guide .fd-step > :last-child {
+  margin-block-end: 0;
+}
+
+.docs-guide .docs-example-tabs {
+  min-width: 0;
+  margin-block: 1.2rem 1.55rem;
+  border-color: var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+
+.docs-example-tabs [role="tablist"] {
+  gap: 0.35rem;
+  padding: 0.3rem;
+}
+
+.docs-example-tabs [role="tab"] {
+  min-height: 44px;
+  padding-inline: 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.52rem;
+  color: var(--muted);
+}
+
+.docs-example-tabs [role="tab"][data-state="active"] {
+  border-color: var(--line);
+  background: var(--card);
+  color: var(--accent);
+}
+
+.docs-example-tabs [role="tabpanel"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
+
+#nd-page .docs-guide .docs-example-tabs figure.shiki:only-child {
+  margin: -1rem;
+}
+
+.docs-event-sequence {
+  margin-block: 1.25rem;
+  padding: 0.15rem clamp(0.7rem, 2.8vw, 1.25rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+#nd-page .docs-guide .docs-event-sequence li + li {
+  margin-block-start: 0.6rem;
+  padding-block-start: 0.6rem;
+  border-block-start: 1px solid var(--line);
+}
+
+.docs-guide-next {
+  margin-block: clamp(1.9rem, 4vw, 2.85rem) 0;
+}
+
+#nd-page .docs-guide .docs-guide-next ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#nd-page .docs-guide .docs-guide-next li {
+  margin: 0;
+  padding: 0;
+}
+
+#nd-page .docs-guide .docs-guide-next a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--card);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#nd-page .docs-guide .docs-guide-next a:is(:hover, :focus-visible) {
+  background: var(--active-fill);
 }

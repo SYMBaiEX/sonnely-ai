@@ -11,7 +11,9 @@ NEAR AI is the default. DeepSeek V4.1 Flash 1017 can also route through Phala or
 
 ## Pin a request
 
-```json
+Set `provider.only` to a single provider advertised under the model’s `routes`. The example pins Phala and sets a $0.001 maximum reservation.
+
+```json title="Request body · Pin Phala"
 {
   "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
   "messages": [{ "role": "user", "content": "Describe a redwood forest in one sentence." }],
@@ -21,7 +23,9 @@ NEAR AI is the default. DeepSeek V4.1 Flash 1017 can also route through Phala or
 }
 ```
 
-Use `near-ai`, `phala`, or `tinfoil` when that provider is present in the model’s `routes`. A request stays on its selected route, including during failure.
+Use `near-ai`, `phala`, or `tinfoil` when that provider is present in the model’s `routes`.
+
+> **Route pinning.** A pinned request stays on its selected route, including during failure.
 
 ## Compare prices
 

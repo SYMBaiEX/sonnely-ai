@@ -174,3 +174,67 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   await expect(mobile).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 });
+
+test("quickstart and streaming keep commands copyable and preserve guide anchors", async ({
+  page,
+  context,
+  request,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto("/docs/quickstart#send-a-completion");
+  await expect(page.getByRole("heading", { name: "Send a completion" })).toHaveAttribute(
+    "id",
+    "send-a-completion",
+  );
+  await expect(page.locator(".fd-step")).toHaveCount(4);
+  const markdown = await request.get("/docs/quickstart.md");
+  const source = await markdown.text();
+  expect(source).toContain("## Send a completion [#send-a-completion]");
+  expect(source).not.toMatch(/<\/?(?:s|i|Step|Steps)\b/);
+  const completion = page.locator("figure").filter({ hasText: "Send a text completion" });
+  await completion.getByRole("button", { name: "Copy Text" }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain("https://sonnely.com/api/sonnely/v1/chat/completions");
+  await page
+    .getByRole("navigation", { name: "Continue the quickstart" })
+    .getByRole("link", { name: "Stream a response" })
+    .click();
+  await expect(page).toHaveURL(/\/docs\/streaming$/);
+  await expect(page.getByRole("heading", { name: "Read the events" })).toHaveAttribute(
+    "id",
+    "read-the-events",
+  );
+  const stream = page.locator("figure").filter({ hasText: "Stream a text completion" });
+  await stream.getByRole("button", { name: "Copy Text" }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain('"stream_options": {"include_usage": true}');
+  await expect(page.locator(".docs-event-sequence li")).toHaveCount(3);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+});
+
+test("SDK example tabs support keyboard selection and export both variants", async ({ page, request }) => {
+  await page.goto("/docs/sdks");
+  const typescript = page.getByRole("tablist").first();
+  const completion = typescript.getByRole("tab", { name: "Completion" });
+  const streaming = typescript.getByRole("tab", { name: "Streaming" });
+  await expect(completion).toHaveAttribute("aria-selected", "true");
+  await completion.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(streaming).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(streaming).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel").filter({ hasText: "stream.mjs" })).toContainText("sonnely.stream");
+  await expect(page.getByRole("tabpanel").filter({ hasText: "complete.py" })).toContainText(
+    "sonnely.complete",
+  );
+
+  const markdown = await request.get("/docs/sdks.md");
+  const source = await markdown.text();
+  expect(source).toContain("sonnely.complete");
+  expect(source).toContain("sonnely.stream");
+  expect(source).toContain("from openai import OpenAI");
+  expect(source).not.toMatch(/<\/?Tabs?\b/);
+});
