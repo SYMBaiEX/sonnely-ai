@@ -59,13 +59,19 @@ for await (const chunk of sonnely.stream(request)) {
 
 ## Python
 
-Install the first-party client from [PyPI](https://pypi.org/project/sonnely-sdk/) with Python 3.10 or newer.
+The first-party [PyPI package](https://pypi.org/project/sonnely-sdk/) requires Python 3.10 or newer. Check `python3 --version` first. If it shows an older version, use a newer interpreter to create the environment.
+
+On macOS or Linux, run these commands from your project folder. If you already have a virtual environment, activate it and run the install command. See the [Python activation commands](https://docs.python.org/3/library/venv.html#how-venvs-work) for other shells.
 
 ```bash title="Terminal · Install the Python SDK"
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install sonnely-sdk
 ```
 
-A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.2-py3-none-any.whl) is also available from Sonnely. Use the same Python environment you installed into. Run `python complete.py` or `python stream.py`.
+Follow [Quickstart](/docs/quickstart#set-up-your-workspace) to set `SONNELY_API_KEY` in the same terminal. Save the snippet as `complete.py` or `stream.py`, then run `python complete.py` or `python stream.py` with the environment still active. A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.2-py3-none-any.whl) is also available.
+
+> **If the example stops before sending a request**, `ModuleNotFoundError: No module named 'sonnely'` means the Python running the script cannot find the package. Activate the environment and rerun the install command. For `KeyError: 'SONNELY_API_KEY'`, set the key in that terminal.
 
 <Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
 <Tab value="Completion">
@@ -109,6 +115,8 @@ for chunk in sonnely.stream(request):
 
 </Tab>
 </Tabs>
+
+The streaming example prints text as it arrives, then prints the final usage counts. That usage chunk has an empty `choices` array, so the code checks `usage` outside the loop over choices.
 
 > **Streaming confirms settlement.** Both clients request final usage by default, surface stream errors, and require `[DONE]` before ending normally.
 
