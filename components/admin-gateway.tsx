@@ -7,6 +7,8 @@ import type { api } from "@/convex/_generated/api";
 import { invoiceProviders } from "@/lib/provider-invoice";
 import type { GatewayReceipt } from "@/lib/usagemax-gateway";
 import type { GatewayMetrics, GatewayOperations } from "@/lib/usagemax-operations";
+import { EmptyState, Pill, Skeleton, Spinner } from "./admin/ui";
+import { CopyButton } from "./shared";
 import { request } from "./wallet";
 import styles from "./admin-gateway.module.css";
 
@@ -31,6 +33,7 @@ const spanName = {
   recovery: "Resolve reservation",
 };
 const receiptStatus = { ok: "Complete", error: "Error", cancelled: "Cancelled" };
+const receiptTone = { ok: "ok", error: "error", cancelled: "muted" } as const;
 const invoiceState = {
   exact: "Exact match",
   variance: "Cost variance",
@@ -38,6 +41,23 @@ const invoiceState = {
   unmatched: "Unmatched",
   previously_invoiced: "Already invoiced",
 };
+const invoiceTone = {
+  exact: "ok",
+  variance: "warn",
+  new: "info",
+  unmatched: "warn",
+  previously_invoiced: "muted",
+} as const;
+const checkTone = { ok: "ok", partial: "warn", unavailable: "error" } as const;
+const providerStateTone = { ok: "ok", unavailable: "error", disabled: "muted" } as const;
+const deliveryTone = {
+  queued: "info",
+  sending: "info",
+  delivered: "ok",
+  accepted: "ok",
+  failed: "error",
+  unconfirmed: "warn",
+} as const;
 
 function usd(value: string | number | null) {
   if (value === null) return "—";
@@ -56,49 +76,56 @@ const utc = (value: number) => new Date(value).toISOString().replace("T", " ").s
 const label = (key: string) => providerName[key] ?? key;
 
 function MetricsTable({ rows }: { rows: GatewayMetrics[] }) {
-  if (!rows.length) return <p className="caption">No requests in this range.</p>;
+  if (!rows.length)
+    return (
+      <EmptyState
+        title="No requests"
+        hint="Try a longer reporting period, or check provider connectivity below."
+      />
+    );
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="Grouped request metrics" tabIndex={0}>
       <table className={styles.table}>
         <thead>
           <tr>
             <th scope="col">Group</th>
-            <th scope="col">Requests</th>
-            <th scope="col">Errors</th>
-            <th scope="col">Attempts</th>
-            <th scope="col">Input / output</th>
-            <th scope="col">Latency p50 / p95 / p99</th>
-            <th scope="col">P95 provider</th>
-            <th scope="col">P95 first token</th>
-            <th scope="col">Charges</th>
-            <th scope="col">Known cost</th>
-            <th scope="col">Covered margin</th>
+            <th scope="col" className="num">Requests</th>
+            <th scope="col" className="num">Errors</th>
+            <th scope="col" className="num">Attempts</th>
+            <th scope="col" className="num">Input / output</th>
+            <th scope="col" className="num">Latency p50 / p95 / p99</th>
+            <th scope="col" className="num">P95 provider</th>
+            <th scope="col" className="num">P95 first token</th>
+            <th scope="col" className="num">Charges</th>
+            <th scope="col" className="num">Known cost</th>
+            <th scope="col" className="num">Covered margin</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.key}>
               <th scope="row">{label(row.key)}</th>
-              <td>{number.format(row.requests)}</td>
-              <td>{number.format(row.errors)}</td>
-              <td>{number.format(row.providerAttempts)}</td>
+              <td className="num">{number.format(row.requests)}</td>
+              <td className="num">{number.format(row.errors)}</td>
+              <td className="num">{number.format(row.providerAttempts)}</td>
               <td
+                className="num"
                 title={`${number.format(row.cachedTokens)} cached and ${number.format(row.reasoningTokens)} reasoning tokens`}
               >
                 {number.format(row.inputTokens)} / {number.format(row.outputTokens)}
               </td>
-              <td title={row.latency ? row.latency.samples + " samples" : undefined}>
+              <td className="num" title={row.latency ? row.latency.samples + " samples" : undefined}>
                 {row.latency
                   ? [row.latency.p50, row.latency.p95, row.latency.p99]
                       .map((value) => number.format(value))
                       .join(" / ") + " ms"
                   : "—"}
               </td>
-              <td>{ms(row.providerLatency?.p95)}</td>
-              <td>{ms(row.firstToken?.p95)}</td>
-              <td>{usd(row.customerChargeNanos)}</td>
-              <td>{row.costCovered ? usd(row.knownProviderCostNanos) : "—"}</td>
-              <td>{row.marginCovered ? usd(row.coveredMarginNanos) : "—"}</td>
+              <td className="num">{ms(row.providerLatency?.p95)}</td>
+              <td className="num">{ms(row.firstToken?.p95)}</td>
+              <td className="num">{usd(row.customerChargeNanos)}</td>
+              <td className="num">{row.costCovered ? usd(row.knownProviderCostNanos) : "—"}</td>
+              <td className="num">{row.marginCovered ? usd(row.coveredMarginNanos) : "—"}</td>
             </tr>
           ))}
         </tbody>
@@ -118,12 +145,13 @@ function Trace({ receipt }: { receipt: GatewayReceipt }) {
             {label(receipt.provider)} · {receipt.model}
           </h3>
           <p className="caption">
-            {receiptStatus[receipt.status]} · Revision {receipt.revision} · {utc(receipt.settledAt)}
+            <Pill tone={receiptTone[receipt.status]}>{receiptStatus[receipt.status]}</Pill> · Revision{" "}
+            {receipt.revision} · {utc(receipt.settledAt)}
           </p>
         </div>
-        <span className={styles.pill}>
+        <Pill tone={receipt.trace?.billingStatus === "pending" ? "warn" : "ok"}>
           {receipt.trace?.billingStatus === "pending" ? "Billing pending" : "Settled"}
-        </span>
+        </Pill>
       </div>
       <dl className="admin-metrics">
         <div>
@@ -150,11 +178,13 @@ function Trace({ receipt }: { receipt: GatewayReceipt }) {
         </div>
       </dl>
       <p className={styles.identifiers}>
-        Request <code>{receipt.requestId}</code>
+        Request <code title={receipt.requestId}>{receipt.requestId}</code>{" "}
+        <CopyButton value={receipt.requestId} label="Copy request ID" />
         {receipt.traceId && (
           <>
             {" "}
-            · Trace <code>{receipt.traceId}</code>
+            · Trace <code title={receipt.traceId}>{receipt.traceId}</code>{" "}
+            <CopyButton value={receipt.traceId} label="Copy trace ID" />
           </>
         )}
       </p>
@@ -209,7 +239,7 @@ function Trace({ receipt }: { receipt: GatewayReceipt }) {
 function InvoiceTable({ lines }: { lines: InvoiceLine[] }) {
   const total = lines.reduce((sum, line) => sum + BigInt(line.costNanos), BigInt(0));
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" role="region" aria-label="Invoice lines" tabIndex={0}>
       <p className="caption">
         {lines.length} lines · {usd(String(total))} statement total
       </p>
@@ -217,8 +247,8 @@ function InvoiceTable({ lines }: { lines: InvoiceLine[] }) {
         <thead>
           <tr>
             <th scope="col">Billing reference</th>
-            <th scope="col">Statement cost</th>
-            <th scope="col">Prior cost</th>
+            <th scope="col" className="num">Statement cost</th>
+            <th scope="col" className="num">Prior cost</th>
             <th scope="col">Match</th>
           </tr>
         </thead>
@@ -226,13 +256,13 @@ function InvoiceTable({ lines }: { lines: InvoiceLine[] }) {
           {lines.map((line) => (
             <tr key={line.reference}>
               <th scope="row">
-                <code>{line.reference}</code>
+                <code title={line.reference}>{line.reference}</code>
               </th>
-              <td>{usd(line.costNanos)}</td>
-              <td>{usd(line.previousCostNanos)}</td>
+              <td className="num">{usd(line.costNanos)}</td>
+              <td className="num">{usd(line.previousCostNanos)}</td>
               <td>
-                {invoiceState[line.state]}
-                {line.exported === false && " · local only"}
+                <Pill tone={invoiceTone[line.state]}>{invoiceState[line.state]}</Pill>
+                {line.exported === false && <span className="caption"> · local only</span>}
               </td>
             </tr>
           ))}
@@ -436,11 +466,16 @@ function Automation({ status, refresh }: { status: Report["automation"]; refresh
             }
           </strong>
           <p className="caption">
-            {utc(check.checkedAt)} · {check.status}
+            {utc(check.checkedAt)} · <Pill tone={checkTone[check.status]}>{check.status}</Pill>
             {check.kind === "near_costs" && ` · ${check.matched} reconciled of ${check.checked} checked`}
             {check.kind === "provider_invoices" &&
               ` · ${check.checked} statements · ${check.matched} matched lines`}
-            {check.providers?.map(({ provider, state }) => ` · ${provider}: ${state}`).join("")}
+            {check.providers?.map(({ provider, state }) => (
+              <span key={provider}>
+                {" "}
+                · {provider}: <Pill tone={providerStateTone[state]}>{state}</Pill>
+              </span>
+            ))}
           </p>
         </div>
       ))}
@@ -463,7 +498,7 @@ function Automation({ status, refresh }: { status: Report["automation"]; refresh
         <ul>
           {status.email.map((item) => (
             <li key={item.subject + ":" + item.createdAt}>
-              {item.subject} · {item.state}
+              {item.subject} · <Pill tone={deliveryTone[item.state]}>{item.state}</Pill>
               {item.errorCode ? " · " + item.errorCode : ""} · {utc(item.createdAt)}
             </li>
           ))}
@@ -581,7 +616,7 @@ export function AdminGateway() {
             {error}
           </p>
         )}
-        {!report && !error && <p role="status">Loading inference operations…</p>}
+        {!report && !error && <Skeleton rows={6} />}
         {report && !operations && (
           <p role="status">
             UsageMax reporting is temporarily unavailable. Invoice history and local delivery status are
@@ -672,7 +707,10 @@ export function AdminGateway() {
           <p className="caption">Alert evaluation or history reached its reporting limit.</p>
         )}
         {operations?.alerts.evaluatedAt != null && !operations.alerts.items.length && (
-          <p>No gateway alerts.</p>
+          <EmptyState
+            title="No gateway alerts"
+            hint="Provider errors, slow providers, and pending billing incidents will appear here."
+          />
         )}
         {operations?.alerts.items.map((item) => (
           <div className={styles.alert} key={item.key + ":" + item.openedAt}>
@@ -686,7 +724,7 @@ export function AdminGateway() {
                     : `${item.observed} requests pending billing recovery`}
               </p>
             </div>
-            <span className={styles.pill}>{item.resolvedAt ? "Resolved" : "Open"}</span>
+            <Pill tone={item.resolvedAt ? "ok" : "warn"}>{item.resolvedAt ? "Resolved" : "Open"}</Pill>
           </div>
         ))}
       </section>
@@ -729,14 +767,15 @@ export function AdminGateway() {
                   <strong>{label(row.provider)}</strong> <span className="caption">{row.model}</span>
                 </span>
                 <span className={styles.recentStatus}>
-                  {receiptStatus[row.status]} · {row.hasTrace ? "Trace" : "Receipt"}{" "}
+                  <Pill tone={receiptTone[row.status]}>{receiptStatus[row.status]}</Pill>{" "}
+                  {row.hasTrace ? "Trace" : "Receipt"}{" "}
                   <ArrowUpRight size={14} aria-hidden="true" />
                 </span>
               </button>
             ))}
           </div>
         ) : null}
-        {traceLoading && <p role="status">Loading trace…</p>}
+        {traceLoading && <Spinner label="Loading trace…" />}
         {traceError && (
           <p className="error" role="alert">
             {traceError}

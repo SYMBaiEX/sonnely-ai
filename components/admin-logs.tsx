@@ -6,6 +6,8 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { shorten } from "@/lib/models";
 import { useCrm } from "./admin-crm";
+import { EmptyState, Pill, Skeleton } from "./admin/ui";
+import { CopyButton } from "./shared";
 
 type AuditPage = FunctionReturnType<typeof api.audit.auditTrail>;
 type AuditRow = AuditPage["page"][number];
@@ -24,6 +26,11 @@ const knownActions = [
   "invoice.record",
   "operations.alert-test",
 ];
+const actionTone = (action: string): "info" | "warn" | "muted" => {
+  if (action.startsWith("crm.")) return "info";
+  if (/^(credit|finance|invoice)\./.test(action)) return "warn";
+  return "muted";
+};
 
 function exportCsv(rows: AuditRow[]) {
   const cell = (value: unknown) => '"' + String(value ?? "").replaceAll('"', '""') + '"';
@@ -141,11 +148,16 @@ export function AdminLogs() {
           {state.error}
         </p>
       ) : !state?.data ? (
-        <p role="status">Loading audit log…</p>
+        <Skeleton rows={8} />
       ) : (
         <>
           {state.data.page.length ? (
-            <div className="table-wrap">
+            <div
+              className="table-wrap"
+              role="region"
+              aria-labelledby="logs-heading"
+              tabIndex={0}
+            >
               <table>
                 <thead>
                   <tr>
@@ -161,18 +173,23 @@ export function AdminLogs() {
                     <tr key={row.id}>
                       <td>{utc(row.time)}</td>
                       <td>
-                        <code title={row.actor}>
-                          {row.actor.length > 16 ? shorten(row.actor) : row.actor}
-                        </code>
+                        <span className="cell-copy">
+                          <code title={row.actor}>
+                            {row.actor.length > 16 ? shorten(row.actor) : row.actor}
+                          </code>
+                          <CopyButton value={row.actor} label="Copy actor" />
+                        </span>
                       </td>
                       <td>
-                        <code>{row.action}</code>
+                        <Pill tone={actionTone(row.action)}>{row.action}</Pill>
                       </td>
                       <td>
-                        {row.targetKind}
-                        <span className="caption">
-                          {" "}
-                          · {row.targetId.length > 16 ? shorten(row.targetId) : row.targetId}
+                        <span className="cell-copy">
+                          <Pill>{row.targetKind}</Pill>
+                          <code className="caption" title={row.targetId}>
+                            {row.targetId.length > 16 ? shorten(row.targetId) : row.targetId}
+                          </code>
+                          <CopyButton value={row.targetId} label="Copy target ID" />
                         </span>
                       </td>
                       <td>{row.summary}</td>
@@ -182,7 +199,10 @@ export function AdminLogs() {
               </table>
             </div>
           ) : (
-            <p className="caption">No audit entries match this view.</p>
+            <EmptyState
+              title="No audit entries"
+              hint="Widen the time range or clear the action and actor filters to see more."
+            />
           )}
           {(trail.length > 0 || !state.data.isDone) && (
             <div className="actions">

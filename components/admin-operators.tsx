@@ -4,10 +4,14 @@ import { useEffect, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { shorten } from "@/lib/models";
+import { EmptyState, Pill, Skeleton } from "./admin/ui";
+import { CopyButton } from "./shared";
 import { request } from "./wallet";
 
 type Operator = FunctionReturnType<typeof api.operators.directory>[number];
 const localTime = (date: number) => new Date(date).toLocaleString();
+const roleTone = (role: string): "info" | "ok" | "warn" | "muted" =>
+  role === "admin" ? "info" : role === "support" ? "ok" : role === "finance" ? "warn" : "muted";
 
 export function AdminOperators() {
   const [state, setState] = useState<{ data?: Operator[]; error?: string }>();
@@ -46,37 +50,43 @@ export function AdminOperators() {
           {state.error}
         </p>
       ) : !state?.data ? (
-        <p role="status">Loading operators…</p>
+        <Skeleton rows={4} />
       ) : state.data.length === 0 ? (
-        <p className="caption">No operator wallets are configured.</p>
+        <EmptyState
+          title="No operators configured"
+          hint="Add wallets to SONNELY_ADMIN_WALLETS, SONNELY_SUPPORT_WALLETS, or SONNELY_FINANCE_WALLETS."
+        />
       ) : (
         <>
-          <div className="table-wrap">
+          <div className="table-wrap" role="region" aria-labelledby="operators-heading" tabIndex={0}>
             <table>
               <thead>
                 <tr>
                   <th>Operator</th>
                   <th>Role</th>
                   <th>Last active</th>
-                  <th>Open tickets</th>
-                  <th>Open tasks</th>
+                  <th className="num">Open tickets</th>
+                  <th className="num">Open tasks</th>
                 </tr>
               </thead>
               <tbody>
                 {state.data.map((row) => (
                   <tr key={row.wallet}>
                     <th scope="row">
-                      <span className="crm-identity">
-                        <strong>{row.name || shorten(row.wallet)}</strong>
-                        {row.name && <span className="caption">{shorten(row.wallet)}</span>}
+                      <span className="cell-copy">
+                        <span className="crm-identity" title={row.wallet}>
+                          <strong>{row.name || shorten(row.wallet)}</strong>
+                          {row.name && <span className="caption">{shorten(row.wallet)}</span>}
+                        </span>
+                        <CopyButton value={row.wallet} label="Copy operator wallet" />
                       </span>
                     </th>
                     <td>
-                      <span className="pill">{row.role}</span>
+                      <Pill tone={roleTone(row.role)}>{row.role}</Pill>
                     </td>
                     <td>{row.lastActiveAt === undefined ? "—" : localTime(row.lastActiveAt)}</td>
-                    <td>{row.openTickets.toLocaleString()}</td>
-                    <td>{row.openTasks.toLocaleString()}</td>
+                    <td className="num">{row.openTickets.toLocaleString()}</td>
+                    <td className="num">{row.openTasks.toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

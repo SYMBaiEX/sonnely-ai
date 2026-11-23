@@ -21,12 +21,14 @@ import { AdminBoatCapacity } from "./admin-boat-capacity";
 import { AdminInvoices } from "./admin-gateway";
 import { AdminCrm } from "./admin-crm";
 import { adminNavGroups, adminTabs } from "./admin-tabs";
+import { EmptyState, Pill, Skeleton } from "./admin/ui";
 import { CreditRecovery } from "./credit-recovery";
 import { computePlans } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
 import type { GatewayReport } from "@/lib/usagemax-gateway";
 import { payWithWallet, request, type Session } from "./wallet";
+import { CopyButton } from "./shared";
 import { WorkspaceHeading } from "./workspace-heading";
 
 type Overview = FunctionReturnType<typeof api.finance.overview> & {
@@ -331,9 +333,15 @@ export function Admin({ session, features }: { session: Session | null; features
             {area !== "overview" ? (
               (adminTabs.find((tab) => tab.id === area)?.render?.(wallet ?? "") ?? null)
             ) : !data ? (
-              <p className="caption" role="status">
-                {error ? "Platform activity is unavailable." : "Loading platform activity…"}
-              </p>
+              error ? (
+                <p className="caption" role="status">
+                  Platform activity is unavailable.
+                </p>
+              ) : (
+                <section className="panel stack-panel" aria-label="Loading platform activity">
+                  <Skeleton rows={8} />
+                </section>
+              )
             ) : (
               <div className="admin-overview">
                 <dl className="stat-cards">
@@ -691,11 +699,11 @@ export function Admin({ session, features }: { session: Session | null; features
                         <thead>
                           <tr>
                             <th>Model</th>
-                            <th>Requests</th>
-                            <th>Completed</th>
-                            <th>Failed</th>
-                            <th>Held</th>
-                            <th>Spend</th>
+                            <th className="num">Requests</th>
+                            <th className="num">Completed</th>
+                            <th className="num">Failed</th>
+                            <th className="num">Held</th>
+                            <th className="num">Spend</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -704,11 +712,11 @@ export function Admin({ session, features }: { session: Session | null; features
                             return (
                               <tr key={id}>
                                 <th scope="row">{name}</th>
-                                <td>{metric?.requests ?? 0}</td>
-                                <td>{metric?.complete ?? 0}</td>
-                                <td>{metric?.failed ?? 0}</td>
-                                <td>{metric?.held ?? 0}</td>
-                                <td>{creditBalance(metric?.spendMicros ?? 0)}</td>
+                                <td className="num">{(metric?.requests ?? 0).toLocaleString()}</td>
+                                <td className="num">{(metric?.complete ?? 0).toLocaleString()}</td>
+                                <td className="num">{(metric?.failed ?? 0).toLocaleString()}</td>
+                                <td className="num">{(metric?.held ?? 0).toLocaleString()}</td>
+                                <td className="num">{creditBalance(metric?.spendMicros ?? 0)}</td>
                               </tr>
                             );
                           })}
@@ -724,9 +732,12 @@ export function Admin({ session, features }: { session: Session | null; features
                     {data.payouts.length ? (
                       data.payouts.map((payout) => (
                         <div className="admin-payout" key={payout.reference}>
-                          <strong>
+                          <strong title={payout.recipient}>
                             {creditBalance(payout.amount)} USDC to {shorten(payout.recipient)}
-                          </strong>
+                          </strong>{" "}
+                          <Pill tone={payout.signature ? "ok" : "warn"}>
+                            {payout.signature ? "Finalized" : "Awaiting signature"}
+                          </Pill>
                           {payout.signature ? (
                             <a
                               className="text-link"
@@ -740,7 +751,10 @@ export function Admin({ session, features }: { session: Session | null; features
                                 From {shorten(payout.treasury)} on Solana mainnet. The treasury pays network
                                 fees and any token account setup.
                               </p>
-                              <code>{payout.recipient}</code>
+                              <span className="cell-copy">
+                                <code title={payout.recipient}>{payout.recipient}</code>
+                                <CopyButton value={payout.recipient} label="Copy recipient wallet" />
+                              </span>
                               <div className="actions">
                                 {wallet === payout.treasury && (
                                   <button
@@ -785,7 +799,10 @@ export function Admin({ session, features }: { session: Session | null; features
                         </div>
                       ))
                     ) : (
-                      <p className="caption">No payouts recorded.</p>
+                      <EmptyState
+                        title="No payouts"
+                        hint="Prepared profit payouts awaiting treasury approval will appear here."
+                      />
                     )}
                   </section>
                 </div>

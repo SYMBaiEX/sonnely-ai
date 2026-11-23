@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
+import { Pill } from "./admin/ui";
 import { request } from "./wallet";
 
 const capacityCopy: Record<string, string> = {
@@ -14,6 +16,16 @@ const capacityCopy: Record<string, string> = {
   capacity: "Boat has no eligible small VM capacity.",
   unavailable: "Boat capacity could not be verified.",
   unconfigured: "A Boat key is required in Convex.",
+};
+const capacityTone: Record<string, "ok" | "warn" | "error" | "muted"> = {
+  disabled: "muted",
+  ready: "ok",
+  checkout: "warn",
+  unpaid: "warn",
+  overage: "warn",
+  capacity: "error",
+  unavailable: "error",
+  unconfigured: "error",
 };
 
 export function AdminBoatCapacity() {
@@ -34,11 +46,13 @@ export function AdminBoatCapacity() {
   }
   return (
     <div>
-      <button className="button secondary" type="button" disabled={busy} onClick={() => void check()}>
+      <button className="button quiet" type="button" disabled={busy} onClick={() => void check()}>
+        {busy && <Loader2 size={14} className="spin" aria-hidden="true" />}
         {busy ? "Checking Boat…" : "Check Boat capacity"}
       </button>
       {result && (
         <p className="caption" role="status">
+          <Pill tone={capacityTone[result.state] ?? "muted"}>{result.state}</Pill>{" "}
           {capacityCopy[result.state]} Dry Dock starts are {result.enabled ? "enabled" : "paused"}.
           {result.active !== null &&
             result.limit !== null &&

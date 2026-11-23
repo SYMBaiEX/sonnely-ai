@@ -2029,3 +2029,26 @@ details.stack-panel[open] > summary.crm-section-head::after {
     position: static;
   }
 }
+
+/* === admin-polish === */
+
+.table-wrap th.num,
+.table-wrap td.num {
+  text-align: right;
+}
+
+.table-wrap td.num {
+  font-family: var(--mono);
+}
+
+.cell-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cell-copy > code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
