@@ -97,6 +97,7 @@ test("public routes and console work across desktop and mobile", async ({ page }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   await page.goto("/console");
   await expect(page.locator(".compact-brand .brand-icon")).toBeVisible();
+  await expect(page.locator(".compact-brand .brand-wordmark")).toBeVisible();
   await route.click();
   await expect(picker.getByRole("button", { name: "Apply route" })).toBeInViewport();
   await picker.getByRole("button", { name: "Cancel" }).click();
@@ -173,7 +174,12 @@ test("wallet account workflow scopes keys, referrals, and support requests", asy
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.getByText("Local fixture", { exact: true })).toBeVisible();
   const desktop = page.viewportSize()!;
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect(page.locator(".compact-brand .brand-wordmark")).toBeInViewport({ ratio: 1 });
+  await expect(page.locator(".console-bar .wallet-button")).toBeInViewport({ ratio: 1 });
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".compact-brand .brand-wordmark")).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   const record = page.getByRole("row").filter({ hasText: "Local fixture" });
   await expect(record.getByText("Active", { exact: true })).toBeInViewport();
   await expect(record.getByRole("button", { name: "Revoke", exact: true })).toBeInViewport();

@@ -1348,7 +1348,7 @@ tbody tr:last-child > * {
     height: 58px;
     top: 8px;
   }
-  .crumb span {
+  .crumb > span:not(.compact-brand) {
     display: none;
   }
   .nav-toggle {
