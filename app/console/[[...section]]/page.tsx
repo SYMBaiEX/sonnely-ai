@@ -17,6 +17,7 @@ const sections = [
   "dry-docks",
   "billing",
   "referrals",
+  "support",
   "settings",
   "admin",
 ] as const;

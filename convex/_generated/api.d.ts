@@ -36,6 +36,7 @@ import type * as referralPipeline from "../referralPipeline.js";
 import type * as relay from "../relay.js";
 import type * as sonnely from "../sonnely.js";
 import type * as statementFeed from "../statementFeed.js";
+import type * as support from "../support.js";
 import type * as usageExport from "../usageExport.js";
 import type * as usageMaxOutbox from "../usageMaxOutbox.js";
 import type * as usageMaxOutboxValidators from "../usageMaxOutboxValidators.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   relay: typeof relay;
   sonnely: typeof sonnely;
   statementFeed: typeof statementFeed;
+  support: typeof support;
   usageExport: typeof usageExport;
   usageMaxOutbox: typeof usageMaxOutbox;
   usageMaxOutboxValidators: typeof usageMaxOutboxValidators;

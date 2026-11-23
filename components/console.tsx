@@ -13,6 +13,7 @@ import {
   Command,
   Cpu,
   KeyRound,
+  LifeBuoy,
   Menu,
   MessageSquare,
   Search,
@@ -39,6 +40,7 @@ import { ModelCatalog } from "./shared";
 import type { ProviderId } from "@/lib/provider-catalog";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
 import { Onboarding } from "./onboarding";
+import { SupportPanel } from "./support";
 import { TermsAcceptance } from "./terms-acceptance";
 import { useSession, WalletControl } from "./wallet";
 import { WorkspaceHeading } from "./workspace-heading";
@@ -52,6 +54,7 @@ const nav = [
   { id: "dry-docks", title: "Dry Docks", path: "/console/dry-docks", Icon: Container },
   { id: "billing", title: "Billing", path: "/console/billing", Icon: Wallet },
   { id: "referrals", title: "Referrals", path: "/console/referrals", Icon: Users },
+  { id: "support", title: "Support", path: "/console/support", Icon: LifeBuoy },
   { id: "admin", title: "Admin", path: "/console/admin", Icon: ShieldCheck },
   { id: "settings", title: "Settings", path: "/console/settings", Icon: Settings },
 ] as const;
@@ -466,6 +469,7 @@ export function ConsoleScreen({
         />
       )}
       {section === "referrals" && <Referrals key={profile?.wallet ?? "guest"} profile={profile} />}
+      {section === "support" && <SupportPanel key={profile?.wallet ?? "guest"} profile={profile} />}
       {section === "settings" && (
         <SettingsPanel profile={profile} refresh={refresh} preferences={preferences} change={change} />
       )}

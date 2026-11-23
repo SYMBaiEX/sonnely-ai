@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { auth, requireAdmin, requireOperator, walletRole } from "./access";
-import { recordAudit } from "./events";
+import { recordAudit, recordEvent } from "./events";
 import { termsVersion } from "../lib/policy";
 import { firstConversion } from "./referralPipeline";
 import { taskDoc } from "./crmTasks";
@@ -45,7 +45,7 @@ const trace = v.object({
   providerStatus: v.optional(v.number()),
   outcome: v.optional(v.string()),
 });
-const support = v.object({
+const supportFields = {
   id: v.id("tickets"),
   account: v.id("accounts"),
   opened: v.number(),
@@ -55,6 +55,15 @@ const support = v.object({
   message: v.string(),
   state,
   assignedWallet: v.optional(v.string()),
+  replyCount: v.number(),
+};
+const support = v.object(supportFields);
+const reply = v.object({
+  id: v.id("ticketReplies"),
+  author: v.string(),
+  visibility: v.union(v.literal("public"), v.literal("internal")),
+  body: v.string(),
+  time: v.number(),
 });
 const timelineItem = v.object({
   id: v.union(v.id("accountEvents"), v.id("crmEvents")),
@@ -123,6 +132,13 @@ function traceDoc(row: Doc<"usage">) {
 }
 
 async function ticketDoc(ctx: QueryCtx, row: Doc<"tickets">) {
+  const [assigned, replies] = await Promise.all([
+    row.assignedTo ? ctx.db.get(row.assignedTo) : null,
+    ctx.db
+      .query("ticketReplies")
+      .withIndex("by_ticket", (q) => q.eq("ticket", row._id))
+      .collect(),
+  ]);
   return {
     id: row._id,
     account: row.account,
@@ -132,7 +148,18 @@ async function ticketDoc(ctx: QueryCtx, row: Doc<"tickets">) {
     email: row.email,
     message: row.message,
     state: row.state ?? ("open" as const),
-    assignedWallet: row.assignedTo ? (await ctx.db.get(row.assignedTo))?.wallet : undefined,
+    assignedWallet: assigned?.wallet,
+    replyCount: replies.length,
+  };
+}
+
+async function replyDoc(ctx: QueryCtx, row: Doc<"ticketReplies">) {
+  return {
+    id: row._id,
+    author: (await ctx.db.get(row.author))?.wallet ?? "Unavailable",
+    visibility: row.visibility,
+    body: row.body,
+    time: row._creationTime,
   };
 }
 
@@ -178,6 +205,25 @@ export const tickets = query({
       page: await Promise.all(result.page.map((row) => ticketDoc(ctx, row))),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
+    };
+  },
+});
+
+export const ticketThread = query({
+  args: { ...auth, id: v.id("tickets") },
+  returns: v.union(v.null(), v.object({ ...supportFields, replies: v.array(reply) })),
+  handler: async (ctx, args) => {
+    await requireOperator(ctx, args, "support");
+    const row = await ctx.db.get(args.id);
+    if (!row) return null;
+    const replies = await ctx.db
+      .query("ticketReplies")
+      .withIndex("by_ticket", (q) => q.eq("ticket", row._id))
+      .order("desc")
+      .take(50);
+    return {
+      ...(await ticketDoc(ctx, row)),
+      replies: await Promise.all(replies.map((item) => replyDoc(ctx, item))),
     };
   },
 });
@@ -510,6 +556,60 @@ export const updateTicket = mutation({
       targetKind: "ticket",
       targetId: args.id,
       summary: "Ticket " + args.id + " -> " + args.state,
+    });
+    return null;
+  },
+});
+
+export const replyTicket = mutation({
+  args: {
+    ...auth,
+    id: v.id("tickets"),
+    body: v.string(),
+    visibility: v.union(v.literal("public"), v.literal("internal")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireOperator(ctx, args, "support");
+    const ticket = await ctx.db.get(args.id);
+    if (!ticket) throw new ConvexError("Support request unavailable.");
+    const body = args.body.trim();
+    if (!body || body.length > 4000)
+      throw new ConvexError("Write a reply of up to 4,000 characters.");
+    const now = Date.now();
+    await ctx.db.insert("ticketReplies", {
+      ticket: ticket._id,
+      author: admin._id,
+      visibility: args.visibility,
+      body,
+    });
+    await ctx.db.patch(
+      ticket._id,
+      ticket.state === undefined ? { updatedAt: now, state: "in_progress" as const } : { updatedAt: now },
+    );
+    await ctx.db.insert("crmEvents", {
+      account: ticket.account,
+      admin: admin._id,
+      ticket: ticket._id,
+      kind: "reply",
+      note:
+        (args.visibility === "public" ? "Replied to customer" : "Internal reply") +
+        ": " +
+        body.slice(0, 120),
+    });
+    await recordEvent(ctx, {
+      account: ticket.account,
+      kind: "support",
+      actor: admin.wallet,
+      summary: "Support reply on: " + ticket.topic,
+    });
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "crm.reply",
+      targetKind: "tickets",
+      targetId: ticket._id,
+      summary:
+        (args.visibility === "public" ? "Public" : "Internal") + " reply on: " + ticket.topic,
     });
     return null;
   },
