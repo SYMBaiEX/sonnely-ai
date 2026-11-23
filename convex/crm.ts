@@ -203,6 +203,26 @@ export const customer = query({
       ),
       traces: v.array(trace),
       tickets: v.array(support),
+      suspended: v.boolean(),
+      flags: v.array(v.string()),
+      adjustments: v.array(
+        v.object({
+          id: v.id("balanceAdjustments"),
+          time: v.number(),
+          delta: v.number(),
+          reason: v.string(),
+          balanceAfter: v.number(),
+          adminWallet: v.string(),
+        }),
+      ),
+      keys: v.array(
+        v.object({
+          id: v.id("keys"),
+          name: v.string(),
+          prefix: v.string(),
+          revoked: v.boolean(),
+        }),
+      ),
       activity: v.array(
         v.object({
           id: v.id("crmEvents"),
@@ -218,30 +238,45 @@ export const customer = query({
     await requireAdmin(ctx, args);
     const account = await ctx.db.get(args.id);
     if (!account) return null;
-    const [inviter, deposits, traces, tickets, notes, conversion] = await Promise.all([
-      account.invitedBy ? ctx.db.get(account.invitedBy) : null,
-      ctx.db
-        .query("deposits")
-        .withIndex("by_account", (q) => q.eq("account", account._id))
-        .order("desc")
-        .take(12),
-      ctx.db
-        .query("usage")
-        .withIndex("by_account", (q) => q.eq("account", account._id))
-        .order("desc")
-        .take(12),
-      ctx.db
-        .query("tickets")
-        .withIndex("by_account", (q) => q.eq("account", account._id))
-        .order("desc")
-        .take(12),
-      ctx.db
-        .query("crmEvents")
-        .withIndex("by_account", (q) => q.eq("account", account._id))
-        .order("desc")
-        .take(20),
-      firstConversion(ctx, account._id),
-    ]);
+    const [inviter, deposits, traces, tickets, notes, conversion, flagRows, adjustmentRows, keyRows] =
+      await Promise.all([
+        account.invitedBy ? ctx.db.get(account.invitedBy) : null,
+        ctx.db
+          .query("deposits")
+          .withIndex("by_account", (q) => q.eq("account", account._id))
+          .order("desc")
+          .take(12),
+        ctx.db
+          .query("usage")
+          .withIndex("by_account", (q) => q.eq("account", account._id))
+          .order("desc")
+          .take(12),
+        ctx.db
+          .query("tickets")
+          .withIndex("by_account", (q) => q.eq("account", account._id))
+          .order("desc")
+          .take(12),
+        ctx.db
+          .query("crmEvents")
+          .withIndex("by_account", (q) => q.eq("account", account._id))
+          .order("desc")
+          .take(20),
+        firstConversion(ctx, account._id),
+        ctx.db
+          .query("accountFlags")
+          .withIndex("by_account", (q) => q.eq("account", account._id))
+          .take(24),
+        ctx.db
+          .query("balanceAdjustments")
+          .withIndex("by_account", (q) => q.eq("account", account._id))
+          .order("desc")
+          .take(12),
+        ctx.db
+          .query("keys")
+          .withIndex("by_account", (q) => q.eq("account", account._id))
+          .order("desc")
+          .take(25),
+      ]);
     return {
       customer: customerDoc(account),
       ...conversion,
@@ -258,6 +293,24 @@ export const customer = query({
       })),
       traces: traces.map(traceDoc),
       tickets: await Promise.all(tickets.map((row) => ticketDoc(ctx, row))),
+      suspended: flagRows.some((row) => row.flag === "suspended"),
+      flags: flagRows.map((row) => row.flag),
+      adjustments: await Promise.all(
+        adjustmentRows.map(async (row) => ({
+          id: row._id,
+          time: row._creationTime,
+          delta: row.delta,
+          reason: row.reason,
+          balanceAfter: row.balanceAfter,
+          adminWallet: (await ctx.db.get(row.admin))?.wallet ?? "Unavailable",
+        })),
+      ),
+      keys: keyRows.map((row) => ({
+        id: row._id,
+        name: row.name,
+        prefix: row.prefix,
+        revoked: row.revoked,
+      })),
       activity: await Promise.all(
         notes.map(async (row) => ({
           id: row._id,

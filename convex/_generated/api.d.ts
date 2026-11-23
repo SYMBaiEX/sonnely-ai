@@ -9,6 +9,7 @@
  */
 
 import type * as access from "../access.js";
+import type * as adminActions from "../adminActions.js";
 import type * as alertFallback from "../alertFallback.js";
 import type * as compute from "../compute.js";
 import type * as computeCapacity from "../computeCapacity.js";
@@ -44,6 +45,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  adminActions: typeof adminActions;
   alertFallback: typeof alertFallback;
   compute: typeof compute;
   computeCapacity: typeof computeCapacity;
