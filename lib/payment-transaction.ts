@@ -12,12 +12,14 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
 } from "@solana/kit";
 import {
+  TOKEN_ERROR__INSUFFICIENT_FUNDS,
   TOKEN_PROGRAM_ADDRESS,
   findAssociatedTokenPda,
   getCreateAssociatedTokenIdempotentInstructionAsync,
   getTransferCheckedInstruction,
 } from "@solana-program/token";
 import { z } from "zod";
+import { creditDecimal } from "./credit-amount";
 import { rpcCall } from "./payments";
 import { SonnelyError } from "./server";
 
@@ -28,6 +30,10 @@ const latestBlockhash = z.object({
   }),
 });
 const simulation = z.object({ value: z.object({ err: z.unknown() }) });
+const insufficientUsdc = z.object({
+  // The transfer is the second instruction, after idempotent recipient account creation.
+  InstructionError: z.tuple([z.literal(1), z.object({ Custom: z.literal(TOKEN_ERROR__INSUFFICIENT_FUNDS) })]),
+});
 
 export async function preparePaymentEnvelope(
   rpc: string,
@@ -83,7 +89,14 @@ export async function preparePaymentEnvelope(
     ]),
   );
   if (!result.success) throw new SonnelyError("Solana RPC could not simulate the payment.", 503);
-  if (result.data.value.err !== null)
+  const { err } = result.data.value;
+  if (insufficientUsdc.safeParse(err).success)
+    throw new SonnelyError(
+      `Your wallet needs ${creditDecimal(order.amount, 2)} USDC on this Solana network for this transfer.`,
+    );
+  if (err === "InsufficientFundsForFee")
+    throw new SonnelyError("Your wallet needs more SOL on this network to pay the transaction fee.");
+  if (err !== null)
     throw new SonnelyError(
       "This transfer did not pass simulation. Check your wallet’s USDC and SOL balances.",
     );

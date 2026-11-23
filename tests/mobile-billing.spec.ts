@@ -4,6 +4,7 @@ test.use({ ...devices["Pixel 7"], defaultBrowserType: "chromium" });
 
 const wallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
 const reference = "11111111111111111111111111111113";
+const firstReference = "11111111111111111111111111111112";
 
 test("Android Chrome discovers the Solana mobile wallet and fits the billing page", async ({ page }) => {
   await page.route("**/api/sonnely/session", (route) =>
@@ -15,9 +16,7 @@ test("Android Chrome discovers the Solana mobile wallet and fits the billing pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
 });
 
-test("the $5 checkout approves a prepared transfer and refreshes after automatic confirmation", async ({
-  page,
-}) => {
+test("checkout explains insufficient USDC and confirms a smaller transfer", async ({ page }) => {
   let signed = false;
   let credited = false;
   await page.exposeFunction("sendFixturePayment", () => {
@@ -62,7 +61,7 @@ test("the $5 checkout approves a prepared transfer and refreshes after automatic
       case "session":
         return route.fulfill({
           json: {
-            profile: { wallet, name: "Pilot", balance: credited ? 5_000_000 : 0, referral: "fixture" },
+            profile: { wallet, name: "Pilot", balance: credited ? 100_000 : 0, referral: "fixture" },
             enabled: true,
             billingEnabled: true,
             paymentVerificationEnabled: true,
@@ -71,21 +70,30 @@ test("the $5 checkout approves a prepared transfer and refreshes after automatic
         });
       case "history":
         return route.fulfill({ json: [] });
-      case "deposit":
-        expect(route.request().postDataJSON()).toEqual({ dollars: "5" });
+      case "deposit": {
+        const { dollars } = route.request().postDataJSON();
+        expect(["5", "0.10"]).toContain(dollars);
         return route.fulfill({
           json: {
-            amount: 5_000_000,
-            reference,
+            amount: dollars === "5" ? 5_000_000 : 100_000,
+            reference: dollars === "5" ? firstReference : reference,
             cluster: "mainnet",
             uri: "solana:fixture",
             qr: "data:image/png;base64,",
           },
         });
+      }
       case "payment-transaction":
+        if (route.request().postDataJSON().reference === firstReference)
+          return route.fulfill({
+            status: 400,
+            json: { error: "Your wallet needs 5.00 USDC on this Solana network for this transfer." },
+          });
         expect(route.request().postDataJSON()).toEqual({ reference, version: "legacy" });
         return route.fulfill({ json: { transaction: "AQ==" } });
       case "confirm":
+        if (route.request().postDataJSON().reference === firstReference)
+          return route.fulfill({ json: { ok: false, cluster: "mainnet" } });
         expect(route.request().postDataJSON()).toEqual({ reference });
         credited = signed;
         return route.fulfill({ json: { ok: credited, cluster: "mainnet" } });
@@ -94,13 +102,22 @@ test("the $5 checkout approves a prepared transfer and refreshes after automatic
     }
   });
   await page.goto("/console/billing");
-  await expect(page.getByRole("spinbutton", { name: "Amount in USDC" })).toHaveValue("5");
+  const input = page.getByRole("spinbutton", { name: "Amount in USDC" });
+  await expect(input).toHaveValue("5");
   await page.getByRole("button", { name: "Continue to payment" }).click();
   await expect(page.getByRole("heading", { name: "Pay $5.00 in USDC" })).toBeVisible();
+  const review = page.getByRole("region", { name: "Review transfer" });
+  await page.getByRole("button", { name: "Pay with connected wallet" }).click();
+  await expect(review.getByRole("alert")).toHaveText(/Your wallet needs 5\.00 USDC/);
+  expect(signed).toBe(false);
+  await input.fill("0.10");
+  await expect(review.getByRole("alert")).toBeHidden();
+  await page.getByRole("button", { name: "Continue to payment" }).click();
+  await expect(page.getByRole("heading", { name: "Pay $0.10 in USDC" })).toBeVisible();
   await page.getByText("Use a Solana Pay link or QR code", { exact: true }).click();
   await expect(page.getByRole("link", { name: "Open in wallet" })).toHaveAttribute("href", "solana:fixture");
   await page.getByRole("button", { name: "Pay with connected wallet" }).click();
   await expect(page.getByText("Payment submitted. Waiting for Solana finality…")).toBeVisible();
   await expect(page.getByText("Payment confirmed. Credits added.")).toBeVisible({ timeout: 12_000 });
-  await expect(page.locator(".amount")).toHaveText("$5.00");
+  await expect(page.locator(".amount")).toHaveText("$0.10");
 });

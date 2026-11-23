@@ -648,7 +648,7 @@ export function Billing({
   const [signature, setSignature] = useState("");
   const [pending, setPending] = useState("");
   const quoting = pending === "quote" || pending === "prepare-swap";
-  const [failure, setFailure] = useState("");
+  const [failure, setFailure] = useState<{ action: string; message: string }>();
   const [status, setStatus] = useState("");
 
   const reference = order?.reference;
@@ -656,7 +656,7 @@ export function Billing({
 
   async function finishPayment(cluster: string) {
     setStatus(cluster === "mainnet" ? "Payment confirmed. Credits added." : "Devnet payment verified.");
-    setFailure("");
+    setFailure(undefined);
     setOrder(null);
     setSignature("");
     setSubmitted(false);
@@ -700,12 +700,12 @@ export function Billing({
 
   async function run(name: string, action: () => Promise<void>) {
     setPending(name);
-    setFailure("");
+    setFailure(undefined);
     setStatus("");
     try {
       await action();
     } catch (error) {
-      setFailure(error instanceof Error ? error.message : "The request failed.");
+      setFailure({ action: name, message: error instanceof Error ? error.message : "The request failed." });
     } finally {
       setPending("");
     }
@@ -718,7 +718,9 @@ export function Billing({
         title="Billing"
         description="Add compute credits, check your balance, and track wallet payments."
       />
-      <Failure message={failure || error} />
+      <Failure
+        message={failure && !["deposit", "pay", "confirm"].includes(failure.action) ? failure.message : error}
+      />
       {status && (
         <p role="status" className="status">
           {status}
@@ -750,7 +752,7 @@ export function Billing({
             {session?.termsRequired
               ? "Accept the current terms above to buy credits."
               : profile
-                ? "Choose an amount in USDC. Credits post after your wallet transfer finalizes."
+                ? "Enter any positive USDC amount with up to six decimal places. Credits post after your wallet transfer finalizes."
                 : "Connect your Solana wallet in the header to buy credits."}
           </p>
           <form
@@ -782,7 +784,10 @@ export function Billing({
                 inputMode="decimal"
                 required
                 value={dollars}
-                onChange={(e) => setDollars(e.target.value)}
+                onChange={(e) => {
+                  setDollars(e.target.value);
+                  if (failure?.action === "deposit" || failure?.action === "pay") setFailure(undefined);
+                }}
               />
             </label>
             <button
@@ -792,6 +797,7 @@ export function Billing({
               {pending === "deposit" ? "Preparing…" : "Continue to payment"}
             </button>
           </form>
+          {failure?.action === "deposit" && <Failure message={failure.message} />}
           {order && profile && (
             <section className="checkout" aria-label="Review transfer">
               <div className="between">
@@ -822,6 +828,7 @@ export function Billing({
                   >
                     {pending === "pay" ? "Waiting for wallet…" : "Pay with connected wallet"}
                   </button>
+                  {failure?.action === "pay" && <Failure message={failure.message} />}
                   <details>
                     <summary>Use a Solana Pay link or QR code</summary>
                     <div className="payment-qr">
@@ -869,6 +876,7 @@ export function Billing({
                     {pending === "confirm" ? "Checking…" : "Check now"}
                   </button>
                 </form>
+                {failure?.action === "confirm" && <Failure message={failure.message} />}
               </details>
             </section>
           )}

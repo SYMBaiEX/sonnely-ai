@@ -159,13 +159,14 @@ test("prepares an unsigned, simulated USDC transfer with an indexed reference", 
     await import("@solana/kit");
   const fetchOriginal = globalThis.fetch;
   try {
+    let simulationError: unknown = null;
     globalThis.fetch = async (_url, init) => {
       const request = JSON.parse(String(init?.body));
       if (request.method === "getLatestBlockhash")
         return Response.json({ result: { value: { blockhash: payer, lastValidBlockHeight: 123 } } });
       expect(request.method).toBe("simulateTransaction");
       expect(request.params[1]).toMatchObject({ sigVerify: false, encoding: "base64" });
-      return Response.json({ result: { value: { err: null } } });
+      return Response.json({ result: { value: { err: simulationError } } });
     };
     for (const version of ["legacy", 0] as const) {
       const encoded = await preparePayment(rpc, payer, order, version);
@@ -182,6 +183,12 @@ test("prepares an unsigned, simulated USDC transfer with an indexed reference", 
         message.staticAccounts.length - message.header.numReadonlyNonSignerAccounts,
       );
     }
+    simulationError = { InstructionError: [1, { Custom: 1 }] };
+    await expect(preparePayment(rpc, payer, order, "legacy")).rejects.toThrow("Your wallet needs 5.00 USDC");
+    simulationError = "InsufficientFundsForFee";
+    await expect(preparePayment(rpc, payer, order, "legacy")).rejects.toThrow("Your wallet needs more SOL");
+    simulationError = { InstructionError: [0, { Custom: 1 }] };
+    await expect(preparePayment(rpc, payer, order, "legacy")).rejects.toThrow("did not pass simulation");
   } finally {
     globalThis.fetch = fetchOriginal;
   }
