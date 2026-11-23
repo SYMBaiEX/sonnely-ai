@@ -296,7 +296,7 @@ export const customers = query({
 });
 
 export const tickets = query({
-  args: { ...auth, state: filter, page: paginationOptsValidator },
+  args: { ...auth, state: filter, search: v.optional(v.string()), page: paginationOptsValidator },
   returns: v.object({ page: v.array(support), ...paging }),
   handler: async (ctx, args) => {
     await requireOperator(ctx, args, "support");
@@ -307,6 +307,17 @@ export const tickets = query({
         : selected === "open"
           ? ctx.db.query("tickets").withIndex("by_state", (q) => q.eq("state", undefined))
           : ctx.db.query("tickets").withIndex("by_state", (q) => q.eq("state", selected));
+    const search = args.search?.trim().toLowerCase().slice(0, 80) ?? "";
+    if (search) {
+      const matches = (await rows.order("desc").take(300)).filter((row) =>
+        (row.topic + " " + row.email + " " + row.message).toLowerCase().includes(search),
+      );
+      return {
+        page: await Promise.all(matches.slice(0, 25).map((row) => ticketDoc(ctx, row))),
+        isDone: true,
+        continueCursor: "",
+      };
+    }
     const result = await rows.order("desc").paginate({ ...args.page, numItems: 25 });
     return {
       page: await Promise.all(result.page.map((row) => ticketDoc(ctx, row))),
@@ -318,18 +329,37 @@ export const tickets = query({
 
 export const ticketThread = query({
   args: { ...auth, id: v.id("tickets") },
-  returns: v.union(v.null(), v.object({ ...supportFields, replies: v.array(reply) })),
+  returns: v.union(
+    v.null(),
+    v.object({
+      ...supportFields,
+      customer: v.object({
+        wallet: v.string(),
+        name: v.string(),
+        username: v.optional(v.string()),
+      }),
+      replies: v.array(reply),
+    }),
+  ),
   handler: async (ctx, args) => {
     await requireOperator(ctx, args, "support");
     const row = await ctx.db.get(args.id);
     if (!row) return null;
-    const replies = await ctx.db
-      .query("ticketReplies")
-      .withIndex("by_ticket", (q) => q.eq("ticket", row._id))
-      .order("desc")
-      .take(50);
+    const [account, replies] = await Promise.all([
+      ctx.db.get(row.account),
+      ctx.db
+        .query("ticketReplies")
+        .withIndex("by_ticket", (q) => q.eq("ticket", row._id))
+        .order("desc")
+        .take(50),
+    ]);
     return {
       ...(await ticketDoc(ctx, row)),
+      customer: {
+        wallet: account?.wallet ?? "",
+        name: account?.name ?? "",
+        username: account?.username,
+      },
       replies: await Promise.all(replies.map((item) => replyDoc(ctx, item))),
     };
   },

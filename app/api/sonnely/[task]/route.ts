@@ -323,7 +323,10 @@ export async function POST(request: NextRequest, context: Context) {
     if (task.startsWith("admin-")) {
       const delegated =
         (profile.role === "support" &&
-          (task === "admin-ticket" || task === "admin-reply" || task.startsWith("admin-task-"))) ||
+          (task === "admin-ticket" ||
+            task === "admin-ticket-bulk" ||
+            task === "admin-reply" ||
+            task.startsWith("admin-task-"))) ||
         (profile.role === "finance" && (task === "admin-invoice-preview" || task === "admin-invoice-record"));
       if (profile.role !== "admin" && !delegated)
         throw new SonnelyError("Administrator access required.", 403);

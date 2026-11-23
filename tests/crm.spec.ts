@@ -191,14 +191,14 @@ test("referral milestones and the admin workspace follow actual account activity
 
   await adminNav.getByRole("button", { name: "Support", exact: true }).click();
   await page.getByRole("combobox", { name: "Support status" }).selectOption("open");
-  await page.getByText(topic, { exact: true }).click();
-  const issue = page.locator("details").filter({ hasText: topic });
-  await issue.getByRole("combobox", { name: "Status", exact: true }).selectOption("in_progress");
-  await issue.getByRole("combobox", { name: "Assignment" }).selectOption("claim");
-  await issue.getByRole("button", { name: "Save request" }).click();
-  await expect(page.getByText(topic, { exact: true })).toHaveCount(0);
+  await page.locator(".inbox-list").getByText(topic, { exact: true }).click();
+  const thread = page.locator(".inbox-detail");
+  await thread.getByRole("combobox", { name: "Status", exact: true }).selectOption("in_progress");
+  await thread.getByRole("combobox", { name: "Assignment" }).selectOption("claim");
+  await thread.getByRole("button", { name: "Save request" }).click();
+  await expect(page.locator(".inbox-list").getByText(topic, { exact: true })).toHaveCount(0);
   await page.getByRole("combobox", { name: "Support status" }).selectOption("in_progress");
-  await expect(issue.getByText("In progress", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".inbox-list").getByText("In progress", { exact: true }).first()).toBeVisible();
   expect((await db.query(api.crm.customer, { ...admin.auth, id: account }))?.tickets).toMatchObject([
     { id: ticket, state: "in_progress", assignedWallet: adminWallet },
   ]);
