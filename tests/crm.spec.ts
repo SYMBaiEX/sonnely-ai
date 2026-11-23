@@ -258,3 +258,147 @@ test("referral milestones and the admin workspace follow actual account activity
   expect(detail!.keys).toMatchObject([{ name: "fixture key", prefix: "sk-fixture", revoked: true }]);
   expect(detail!.referrals).toEqual([]);
 });
+
+test("customer flags, filtered lists, and saved segments stay admin-scoped", async ({ baseURL }) => {
+  test.skip(!baseURL || new URL(baseURL).hostname !== "127.0.0.1", "Local Convex fixture");
+  process.loadEnvFile(".env.local");
+  if (!process.env.CONVEX_URL?.startsWith("http://127.0.0.1:")) throw new Error("Local Convex required");
+  const { backend, hash } = await import("../lib/server");
+  const { api } = await import("../convex/_generated/api");
+  const { db, secret } = backend();
+  const adminWallet = "4mXbaPHhmW9bZMdSAd9NEpdL5q3gjAcEdZyRPYhMUAGk";
+
+  async function signIn(wallet: string) {
+    const token = randomUUID();
+    const auth = { secret, session: hash(token) };
+    await db.mutation(api.sonnely.signIn, {
+      ...auth,
+      wallet,
+      nonce: randomUUID(),
+      expires: Date.now() + 60_000,
+      referral: randomUUID().replaceAll("-", "").slice(0, 16),
+    });
+    return { auth, token };
+  }
+
+  const admin = await signIn(adminWallet);
+  const guestWallet = randomUUID();
+  const guest = await signIn(guestWallet);
+  const paging = { cursor: null, numItems: 30 };
+  const account = (await db.query(api.crm.customers, { ...admin.auth, search: guestWallet, page: paging }))
+    .page[0].id;
+
+  const flag = "vip-" + randomUUID().slice(0, 8);
+  await expect(db.mutation(api.crm.setFlag, { ...guest.auth, account, flag })).rejects.toThrow(
+    "Administrator access required",
+  );
+  await expect(db.query(api.crm.customerFlags, { ...guest.auth, account })).rejects.toThrow(
+    "Administrator access required",
+  );
+  await expect(
+    db.query(api.crm.customers, { ...guest.auth, search: "", filter: { flag }, page: paging }),
+  ).rejects.toThrow("Administrator access required");
+  await expect(
+    db.mutation(api.crm.saveSegment, { ...guest.auth, name: "denied", definition: "{}" }),
+  ).rejects.toThrow("Administrator access required");
+
+  await expect(db.mutation(api.crm.setFlag, { ...admin.auth, account, flag: "not a flag!" })).rejects.toThrow(
+    "slugs",
+  );
+  await db.mutation(api.crm.setFlag, { ...admin.auth, account, flag: flag.toUpperCase() });
+  expect(await db.query(api.crm.customerFlags, { ...admin.auth, account })).toEqual([flag]);
+  await db.mutation(api.crm.setFlag, { ...admin.auth, account, flag, note: "Repeat write" });
+
+  const flagged = await db.query(api.crm.customers, {
+    ...admin.auth,
+    search: "",
+    filter: { flag },
+    page: paging,
+  });
+  expect(flagged.page.map((row) => row.id)).toContain(account);
+  expect(flagged.page.find((row) => row.id === account)?.flags).toEqual([flag]);
+  expect(
+    (
+      await db.query(api.crm.customers, {
+        ...admin.auth,
+        search: "",
+        filter: { flag: "ghost" },
+        page: paging,
+      })
+    ).page,
+  ).toEqual([]);
+  const unfiltered = await db.query(api.crm.customers, {
+    ...admin.auth,
+    search: guestWallet,
+    page: paging,
+  });
+  expect(unfiltered.page.find((row) => row.id === account)?.flags).toEqual([flag]);
+
+  const unfunded = await db.query(api.crm.customers, {
+    ...admin.auth,
+    search: "",
+    filter: { funded: "unfunded" },
+    page: paging,
+  });
+  expect(unfunded.page.map((row) => row.id)).toContain(account);
+  const fundedOnly = await db.query(api.crm.customers, {
+    ...admin.auth,
+    search: "",
+    filter: { funded: "funded" },
+    page: paging,
+  });
+  expect(fundedOnly.page.map((row) => row.id)).not.toContain(account);
+
+  const reference = randomUUID();
+  await db.mutation(api.sonnely.createDeposit, {
+    ...guest.auth,
+    reference,
+    recipient: adminWallet,
+    mint: "test-usdc",
+    cluster: "mainnet",
+    amount: 1_000_000,
+  });
+  await db.mutation(api.sonnely.confirmDeposit, { ...guest.auth, reference, signature: randomUUID() });
+  await db.mutation(api.sonnely.acceptTerms, { ...guest.auth, version: termsVersion });
+  const id = await db.mutation(api.sonnely.reserve, {
+    ...guest.auth,
+    model: models[0].id,
+    cost: 300,
+    requireTerms: true,
+  });
+  await db.mutation(api.sonnely.settle, {
+    secret,
+    id,
+    input: 12,
+    output: 24,
+    cost: 40,
+    status: "complete",
+    providerRequest: "crm-flags-" + randomUUID(),
+    providerStatus: 200,
+    outcome: "complete",
+  });
+  expect(
+    (
+      await db.query(api.crm.customers, {
+        ...admin.auth,
+        search: "",
+        filter: { funded: "funded", active: true },
+        page: paging,
+      })
+    ).page.map((row) => row.id),
+  ).toContain(account);
+
+  const name = "flagged-" + randomUUID().slice(0, 8);
+  const definition = JSON.stringify({ search: "", flag, funded: "any", active: false });
+  const segment = await db.mutation(api.crm.saveSegment, { ...admin.auth, name, definition });
+  expect(await db.query(api.crm.listSegments, admin.auth)).toContainEqual({
+    id: segment,
+    name,
+    definition,
+  });
+  await db.mutation(api.crm.deleteSegment, { ...admin.auth, id: segment });
+  expect((await db.query(api.crm.listSegments, admin.auth)).map((row) => row.id)).not.toContain(segment);
+
+  await db.mutation(api.crm.removeFlag, { ...admin.auth, account, flag });
+  expect(await db.query(api.crm.customerFlags, { ...admin.auth, account })).toEqual([]);
+});

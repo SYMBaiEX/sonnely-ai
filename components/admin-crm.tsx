@@ -42,6 +42,7 @@ const outcomes: Record<string, string> = {
 export function useCrm<T>(route: string, revision: number) {
   const [state, setState] = useState<{ route: string; revision: number; data?: T; error?: string }>();
   useEffect(() => {
+    if (!route) return;
     let active = true;
     void request<T>(route)
       .then((data) => {
@@ -54,10 +55,10 @@ export function useCrm<T>(route: string, revision: number) {
       active = false;
     };
   }, [route, revision]);
-  return state?.route === route && state.revision === revision ? state : undefined;
+  return route !== "" && state?.route === route && state.revision === revision ? state : undefined;
 }
 
-function Identity({ customer }: { customer: Customer }) {
+function Identity({ customer }: { customer: { name: string; username?: string; wallet: string } }) {
   return (
     <span className="crm-identity">
       <strong>
@@ -158,10 +159,7 @@ function TicketThread({ id, refresh }: { id: string; refresh: () => void }) {
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
-  const state = useCrm<Thread | null>(
-    "admin-crm?view=support-thread&id=" + encodeURIComponent(id),
-    revision,
-  );
+  const state = useCrm<Thread | null>("admin-crm?view=support-thread&id=" + encodeURIComponent(id), revision);
   const reload = () => setRevision((value) => value + 1);
 
   async function send(event: FormEvent<HTMLFormElement>) {
@@ -205,9 +203,7 @@ function TicketThread({ id, refresh }: { id: string; refresh: () => void }) {
               <p className="crm-note">{item.body}</p>
               <p className="caption">
                 {localTime(item.time)} · {shorten(item.author)} ·{" "}
-                <span className="crm-state">
-                  {item.visibility === "public" ? "Public" : "Internal"}
-                </span>
+                <span className="crm-state">{item.visibility === "public" ? "Public" : "Internal"}</span>
               </p>
             </li>
           ))}
@@ -694,16 +690,23 @@ function CrmSection({
   );
 }
 
+type Segment = { id: string; name: string; definition: string };
+
 function CustomerWorkspace({ id, back, open }: { id: string; back: () => void; open: (id: string) => void }) {
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [noteError, setNoteError] = useState("");
   const [taskError, setTaskError] = useState("");
+  const [flagDraft, setFlagDraft] = useState("");
+  const [flagError, setFlagError] = useState("");
   const state = useCrm<CustomerDetail | null>(
     "admin-crm?view=customer&id=" + encodeURIComponent(id),
     revision,
   );
+  const flagState = useCrm<string[]>("admin-crm?view=customer-flags&id=" + encodeURIComponent(id), revision);
+  const flagOptions = useCrm<string[]>("admin-crm?view=flags", revision);
   const data = state?.data;
+  const flags = flagState?.data;
   const refresh = () => setRevision((value) => value + 1);
 
   async function addNote(event: FormEvent<HTMLFormElement>) {
@@ -744,6 +747,23 @@ function CustomerWorkspace({ id, back, open }: { id: string; back: () => void; o
     }
   }
 
+  async function flagAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const flag = flagDraft.trim();
+    if (!flag) return;
+    setBusy(true);
+    setFlagError("");
+    try {
+      await request("admin-flag", { account: id, flag });
+      setFlagDraft("");
+      refresh();
+    } catch (error) {
+      setFlagError(error instanceof Error ? error.message : "Could not add the flag.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function updateTask(action: string, task: string) {
     setBusy(true);
     setTaskError("");
@@ -752,6 +772,19 @@ function CustomerWorkspace({ id, back, open }: { id: string; back: () => void; o
       refresh();
     } catch (error) {
       setTaskError(error instanceof Error ? error.message : "Could not update the follow-up.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unflagAccount(flag: string) {
+    setBusy(true);
+    setFlagError("");
+    try {
+      await request("admin-unflag", { account: id, flag });
+      refresh();
+    } catch (error) {
+      setFlagError(error instanceof Error ? error.message : "Could not remove the flag.");
     } finally {
       setBusy(false);
     }
@@ -852,6 +885,52 @@ function CustomerWorkspace({ id, back, open }: { id: string; back: () => void; o
             </dl>
           </section>
           <AccountActions id={id} data={data} refresh={refresh} />
+          <CrmSection title="Tags">
+            <div className="crm-flags">
+              {flags?.length ? (
+                flags.map((flag) => (
+                  <span key={flag} className="pill">
+                    {flag}
+                    <button
+                      type="button"
+                      aria-label={"Remove flag " + flag}
+                      disabled={busy}
+                      onClick={() => void unflagAccount(flag)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <p className="caption">{flags ? "No flags yet." : "Loading flags…"}</p>
+              )}
+            </div>
+            <form className="crm-controls" onSubmit={(event) => void flagAccount(event)}>
+              <input
+                type="text"
+                list="crm-flag-list"
+                value={flagDraft}
+                onChange={(event) => setFlagDraft(event.target.value)}
+                maxLength={24}
+                required
+                placeholder="flag-name"
+                aria-label="New flag"
+              />
+              <datalist id="crm-flag-list">
+                {(flagOptions?.data ?? []).map((flag) => (
+                  <option key={flag} value={flag} />
+                ))}
+              </datalist>
+              <button className="button quiet" disabled={busy}>
+                Add flag
+              </button>
+            </form>
+            {flagError && (
+              <p role="alert" className="error">
+                {flagError}
+              </p>
+            )}
+          </CrmSection>
           <CrmSection title="Timeline">
             {data.timeline.length ? (
               <ul className="crm-activity">
@@ -861,8 +940,7 @@ function CustomerWorkspace({ id, back, open }: { id: string; back: () => void; o
                       <span className="crm-state">{item.kind}</span> {item.summary ?? item.note}
                     </p>
                     <p className="caption">
-                      {localTime(item.time)} ·{" "}
-                      {item.actor.length > 20 ? shorten(item.actor) : item.actor}
+                      {localTime(item.time)} · {item.actor.length > 20 ? shorten(item.actor) : item.actor}
                     </p>
                   </li>
                 ))}
@@ -887,18 +965,12 @@ function CustomerWorkspace({ id, back, open }: { id: string; back: () => void; o
                   <tbody>
                     {data.referrals.map((row) => (
                       <tr key={row.id}>
-                        <th scope="row">
-                          {row.username ? "@" + row.username : shorten(row.wallet)}
-                        </th>
+                        <th scope="row">{row.username ? "@" + row.username : shorten(row.wallet)}</th>
                         <td>{localTime(row.joined)}</td>
                         <td>{row.funded ? <span className="crm-state">Funded</span> : "—"}</td>
                         <td>{row.active ? <span className="crm-state">Active</span> : "—"}</td>
                         <td>
-                          <button
-                            type="button"
-                            className="button quiet small"
-                            onClick={() => open(row.id)}
-                          >
+                          <button type="button" className="button quiet small" onClick={() => open(row.id)}>
                             View account <ArrowRight size={14} />
                           </button>
                         </td>
@@ -1064,15 +1136,99 @@ function CustomerWorkspace({ id, back, open }: { id: string; back: () => void; o
 export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canOpenCustomer?: boolean }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [flag, setFlag] = useState("");
+  const [funded, setFunded] = useState("any");
+  const [activeOnly, setActiveOnly] = useState(false);
+  const [selected, setSelected] = useState<Customer["id"][]>([]);
+  const [bulkFlag, setBulkFlag] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [segmentId, setSegmentId] = useState("");
+  const [segmentError, setSegmentError] = useState("");
   const [trail, setTrail] = useState<string[]>([]);
   const [account, setAccount] = useState("");
   const [revision, setRevision] = useState(0);
   const cursor = trail.at(-1);
   const params = new URLSearchParams({ view, filter, search, ...(cursor ? { cursor } : {}) });
+  if (view === "customers") {
+    if (flag) params.set("flag", flag);
+    if (funded !== "any") params.set("funded", funded);
+    if (activeOnly) params.set("active", "true");
+  }
   const state = useCrm<CrmPage>("admin-crm?" + params, revision);
+  const segments = useCrm<Segment[]>(view === "customers" ? "admin-crm?view=segments" : "", revision);
+  const flagOptions = useCrm<string[]>(view === "customers" ? "admin-crm?view=flags" : "", revision);
   const refresh = () => setRevision((value) => value + 1);
-  if (account)
-    return <CustomerWorkspace id={account} back={() => setAccount("")} open={setAccount} />;
+  function applySegment(segment: Segment) {
+    try {
+      const saved = JSON.parse(segment.definition) as {
+        search?: string;
+        flag?: string;
+        funded?: string;
+        active?: boolean;
+      };
+      setSearch(typeof saved.search === "string" ? saved.search : "");
+      setFlag(typeof saved.flag === "string" ? saved.flag : "");
+      setFunded(saved.funded === "funded" || saved.funded === "unfunded" ? saved.funded : "any");
+      setActiveOnly(Boolean(saved.active));
+      setTrail([]);
+      setSegmentId(segment.id);
+      setSegmentError("");
+    } catch {
+      setSegmentError("That saved view could not be read.");
+    }
+  }
+
+  async function saveView(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const name = String(new FormData(form).get("view-name") ?? "").trim();
+    if (!name) return;
+    setSegmentError("");
+    try {
+      const saved = await request<Segment>("admin-segment-save", {
+        name,
+        definition: JSON.stringify({ search, flag, funded, active: activeOnly }),
+      });
+      form.reset();
+      setSegmentId(saved.id);
+      refresh();
+    } catch (error) {
+      setSegmentError(error instanceof Error ? error.message : "Could not save the view.");
+    }
+  }
+
+  async function deleteView() {
+    if (!segmentId) return;
+    setSegmentError("");
+    try {
+      await request("admin-segment-delete", { id: segmentId });
+      setSegmentId("");
+      refresh();
+    } catch (error) {
+      setSegmentError(error instanceof Error ? error.message : "Could not delete the view.");
+    }
+  }
+
+  async function flagSelected(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = bulkFlag.trim();
+    if (!value || !selected.length) return;
+    setBulkBusy(true);
+    setBulkError("");
+    try {
+      for (const accountId of selected) await request("admin-flag", { account: accountId, flag: value });
+      setSelected([]);
+      setBulkFlag("");
+      refresh();
+    } catch (error) {
+      setBulkError(error instanceof Error ? error.message : "Could not flag the selected accounts.");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  if (account) return <CustomerWorkspace id={account} back={() => setAccount("")} open={setAccount} />;
 
   const description = {
     customers: "Find a wallet and review its account, referrals, payments, requests, and support history.",
@@ -1132,7 +1288,118 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
             ))}
           </select>
         )}
+        {view === "customers" && (
+          <>
+            <select
+              aria-label="Flag filter"
+              value={flag}
+              onChange={(event) => {
+                setFlag(event.target.value);
+                setTrail([]);
+              }}
+            >
+              <option value="">Any flag</option>
+              {(flagOptions?.data ?? []).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+              {flag && !(flagOptions?.data ?? []).includes(flag) && <option value={flag}>{flag}</option>}
+            </select>
+            <select
+              aria-label="Funding filter"
+              value={funded}
+              onChange={(event) => {
+                setFunded(event.target.value);
+                setTrail([]);
+              }}
+            >
+              <option value="any">Any funding</option>
+              <option value="funded">Funded</option>
+              <option value="unfunded">Unfunded</option>
+            </select>
+            <label className="crm-check">
+              <input
+                type="checkbox"
+                checked={activeOnly}
+                onChange={(event) => {
+                  setActiveOnly(event.target.checked);
+                  setTrail([]);
+                }}
+              />
+              Active 30d
+            </label>
+            <select
+              aria-label="Saved views"
+              value={segmentId}
+              onChange={(event) => {
+                const segment = segments?.data?.find((item) => item.id === event.target.value);
+                if (segment) applySegment(segment);
+                else setSegmentId("");
+              }}
+            >
+              <option value="">Saved views…</option>
+              {(segments?.data ?? []).map((segment) => (
+                <option key={segment.id} value={segment.id}>
+                  {segment.name}
+                </option>
+              ))}
+            </select>
+            {segmentId && (
+              <button type="button" className="button quiet small" onClick={() => void deleteView()}>
+                Delete view
+              </button>
+            )}
+            <form className="crm-search" onSubmit={(event) => void saveView(event)}>
+              <input
+                name="view-name"
+                type="text"
+                maxLength={40}
+                required
+                placeholder="Name this view"
+                aria-label="Name this view"
+              />
+              <button className="button quiet small">Save view</button>
+            </form>
+            {segmentError && (
+              <p role="alert" className="error">
+                {segmentError}
+              </p>
+            )}
+          </>
+        )}
       </div>
+      {view === "customers" && selected.length > 0 && (
+        <form className="crm-controls" onSubmit={(event) => void flagSelected(event)}>
+          <span className="pill">{selected.length} selected</span>
+          <input
+            type="text"
+            list="crm-flag-list"
+            value={bulkFlag}
+            onChange={(event) => setBulkFlag(event.target.value)}
+            maxLength={24}
+            required
+            placeholder="flag-name"
+            aria-label="Flag to apply"
+          />
+          <datalist id="crm-flag-list">
+            {(flagOptions?.data ?? []).map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+          <button className="button quiet small" disabled={bulkBusy}>
+            {bulkBusy ? "Flagging…" : "Flag selected"}
+          </button>
+          <button type="button" className="button quiet small" onClick={() => setSelected([])}>
+            Clear
+          </button>
+          {bulkError && (
+            <p role="alert" className="error">
+              {bulkError}
+            </p>
+          )}
+        </form>
+      )}
       {state?.error ? (
         <p className="error" role="alert">
           {state.error}
@@ -1147,6 +1414,21 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
                 <table>
                   <thead>
                     <tr>
+                      <th>
+                        <input
+                          type="checkbox"
+                          aria-label="Select all customers on this page"
+                          checked={(state.data.page as Customer[]).every((row) => selected.includes(row.id))}
+                          onChange={(event) => {
+                            const ids = (state.data!.page as Customer[]).map((row) => row.id);
+                            setSelected(
+                              event.target.checked
+                                ? [...new Set([...selected, ...ids])]
+                                : selected.filter((id) => !ids.includes(id)),
+                            );
+                          }}
+                        />
+                      </th>
                       <th>Account</th>
                       <th>Joined</th>
                       <th>Balance</th>
@@ -1157,8 +1439,31 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
                   <tbody>
                     {(state.data.page as Customer[]).map((row) => (
                       <tr key={row.id}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            aria-label="Select customer"
+                            checked={selected.includes(row.id)}
+                            onChange={(event) =>
+                              setSelected(
+                                event.target.checked
+                                  ? [...selected, row.id]
+                                  : selected.filter((id) => id !== row.id),
+                              )
+                            }
+                          />
+                        </td>
                         <th scope="row">
                           <Identity customer={row} />
+                          {row.flags.length > 0 && (
+                            <span className="crm-flags">
+                              {row.flags.map((flag) => (
+                                <span key={flag} className="pill">
+                                  {flag}
+                                </span>
+                              ))}
+                            </span>
+                          )}
                         </th>
                         <td>{localTime(row.joined)}</td>
                         <td>{creditBalance(row.balance)}</td>

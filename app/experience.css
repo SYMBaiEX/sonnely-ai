@@ -1496,6 +1496,42 @@ details.stack-panel[open] > summary.crm-section-head::after {
   transform: rotate(225deg);
 }
 
+.crm-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.crm-check input,
+.crm-controls > input[type="text"],
+.crm-controls > input[type="checkbox"],
+.table-wrap input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+}
+
+.crm-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.crm-flags .pill {
+  gap: 6px;
+}
+
+.crm-flags .pill button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+}
+
 .workspace-compute-links {
   display: flex;
   flex-wrap: wrap;
