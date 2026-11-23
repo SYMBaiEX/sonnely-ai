@@ -110,6 +110,8 @@ export async function adminCrm(
         .parse(Number(params.get("days") ?? "30"));
       return json(await db.query(api.analytics.daily, { ...auth, days: Math.min(90, Math.max(7, parsed)) }));
     }
+    case "tasks":
+      return json(await db.query(api.crmTasks.mine, { ...auth, openOnly: true }));
     default:
       throw new SonnelyError("Choose an admin view.", 404);
   }
@@ -152,6 +154,30 @@ export async function adminAction(
       .parse(raw);
     await db.mutation(api.crm.addNote, { ...auth, account: account as Id<"accounts">, note });
     return json({ ok: true }, 201);
+  }
+  if (task === "admin-task-create") {
+    const { account, title, dueAt } = z
+      .object({
+        account: z.string().min(1).max(64),
+        title: z.string().trim().min(1).max(160),
+        dueAt: z.number().int().positive().optional(),
+      })
+      .parse(raw);
+    await db.mutation(api.crmTasks.create, {
+      ...auth,
+      account: account as Id<"accounts">,
+      title,
+      dueAt,
+    });
+    return json({ ok: true }, 201);
+  }
+  if (task === "admin-task-done" || task === "admin-task-reopen") {
+    const { id } = z.object({ id: z.string().min(1).max(64) }).parse(raw);
+    await db.mutation(task === "admin-task-done" ? api.crmTasks.complete : api.crmTasks.reopen, {
+      ...auth,
+      id: id as Id<"crmTasks">,
+    });
+    return json({ ok: true });
   }
   if (task === "admin-ticket") {
     const { id, assignTo, ...fields } = z

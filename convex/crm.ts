@@ -5,6 +5,7 @@ import type { Doc } from "./_generated/dataModel";
 import { auth, requireAdmin, requireOperator, walletRole } from "./access";
 import { termsVersion } from "../lib/policy";
 import { firstConversion } from "./referralPipeline";
+import { taskDoc } from "./crmTasks";
 
 const state = v.union(v.literal("open"), v.literal("in_progress"), v.literal("resolved"));
 const outcome = v.union(
@@ -232,51 +233,77 @@ export const customer = query({
           note: v.string(),
         }),
       ),
+      tasks: v.array(
+        v.object({
+          id: v.id("crmTasks"),
+          title: v.string(),
+          dueAt: v.optional(v.number()),
+          doneAt: v.optional(v.number()),
+          assignee: v.string(),
+          creator: v.string(),
+          created: v.number(),
+        }),
+      ),
     }),
   ),
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
     const account = await ctx.db.get(args.id);
     if (!account) return null;
-    const [inviter, deposits, traces, tickets, notes, conversion, flagRows, adjustmentRows, keyRows] =
-      await Promise.all([
-        account.invitedBy ? ctx.db.get(account.invitedBy) : null,
-        ctx.db
-          .query("deposits")
-          .withIndex("by_account", (q) => q.eq("account", account._id))
-          .order("desc")
-          .take(12),
-        ctx.db
-          .query("usage")
-          .withIndex("by_account", (q) => q.eq("account", account._id))
-          .order("desc")
-          .take(12),
-        ctx.db
-          .query("tickets")
-          .withIndex("by_account", (q) => q.eq("account", account._id))
-          .order("desc")
-          .take(12),
-        ctx.db
-          .query("crmEvents")
-          .withIndex("by_account", (q) => q.eq("account", account._id))
-          .order("desc")
-          .take(20),
-        firstConversion(ctx, account._id),
-        ctx.db
-          .query("accountFlags")
-          .withIndex("by_account", (q) => q.eq("account", account._id))
-          .take(24),
-        ctx.db
-          .query("balanceAdjustments")
-          .withIndex("by_account", (q) => q.eq("account", account._id))
-          .order("desc")
-          .take(12),
-        ctx.db
-          .query("keys")
-          .withIndex("by_account", (q) => q.eq("account", account._id))
-          .order("desc")
-          .take(25),
-      ]);
+    const [
+      inviter,
+      deposits,
+      traces,
+      tickets,
+      notes,
+      conversion,
+      flagRows,
+      adjustmentRows,
+      keyRows,
+      followUps,
+    ] = await Promise.all([
+      account.invitedBy ? ctx.db.get(account.invitedBy) : null,
+      ctx.db
+        .query("deposits")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(12),
+      ctx.db
+        .query("usage")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(12),
+      ctx.db
+        .query("tickets")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(12),
+      ctx.db
+        .query("crmEvents")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(20),
+      firstConversion(ctx, account._id),
+      ctx.db
+        .query("accountFlags")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .take(24),
+      ctx.db
+        .query("balanceAdjustments")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(12),
+      ctx.db
+        .query("keys")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(25),
+      ctx.db
+        .query("crmTasks")
+        .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(20),
+    ]);
     return {
       customer: customerDoc(account),
       ...conversion,
@@ -320,6 +347,7 @@ export const customer = query({
           note: row.note,
         })),
       ),
+      tasks: await Promise.all(followUps.map((row) => taskDoc(ctx, row))),
     };
   },
 });
