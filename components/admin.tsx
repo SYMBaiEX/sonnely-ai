@@ -165,410 +165,448 @@ export function Admin({ session, features }: { session: Session | null; features
           </button>
         )}
       </WorkspaceHeading>
-      {authorized && (
-        <nav className="segmented crm-navigation" aria-label="Admin workspace">
-          {adminTabs.map(({ id, label }) => (
-            <button key={id} type="button" aria-pressed={area === id} onClick={() => setArea(id)}>
-              {label}
-            </button>
-          ))}
-        </nav>
-      )}
-      {area === "overview" && error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {area === "overview" && notice && (
-        <p className="status" role="status">
-          {notice}
-        </p>
-      )}
       {!authorized ? (
         <section className="panel stack-panel admin-access">
           <ShieldCheck size={21} aria-hidden="true" />
           <h2>Administrator access required</h2>
           <p>Connect an authorized Solana wallet to view this workspace.</p>
         </section>
-      ) : area !== "overview" ? (
-        (adminTabs.find((tab) => tab.id === area)?.render?.(wallet ?? "") ?? null)
-      ) : !data ? (
-        <p className="caption" role="status">
-          {error ? "Platform activity is unavailable." : "Loading platform activity…"}
-        </p>
       ) : (
-        <div className="admin-grid">
-          {data.activation && (
-            <section className="panel stack-panel">
-              <h2>New workspaces · Last 14 days</h2>
-              {data.activation.capped && <p className="caption">Showing the most recent 200 workspaces.</p>}
-              <dl className="admin-metrics">
-                {(
-                  [
-                    ["Wallets signed in", data.activation.joined],
-                    ["Terms accepted", data.activation.accepted],
-                    ["Setup completed", data.activation.finishedSetup],
-                    ["USDC checkout started", data.activation.startedFunding],
-                    ["Credits added", data.activation.funded],
-                    ["First paid request", data.activation.active],
-                  ] as const
-                ).map(([label, count]) => (
-                  <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{count.toLocaleString()}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-          <FollowUpsDue open={() => setArea("customers")} />
-          <section className="panel stack-panel">
-            <h2>Activity over 30 days</h2>
-            <dl className="admin-metrics">
-              <div>
-                <dt>Requests</dt>
-                <dd>{data.stats.requests.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Completed</dt>
-                <dd>{data.stats.complete.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Failed</dt>
-                <dd>{data.stats.failed.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Open reservations</dt>
-                <dd>{data.stats.held.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Input tokens</dt>
-                <dd>{data.stats.input.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Output tokens</dt>
-                <dd>{data.stats.output.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Active wallets</dt>
-                <dd>{data.activeWallets.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Support requests</dt>
-                <dd>{data.tickets.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Finalized deposits</dt>
-                <dd>{data.deposits.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>USDC received</dt>
-                <dd>{creditBalance(data.depositMicros)}</dd>
-              </div>
-              <div>
-                <dt>Customer inference spend</dt>
-                <dd>{creditBalance(data.stats.spendMicros)}</dd>
-              </div>
-            </dl>
-            {data.truncated && (
-              <p className="caption">
-                Activity is based on the 1,000 newest records of each type in this window.
+        <div className="admin-shell">
+          <div className="admin-area-mobile">
+            <label htmlFor="admin-area-select" className="caption">
+              Section
+            </label>
+            <select id="admin-area-select" value={area} onChange={(event) => setArea(event.target.value)}>
+              {adminTabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <nav className="admin-nav" aria-label="Admin workspace">
+            {adminTabs.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                className="admin-nav-item"
+                aria-current={area === id ? "page" : undefined}
+                onClick={() => setArea(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="admin-content">
+            {area === "overview" && error && (
+              <p className="error" role="alert">
+                {error}
               </p>
             )}
-          </section>
-          {data.gateway && data.gateway.state !== "disabled" && (
-            <section className="panel stack-panel">
-              <h2>UsageMax receipts</h2>
-              {data.gateway.state === "unavailable" ? (
-                <p className="caption">UsageMax reporting is unavailable. Local activity is shown above.</p>
-              ) : (
-                <>
+            {area === "overview" && notice && (
+              <p className="status" role="status">
+                {notice}
+              </p>
+            )}
+            {area !== "overview" ? (
+              (adminTabs.find((tab) => tab.id === area)?.render?.(wallet ?? "") ?? null)
+            ) : !data ? (
+              <p className="caption" role="status">
+                {error ? "Platform activity is unavailable." : "Loading platform activity…"}
+              </p>
+            ) : (
+              <div className="admin-grid">
+                {data.activation && (
+                  <section className="panel stack-panel">
+                    <h2>New workspaces · Last 14 days</h2>
+                    {data.activation.capped && (
+                      <p className="caption">Showing the most recent 200 workspaces.</p>
+                    )}
+                    <dl className="admin-metrics">
+                      {(
+                        [
+                          ["Wallets signed in", data.activation.joined],
+                          ["Terms accepted", data.activation.accepted],
+                          ["Setup completed", data.activation.finishedSetup],
+                          ["USDC checkout started", data.activation.startedFunding],
+                          ["Credits added", data.activation.funded],
+                          ["First paid request", data.activation.active],
+                        ] as const
+                      ).map(([label, count]) => (
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd>{count.toLocaleString()}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                )}
+                <FollowUpsDue open={() => setArea("customers")} />
+                <section className="panel stack-panel">
+                  <h2>Activity over 30 days</h2>
                   <dl className="admin-metrics">
                     <div>
-                      <dt>Receipts returned</dt>
-                      <dd>{data.gateway.count.toLocaleString()}</dd>
+                      <dt>Requests</dt>
+                      <dd>{data.stats.requests.toLocaleString()}</dd>
                     </div>
                     <div>
                       <dt>Completed</dt>
-                      <dd>{data.gateway.completed.toLocaleString()}</dd>
+                      <dd>{data.stats.complete.toLocaleString()}</dd>
                     </div>
                     <div>
-                      <dt>Errors</dt>
-                      <dd>{data.gateway.errors.toLocaleString()}</dd>
+                      <dt>Failed</dt>
+                      <dd>{data.stats.failed.toLocaleString()}</dd>
                     </div>
                     <div>
-                      <dt>Cancelled</dt>
-                      <dd>{data.gateway.cancelled.toLocaleString()}</dd>
+                      <dt>Open reservations</dt>
+                      <dd>{data.stats.held.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Input tokens</dt>
+                      <dd>{data.stats.input.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Output tokens</dt>
+                      <dd>{data.stats.output.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Active wallets</dt>
+                      <dd>{data.activeWallets.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Support requests</dt>
+                      <dd>{data.tickets.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Finalized deposits</dt>
+                      <dd>{data.deposits.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>USDC received</dt>
+                      <dd>{creditBalance(data.depositMicros)}</dd>
+                    </div>
+                    <div>
+                      <dt>Customer inference spend</dt>
+                      <dd>{creditBalance(data.stats.spendMicros)}</dd>
+                    </div>
+                  </dl>
+                  {data.truncated && (
+                    <p className="caption">
+                      Activity is based on the 1,000 newest records of each type in this window.
+                    </p>
+                  )}
+                </section>
+                {data.gateway && data.gateway.state !== "disabled" && (
+                  <section className="panel stack-panel">
+                    <h2>UsageMax receipts</h2>
+                    {data.gateway.state === "unavailable" ? (
+                      <p className="caption">
+                        UsageMax reporting is unavailable. Local activity is shown above.
+                      </p>
+                    ) : (
+                      <>
+                        <dl className="admin-metrics">
+                          <div>
+                            <dt>Receipts returned</dt>
+                            <dd>{data.gateway.count.toLocaleString()}</dd>
+                          </div>
+                          <div>
+                            <dt>Completed</dt>
+                            <dd>{data.gateway.completed.toLocaleString()}</dd>
+                          </div>
+                          <div>
+                            <dt>Errors</dt>
+                            <dd>{data.gateway.errors.toLocaleString()}</dd>
+                          </div>
+                          <div>
+                            <dt>Cancelled</dt>
+                            <dd>{data.gateway.cancelled.toLocaleString()}</dd>
+                          </div>
+                        </dl>
+                        <p className="caption">
+                          From {data.gateway.from} through {data.gateway.through} UTC. Refreshed{" "}
+                          {new Date(data.gateway.fetchedAt).toLocaleString()}.
+                        </p>
+                        <p className="caption">
+                          {data.gateway.latestSettledAt === null
+                            ? "No receipts returned in this window."
+                            : "Latest settlement " +
+                              new Date(data.gateway.latestSettledAt).toLocaleString() +
+                              "."}
+                        </p>
+                        {data.gateway.truncated && (
+                          <p className="caption">
+                            Counts cover the returned receipts. More receipts exist in this window.
+                          </p>
+                        )}
+                        {data.gateway.latestReceiptUrl && (
+                          <a className="caption" href={data.gateway.latestReceiptUrl}>
+                            Open latest receipt in UsageMax
+                          </a>
+                        )}
+                        <p className="caption">Analytics powered by UsageMax</p>
+                      </>
+                    )}
+                  </section>
+                )}
+                {data.compute && (
+                  <section className="panel stack-panel">
+                    <h2>Compute over 30 days</h2>
+                    {features["dry-docks"] && <AdminBoatCapacity />}
+                    {(["blackboxes", "dry-docks"] as const).map((kind) => {
+                      const row = data.compute![kind];
+                      return (
+                        <div key={kind}>
+                          <h3>
+                            {computePlans[kind].title}
+                            {!features[kind] && " · Coming soon"}
+                          </h3>
+                          <dl className="admin-metrics">
+                            <div>
+                              <dt>Runs</dt>
+                              <dd>{row.runs}</dd>
+                            </div>
+                            <div>
+                              <dt>Active</dt>
+                              <dd>{row.active}</dd>
+                            </div>
+                            <div>
+                              <dt>Pending deletion</dt>
+                              <dd>{row.teardown}</dd>
+                            </div>
+                            {kind === "dry-docks" && (
+                              <>
+                                <div>
+                                  <dt>Completed builds</dt>
+                                  <dd>{row.completed}</dd>
+                                </div>
+                                <div>
+                                  <dt>Failed builds</dt>
+                                  <dd>{row.failed}</dd>
+                                </div>
+                                <div>
+                                  <dt>Metered runtime</dt>
+                                  <dd>{row.meteredSeconds}s</dd>
+                                </div>
+                                <div>
+                                  <dt>Cleanup over 2 min</dt>
+                                  <dd>{row.delayedTeardown}</dd>
+                                </div>
+                              </>
+                            )}
+                            <div>
+                              <dt>Credits held</dt>
+                              <dd>{creditBalance(row.held)}</dd>
+                            </div>
+                            <div>
+                              <dt>Customer charges</dt>
+                              <dd>{creditBalance(row.charged)}</dd>
+                            </div>
+                            <div>
+                              <dt>Metered base</dt>
+                              <dd>{creditBalance(row.base)}</dd>
+                            </div>
+                            <div>
+                              <dt>Platform fees</dt>
+                              <dd>{creditBalance(row.fee)}</dd>
+                            </div>
+                          </dl>
+                        </div>
+                      );
+                    })}
+                    <p className="caption">
+                      Fees are gross revenue before provider plan charges or invoice adjustments.
+                    </p>
+                    {data.compute.truncated && (
+                      <p className="caption">Showing totals for the latest 100 runs.</p>
+                    )}
+                  </section>
+                )}
+                <section className="panel stack-panel">
+                  <h2>Treasury</h2>
+                  <dl className="admin-metrics">
+                    <div>
+                      <dt>Finalized treasury USDC</dt>
+                      <dd>{data.treasuryMicros === null ? "—" : creditBalance(data.treasuryMicros)}</dd>
+                    </div>
+                    <div>
+                      <dt>Credits and open reservations</dt>
+                      <dd>{data.creditLiability === null ? "—" : creditBalance(data.creditLiability)}</dd>
+                    </div>
+                    <div>
+                      <dt>Reconciled requests</dt>
+                      <dd>{data.finance.reconciled.toLocaleString()}</dd>
+                    </div>
+                    <div>
+                      <dt>Reconciled charges</dt>
+                      <dd>{creditBalance(data.finance.customerMicros)}</dd>
+                    </div>
+                    <div>
+                      <dt>Verified NEAR cost</dt>
+                      <dd>${(data.finance.providerNano / 1e9).toFixed(9).replace(/0{1,7}$/, "")}</dd>
+                    </div>
+                    <div>
+                      <dt>Available margin</dt>
+                      <dd>{creditBalance(data.finance.availableMicros)}</dd>
+                    </div>
+                    <div>
+                      <dt>Profit paid</dt>
+                      <dd>{creditBalance(data.finance.paidMicros)}</dd>
                     </div>
                   </dl>
                   <p className="caption">
-                    From {data.gateway.from} through {data.gateway.through} UTC. Refreshed{" "}
-                    {new Date(data.gateway.fetchedAt).toLocaleString()}.
+                    Only reconciled margin is available. Older usage without an upstream billing ID is
+                    excluded.
                   </p>
-                  <p className="caption">
-                    {data.gateway.latestSettledAt === null
-                      ? "No receipts returned in this window."
-                      : "Latest settlement " + new Date(data.gateway.latestSettledAt).toLocaleString() + "."}
-                  </p>
-                  {data.gateway.truncated && (
-                    <p className="caption">
-                      Counts cover the returned receipts. More receipts exist in this window.
-                    </p>
-                  )}
-                  {data.gateway.latestReceiptUrl && (
-                    <a className="caption" href={data.gateway.latestReceiptUrl}>
-                      Open latest receipt in UsageMax
-                    </a>
-                  )}
-                  <p className="caption">Analytics powered by UsageMax</p>
-                </>
-              )}
-            </section>
-          )}
-          {data.compute && (
-            <section className="panel stack-panel">
-              <h2>Compute over 30 days</h2>
-              {features["dry-docks"] && <AdminBoatCapacity />}
-              {(["blackboxes", "dry-docks"] as const).map((kind) => {
-                const row = data.compute![kind];
-                return (
-                  <div key={kind}>
-                    <h3>
-                      {computePlans[kind].title}
-                      {!features[kind] && " · Coming soon"}
-                    </h3>
-                    <dl className="admin-metrics">
-                      <div>
-                        <dt>Runs</dt>
-                        <dd>{row.runs}</dd>
-                      </div>
-                      <div>
-                        <dt>Active</dt>
-                        <dd>{row.active}</dd>
-                      </div>
-                      <div>
-                        <dt>Pending deletion</dt>
-                        <dd>{row.teardown}</dd>
-                      </div>
-                      {kind === "dry-docks" && (
-                        <>
-                          <div>
-                            <dt>Completed builds</dt>
-                            <dd>{row.completed}</dd>
-                          </div>
-                          <div>
-                            <dt>Failed builds</dt>
-                            <dd>{row.failed}</dd>
-                          </div>
-                          <div>
-                            <dt>Metered runtime</dt>
-                            <dd>{row.meteredSeconds}s</dd>
-                          </div>
-                          <div>
-                            <dt>Cleanup over 2 min</dt>
-                            <dd>{row.delayedTeardown}</dd>
-                          </div>
-                        </>
-                      )}
-                      <div>
-                        <dt>Credits held</dt>
-                        <dd>{creditBalance(row.held)}</dd>
-                      </div>
-                      <div>
-                        <dt>Customer charges</dt>
-                        <dd>{creditBalance(row.charged)}</dd>
-                      </div>
-                      <div>
-                        <dt>Metered base</dt>
-                        <dd>{creditBalance(row.base)}</dd>
-                      </div>
-                      <div>
-                        <dt>Platform fees</dt>
-                        <dd>{creditBalance(row.fee)}</dd>
-                      </div>
-                    </dl>
+                  <div className="actions">
+                    <button
+                      className="button quiet"
+                      type="button"
+                      disabled={busy || !data.hasUnreconciled}
+                      onClick={() =>
+                        void act(async () => {
+                          const { count } = await request<{ count: number }>("admin-reconcile", {});
+                          return count
+                            ? "Reconciled " + count + " requests."
+                            : "NEAR has no new finalized cost records yet.";
+                        })
+                      }
+                    >
+                      Reconcile NEAR costs
+                    </button>
+                    <button
+                      className="button accent"
+                      type="button"
+                      disabled={
+                        busy ||
+                        !data.finance.availableMicros ||
+                        data.payouts.some((payout) => !payout.signature)
+                      }
+                      onClick={() =>
+                        void act(async () => {
+                          await request("admin-open-payout", {});
+                          return "Payout prepared for treasury approval.";
+                        })
+                      }
+                    >
+                      Prepare profit payout
+                    </button>
                   </div>
-                );
-              })}
-              <p className="caption">
-                Fees are gross revenue before provider plan charges or invoice adjustments.
-              </p>
-              {data.compute.truncated && <p className="caption">Showing totals for the latest 100 runs.</p>}
-            </section>
-          )}
-          <section className="panel stack-panel">
-            <h2>Treasury</h2>
-            <dl className="admin-metrics">
-              <div>
-                <dt>Finalized treasury USDC</dt>
-                <dd>{data.treasuryMicros === null ? "—" : creditBalance(data.treasuryMicros)}</dd>
-              </div>
-              <div>
-                <dt>Credits and open reservations</dt>
-                <dd>{data.creditLiability === null ? "—" : creditBalance(data.creditLiability)}</dd>
-              </div>
-              <div>
-                <dt>Reconciled requests</dt>
-                <dd>{data.finance.reconciled.toLocaleString()}</dd>
-              </div>
-              <div>
-                <dt>Reconciled charges</dt>
-                <dd>{creditBalance(data.finance.customerMicros)}</dd>
-              </div>
-              <div>
-                <dt>Verified NEAR cost</dt>
-                <dd>${(data.finance.providerNano / 1e9).toFixed(9).replace(/0{1,7}$/, "")}</dd>
-              </div>
-              <div>
-                <dt>Available margin</dt>
-                <dd>{creditBalance(data.finance.availableMicros)}</dd>
-              </div>
-              <div>
-                <dt>Profit paid</dt>
-                <dd>{creditBalance(data.finance.paidMicros)}</dd>
-              </div>
-            </dl>
-            <p className="caption">
-              Only reconciled margin is available. Older usage without an upstream billing ID is excluded.
-            </p>
-            <div className="actions">
-              <button
-                className="button quiet"
-                type="button"
-                disabled={busy || !data.hasUnreconciled}
-                onClick={() =>
-                  void act(async () => {
-                    const { count } = await request<{ count: number }>("admin-reconcile", {});
-                    return count
-                      ? "Reconciled " + count + " requests."
-                      : "NEAR has no new finalized cost records yet.";
-                  })
-                }
-              >
-                Reconcile NEAR costs
-              </button>
-              <button
-                className="button accent"
-                type="button"
-                disabled={
-                  busy || !data.finance.availableMicros || data.payouts.some((payout) => !payout.signature)
-                }
-                onClick={() =>
-                  void act(async () => {
-                    await request("admin-open-payout", {});
-                    return "Payout prepared for treasury approval.";
-                  })
-                }
-              >
-                Prepare profit payout
-              </button>
-            </div>
-            <a className="text-link" href="https://cloud.near.ai/">
-              Manage NEAR funding ↗
-            </a>
-          </section>
-          <section className="panel breakdown">
-            <h2 id="admin-inference-by-model">Inference by model</h2>
-            <div
-              className="table-wrap workspace-data-table"
-              role="region"
-              aria-labelledby="admin-inference-by-model"
-              tabIndex={0}
-            >
-              <table>
-                <thead>
-                  <tr>
-                    <th>Model</th>
-                    <th>Requests</th>
-                    <th>Completed</th>
-                    <th>Failed</th>
-                    <th>Held</th>
-                    <th>Spend</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {models.map(({ id, name }) => {
-                    const metric = data.models[id];
-                    return (
-                      <tr key={id}>
-                        <th scope="row">{name}</th>
-                        <td>{metric?.requests ?? 0}</td>
-                        <td>{metric?.complete ?? 0}</td>
-                        <td>{metric?.failed ?? 0}</td>
-                        <td>{metric?.held ?? 0}</td>
-                        <td>{creditBalance(metric?.spendMicros ?? 0)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-          <CreditRecovery data={data.creditRecovery} busy={busy} act={act} />
-          <section className="panel stack-panel">
-            <h2>Profit payouts</h2>
-            {data.payouts.length ? (
-              data.payouts.map((payout) => (
-                <div className="admin-payout" key={payout.reference}>
-                  <strong>
-                    {creditBalance(payout.amount)} USDC to {shorten(payout.recipient)}
-                  </strong>
-                  {payout.signature ? (
-                    <a className="text-link" href={"https://explorer.solana.com/tx/" + payout.signature}>
-                      Finalized receipt ↗
-                    </a>
-                  ) : (
-                    <>
-                      <p className="caption">
-                        From {shorten(payout.treasury)} on Solana mainnet. The treasury pays network fees and
-                        any token account setup.
-                      </p>
-                      <code>{payout.recipient}</code>
-                      <div className="actions">
-                        {wallet === payout.treasury && (
-                          <button
-                            type="button"
-                            className="button accent"
-                            disabled={busy}
-                            onClick={() =>
-                              void act(async () => {
-                                await payWithWallet(
-                                  wallet,
-                                  payout.reference,
-                                  payout.cluster,
-                                  "admin-payout-transaction",
-                                );
-                                return "Payout submitted. Check finality before attempting another transfer.";
-                              })
-                            }
+                  <a className="text-link" href="https://cloud.near.ai/">
+                    Manage NEAR funding ↗
+                  </a>
+                </section>
+                <section className="panel breakdown">
+                  <h2 id="admin-inference-by-model">Inference by model</h2>
+                  <div
+                    className="table-wrap workspace-data-table"
+                    role="region"
+                    aria-labelledby="admin-inference-by-model"
+                    tabIndex={0}
+                  >
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Model</th>
+                          <th>Requests</th>
+                          <th>Completed</th>
+                          <th>Failed</th>
+                          <th>Held</th>
+                          <th>Spend</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {models.map(({ id, name }) => {
+                          const metric = data.models[id];
+                          return (
+                            <tr key={id}>
+                              <th scope="row">{name}</th>
+                              <td>{metric?.requests ?? 0}</td>
+                              <td>{metric?.complete ?? 0}</td>
+                              <td>{metric?.failed ?? 0}</td>
+                              <td>{metric?.held ?? 0}</td>
+                              <td>{creditBalance(metric?.spendMicros ?? 0)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+                <CreditRecovery data={data.creditRecovery} busy={busy} act={act} />
+                <section className="panel stack-panel">
+                  <h2>Profit payouts</h2>
+                  {data.payouts.length ? (
+                    data.payouts.map((payout) => (
+                      <div className="admin-payout" key={payout.reference}>
+                        <strong>
+                          {creditBalance(payout.amount)} USDC to {shorten(payout.recipient)}
+                        </strong>
+                        {payout.signature ? (
+                          <a
+                            className="text-link"
+                            href={"https://explorer.solana.com/tx/" + payout.signature}
                           >
-                            Approve with treasury wallet
-                          </button>
+                            Finalized receipt ↗
+                          </a>
+                        ) : (
+                          <>
+                            <p className="caption">
+                              From {shorten(payout.treasury)} on Solana mainnet. The treasury pays network
+                              fees and any token account setup.
+                            </p>
+                            <code>{payout.recipient}</code>
+                            <div className="actions">
+                              {wallet === payout.treasury && (
+                                <button
+                                  type="button"
+                                  className="button accent"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void act(async () => {
+                                      await payWithWallet(
+                                        wallet,
+                                        payout.reference,
+                                        payout.cluster,
+                                        "admin-payout-transaction",
+                                      );
+                                      return "Payout submitted. Check finality before attempting another transfer.";
+                                    })
+                                  }
+                                >
+                                  Approve with treasury wallet
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="button quiet"
+                                disabled={busy}
+                                onClick={() =>
+                                  void act(async () => {
+                                    const { ok } = await request<{ ok: boolean }>("admin-confirm-payout", {
+                                      reference: payout.reference,
+                                    });
+                                    return ok
+                                      ? "Payout finalized."
+                                      : "Waiting for a matching finalized transfer.";
+                                  })
+                                }
+                              >
+                                Check finality
+                              </button>
+                            </div>
+                          </>
                         )}
-                        <button
-                          type="button"
-                          className="button quiet"
-                          disabled={busy}
-                          onClick={() =>
-                            void act(async () => {
-                              const { ok } = await request<{ ok: boolean }>("admin-confirm-payout", {
-                                reference: payout.reference,
-                              });
-                              return ok ? "Payout finalized." : "Waiting for a matching finalized transfer.";
-                            })
-                          }
-                        >
-                          Check finality
-                        </button>
                       </div>
-                    </>
+                    ))
+                  ) : (
+                    <p className="caption">No payouts recorded.</p>
                   )}
-                </div>
-              ))
-            ) : (
-              <p className="caption">No payouts recorded.</p>
+                </section>
+              </div>
             )}
-          </section>
+          </div>
         </div>
       )}
     </>

@@ -1326,6 +1326,79 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   flex-wrap: wrap;
 }
 
+.admin-shell {
+  display: grid;
+  grid-template-columns: minmax(9.5rem, 11.5rem) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-nav {
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--glass-solid);
+  position: sticky;
+  top: 12px;
+}
+
+.admin-nav-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 8px 11px;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1.45;
+}
+
+.admin-nav-item:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+
+.admin-nav-item[aria-current="page"] {
+  background: var(--raised);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.admin-area-mobile {
+  display: none;
+}
+
+.admin-area-mobile select {
+  width: 100%;
+}
+
+.admin-content {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  align-content: start;
+}
+
+@media (max-width: 860px) {
+  .admin-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-nav {
+    display: none;
+  }
+
+  .admin-area-mobile {
+    display: grid;
+    gap: 5px;
+  }
+}
+
 .crm-workspace,
 .crm-records {
   display: grid;
