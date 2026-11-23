@@ -102,7 +102,7 @@ test("settlement survives a gateway outage, late cost is revised, and reporting 
   const { db, secret } = backend();
   const run = async (...args: string[]) =>
     (
-      await execute("pnpm", ["exec", "convex", ...args], {
+      await execute("pnpm", ["--silent", "exec", "convex", ...args], {
         env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
       })
     ).stdout;

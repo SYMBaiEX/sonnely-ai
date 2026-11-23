@@ -295,7 +295,10 @@ test("published guides link to supported endpoints and workflows", async ({ page
   await page.goto("/docs");
   await expect(page.getByRole("heading", { name: "Sonnely documentation", exact: true })).toBeVisible();
   await page.locator("a#api").click();
-  await expect(page.getByText("https://sonnely.com/api/sonnely/v1", { exact: true })).toBeVisible();
+  const baseUrl = page
+    .locator(".docs-api-base")
+    .getByText("https://sonnely.com/api/sonnely/v1", { exact: true });
+  await expect(baseUrl).toBeVisible();
   await page.getByRole("link", { name: "errors and recovery", exact: true }).last().click();
   await expect(page.getByRole("heading", { name: "Errors and recovery", exact: true })).toBeVisible();
   await page.goto("/models");

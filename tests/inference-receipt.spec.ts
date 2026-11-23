@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import { POST } from "../app/api/sonnely/v1/chat/completions/route";
 import { api } from "../convex/_generated/api";
 import { models } from "../lib/models";
+import { termsVersion } from "../lib/policy";
 import { requestCharge } from "../lib/pricing";
 import { infer } from "../lib/inference";
 import { readSse } from "../lib/sse";
@@ -431,6 +432,7 @@ test("idempotent API retries return the original request reference without a sec
   baseURL,
 }) => {
   const { db, auth, apiKey, balance } = await fundedKey(baseURL);
+  await db.mutation(api.sonnely.acceptTerms, { ...auth, version: termsVersion });
   const previous = process.env.NEAR_AI_API_KEY;
   process.env.NEAR_AI_API_KEY = "fixture-key";
   const originalFetch = globalThis.fetch;
