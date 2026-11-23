@@ -1899,6 +1899,8 @@ details.stack-panel[open] > summary.crm-section-head::after {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
 /* === customer360 === */
 
 .crm-head {
