@@ -1,7 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { auth, requireAdmin, requireOperator, walletRole } from "./access";
 import { recordAudit, recordEvent } from "./events";
 import { termsVersion } from "../lib/policy";
@@ -26,6 +26,12 @@ const identity = v.object({
   balance: v.number(),
   role: v.string(),
   onboarding: v.optional(v.union(v.literal("pending"), v.literal("fund"), v.literal("later"))),
+});
+const listed = v.object({ ...identity.fields, flags: v.array(v.string()) });
+const customerFilter = v.object({
+  flag: v.optional(v.string()),
+  funded: v.optional(v.union(v.literal("any"), v.literal("funded"), v.literal("unfunded"))),
+  active: v.optional(v.boolean()),
 });
 const trace = v.object({
   id: v.id("usage"),
@@ -97,6 +103,14 @@ const apiKey = v.object({
 });
 const paging = { isDone: v.boolean(), continueCursor: v.string() };
 
+async function flagNames(ctx: QueryCtx, account: Id<"accounts">) {
+  const rows = await ctx.db
+    .query("accountFlags")
+    .withIndex("by_account", (q) => q.eq("account", account))
+    .collect();
+  return rows.map((row) => row.flag).sort();
+}
+
 function customerDoc(row: Doc<"accounts">) {
   return {
     id: row._id,
@@ -164,8 +178,13 @@ async function replyDoc(ctx: QueryCtx, row: Doc<"ticketReplies">) {
 }
 
 export const customers = query({
-  args: { ...auth, search: v.string(), page: paginationOptsValidator },
-  returns: v.object({ page: v.array(identity), ...paging }),
+  args: {
+    ...auth,
+    search: v.string(),
+    filter: v.optional(customerFilter),
+    page: paginationOptsValidator,
+  },
+  returns: v.object({ page: v.array(listed), ...paging }),
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
     const search = args.search.trim().slice(0, 50);
@@ -179,11 +198,57 @@ export const customers = query({
         : ctx.db
             .query("accounts")
             .withIndex("by_username", (q) => q.gte("username", lower).lt("username", lower + "\uffff"));
-    const result = await rows.paginate({ ...args.page, numItems: 30 });
+    const flag = args.filter?.flag?.trim().toLowerCase().slice(0, 24) || undefined;
+    const funded =
+      args.filter?.funded === "funded" || args.filter?.funded === "unfunded" ? args.filter.funded : undefined;
+    const active = args.filter?.active;
+    if (!flag && !funded && active === undefined) {
+      const result = await rows.paginate({ ...args.page, numItems: 30 });
+      return {
+        page: await Promise.all(
+          result.page.map(async (row) => ({
+            ...customerDoc(row),
+            flags: await flagNames(ctx, row._id),
+          })),
+        ),
+        isDone: result.isDone,
+        continueCursor: result.continueCursor,
+      };
+    }
+    // Filtered scans cap at 200 recent candidates and skip cursor paging.
+    const since = Date.now() - 30 * 86_400_000;
+    const enriched = await Promise.all(
+      (await rows.take(200)).map(async (row) => {
+        const [flags, deposit, request] = await Promise.all([
+          flagNames(ctx, row._id),
+          ctx.db
+            .query("deposits")
+            .withIndex("by_account_cluster_signature", (q) =>
+              q.eq("account", row._id).eq("cluster", "mainnet").gt("signature", undefined),
+            )
+            .first(),
+          ctx.db
+            .query("usage")
+            .withIndex("by_account_status_time", (q) =>
+              q.eq("account", row._id).eq("status", "complete").gt("_creationTime", since),
+            )
+            .first(),
+        ]);
+        return { row, flags, funded: Boolean(deposit), active: Boolean(request) };
+      }),
+    );
     return {
-      page: result.page.map(customerDoc),
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
+      page: enriched
+        .filter(
+          (entry) =>
+            (!flag || entry.flags.includes(flag)) &&
+            (!funded || (funded === "funded") === entry.funded) &&
+            (active === undefined || entry.active === active),
+        )
+        .slice(0, Math.min(args.page.numItems, 30))
+        .map((entry) => ({ ...customerDoc(entry.row), flags: entry.flags })),
+      isDone: true,
+      continueCursor: "",
     };
   },
 });
@@ -574,8 +639,7 @@ export const replyTicket = mutation({
     const ticket = await ctx.db.get(args.id);
     if (!ticket) throw new ConvexError("Support request unavailable.");
     const body = args.body.trim();
-    if (!body || body.length > 4000)
-      throw new ConvexError("Write a reply of up to 4,000 characters.");
+    if (!body || body.length > 4000) throw new ConvexError("Write a reply of up to 4,000 characters.");
     const now = Date.now();
     await ctx.db.insert("ticketReplies", {
       ticket: ticket._id,
@@ -593,9 +657,7 @@ export const replyTicket = mutation({
       ticket: ticket._id,
       kind: "reply",
       note:
-        (args.visibility === "public" ? "Replied to customer" : "Internal reply") +
-        ": " +
-        body.slice(0, 120),
+        (args.visibility === "public" ? "Replied to customer" : "Internal reply") + ": " + body.slice(0, 120),
     });
     await recordEvent(ctx, {
       account: ticket.account,
@@ -608,8 +670,7 @@ export const replyTicket = mutation({
       action: "crm.reply",
       targetKind: "tickets",
       targetId: ticket._id,
-      summary:
-        (args.visibility === "public" ? "Public" : "Internal") + " reply on: " + ticket.topic,
+      summary: (args.visibility === "public" ? "Public" : "Internal") + " reply on: " + ticket.topic,
     });
     return null;
   },
@@ -659,5 +720,150 @@ export const activation = query({
       active: milestones.filter(({ active }) => active).length,
       capped: accounts.length > 200,
     };
+  },
+});
+
+function flagSlug(value: string) {
+  const flag = value.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{0,23}$/.test(flag))
+    throw new ConvexError("Flags are slugs of up to 24 lowercase letters, digits, and dashes.");
+  return flag;
+}
+
+export const setFlag = mutation({
+  args: { ...auth, account: v.id("accounts"), flag: v.string(), note: v.optional(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx, args);
+    const flag = flagSlug(args.flag);
+    const note = args.note?.trim().slice(0, 500) || undefined;
+    if (!(await ctx.db.get(args.account))) throw new ConvexError("Account unavailable.");
+    const existing = await ctx.db
+      .query("accountFlags")
+      .withIndex("by_account_flag", (q) => q.eq("account", args.account).eq("flag", flag))
+      .first();
+    if (existing) {
+      if (existing.note === note) return null;
+      await ctx.db.patch(existing._id, { note, admin: admin._id });
+    } else {
+      await ctx.db.insert("accountFlags", { account: args.account, flag, note, admin: admin._id });
+    }
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "crm.flag",
+      targetKind: "account",
+      targetId: args.account,
+      summary: "Flag '" + flag + "' set" + (note ? ": " + note : ""),
+    });
+    await ctx.db.insert("crmEvents", {
+      admin: admin._id,
+      account: args.account,
+      kind: "flag",
+      note: "Flag '" + flag + "' added",
+    });
+    return null;
+  },
+});
+
+export const removeFlag = mutation({
+  args: { ...auth, account: v.id("accounts"), flag: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx, args);
+    const flag = flagSlug(args.flag);
+    const rows = await ctx.db
+      .query("accountFlags")
+      .withIndex("by_account_flag", (q) => q.eq("account", args.account).eq("flag", flag))
+      .collect();
+    if (!rows.length) return null;
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "crm.unflag",
+      targetKind: "account",
+      targetId: args.account,
+      summary: "Flag '" + flag + "' removed",
+    });
+    await ctx.db.insert("crmEvents", {
+      admin: admin._id,
+      account: args.account,
+      kind: "flag",
+      note: "Flag '" + flag + "' removed",
+    });
+    return null;
+  },
+});
+
+export const customerFlags = query({
+  args: { ...auth, account: v.id("accounts") },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args);
+    return await flagNames(ctx, args.account);
+  },
+});
+
+export const knownFlags = query({
+  args: auth,
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args);
+    const rows = await ctx.db.query("accountFlags").withIndex("by_flag").take(200);
+    return [...new Set(rows.map((row) => row.flag))];
+  },
+});
+
+export const saveSegment = mutation({
+  args: { ...auth, name: v.string(), definition: v.string() },
+  returns: v.id("savedSegments"),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx, args);
+    const name = args.name.trim();
+    if (!name || name.length > 40) throw new ConvexError("Name the view in 40 characters or fewer.");
+    const definition = args.definition.trim();
+    if (definition.length > 2000) throw new ConvexError("The saved view definition is too large.");
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(definition);
+    } catch {
+      throw new ConvexError("The saved view definition must be JSON.");
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      throw new ConvexError("The saved view definition must be a JSON object.");
+    const { search, flag, funded, active } = parsed;
+    if (
+      (search !== undefined && typeof search !== "string") ||
+      (flag !== undefined && typeof flag !== "string") ||
+      (funded !== undefined && funded !== "any" && funded !== "funded" && funded !== "unfunded") ||
+      (active !== undefined && typeof active !== "boolean")
+    )
+      throw new ConvexError("Saved views only describe search, flag, funded, and active filters.");
+    return await ctx.db.insert("savedSegments", { admin: admin._id, name, definition });
+  },
+});
+
+export const listSegments = query({
+  args: auth,
+  returns: v.array(v.object({ id: v.id("savedSegments"), name: v.string(), definition: v.string() })),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx, args);
+    const rows = await ctx.db
+      .query("savedSegments")
+      .withIndex("by_admin", (q) => q.eq("admin", admin._id))
+      .order("desc")
+      .take(100);
+    return rows.map((row) => ({ id: row._id, name: row.name, definition: row.definition }));
+  },
+});
+
+export const deleteSegment = mutation({
+  args: { ...auth, id: v.id("savedSegments") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx, args);
+    const row = await ctx.db.get(args.id);
+    if (!row || row.admin !== admin._id) throw new ConvexError("Saved view unavailable.");
+    await ctx.db.delete(row._id);
+    return null;
   },
 });

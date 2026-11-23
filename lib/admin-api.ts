@@ -83,8 +83,38 @@ export async function adminCrm(
     .parse(params.get("search") ?? "");
   const filter = params.get("filter") ?? "all";
   switch (params.get("view")) {
-    case "customers":
-      return json(await db.query(api.crm.customers, { ...auth, search, page }));
+    case "customers": {
+      const flag = z
+        .string()
+        .trim()
+        .max(24)
+        .parse(params.get("flag") ?? "");
+      const funded = z.enum(["any", "funded", "unfunded"]).parse(params.get("funded") ?? "any");
+      const active = z
+        .enum(["true", "false"])
+        .optional()
+        .parse(params.get("active") ?? undefined);
+      return json(
+        await db.query(api.crm.customers, {
+          ...auth,
+          search,
+          page,
+          filter: {
+            ...(flag ? { flag } : {}),
+            funded,
+            ...(active === undefined ? {} : { active: active === "true" }),
+          },
+        }),
+      );
+    }
+    case "customer-flags": {
+      const id = z.string().min(1).max(64).parse(params.get("id")) as Id<"accounts">;
+      return json(await db.query(api.crm.customerFlags, { ...auth, account: id }));
+    }
+    case "flags":
+      return json(await db.query(api.crm.knownFlags, auth));
+    case "segments":
+      return json(await db.query(api.crm.listSegments, auth));
     case "customer": {
       const id = z.string().min(1).max(64).parse(params.get("id")) as Id<"accounts">;
       return json(await db.query(api.crm.customer, { ...auth, id }));
@@ -224,6 +254,35 @@ export async function adminAction(
       .parse(raw);
     await db.mutation(api.crm.replyTicket, { ...auth, id: id as Id<"tickets">, ...fields });
     return json({ ok: true }, 201);
+  }
+  if (task === "admin-flag" || task === "admin-unflag") {
+    const { account, flag, note } = z
+      .object({
+        account: z.string().min(1).max(64),
+        flag: z.string().trim().min(1).max(24),
+        note: z.string().trim().max(500).optional(),
+      })
+      .parse(raw);
+    if (task === "admin-flag") {
+      await db.mutation(api.crm.setFlag, { ...auth, account: account as Id<"accounts">, flag, note });
+      return json({ ok: true }, 201);
+    }
+    await db.mutation(api.crm.removeFlag, { ...auth, account: account as Id<"accounts">, flag });
+    return json({ ok: true });
+  }
+  if (task === "admin-segment-save") {
+    const { name, definition } = z
+      .object({
+        name: z.string().trim().min(1).max(40),
+        definition: z.string().trim().min(2).max(2000),
+      })
+      .parse(raw);
+    return json({ id: await db.mutation(api.crm.saveSegment, { ...auth, name, definition }) }, 201);
+  }
+  if (task === "admin-segment-delete") {
+    const { id } = z.object({ id: z.string().min(1).max(64) }).parse(raw);
+    await db.mutation(api.crm.deleteSegment, { ...auth, id: id as Id<"savedSegments"> });
+    return json({ ok: true });
   }
   if (task === "admin-resolve-credit") {
     const { id, ...fields } = z
