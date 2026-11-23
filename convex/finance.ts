@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { auth, requireAdmin, requireRecentAdmin } from "./access";
+import { recordAudit } from "./events";
 import { amendGatewayCost } from "./usageMaxOutbox";
 
 const payoutOrder = {
@@ -203,8 +204,17 @@ export const reconcile = mutation({
   args: { ...auth, costs: v.array(providerCost) },
   returns: v.number(),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args);
-    return applyNearCosts(ctx, args.costs);
+    const admin = await requireAdmin(ctx, args);
+    const matched = await applyNearCosts(ctx, args.costs);
+    if (matched)
+      await recordAudit(ctx, {
+        actor: admin._id,
+        action: "finance.reconcile",
+        targetKind: "finance",
+        targetId: "ledger",
+        summary: "Reconciled " + matched + " provider cost" + (matched === 1 ? "" : "s"),
+      });
+    return matched;
   },
 });
 
@@ -262,6 +272,13 @@ export const openPayout = mutation({
       createdBy: account._id,
     });
     await ctx.db.patch(ledger._id, { pendingPayout: payout });
+    await recordAudit(ctx, {
+      actor: account._id,
+      action: "finance.openPayout",
+      targetKind: "payout",
+      targetId: payout,
+      summary: "Opened payout " + args.reference + " for " + amount + " micros",
+    });
     return args.reference;
   },
 });
@@ -314,6 +331,13 @@ export const savePayoutTransaction = mutation({
       transaction: args.transaction,
       lastValidBlockHeight: args.lastValidBlockHeight,
     });
+    await recordAudit(ctx, {
+      actor: account._id,
+      action: "finance.savePayoutTransaction",
+      targetKind: "payout",
+      targetId: row._id,
+      summary: "Saved payout transaction for " + args.reference,
+    });
     return args.transaction;
   },
 });
@@ -322,7 +346,7 @@ export const confirmPayout = mutation({
   args: { ...auth, reference: v.string(), signature: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx, args);
+    const admin = await requireAdmin(ctx, args);
     const already = await ctx.db
       .query("payouts")
       .withIndex("by_reference", (q) => q.eq("reference", args.reference))
@@ -331,6 +355,13 @@ export const confirmPayout = mutation({
     const { ledger, row } = await pendingPayout(ctx, args.reference);
     await ctx.db.patch(row._id, { signature: args.signature });
     await ctx.db.patch(ledger._id, { paidMicros: ledger.paidMicros + row.amount, pendingPayout: undefined });
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "finance.confirmPayout",
+      targetKind: "payout",
+      targetId: row._id,
+      summary: "Confirmed payout " + args.reference + " on chain",
+    });
     return null;
   },
 });

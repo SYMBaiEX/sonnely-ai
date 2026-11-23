@@ -53,3 +53,9 @@ Check the statement ID and the source's amounts in Admin. Inspect unmatched and 
 4. Record elapsed time, latest recoverable transaction and outstanding exceptions. Review any changes needed before reconnecting payment recovery or enabling inference.
 
 Set `SONNELY_SUPPORT_WALLETS` for ticket operators and `SONNELY_FINANCE_WALLETS` for invoice operators. Review the allowlists regularly. Full administrators and treasury signers use their existing wallet permissions.
+
+## Admin audit log
+
+Every privileged mutation appends an `adminAudit` row: CRM notes and ticket updates, held-credit resolutions, payout opens, confirmations, and transaction drafts, provider cost reconciliations, invoice records, and test alert deliveries. Each entry stores the acting admin account, an action name such as `crm.note` or `finance.reconcile`, the target kind and ID, and a short summary. Request bodies, notes, and secrets are never written to the trail, and no admin mutation edits or deletes audit rows.
+
+Open **Admin → Logs** to review the newest entries first. Filter by action name, an actor wallet prefix, or a 7/30/90-day window, and page through with the cursor controls. **Export CSV** downloads the currently loaded page for incident reports or off-platform records.

@@ -112,6 +112,20 @@ export async function adminCrm(
     }
     case "tasks":
       return json(await db.query(api.crmTasks.mine, { ...auth, openOnly: true }));
+    case "audit": {
+      const filters = z
+        .object({
+          action: z.string().trim().max(40).optional(),
+          actor: z.string().trim().max(60).optional(),
+          since: z.coerce.number().int().nonnegative().optional(),
+        })
+        .parse({
+          action: params.get("action") ?? undefined,
+          actor: params.get("actor") ?? undefined,
+          since: params.get("since") ?? undefined,
+        });
+      return json(await db.query(api.audit.auditTrail, { ...auth, ...filters, page }));
+    }
     default:
       throw new SonnelyError("Choose an admin view.", 404);
   }

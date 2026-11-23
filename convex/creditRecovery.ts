@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth, requireAdmin, requireRecentAdmin } from "./access";
+import { recordAudit } from "./events";
 import { settleUsage } from "./ledger";
 
 const staleAfterMs = 5 * 60_000;
@@ -120,6 +121,16 @@ export const resolve = mutation({
       evidence,
       held: row.cost,
       charged,
+    });
+    await recordAudit(ctx, {
+      actor: admin._id,
+      action: "credit.resolve",
+      targetKind: "usage",
+      targetId: args.id,
+      summary:
+        args.resolution === "release"
+          ? "Released held credit on request " + args.id
+          : "Settled held credit on request " + args.id + " for " + charged + " micros",
     });
     return null;
   },

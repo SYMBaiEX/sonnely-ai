@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AdminAnalytics } from "./admin-analytics";
 import { AdminCrm } from "./admin-crm";
 import { AdminGateway } from "./admin-gateway";
+import { AdminLogs } from "./admin-logs";
 import { AdminOperators } from "./admin-operators";
 
 export type AdminTab = {
@@ -30,4 +31,5 @@ export const adminTabs: AdminTab[] = [
   { id: "gateway", label: "Inference ops", render: (wallet) => <AdminGateway key={wallet} /> },
   { id: "operators", label: "Operators", render: (wallet) => <AdminOperators key={wallet} /> },
   { id: "analytics", label: "Analytics", render: (wallet) => <AdminAnalytics key={wallet} /> },
+  { id: "logs", label: "Logs", render: (wallet) => <AdminLogs key={wallet} /> },
 ];
