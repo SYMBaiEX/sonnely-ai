@@ -4,35 +4,42 @@ description: Build with confidential inference, fund a workspace, and verify com
 ---
 
 import { Box, Fingerprint, ShieldCheck, LifeBuoy, Rocket, Terminal } from "lucide-react";
-import { GuideGroup, GuideLink } from "@/app/docs/overview-links";
+import { GuideGroup, GuideLink, StartLink } from "@/app/docs/overview-links";
 
 <div className="docs-overview">
-  <Cards className="docs-start">
-    <Card
+  <div className="docs-start">
+    <StartLink
+      primary
       title="Send your first request"
       href="/docs/quickstart"
       icon={<Terminal aria-hidden="true" />}
       description="Connect your wallet, create an API key, and send a test completion."
     />
-    <Card
+    <StartLink
+      title="API reference"
+      href="/docs/api"
+      icon={<Terminal aria-hidden="true" />}
+      description="Find endpoints, request fields, and copyable examples."
+    />
+    <StartLink
       title="Install an SDK"
       href="/docs/sdks"
       icon={<Box aria-hidden="true" />}
       description="Use Sonnely’s TypeScript or Python client."
     />
-    <Card
+    <StartLink
       title="Choose a provider"
       href="/docs/providers"
       icon={<Fingerprint aria-hidden="true" />}
       description="Compare models, prices, and providers."
     />
-    <Card
+    <StartLink
       title="Verify a completion"
       href="/docs/attestation"
       icon={<ShieldCheck aria-hidden="true" />}
       description="Understand what each provider’s evidence verifies."
     />
-  </Cards>
+  </div>
 
 ## Browse guides
 

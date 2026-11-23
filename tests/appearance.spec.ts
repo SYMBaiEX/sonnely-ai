@@ -223,10 +223,10 @@ test("public anchors clear the mobile header and follow motion preferences", asy
   await expect(tile).toHaveCSS("animation-name", "site-reveal");
   const effects = () =>
     page.evaluate(() => ({
-      rule: getComputedStyle(document.querySelector(".home-capabilities")!, "::before").animationName,
+      divider: getComputedStyle(document.querySelector(".home-capabilities")!, "::before").content,
       art: getComputedStyle(document.querySelector(".resource-row")!, "::before").animationName,
     }));
-  await expect.poll(effects).toEqual({ rule: "home-section-rule", art: "home-artwork-drift" });
+  await expect.poll(effects).toEqual({ divider: "none", art: "home-artwork-drift" });
   await page
     .getByRole("region", { name: "Private AI." })
     .getByRole("link", { name: "API quickstart" })
@@ -245,13 +245,13 @@ test("public anchors clear the mobile header and follow motion preferences", asy
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(root).toHaveCSS("scroll-behavior", "auto");
   await expect(tile).toHaveCSS("animation-name", "none");
-  await expect.poll(effects).toEqual({ rule: "none", art: "none" });
+  await expect.poll(effects).toEqual({ divider: "none", art: "none" });
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.getByRole("switch", { name: "Ambient motion" }).click();
   await expect(root).toHaveCSS("scroll-behavior", "auto");
   await expect(tile).toHaveCSS("animation-name", "none");
-  await expect.poll(effects).toEqual({ rule: "none", art: "none" });
+  await expect.poll(effects).toEqual({ divider: "none", art: "none" });
 });
 
 test("the homepage offers a copyable request and links to the selected model", async ({ page, context }) => {

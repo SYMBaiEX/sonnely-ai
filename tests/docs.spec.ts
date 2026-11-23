@@ -108,12 +108,28 @@ test("the docs overview groups its guide links and fits a narrow phone", async (
   await expect(page).toHaveURL(/\/docs\/sdks$/);
 });
 
+test("the API reference links endpoints and copies the canonical base URL", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto("/docs/api");
+  const endpoints = page.getByRole("navigation", { name: "API endpoints" });
+  await expect(endpoints.getByRole("link", { name: /GET \/models/ })).toHaveAttribute("href", "#list-models");
+  await page.getByRole("button", { name: "Copy base URL" }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe("https://sonnely.com/api/sonnely/v1");
+  await endpoints.getByRole("link", { name: /POST \/chat\/completions/ }).click();
+  await expect(page).toHaveURL(/#create-a-completion$/);
+  await expect(page.getByRole("heading", { name: "Create a completion" })).toBeVisible();
+  await expect(page.locator("pre").filter({ hasText: "SONNELY_API_KEY" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+});
+
 test("the docs sidebar groups pages and adopts the Sonnely palette in both themes", async ({
   page,
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.addInitScript(() => localStorage.setItem("sonnely.theme", "dark"));
   await page.goto("/docs/streaming");
   const sidebar = page.getByRole("complementary", { name: "Documentation sidebar" });
   await expect(sidebar.locator(".docs-sidebar-section")).toHaveText(["Get started", "Inference", "Support"]);
@@ -126,10 +142,13 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   await expect(shell).toHaveCSS("background-color", "rgb(12, 11, 14)");
   await expect(header).toHaveCSS("background-color", "rgb(12, 11, 14)");
   await expect(sidebar).toHaveCSS("background-color", "rgb(12, 11, 14)");
-  await header.getByRole("switch", { name: "Switch color theme" }).click();
+  const switcher = header.getByRole("switch", { name: "Switch color theme" });
+  await switcher.click();
   await expect(shell).toHaveCSS("background-color", "rgb(238, 240, 250)");
   await expect(header).toHaveCSS("background-color", "rgb(238, 240, 250)");
   await expect(sidebar).toHaveCSS("background-color", "rgb(238, 240, 250)");
+  await page.reload();
+  await expect(switcher).toHaveAttribute("aria-checked", "true");
 
   await page.getByRole("button", { name: "Copy Markdown" }).click();
   await expect

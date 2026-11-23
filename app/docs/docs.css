@@ -90,11 +90,19 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
 }
 
 #nd-page .prose > h2 {
-  margin-block: 1.75rem 0.7rem;
+  margin-block: clamp(1.8rem, 3.6vw, 2.85rem) 0.85rem;
+  font-size: clamp(1.35rem, 2.25vw, 1.83rem);
+  letter-spacing: -0.035em;
+  text-wrap: balance;
 }
 
 #nd-page .prose > h3 {
-  margin-block: 1.2rem 0.55rem;
+  margin-block: 1.4rem 0.55rem;
+  letter-spacing: -0.022em;
+}
+
+#nd-page .prose > p {
+  line-height: 1.72;
 }
 
 .docs-overview {
@@ -109,61 +117,125 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   margin-bottom: 0;
 }
 
-.docs-overview .docs-start {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.docs-overview .docs-start [data-card] {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-content: start;
-  align-items: center;
-  gap: 0.2rem 0.65rem;
-  grid-column: auto;
-  margin: 0;
-  padding: 0.85rem;
-  text-decoration: none;
-  box-shadow: inset 0 1px 0 var(--rim);
-}
-
-.docs-overview .docs-start [data-card] > div:first-child {
-  grid-row: span 2;
-  margin: 0;
-  color: var(--accent);
-  background: var(--active-fill);
-  box-shadow: none;
-}
-
-.docs-overview .docs-start [data-card] > h3 {
-  margin: 0;
-  font-weight: 640;
-}
-
-.docs-overview .docs-start [data-card]:first-child {
-  background: linear-gradient(145deg, color-mix(in srgb, var(--active-fill) 46%, var(--card)), var(--card));
-}
-
-.docs-overview .docs-start [data-card]:is(:hover, :focus-visible) {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
-}
-
-.docs-overview #browse-guides {
-  margin-block: clamp(1.5rem, 4vw, 2.5rem) 0.9rem;
-}
-
-.docs-guide-grid {
+.docs-start {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
-.docs-guide-group {
+.docs-overview .docs-start-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  align-items: start;
+  gap: 0.65rem;
   min-width: 0;
-  padding: 0.65rem 0.8rem 0.3rem;
+  padding: clamp(0.9rem, 2vw, 1.4rem);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--card) 62%, var(--surface));
+  background: linear-gradient(155deg, var(--card), var(--glass-solid));
+  text-decoration: none;
+  box-shadow: inset 0 1px 0 var(--rim);
+}
+
+.docs-overview .docs-start-card[data-primary] {
+  grid-column: 1 / -1;
+  min-height: 10rem;
+  align-content: end;
+  background:
+    linear-gradient(
+      104deg,
+      var(--glass-solid) 12%,
+      color-mix(in srgb, var(--glass-solid) 83%, transparent) 58%,
+      color-mix(in srgb, var(--glass-solid) 24%, transparent)
+    ),
+    url("/homepage/quickstart.webp") center / cover;
+}
+
+.docs-start-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.6rem;
+  color: var(--accent);
+  background: var(--active-fill);
+}
+
+.docs-start-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.docs-start-card > div {
+  grid-column: 1 / -1;
+}
+
+.docs-overview .docs-start-card h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.026em;
+}
+
+.docs-overview .docs-start-card[data-primary] h2 {
+  font-size: clamp(1.18rem, 2.35vw, 1.6rem);
+}
+
+.docs-overview .docs-start-card p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.docs-card-arrow {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--accent);
+  margin: 0.2rem 0.08rem;
+}
+
+.docs-overview .docs-start-card:is(:hover, :focus-visible),
+.docs-endpoints a:is(:hover, :focus-visible) {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--line));
+}
+
+@container (width >= 43rem) {
+  .docs-start {
+    grid-template-columns: minmax(0, 1.17fr) repeat(2, minmax(0, 1fr));
+  }
+
+  .docs-overview .docs-start-card[data-primary] {
+    grid-column: 1;
+    grid-row: span 2;
+    background:
+      linear-gradient(
+        0deg,
+        var(--glass-solid) 8%,
+        color-mix(in srgb, var(--glass-solid) 88%, transparent) 46%,
+        transparent
+      ),
+      url("/homepage/quickstart.webp") center / cover;
+  }
+}
+
+.docs-overview #browse-guides {
+  margin-block: clamp(2rem, 4vw, 3.25rem) 1.1rem;
+}
+
+.docs-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.docs-guide-group {
+  min-width: 0;
+  padding: 0.75rem 0.85rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, var(--card), color-mix(in srgb, var(--card) 70%, var(--surface)));
 }
 
 .docs-overview .docs-guide-group > h3 {
@@ -171,8 +243,8 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   gap: 0.5rem;
   align-items: center;
   margin: 0;
-  padding: 0.4rem 0.35rem 0.65rem;
-  font-size: 0.84rem;
+  padding: 0.4rem 0.35rem 0.8rem;
+  font-size: 0.94rem;
   font-weight: 650;
 }
 
@@ -207,16 +279,9 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   text-decoration: none;
 }
 
-.docs-guide-group a::after {
-  flex: 0 0 6px;
-  width: 6px;
-  height: 6px;
-  margin-inline-end: 0.25rem;
-  border-block-start: 1px solid;
-  border-inline-end: 1px solid;
-  color: var(--muted);
-  transform: rotate(45deg);
-  content: "";
+.docs-guide-group a > svg {
+  flex: none;
+  color: var(--accent);
 }
 
 .docs-overview .docs-guide-group a:is(:hover, :focus-visible, :target) {
@@ -230,8 +295,8 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.25rem 0.75rem;
-  margin-block-start: 0.9rem;
-  padding: 0.7rem 0.85rem;
+  margin-block-start: 1.2rem;
+  padding: 0.75rem 1rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   font-size: 0.85rem;
@@ -265,11 +330,12 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin: 0.9rem 0 0.26rem;
-  padding: 0.85rem 0.6rem 0.35rem;
-  border-top: 1px solid var(--line);
+  margin: 1rem 0 0.25rem;
+  padding: 0.6rem;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--raised) 55%, transparent);
   color: var(--muted);
-  font: 630 0.68rem/1.3 var(--mono);
+  font: 620 0.71rem/1.35 var(--mono);
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -283,8 +349,8 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  min-height: 38px;
-  padding: 0.38rem 0.58rem;
+  min-height: 37px;
+  padding: 0.42rem 0.65rem;
   border: 1px solid transparent;
   border-radius: 0.56rem;
   color: var(--ink);
@@ -301,15 +367,33 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   background: var(--raised);
 }
 
+.docs-sidebar-link[data-overview] {
+  margin-block: 0.15rem 0.35rem;
+  border-color: var(--line);
+  background: var(--card);
+  font-weight: 620;
+}
+
+.docs-sidebar-link:not([data-overview]) {
+  margin-inline-start: 0.28rem;
+}
+
 .docs-sidebar-link[aria-current="page"] {
+  box-shadow: inset 3px 0 0 var(--accent);
   background: var(--active-fill);
   border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
   color: var(--ink);
   font-weight: 630;
 }
 
-.docs-sidebar-link[aria-current="page"] svg:last-child {
+.docs-sidebar-chevron {
+  flex: none;
   color: var(--accent);
+  opacity: 0;
+}
+
+.docs-sidebar-link:is([aria-current="page"], :hover, :focus-visible) .docs-sidebar-chevron {
+  opacity: 1;
 }
 
 .docs-sidebar-footer {
@@ -343,25 +427,42 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
 }
 
 .docs-article-header {
-  padding: clamp(15px, 2.6vw, 29px);
-  margin-bottom: clamp(15px, 2.5vw, 29px);
+  padding: clamp(17px, 3.4vw, 41px);
+  margin-bottom: clamp(13px, 2.1vw, 24px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: linear-gradient(155deg, var(--card), var(--surface));
   box-shadow: inset 0 1px 0 var(--rim);
 }
 .docs-article-header h1 {
+  font-size: clamp(1.75rem, 4.15vw, 3.2rem);
+  line-height: 1.04;
+  font-weight: 650;
+  letter-spacing: -0.052em;
   text-wrap: balance;
 }
+
+.docs-article-header:is([data-docs-page="overview"], [data-docs-page="api"]) {
+  background:
+    radial-gradient(
+      ellipse at right top,
+      color-mix(in srgb, var(--active-fill) 66%, transparent),
+      transparent 63%
+    ),
+    linear-gradient(150deg, var(--card), var(--surface));
+}
+
 .docs-article-header > p {
-  margin-bottom: 0;
+  max-width: 58ch;
+  margin: 0.55rem 0 0;
+  line-height: 1.62;
 }
 .docs-page-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.55rem 0.8rem;
-  margin-block: 0.1rem 0.45rem;
+  margin-block: 0.85rem 0;
   color: var(--muted);
   font-size: 0.78rem;
 }
@@ -374,4 +475,123 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   .docs-sidebar-footer a {
     min-height: 44px;
   }
+}
+
+.docs-api-entry {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.docs-api-base {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1.2rem;
+  padding: clamp(0.85rem, 2.3vw, 1.35rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--glass-solid);
+}
+
+.docs-api-base > div {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.docs-api-base > div > span {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--accent);
+  font: 620 0.75rem var(--mono);
+}
+
+.docs-api-entry code {
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.docs-api-entry code::before,
+.docs-api-entry code::after {
+  content: none;
+}
+
+.docs-api-base .button {
+  min-height: 44px;
+  white-space: normal;
+}
+
+.docs-endpoints {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.docs-api-entry .docs-endpoints a {
+  display: grid;
+  grid-template-columns: 3.05rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 4rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--card);
+  text-decoration: none;
+}
+
+.docs-http-method {
+  width: fit-content;
+  padding: 0.25rem 0.42rem;
+  border-radius: 0.4rem;
+  color: var(--accent);
+  background: var(--active-fill);
+  font: 650 0.73rem var(--mono);
+}
+
+.docs-http-method[data-method="GET"] {
+  color: var(--color-fd-success);
+  background: color-mix(in srgb, var(--color-fd-success) 15%, var(--card));
+}
+
+.docs-endpoints small {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 460;
+}
+
+.docs-endpoints a > svg {
+  color: var(--accent);
+}
+
+#nd-page .prose a[href$="/api/openapi"] {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+
+#nd-page:has([data-docs-page="api"]) .prose table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+  background: var(--card);
+}
+
+#nd-page:has([data-docs-page="api"]) .prose table :is(td, th) {
+  padding: 0.65rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+#nd-page:has([data-docs-page="api"]) .prose table th {
+  background: var(--raised);
+}
+
+#nd-page:has([data-docs-page="api"]) .prose table :is(th, td):first-child {
+  width: 38%;
 }

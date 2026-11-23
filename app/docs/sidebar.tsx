@@ -30,10 +30,16 @@ function PageLink({ item }: { item: Item }) {
   const active = usePathname() === item.url;
   const overview = item.url === "/docs";
   return (
-    <SidebarItem href={item.url} active={active} external={item.external} className="docs-sidebar-link">
+    <SidebarItem
+      href={item.url}
+      active={active}
+      external={item.external}
+      className="docs-sidebar-link"
+      data-overview={overview || undefined}
+    >
       {overview && <BookOpen size={16} aria-hidden="true" />}
       <span>{overview ? "Overview" : item.name}</span>
-      {active && <ChevronRight size={14} aria-hidden="true" />}
+      <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
     </SidebarItem>
   );
 }

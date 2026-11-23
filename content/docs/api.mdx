@@ -3,14 +3,34 @@ title: API reference
 description: Endpoints, accepted fields, request limits, and the OpenAPI specification.
 ---
 
-**Base URL** `https://sonnely.com/api/sonnely/v1`
+import { ApiReferenceEntry } from "@/app/docs/api-reference";
 
-[Download the OpenAPI 3.1 specification](/api/openapi). Existing clients can also use `https://sonnely.com/v1`.
+<ApiReferenceEntry />
 
-| Method and path          | Authentication                        | Returns                                                                       |
-| ------------------------ | ------------------------------------- | ----------------------------------------------------------------------------- |
-| `GET /models`            | Public                                | Exact model IDs, route tiers, upstream names, and USD per million token rates |
-| `POST /chat/completions` | `Authorization: Bearer <Sonnely key>` | A completion or an event stream                                               |
+The [OpenAPI 3.1 specification](/api/openapi) describes the request and response schemas. The examples below use `https://sonnely.com/api/sonnely/v1` as the base URL. Existing clients can also use `https://sonnely.com/v1`.
+
+## List models
+
+`GET /models` is public. It returns the exact model IDs, privacy tiers, and enabled provider routes with USD rates per million tokens.
+
+```bash title="List available models"
+curl https://sonnely.com/api/sonnely/v1/models
+```
+
+## Create a completion
+
+`POST /chat/completions` returns a Chat Completion or a server-sent event stream. Create a key in the [console](/console/keys) and export it as `SONNELY_API_KEY` before running the example.
+
+```bash title="Send a text completion"
+curl https://sonnely.com/api/sonnely/v1/chat/completions \
+  -H "Authorization: Bearer $SONNELY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "messages": [{"role": "user", "content": "Summarize this request in one sentence."}],
+    "max_tokens": 64
+  }'
+```
 
 ## Completion fields
 
@@ -30,7 +50,7 @@ Send `Content-Type: application/json`. Add `X-Sonnely-Receipt: v1` to receive th
 
 The gateway accepts up to 36,000 bytes of JSON, up to 32 messages with roles `system`, `user`, or `assistant`, and up to 12,000 characters per message. `max_tokens` accepts integers from 1 to 2,048.
 
-Use the Chat Completions interface. The gateway accepts plain text messages and the fields listed above. The Responses API, tool calls, embeddings, multimodal inputs, and arbitrary OpenAI parameters are outside this contract. See [errors and recovery](/docs/troubleshooting) for HTTP and stream failures.
+Use the Chat Completions interface. The gateway accepts text and the fields listed above, plus the features advertised on individual provider routes. The Responses API, embeddings, multimodal inputs, and arbitrary OpenAI parameters are outside this contract. See [errors and recovery](/docs/troubleshooting) for HTTP and stream failures.
 
 ## Request references and retries
 

@@ -50,7 +50,10 @@ export default async function DocumentationPage({ params }: Props) {
       tableOfContent={{ style: "block" }}
       tableOfContentPopover={{ style: "block" }}
     >
-      <header className="docs-article-header">
+      <header
+        className="docs-article-header"
+        data-docs-page={page.url === "/docs" ? "overview" : page.url === "/docs/api" ? "api" : undefined}
+      >
         <DocsTitle>{page.data.title}</DocsTitle>
         <DocsDescription>{page.data.description}</DocsDescription>
         <div className="docs-page-actions">
