@@ -14,6 +14,7 @@ export type CrmView = "customers" | "support" | "traces";
 type Customer = FunctionReturnType<typeof api.crm.customers>["page"][number];
 type CustomerDetail = NonNullable<FunctionReturnType<typeof api.crm.customer>>;
 type Ticket = FunctionReturnType<typeof api.crm.tickets>["page"][number];
+type Thread = NonNullable<FunctionReturnType<typeof api.crm.ticketThread>>;
 type Trace = FunctionReturnType<typeof api.crm.traces>["page"][number];
 type OperatorOption = FunctionReturnType<typeof api.operators.operators>[number];
 type Task = CustomerDetail["tasks"][number];
@@ -153,6 +154,99 @@ function TraceList({ rows, open }: { rows: Trace[]; open?: (id: string) => void 
   );
 }
 
+function TicketThread({ id, refresh }: { id: string; refresh: () => void }) {
+  const [revision, setRevision] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState("");
+  const state = useCrm<Thread | null>(
+    "admin-crm?view=support-thread&id=" + encodeURIComponent(id),
+    revision,
+  );
+  const reload = () => setRevision((value) => value + 1);
+
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    setBusy(true);
+    setFailure("");
+    try {
+      await request("admin-reply", {
+        id,
+        body: fields.get("body"),
+        visibility: fields.get("visibility") ?? "public",
+      });
+      form.reset();
+      reload();
+      refresh();
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : "Could not send the reply.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="crm-thread">
+      {state?.error ? (
+        <p role="alert" className="error">
+          {state.error}
+        </p>
+      ) : state?.data === undefined ? (
+        <p role="status" className="caption">
+          Loading conversation…
+        </p>
+      ) : state.data === null ? (
+        <p className="caption">Support request unavailable.</p>
+      ) : state.data.replies.length ? (
+        <ul className="crm-activity">
+          {state.data.replies.map((item) => (
+            <li key={item.id}>
+              <p className="crm-note">{item.body}</p>
+              <p className="caption">
+                {localTime(item.time)} · {shorten(item.author)} ·{" "}
+                <span className="crm-state">
+                  {item.visibility === "public" ? "Public" : "Internal"}
+                </span>
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="caption">No replies yet.</p>
+      )}
+      <form className="recovery-form" onSubmit={(event) => void send(event)}>
+        <label>
+          Reply
+          <textarea
+            name="body"
+            rows={3}
+            maxLength={4000}
+            required
+            placeholder="Reply to the customer, or keep the note internal."
+          />
+        </label>
+        <div className="crm-controls" role="radiogroup" aria-label="Reply visibility">
+          <label>
+            <input type="radio" name="visibility" value="public" defaultChecked /> Public reply
+          </label>
+          <label>
+            <input type="radio" name="visibility" value="internal" /> Internal note
+          </label>
+        </div>
+        <button className="button quiet" disabled={busy}>
+          {busy ? "Sending…" : "Send reply"}
+        </button>
+        {failure && (
+          <p role="alert" className="error">
+            {failure}
+          </p>
+        )}
+      </form>
+    </div>
+  );
+}
+
 function TicketList({
   rows,
   open,
@@ -167,6 +261,7 @@ function TicketList({
   const [failure, setFailure] = useState("");
   const directory = useCrm<OperatorOption[]>("admin-crm?view=operator-list", 0);
   const assignable = (directory?.data ?? []).filter((operator) => operator.id !== undefined);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   async function update(event: FormEvent<HTMLFormElement>, id: string) {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
@@ -206,17 +301,28 @@ function TicketList({
       {rows.length ? (
         <div className="crm-records">
           {rows.map((row) => (
-            <details key={row.id} className="crm-record">
+            <details
+              key={row.id}
+              className="crm-record"
+              onToggle={(event) => {
+                if (event.currentTarget.open && !expanded[row.id])
+                  setExpanded((current) => ({ ...current, [row.id]: true }));
+              }}
+            >
               <summary>
                 <span>
                   <strong>{row.topic}</strong>
                   <span className="caption">
                     {localTime(row.opened)} · {row.email}
+                    {row.replyCount
+                      ? " · " + row.replyCount + (row.replyCount === 1 ? " reply" : " replies")
+                      : ""}
                   </span>
                 </span>
                 <span className="crm-state">{ticketStates[row.state]}</span>
               </summary>
               <p className="crm-note">{row.message}</p>
+              {expanded[row.id] && <TicketThread id={row.id} refresh={refresh} />}
               <p className="caption">
                 {row.assignedWallet ? "Assigned to " + shorten(row.assignedWallet) : "Unassigned"}
               </p>

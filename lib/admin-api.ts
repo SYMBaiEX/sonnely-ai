@@ -97,6 +97,10 @@ export async function adminCrm(
       return json(await db.query(api.operators.directory, auth));
     case "operator-list":
       return json(await db.query(api.operators.operators, auth));
+    case "support-thread": {
+      const id = z.string().min(1).max(64).parse(params.get("id")) as Id<"tickets">;
+      return json(await db.query(api.crm.ticketThread, { ...auth, id }));
+    }
     case "traces": {
       const status = z.enum(["all", "pending", "complete", "failed", "unreported"]).parse(filter);
       return json(await db.query(api.crm.traces, { ...auth, status, search, page }));
@@ -209,6 +213,17 @@ export async function adminAction(
       assignTo: assignTo as Id<"accounts"> | undefined,
     });
     return json({ ok: true });
+  }
+  if (task === "admin-reply") {
+    const { id, ...fields } = z
+      .object({
+        id: z.string().min(1).max(64),
+        body: z.string().trim().min(1).max(4000),
+        visibility: z.enum(["public", "internal"]),
+      })
+      .parse(raw);
+    await db.mutation(api.crm.replyTicket, { ...auth, id: id as Id<"tickets">, ...fields });
+    return json({ ok: true }, 201);
   }
   if (task === "admin-resolve-credit") {
     const { id, ...fields } = z

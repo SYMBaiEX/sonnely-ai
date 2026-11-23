@@ -102,6 +102,14 @@ export async function GET(request: NextRequest, context: Context) {
     }
     if (task === "history") return json(await db.query(api.sonnely.history, auth));
     if (task === "sessions") return json(await db.query(api.sonnely.listSessions, auth));
+    if (task === "support-tickets") {
+      const cursor = z.string().max(4000).nullable().parse(request.nextUrl.searchParams.get("cursor"));
+      return json(await db.query(api.support.myTickets, { ...auth, page: { cursor, numItems: 20 } }));
+    }
+    if (task === "support-thread") {
+      const id = z.string().min(1).max(64).parse(request.nextUrl.searchParams.get("id")) as Id<"tickets">;
+      return json(await db.query(api.support.myThread, { ...auth, id }));
+    }
     if (task === "payment") {
       const reference = address.parse(request.nextUrl.searchParams.get("reference"));
       const order = await db.query(api.sonnely.depositDetails, { ...auth, reference });
@@ -301,9 +309,21 @@ export async function POST(request: NextRequest, context: Context) {
     }
     const profile = await db.query(api.sonnely.profile, auth);
     if (!profile) throw new SonnelyError("Sign in with a Solana wallet.", 401);
+    if (task === "support-open") {
+      const fields = z
+        .object({ email: z.email().max(254), topic: field(60), message: field(3000) })
+        .parse(raw);
+      return json({ ticket: await db.mutation(api.support.openTicket, { ...auth, ...fields }) }, 201);
+    }
+    if (task === "support-reply") {
+      const { id, body } = z.object({ id: field(64), body: field(4000) }).parse(raw);
+      await db.mutation(api.support.customerReply, { ...auth, id: id as Id<"tickets">, body });
+      return json({ ok: true }, 201);
+    }
     if (task.startsWith("admin-")) {
       const delegated =
-        (profile.role === "support" && (task === "admin-ticket" || task.startsWith("admin-task-"))) ||
+        (profile.role === "support" &&
+          (task === "admin-ticket" || task === "admin-reply" || task.startsWith("admin-task-"))) ||
         (profile.role === "finance" && (task === "admin-invoice-preview" || task === "admin-invoice-record"));
       if (profile.role !== "admin" && !delegated)
         throw new SonnelyError("Administrator access required.", 403);
