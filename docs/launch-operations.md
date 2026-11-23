@@ -12,6 +12,10 @@ Set `SONNELY_BLACKBOX_RENTALS=false` and `SONNELY_DRY_DOCKS=false` on both Verce
 - Keep separate balance alerts or credit floors in the provider accounts. Convex starts with 20 concurrent requests and $25 of accumulated daily reservations per provider. The accounting day starts at midnight UTC. Failed and incomplete attempts still consume the daily allowance because they may incur provider costs. Adjust these defaults to the funded provider limits. Set `SONNELY_PAUSED_PROVIDERS` on Vercel to pause individual routes.
 - Rotate keys that were shared outside the deployment secret store. Rotate one provider at a time and verify a scoped request with the replacement key before revoking the old one.
 
+## Cross-chain funding widget
+
+In [Aurora Widget Studio](https://studio.aurora.dev/), configure the official Swap widget for USDC on Solana and let customers enter their own Solana recipient. Use a public Studio integration key. Set the generated Aurora iframe URL as `SONNELY_INTENTS_WIDGET_URL` on the web deployment. Confirm the widget can receive to a customer wallet before enabling it. Leave the variable unset to use the server-backed NEAR Intents quote form.
+
 ## Statements and payouts
 
 The push import endpoint accepts the normalized statement shape below. To poll an operator-owned HTTPS exporter hourly, set `SONNELY_STATEMENT_FEED_URL` and its bearer token `SONNELY_STATEMENT_FEED_TOKEN` in Convex. Return an array of up to six finalized statements, with at most 100 lines per statement. Use stable invoice IDs and include each statement's complete batch on retries. Keep unmatched statements in the feed until their references match.

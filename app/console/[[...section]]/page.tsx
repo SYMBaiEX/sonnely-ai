@@ -4,6 +4,7 @@ import { nearCatalog } from "@/lib/near-catalog";
 import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
+import { intentsEmbedUrl } from "@/lib/intent-funding";
 import { configuredProviders } from "@/lib/managed-access";
 import { providerIds, providerRoute } from "@/lib/provider-catalog";
 
@@ -55,6 +56,9 @@ export default async function ConsolePage({ params, searchParams }: Props) {
       section={name as Section}
       features={features}
       providerCatalog={name === "models" ? await nearCatalog() : undefined}
+      intentsWidgetUrl={
+        name === "billing" ? intentsEmbedUrl(process.env.SONNELY_INTENTS_WIDGET_URL) : undefined
+      }
       initialModel={initial.id}
       restoreConversation={model === undefined && provider === undefined}
       initialRun={typeof run === "string" && /^[a-z0-9]{20,80}$/.test(run) ? run : undefined}

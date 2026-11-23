@@ -337,6 +337,7 @@ export function ConsoleScreen({
   initialRun,
   availableProviders,
   providerCatalog,
+  intentsWidgetUrl,
 }: {
   section: Section;
   features: ComputeFeatures;
@@ -346,6 +347,7 @@ export function ConsoleScreen({
   initialRun?: string;
   availableProviders: ProviderId[];
   providerCatalog?: Awaited<ReturnType<typeof nearCatalog>>;
+  intentsWidgetUrl?: string;
 }) {
   const context = useContext(ConsoleContext);
   if (!context) throw new Error("Console screens require the console layout.");
@@ -437,7 +439,12 @@ export function ConsoleScreen({
         </>
       )}
       {section === "billing" && (
-        <Billing key={session?.profile?.wallet ?? "guest"} session={session} refresh={refresh} />
+        <Billing
+          key={session?.profile?.wallet ?? "guest"}
+          session={session}
+          refresh={refresh}
+          intentsWidgetUrl={intentsWidgetUrl}
+        />
       )}
       {section === "referrals" && <Referrals key={profile?.wallet ?? "guest"} profile={profile} />}
       {section === "settings" && (

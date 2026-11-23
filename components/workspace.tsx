@@ -21,6 +21,7 @@ import { providerNames } from "@/lib/provider-catalog";
 import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
 import { intentFunds, type FundingQuote, type IntentFund } from "@/lib/intent-funding";
 import { MotionSwitch } from "./ambient-motion";
+import { IntentsCheckout } from "./intents-checkout";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
 import { usernameHelp } from "@/lib/username";
@@ -623,7 +624,15 @@ type Payment = { uri: string; reference: string; cluster: string; amount: number
 type Confirmation = { ok: boolean; cluster: string };
 type Receipt = { reference: string; cluster: string; amount: number; signature?: string; time: number };
 
-export function Billing({ session, refresh }: { session: Session | null; refresh: () => Promise<void> }) {
+export function Billing({
+  session,
+  refresh,
+  intentsWidgetUrl,
+}: {
+  session: Session | null;
+  refresh: () => Promise<void>;
+  intentsWidgetUrl?: string;
+}) {
   const profile = session?.profile;
   const { data, error, reload } = useRemote<Receipt[]>(Boolean(profile), "history");
   const [dollars, setDollars] = useState("5");
@@ -863,7 +872,14 @@ export function Billing({ session, refresh }: { session: Session | null; refresh
             </section>
           )}
         </section>
-        {session?.cluster === "mainnet" && (
+        {session?.cluster === "mainnet" && intentsWidgetUrl && (
+          <IntentsCheckout
+            url={intentsWidgetUrl}
+            wallet={profile?.wallet}
+            canFund={session.billingEnabled && !session.termsRequired}
+          />
+        )}
+        {session?.cluster === "mainnet" && !intentsWidgetUrl && (
           <section className="panel stack-panel">
             <div className="between">
               <h2>Fund with other crypto</h2>

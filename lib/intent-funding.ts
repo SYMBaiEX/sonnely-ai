@@ -1,3 +1,20 @@
+export function intentsEmbedUrl(value: string | undefined) {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      /\.aurora\.dev$/.test(url.hostname)
+    )
+      return url.href;
+  } catch {
+    // An invalid configuration leaves the server-backed quote flow available.
+  }
+}
+
 export const intentFunds = {
   sol: { symbol: "SOL", network: "Solana", decimals: 9, id: "nep141:sol.omft.near" },
   eth: { symbol: "ETH", network: "Ethereum", decimals: 18, id: "nep141:eth.omft.near" },
