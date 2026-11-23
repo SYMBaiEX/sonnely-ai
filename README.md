@@ -1,6 +1,6 @@
 # Sonnely
 
-Solana-native private inference workspace with a public model catalog, docs, journal, and support. The console provides wallet sessions, browser-local optional chat history, scoped API keys, usage, Solana Pay, and NEAR Intents funding into the connected wallet.
+Solana-native private inference workspace with a public model catalog, docs, journal, and support. The console provides wallet sessions, browser-local optional chat history, scoped API keys, usage, and Solana Pay.
 
 ## Run locally
 
@@ -24,7 +24,8 @@ Set `CONVEX_URL` and `SONNELY_SERVICE_SECRET` in the deployment environment. Set
 | `SOLANA_TREASURY`        | Public wallet address for USDC transfers.                                                                                    |
 | `SOLANA_RPC_URL`         | Solana RPC matching the billing cluster.                                                                                     |
 | `SOLANA_BILLING_CLUSTER` | Defaults to `devnet`. Mainnet checkout also requires an enabled inference provider. Devnet receipts never create spendable credits.       |
-| `NEAR_INTENTS_API_KEY`   | Optional 1Click credential. Enables supported swaps into the connected Solana wallet.                                                        |
+| `SONNELY_NEAR_INTENTS_FUNDING` | Defaults to `false`. Set to `true` to enable the NEAR Intents funding UI and quote API. |
+| `NEAR_INTENTS_API_KEY`   | Optional 1Click credential for the server-backed quote API when NEAR Intents funding is enabled. |
 
 The API supports `GET /api/sonnely/v1/models` and `POST /api/sonnely/v1/chat/completions`. Choose an available provider with `provider.only`. Set `stream: true` for SSE and `stream_options.include_usage: true` to receive the final token totals. Sonnely settles reported usage before emitting `[DONE]`. The provider may finish and incur a charge after a client disconnects. `max_cost_microusd` caps the credit reservation before inference. Use Node 22.23.4 or newer in the Node 22 line to run the Tinfoil SDK. See the [provider comparison](docs/inference-providers.md) for evidence and accounting details.
 

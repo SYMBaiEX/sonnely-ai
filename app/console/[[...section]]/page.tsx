@@ -5,7 +5,7 @@ import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
 import { intentsEmbedUrl } from "@/lib/intent-funding";
-import { configuredProviders } from "@/lib/managed-access";
+import { configuredProviders, nearIntentsFundingEnabled } from "@/lib/managed-access";
 import { providerIds, providerRoute } from "@/lib/provider-catalog";
 
 const sections = [
@@ -56,8 +56,10 @@ export default async function ConsolePage({ params, searchParams }: Props) {
       section={name as Section}
       features={features}
       providerCatalog={name === "models" ? await nearCatalog() : undefined}
-      intentsWidgetUrl={
-        name === "billing" ? intentsEmbedUrl(process.env.SONNELY_INTENTS_WIDGET_URL) : undefined
+      intentsFunding={
+        name === "billing" && nearIntentsFundingEnabled()
+          ? { widgetUrl: intentsEmbedUrl(process.env.SONNELY_INTENTS_WIDGET_URL) }
+          : undefined
       }
       initialModel={initial.id}
       restoreConversation={model === undefined && provider === undefined}

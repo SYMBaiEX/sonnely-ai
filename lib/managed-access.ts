@@ -4,6 +4,10 @@ export function publicInference() {
   return process.env.SONNELY_PUBLIC_INFERENCE === "true";
 }
 
+export function nearIntentsFundingEnabled() {
+  return process.env.SONNELY_NEAR_INTENTS_FUNDING === "true";
+}
+
 function providerPaused(provider: ProviderId) {
   return process.env.SONNELY_PAUSED_PROVIDERS?.split(",").some((item) => item.trim() === provider) ?? false;
 }

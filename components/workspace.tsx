@@ -627,13 +627,14 @@ type Receipt = { reference: string; cluster: string; amount: number; signature?:
 export function Billing({
   session,
   refresh,
-  intentsWidgetUrl,
+  intentsFunding,
 }: {
   session: Session | null;
   refresh: () => Promise<void>;
-  intentsWidgetUrl?: string;
+  intentsFunding?: { widgetUrl?: string };
 }) {
   const profile = session?.profile;
+  const intentsWidgetUrl = intentsFunding?.widgetUrl;
   const { data, error, reload } = useRemote<Receipt[]>(Boolean(profile), "history");
   const [dollars, setDollars] = useState("5");
   const [fund, setFund] = useState<IntentFund>("sol");
@@ -885,7 +886,7 @@ export function Billing({
             }
           />
         )}
-        {session?.cluster === "mainnet" && !intentsWidgetUrl && (
+        {session?.cluster === "mainnet" && intentsFunding && !intentsWidgetUrl && (
           <section className="panel stack-panel billing-swap-fallback">
             <div className="between">
               <h2>Fund with other crypto</h2>
@@ -1085,7 +1086,7 @@ export function Billing({
           ) : (
             <p className="caption" role="status">
               {!profile
-                ? "Connect a wallet to view payment history and request quotes."
+                ? "Connect a wallet to view payment history."
                 : error
                   ? "Payment history is unavailable."
                   : data

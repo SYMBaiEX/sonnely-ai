@@ -14,7 +14,9 @@ Set `SONNELY_BLACKBOX_RENTALS=false` and `SONNELY_DRY_DOCKS=false` on both Verce
 
 ## Cross-chain funding widget
 
-In [Aurora Widget Studio](https://studio.aurora.dev/), configure the official Swap widget for USDC on Solana and let customers enter their own Solana recipient. Use a public Studio integration key. Set the generated Aurora iframe URL as `SONNELY_INTENTS_WIDGET_URL` on the web deployment. Confirm the widget can receive to a customer wallet before enabling it. Leave the variable unset to use the server-backed NEAR Intents quote form.
+Keep `SONNELY_NEAR_INTENTS_FUNDING=false` on the web deployment to disable both the cross-chain funding UI and the quote API. The flag defaults to off and only the literal `true` enables it.
+
+To restore the widget, confirm the [Aurora Widget Studio](https://studio.aurora.dev/) configuration targets USDC on Solana and lets customers enter their own Solana recipient. Set its public iframe URL as `SONNELY_INTENTS_WIDGET_URL` and enable the flag. With the flag enabled and the widget URL unset, Billing uses the server-backed quote form. The quote API uses the separate `NEAR_INTENTS_API_KEY` credential.
 
 ## Statements and payouts
 

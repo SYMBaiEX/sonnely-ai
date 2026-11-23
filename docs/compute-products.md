@@ -106,9 +106,6 @@ message is stored and deduplicates retries by alert ID.
 
 ### Crypto funding
 
-On mainnet, Billing can quote supported NEAR Intents swaps into the user’s own
-Solana USDC wallet. The user reviews the deposit instructions and sends the
-source token from their wallet. After USDC arrives, they complete the standard
-Sonnely USDC checkout. Credits post after Solana finality, as with direct USDC
-purchases. Each swap quote shows its network, minimum output, and refund
-wallet.
+Billing accepts direct USDC payments on Solana. Credits post after Solana
+finality. See the [launch operations runbook](launch-operations.md#cross-chain-funding-widget)
+for the cross-chain funding feature flag.

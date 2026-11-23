@@ -5,7 +5,7 @@ import { ModelGuide } from "@/components/model-guide";
 import { CostExample } from "@/components/cost-example";
 import { NearModelDirectory } from "@/components/near-model-directory";
 import { nearCatalog } from "@/lib/near-catalog";
-import { configuredProviders } from "@/lib/managed-access";
+import { configuredProviders, nearIntentsFundingEnabled } from "@/lib/managed-access";
 import { ModelCatalog } from "@/components/shared";
 import { Contact } from "@/components/contact";
 import { SiteLead, type SiteBrief } from "@/components/site-lead";
@@ -294,13 +294,14 @@ export default async function Subpage({ params }: Props) {
                 reconciliation.
               </p>
             </details>
-            <details>
-              <summary>Can I add funds through NEAR Intents?</summary>
-              <p>
-                The console can quote SOL to USDC through NEAR Intents. A quote is informational and does not
-                move funds. Solana Pay is the direct checkout route when enabled.
-              </p>
-            </details>
+            {nearIntentsFundingEnabled() && (
+              <details>
+                <summary>Can I add funds through NEAR Intents?</summary>
+                <p>
+                  Swap a supported asset into USDC in your Solana wallet, then use Buy credits in Billing.
+                </p>
+              </details>
+            )}
             <details>
               <summary>Where can I see what a request cost?</summary>
               <p>

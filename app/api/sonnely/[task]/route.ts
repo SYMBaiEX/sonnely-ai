@@ -13,7 +13,7 @@ import { intentFunds } from "@/lib/intent-funding";
 import { preparePayment } from "@/lib/payment-transaction";
 import { creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import { usageSince } from "@/lib/usage";
-import { configuredProviders, publicInference } from "@/lib/managed-access";
+import { configuredProviders, nearIntentsFundingEnabled, publicInference } from "@/lib/managed-access";
 import { termsVersion } from "@/lib/policy";
 import { infer } from "@/lib/inference";
 import {
@@ -121,6 +121,7 @@ export async function POST(request: NextRequest, context: Context) {
   try {
     const site = ensureSameOrigin(request);
     const { task } = await context.params;
+    if (task === "quote" && !nearIntentsFundingEnabled()) throw new SonnelyError("Unknown route.", 404);
     const raw = await readBody(request);
     const { db, secret } = backend();
 
