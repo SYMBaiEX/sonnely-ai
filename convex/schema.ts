@@ -204,6 +204,69 @@ export default defineSchema({
     admin: v.id("accounts"),
     note: v.string(),
     ticket: v.optional(v.id("tickets")),
-    kind: v.union(v.literal("note"), v.literal("ticket")),
+    kind: v.union(
+      v.literal("note"),
+      v.literal("ticket"),
+      v.literal("reply"),
+      v.literal("task"),
+      v.literal("flag"),
+      v.literal("adjust"),
+    ),
   }).index("by_account", ["account"]),
+  adminAudit: defineTable({
+    actor: v.id("accounts"),
+    action: v.string(),
+    targetKind: v.string(),
+    targetId: v.string(),
+    summary: v.string(),
+    meta: v.optional(v.any()),
+  })
+    .index("by_actor", ["actor"])
+    .index("by_action", ["action"])
+    .index("by_target", ["targetKind", "targetId"]),
+  accountEvents: defineTable({
+    account: v.id("accounts"),
+    kind: v.string(),
+    actor: v.string(),
+    summary: v.string(),
+  })
+    .index("by_account", ["account"])
+    .index("by_account_kind", ["account", "kind"]),
+  ticketReplies: defineTable({
+    ticket: v.id("tickets"),
+    author: v.id("accounts"),
+    visibility: v.union(v.literal("public"), v.literal("internal")),
+    body: v.string(),
+  }).index("by_ticket", ["ticket"]),
+  accountFlags: defineTable({
+    account: v.id("accounts"),
+    flag: v.string(),
+    note: v.optional(v.string()),
+    admin: v.id("accounts"),
+  })
+    .index("by_account", ["account"])
+    .index("by_flag", ["flag"])
+    .index("by_account_flag", ["account", "flag"]),
+  balanceAdjustments: defineTable({
+    account: v.id("accounts"),
+    admin: v.id("accounts"),
+    delta: v.number(),
+    reason: v.string(),
+    balanceAfter: v.number(),
+  }).index("by_account", ["account"]),
+  crmTasks: defineTable({
+    account: v.id("accounts"),
+    assignee: v.id("accounts"),
+    creator: v.id("accounts"),
+    title: v.string(),
+    dueAt: v.optional(v.number()),
+    doneAt: v.optional(v.number()),
+  })
+    .index("by_account", ["account"])
+    .index("by_assignee_done", ["assignee", "doneAt"]),
+  savedSegments: defineTable({
+    admin: v.id("accounts"),
+    name: v.string(),
+    definition: v.string(),
+  }).index("by_admin", ["admin"]),
 });
