@@ -15,6 +15,7 @@ type Customer = FunctionReturnType<typeof api.crm.customers>["page"][number];
 type CustomerDetail = NonNullable<FunctionReturnType<typeof api.crm.customer>>;
 type Ticket = FunctionReturnType<typeof api.crm.tickets>["page"][number];
 type Trace = FunctionReturnType<typeof api.crm.traces>["page"][number];
+type OperatorOption = FunctionReturnType<typeof api.operators.operators>[number];
 type CrmPage = { page: (Customer | Ticket | Trace)[]; isDone: boolean; continueCursor: string };
 
 const localTime = (date: number) => new Date(date).toLocaleString();
@@ -163,14 +164,23 @@ function TicketList({
   const [saving, setSaving] = useState("");
   const [notice, setNotice] = useState("");
   const [failure, setFailure] = useState("");
+  const directory = useCrm<OperatorOption[]>("admin-crm?view=operator-list", 0);
+  const assignable = (directory?.data ?? []).filter((operator) => operator.id !== undefined);
   async function update(event: FormEvent<HTMLFormElement>, id: string) {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
+    const selection = String(fields.get("assignment") ?? "keep");
     setSaving(id);
     setFailure("");
     setNotice("");
     try {
-      await request("admin-ticket", { id, state: fields.get("state"), assignment: fields.get("assignment") });
+      await request("admin-ticket", {
+        id,
+        state: fields.get("state"),
+        ...(selection.startsWith("assign:")
+          ? { assignment: "assign", assignTo: selection.slice(7) }
+          : { assignment: selection }),
+      });
       setNotice("Support request updated.");
       refresh();
     } catch (error) {
@@ -230,6 +240,12 @@ function TicketList({
                     <option value="keep">Keep assignment</option>
                     <option value="claim">Assign to me</option>
                     <option value="unassign">Unassign</option>
+                    {assignable.map((operator) => (
+                      <option key={operator.id} value={"assign:" + operator.id}>
+                        Assign to {operator.name || shorten(operator.wallet)}
+                        {operator.name ? " · " + shorten(operator.wallet) : ""}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <button className="button quiet" disabled={Boolean(saving)}>

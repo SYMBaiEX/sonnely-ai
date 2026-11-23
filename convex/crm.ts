@@ -342,7 +342,8 @@ export const updateTicket = mutation({
     ...auth,
     id: v.id("tickets"),
     state,
-    assignment: v.union(v.literal("keep"), v.literal("claim"), v.literal("unassign")),
+    assignment: v.union(v.literal("keep"), v.literal("claim"), v.literal("unassign"), v.literal("assign")),
+    assignTo: v.optional(v.id("accounts")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -350,8 +351,20 @@ export const updateTicket = mutation({
     const ticket = await ctx.db.get(args.id);
     if (!ticket) throw new ConvexError("Support request unavailable.");
     const old = ticket.state ?? "open";
-    const assignedTo =
-      args.assignment === "keep" ? ticket.assignedTo : args.assignment === "claim" ? admin._id : undefined;
+    let assignedTo = args.assignment === "keep" ? ticket.assignedTo : undefined;
+    let assigneeWallet: string | undefined;
+    if (args.assignment === "claim") {
+      assignedTo = admin._id;
+      assigneeWallet = admin.wallet;
+    } else if (args.assignment === "assign") {
+      if (!args.assignTo) throw new ConvexError("Choose an operator for this request.");
+      const target = await ctx.db.get(args.assignTo);
+      const role = target ? walletRole(target.wallet) : "member";
+      if (!target || (role !== "admin" && role !== "support"))
+        throw new ConvexError("Requests can only be assigned to admin or support operators.");
+      assignedTo = target._id;
+      assigneeWallet = target.wallet;
+    }
     if (old === args.state && assignedTo === ticket.assignedTo) return null;
     await ctx.db.patch(ticket._id, {
       state: args.state === "open" ? undefined : args.state,
@@ -359,7 +372,11 @@ export const updateTicket = mutation({
       updatedAt: Date.now(),
     });
     const assignment =
-      assignedTo === ticket.assignedTo ? "" : assignedTo ? ". Assigned to acting admin." : ". Unassigned.";
+      assignedTo === ticket.assignedTo
+        ? ""
+        : assignedTo
+          ? ". Assigned to " + assigneeWallet + "."
+          : ". Unassigned.";
     await ctx.db.insert("crmEvents", {
       account: ticket.account,
       admin: admin._id,
