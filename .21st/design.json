@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "project": {
+    "name": "sonnely",
+    "productType": "Confidential inference developer platform",
+    "stack": ["nextjs", "react", "tailwind-v4"]
+  },
+  "sources": {
+    "tokens": ["app/globals.css"],
+    "components": [
+      "components/home-demo.tsx",
+      "components/home-content.tsx",
+      "components/home-model-list.tsx",
+      "components/workspace-preview.tsx",
+      "components/theme-control.tsx"
+    ],
+    "assets": ["public/brand"],
+    "instructions": ["AGENTS.md"]
+  },
+  "design": {
+    "colorMode": "light",
+    "colors": {
+      "--muted": {
+        "value": "light-dark(#515a73, #bcb3bf)",
+        "source": "app/globals.css"
+      },
+      "--accent": {
+        "value": "light-dark(#2442c2, #ff515e)",
+        "source": "app/globals.css"
+      },
+      "--accent-ink": {
+        "value": "#fff",
+        "source": "app/globals.css"
+      }
+    },
+    "typography": {
+      "--font": {
+        "value": "\"Geist Variable\", Inter, system-ui, sans-serif",
+        "source": "app/globals.css"
+      }
+    },
+    "spacing": {},
+    "radius": {
+      "--radius": {
+        "value": "15px",
+        "source": "app/globals.css"
+      }
+    },
+    "shadows": {
+      "--shadow": {
+        "value": "light-dark(rgb(26 38 94 / 12%), rgb(0 0 0 / 42%))",
+        "source": "app/globals.css"
+      }
+    },
+    "motion": {
+      "--ease-out": {
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "source": "app/globals.css"
+      }
+    },
+    "density": "Spacious between sections, compact within controls and comparison rows"
+  },
+  "components": {
+    "installed": [],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [
+      "Preserve the homepage hero, its seasonal artwork, and the interactive request path.",
+      "Serve both Sonnely themes and support keyboard, touch, and reduced motion."
+    ],
+    "avoid": [
+      "Decorative counters, duplicated calls to action within a panel, and unnecessary runtime UI dependencies."
+    ]
+  },
+  "decisions": [
+    "Lead with a copyable API workbench, then establish integrations, request controls, model comparison, and example tasks.",
+    "Use outlined specification rows and inset artwork in light mode. Use continuous panels and layered artwork in dark mode.",
+    "Use one illuminated sun–moon control on the site, console, and docs, with a blue sun and rose moon."
+  ],
+  "evidence": [
+    {
+      "fact": "design.colorMode:light",
+      "source": "app/globals.css"
+    },
+    {
+      "fact": "design.tokens",
+      "source": "app/globals.css"
+    },
+    {
+      "fact": "project.instructions",
+      "source": "AGENTS.md"
+    },
+    {
+      "fact": "project.stack:nextjs",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:tailwind-v4",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-11-23T02:15:11.345Z"
+}

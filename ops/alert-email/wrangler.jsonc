@@ -1,0 +1,10 @@
+{
+  "name": "sonnely-ops-mail",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-21",
+  "workers_dev": true,
+  "services": [{ "binding": "SONNELY_INBOX", "service": "agentic-inbox", "entrypoint": "SonnelyAlerts" }],
+  "send_email": [{ "name": "EMAIL" }],
+  "triggers": { "crons": ["0 * * * *"] },
+  "vars": { "SONNELY_MAIL_FROM": "sonnely-alerts@symbaiex.com" },
+}

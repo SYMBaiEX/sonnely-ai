@@ -1,0 +1,56 @@
+---
+title: Streaming and usage
+description: Read text as it arrives, confirm settlement, and handle interrupted requests.
+---
+
+## Start a stream
+
+Set `stream: true` to receive server-sent events (SSE) and `stream_options.include_usage: true` to receive the final token counts. Set `SONNELY_API_KEY` as in the [quickstart](/docs/quickstart). The `-N` flag tells cURL to print events as they arrive.
+
+```bash title="Terminal · Stream a text completion"
+curl -NsS --fail-with-body https://sonnely.com/api/sonnely/v1/chat/completions \
+  -H "Authorization: Bearer ${SONNELY_API_KEY:?Set SONNELY_API_KEY first}" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "messages": [
+      {"role": "user", "content": "Suggest one name for a snowy forest village."}
+    ],
+    "stream": true,
+    "stream_options": {"include_usage": true},
+    "max_tokens": 128
+  }'
+```
+
+## Read the events
+
+Events arrive as `data:` records separated by blank lines. This abbreviated example shows the fields to look for.
+
+```text title="Event stream · Text, usage, completion" noCopy
+data: {"choices":[{"delta":{"content":"Snowpine"}}],"usage":null}
+
+data: {"choices":[],"usage":{"prompt_tokens":18,"completion_tokens":3,"total_tokens":21}}
+
+data: [DONE]
+```
+
+<div className="docs-event-sequence">
+
+1. **Text deltas.** Append `choices[].delta.content` to the answer as it arrives. Some models also return `reasoning_content`.
+2. **Settled usage.** The terminal JSON chunk has an empty `choices` array and the final `usage` when requested. If you send `X-Sonnely-Receipt: v1`, it can also contain a [completion receipt](/docs/attestation#completion-receipts).
+3. **Completion marker.** `data: [DONE]` confirms that the stream settled. Treat earlier output as provisional.
+
+</div>
+
+## Handle interruptions
+
+> **Check Usage before retrying.** A disconnected client can still incur a charge if the upstream request finishes. If final upstream usage is missing, the reservation can stay open for review.
+
+An `error` JSON event can arrive after HTTP 200. Surface it to the caller and treat a stream that ends without `[DONE]` as incomplete. The [Sonnely SDKs](/docs/sdks) handle these checks and leave retry decisions to you. For manual retries, see [request references and retries](/docs/api#request-references-and-retries).
+
+<nav className="docs-guide-next" aria-label="Streaming resources">
+
+- [Check settled requests](/console/usage)
+- [Troubleshoot a request](/docs/troubleshooting)
+
+</nav>

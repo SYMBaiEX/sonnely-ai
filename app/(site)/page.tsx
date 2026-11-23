@@ -1,0 +1,99 @@
+import { ArrowDown, ArrowUpRight, Fingerprint, Terminal, Wallet } from "lucide-react";
+import Link from "next/link";
+import { Scene } from "@/components/scene";
+import { HomeModelList } from "@/components/home-model-list";
+import { RequestPath } from "@/components/request-path";
+import { HomeCapabilities, HomeResources, HomeWorkloads } from "@/components/home-content";
+import { HomeDemo } from "@/components/home-demo";
+import { PlatformLinks } from "@/components/product-pages";
+import { WorkspacePreview } from "@/components/workspace-preview";
+import "./home.css";
+
+export const metadata = { alternates: { canonical: "/" } };
+
+export default function Home() {
+  return (
+    <>
+      <section className="hero" aria-labelledby="home-hero-heading">
+        <div className="wrap hero-intro">
+          <h1 id="home-hero-heading">
+            Private AI<span>.</span>
+          </h1>
+          <div className="hero-content">
+            <p className="hero-description">
+              Confidential inference for your apps through one OpenAI-compatible API.
+            </p>
+            <div className="actions">
+              <Link href="/console" className="button accent">
+                Open console <ArrowUpRight size={17} />
+              </Link>
+              <a href="#quickstart" className="button quiet">
+                API quickstart <ArrowDown size={16} />
+              </a>
+            </div>
+          </div>
+        </div>
+        <RequestPath />
+      </section>
+      <div className="wrap home">
+        <HomeDemo />
+        <nav className="home-platform" data-reveal="fade" aria-label="Platform integrations">
+          <Link href="/docs/billing">
+            <span className="home-platform-icon">
+              <Wallet size={18} aria-hidden="true" />
+            </span>
+            <span>
+              <strong>Solana</strong>
+              <small>Wallet sign-in and USDC funding</small>
+            </span>
+            <ArrowUpRight size={14} aria-hidden="true" />
+          </Link>
+          <Link href="/inference#routing">
+            <span className="home-platform-icon">
+              <Fingerprint size={18} aria-hidden="true" />
+            </span>
+            <span>
+              <strong>Confidential compute</strong>
+              <small>Hardware-isolated execution</small>
+            </span>
+            <ArrowUpRight size={14} aria-hidden="true" />
+          </Link>
+          <Link href="/docs/api">
+            <span className="home-platform-icon">
+              <Terminal size={18} aria-hidden="true" />
+            </span>
+            <span>
+              <strong>OpenAI-compatible API</strong>
+              <small>Chat Completions</small>
+            </span>
+            <ArrowUpRight size={14} aria-hidden="true" />
+          </Link>
+        </nav>
+        <HomeCapabilities />
+        <HomeModelList />
+        <HomeWorkloads />
+        <WorkspacePreview />
+        <PlatformLinks className="home-directory" />
+        <HomeResources />
+        <section className="closing home-closing" aria-labelledby="home-closing-heading" data-reveal="fade">
+          <Scene />
+          <div>
+            <h2 id="home-closing-heading">Start in the console.</h2>
+            <p>
+              Try a sample in the playground. When you’re ready to run a live request, connect your Solana
+              wallet.
+            </p>
+          </div>
+          <div className="actions">
+            <Link className="button accent" href="/console">
+              Open console <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+            <Link className="button quiet" href="/docs/sdks">
+              SDKs <ArrowUpRight size={15} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}

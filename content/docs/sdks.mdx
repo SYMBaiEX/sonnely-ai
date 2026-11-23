@@ -1,0 +1,177 @@
+---
+title: SDKs
+description: Install the Sonnely clients for TypeScript and Python, or bring an OpenAI-compatible client.
+---
+
+import { Tab, Tabs } from "fumadocs-ui/components/tabs";
+
+Use a key from a workspace with credits. Follow [Quickstart](/docs/quickstart#set-up-your-workspace) to create the key and set `SONNELY_API_KEY` in the terminal where you’ll run the examples. Choose either **Completion** or **Streaming** below. Each run sends one billable request.
+
+## TypeScript or JavaScript
+
+Install the first-party server-side package from [npm](https://www.npmjs.com/package/@sonnely/sdk) with Node.js 22 or newer.
+
+```bash title="Terminal · Install the TypeScript SDK"
+npm install @sonnely/sdk
+```
+
+A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.2.tgz) is also available from Sonnely. Save the example in the folder where you installed the package. Run `node complete.mjs` or `node stream.mjs`.
+
+<Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
+<Tab value="Completion">
+
+```javascript title="complete.mjs"
+import { Sonnely } from "@sonnely/sdk";
+
+const sonnely = new Sonnely({ apiKey: process.env.SONNELY_API_KEY });
+const request = {
+  model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  messages: [{ role: "user", content: "Write one line about a forest." }],
+  max_tokens: 128,
+};
+
+const result = await sonnely.complete(request);
+console.log(result.choices[0]?.message.content);
+console.log(result.usage);
+```
+
+</Tab>
+<Tab value="Streaming">
+
+```javascript title="stream.mjs"
+import { Sonnely } from "@sonnely/sdk";
+
+const sonnely = new Sonnely({ apiKey: process.env.SONNELY_API_KEY });
+const request = {
+  model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  messages: [{ role: "user", content: "Write one line about a forest." }],
+  max_tokens: 128,
+};
+
+for await (const chunk of sonnely.stream(request)) {
+  process.stdout.write(chunk.choices[0]?.delta.content ?? "");
+  if (chunk.usage) console.log("\n", chunk.usage);
+}
+```
+
+</Tab>
+</Tabs>
+
+## Python
+
+The first-party [PyPI package](https://pypi.org/project/sonnely-sdk/) requires Python 3.10 or newer. Check `python3 --version` first. If it shows an older version, use a newer interpreter to create the environment.
+
+On macOS or Linux, run these commands from your project folder. If you already have a virtual environment, activate it and run the install command. See the [Python activation commands](https://docs.python.org/3/library/venv.html#how-venvs-work) for other shells.
+
+```bash title="Terminal · Install the Python SDK"
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install sonnely-sdk
+```
+
+Follow [Quickstart](/docs/quickstart#set-up-your-workspace) to set `SONNELY_API_KEY` in the same terminal. Save the snippet as `complete.py` or `stream.py`, then run `python complete.py` or `python stream.py` with the environment still active. A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.2-py3-none-any.whl) is also available.
+
+> **If the example stops before sending a request**, `ModuleNotFoundError: No module named 'sonnely'` means the Python running the script cannot find the package. Activate the environment and rerun the install command. For `KeyError: 'SONNELY_API_KEY'`, set the key in that terminal.
+
+<Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
+<Tab value="Completion">
+
+```python title="complete.py"
+import os
+from sonnely import Sonnely
+
+sonnely = Sonnely(api_key=os.environ["SONNELY_API_KEY"])
+request = {
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "messages": [{"role": "user", "content": "Write one line about a forest."}],
+    "max_tokens": 128,
+}
+
+result = sonnely.complete(request)
+print(result["choices"][0]["message"]["content"])
+print(result["usage"])
+```
+
+</Tab>
+<Tab value="Streaming">
+
+```python title="stream.py"
+import os
+from sonnely import Sonnely
+
+sonnely = Sonnely(api_key=os.environ["SONNELY_API_KEY"])
+request = {
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "messages": [{"role": "user", "content": "Write one line about a forest."}],
+    "max_tokens": 128,
+}
+
+for chunk in sonnely.stream(request):
+    for choice in chunk.get("choices", []):
+        print(choice["delta"].get("content") or "", end="", flush=True)
+    if chunk.get("usage"):
+        print("\n", chunk["usage"])
+```
+
+</Tab>
+</Tabs>
+
+The streaming example prints text as it arrives, then prints the final usage counts. That usage chunk has an empty `choices` array, so the code checks `usage` outside the loop over choices.
+
+> **Streaming confirms settlement.** Both clients request final usage by default, surface stream errors, and require `[DONE]` before ending normally.
+
+Find the final charge under **Recent requests** in [Usage](/console/usage). The token counts printed by the examples are separate from the dollar amount charged there.
+
+Both clients also provide public `models()`, per-request ceilings through `max_cost_microusd`, and optional [completion receipts](/docs/attestation#completion-receipts).
+
+## Existing OpenAI SDKs
+
+Keep your current SDK and set its base URL to `https://sonnely.com/api/sonnely/v1` and API key to your Sonnely key. Use Chat Completions and a Sonnely model ID. The examples below use the base `openai` packages and disable automatic retries for billable calls.
+
+<Tabs className="docs-example-tabs" items={["JavaScript", "Python"]}>
+<Tab value="JavaScript">
+
+Install with `npm install openai`.
+
+```javascript title="complete.mjs"
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.SONNELY_API_KEY,
+  baseURL: "https://sonnely.com/api/sonnely/v1",
+  maxRetries: 0,
+});
+const completion = await client.chat.completions.create({
+  model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  messages: [{ role: "user", content: "Describe a forest village." }],
+  max_tokens: 128,
+});
+console.log(completion.choices[0]?.message.content);
+```
+
+</Tab>
+<Tab value="Python">
+
+Install with `python -m pip install openai`.
+
+```python title="complete.py"
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ["SONNELY_API_KEY"],
+    base_url="https://sonnely.com/api/sonnely/v1",
+    max_retries=0,
+)
+completion = client.chat.completions.create(
+    model="deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    messages=[{"role": "user", "content": "Describe a forest village."}],
+    max_tokens=128,
+)
+print(completion.choices[0].message.content)
+```
+
+</Tab>
+</Tabs>
+
+Use the [OpenAPI spec](/api/openapi) or the [cURL quickstart](/docs/quickstart) for other runtimes.

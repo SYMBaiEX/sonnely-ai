@@ -1,0 +1,428 @@
+.console .chat-main {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 18px clamp(14px, 3vw, 36px) 26px;
+}
+
+.playground-header,
+.playground-title {
+  display: flex;
+  align-items: center;
+}
+
+.playground-header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 13px;
+}
+
+.playground-title {
+  gap: 9px;
+}
+
+.playground-title svg {
+  color: var(--accent);
+}
+
+.playground-title h1 {
+  font-size: 1.25rem;
+  font-weight: 640;
+  letter-spacing: -0.035em;
+}
+
+.console .chat-welcome {
+  margin: clamp(35px, 11svh, 115px) 0 20px;
+  padding: 0;
+  text-align: start;
+}
+
+.chat-welcome h2 {
+  margin-bottom: 5px;
+  font-size: clamp(25px, 4.2vw, 43px);
+  font-weight: 620;
+  letter-spacing: -0.052em;
+  line-height: 1.1;
+}
+
+.playground-entry {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--shadow) 20%, transparent);
+}
+
+.console .messages + .playground-entry {
+  margin-top: auto;
+}
+
+.playground-entry:has(textarea:focus) {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--line));
+}
+
+.console .playground-entry .composer {
+  margin: 0;
+  padding: 0;
+  border-radius: 17px 17px 0 0;
+}
+
+.console .playground-entry textarea {
+  display: block;
+  min-height: 96px;
+  padding: 16px 17px 9px;
+  border-radius: inherit;
+  font: inherit;
+  font-size: 1rem;
+  outline: none;
+}
+
+.composer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 60%, var(--surface));
+  border-radius: 0 0 17px 17px;
+}
+
+.playground-route-trigger {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 5px 9px 5px 5px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.playground-route-trigger:hover:not(:disabled) {
+  background: var(--raised);
+  border-color: var(--line);
+}
+
+.playground-route-trigger:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.playground-route-trigger > svg {
+  color: var(--muted);
+  margin-inline-start: 4px;
+}
+
+.playground-model-mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--active-fill);
+  color: var(--accent);
+  font: 660 0.83rem var(--mono);
+}
+
+.playground-route-label {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.playground-route-label strong {
+  font-size: 0.86rem;
+  line-height: 1.24;
+  overflow-wrap: anywhere;
+}
+
+.playground-route-label small {
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.25;
+}
+
+.playground-send {
+  flex: none;
+  min-height: 44px;
+  padding-inline: 13px;
+}
+
+.console .chat-note {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin: 9px 3px 0;
+  text-align: start;
+}
+
+.chat-note svg {
+  flex: none;
+}
+
+.playground-history-save {
+  padding: 0 3px;
+  border: 0;
+  min-height: 26px;
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.playground-history-save:not(:disabled) {
+  cursor: pointer;
+}
+
+.playground-editing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.console .message-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.message-stamp {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.message-stamp:empty {
+  display: none;
+}
+
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+
+.playground-starters {
+  display: grid;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.playground-starters h2,
+.playground-sample-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 590;
+}
+
+.playground-starters .prompts {
+  width: 100%;
+  margin: 0;
+  gap: 8px;
+}
+
+.playground-starters .prompt {
+  min-height: 44px;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+}
+
+.playground-starters .prompt:hover {
+  background: var(--raised);
+}
+
+.playground-sample-note {
+  margin-bottom: 10px;
+}
+
+.playground-route-dialog {
+  width: min(490px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  color: var(--ink);
+  background: var(--glass-solid);
+  overflow: hidden;
+}
+
+.playground-route-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.playground-route-dialog::backdrop {
+  background: light-dark(rgb(26 33 55 / 40%), rgb(9 6 12 / 66%));
+}
+
+.playground-route-dialog > :is(header, footer) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+}
+
+.playground-route-dialog header {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+
+.playground-route-dialog header h2 {
+  font-size: 1rem;
+  font-weight: 640;
+}
+
+.playground-route-dialog header .icon-button {
+  width: 40px;
+  height: 40px;
+}
+
+.playground-route-body {
+  display: grid;
+  gap: 15px;
+  min-height: 0;
+  padding: 14px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.playground-route-dialog fieldset {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.playground-route-dialog legend {
+  padding: 0;
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 620;
+}
+
+.playground-model-options {
+  display: grid;
+  gap: 3px;
+}
+
+.playground-route-dialog label {
+  position: relative;
+  cursor: pointer;
+}
+
+.playground-route-dialog input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  clip-path: inset(50%);
+  padding: 0;
+}
+
+.playground-model-options label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  min-height: 48px;
+  padding: 5px 9px;
+  border-radius: 8px;
+}
+
+.playground-route-dialog label:hover {
+  background: var(--raised);
+}
+
+.playground-route-dialog label:has(input:checked) {
+  background: var(--active-fill);
+}
+
+.playground-route-dialog label:has(input:focus-visible) {
+  outline: 2px solid var(--muted);
+  outline-offset: -2px;
+}
+
+.playground-route-check {
+  visibility: hidden;
+  color: var(--accent);
+}
+
+.playground-model-options input:checked ~ .playground-route-check {
+  visibility: visible;
+}
+
+.playground-providers > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.playground-providers label {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.83rem;
+}
+
+.playground-route-dialog footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 720px) {
+  .playground-history-save {
+    min-height: 44px;
+  }
+
+  .console .chat-main {
+    padding: 12px 10px 22px;
+  }
+
+  .playground-title h1 {
+    font-size: 1.05rem;
+  }
+
+  .playground-title svg {
+    display: none;
+  }
+
+  .playground-header .chat-tools .button {
+    padding-inline: 8px;
+  }
+
+  .console .chat-welcome {
+    margin: clamp(26px, 6svh, 50px) 0 15px;
+  }
+
+  .playground-route-dialog {
+    margin: auto 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: min(700px, calc(100dvh - 8px));
+    border-radius: 18px 18px 0 0;
+  }
+
+  .playground-route-dialog footer {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .playground-model-options label,
+  .playground-route-dialog footer .button {
+    min-height: 44px;
+  }
+}

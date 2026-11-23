@@ -1,0 +1,32 @@
+---
+title: Models and rates
+description: Discover available models and estimate token costs.
+---
+
+## Read the live catalog
+
+[GET /models](/api/sonnely/v1/models) lists the model IDs available on the current deployment with their rates and context windows. The [model catalog](/models) shows the same list with published pricing.
+
+Routing is automatic. Sonnely selects a confidential execution environment for each request and meters the usage it reports back.
+
+## Compare prices
+
+Published prices include Sonnely’s 10% inference markup and are quoted per million tokens.
+
+<div className="docs-guide-facts">
+
+- **Input.** Uncached tokens in your request.
+- **Cached input.** Prompt tokens reported as cache hits.
+- **Output.** Completion tokens reported with the response.
+
+</div>
+
+Reported token categories determine the final charge up to the reservation. Read discovery at runtime for current rates.
+
+<nav className="docs-guide-next" aria-label="Related guides and resources">
+
+- [Discover live models](/api/sonnely/v1/models)
+- [Review attestation evidence](/docs/attestation#evidence)
+- [Understand reservations](/docs/billing#understand-reservations)
+
+</nav>
