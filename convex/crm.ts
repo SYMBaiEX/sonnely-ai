@@ -293,6 +293,33 @@ export const ticketThread = query({
   },
 });
 
+export const navBadges = query({
+  args: { ...auth },
+  returns: v.object({ openTickets: v.number(), overdueTasks: v.number() }),
+  handler: async (ctx, args) => {
+    const account = await requireAdmin(ctx, args);
+    const [open, inProgress, tasks] = await Promise.all([
+      ctx.db
+        .query("tickets")
+        .withIndex("by_state", (q) => q.eq("state", undefined))
+        .collect(),
+      ctx.db
+        .query("tickets")
+        .withIndex("by_state", (q) => q.eq("state", "in_progress"))
+        .collect(),
+      ctx.db
+        .query("crmTasks")
+        .withIndex("by_assignee_done", (q) => q.eq("assignee", account._id).eq("doneAt", undefined))
+        .collect(),
+    ]);
+    const now = Date.now();
+    return {
+      openTickets: open.length + inProgress.length,
+      overdueTasks: tasks.filter((task) => task.dueAt !== undefined && task.dueAt < now).length,
+    };
+  },
+});
+
 export const traces = query({
   args: { ...auth, status: traceFilter, search: v.string(), page: paginationOptsValidator },
   returns: v.object({ page: v.array(trace), ...paging }),

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ConsoleScreen } from "@/components/console";
+import { adminAreas } from "@/lib/admin-areas";
 import { nearCatalog } from "@/lib/near-catalog";
 import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
@@ -41,7 +42,13 @@ export async function generateMetadata({ params }: Props) {
 export default async function ConsolePage({ params, searchParams }: Props) {
   const [{ section }, { model, provider, run }] = await Promise.all([params, searchParams]);
   const name = section?.[0] ?? "chat";
-  if ((section && section.length > 1) || !sections.includes(name as Section)) notFound();
+  const adminArea = name === "admin" && section?.[1] ? section[1] : undefined;
+  const badDepth =
+    (section && section.length > 2) ||
+    (section &&
+      section.length === 2 &&
+      !(name === "admin" && adminAreas.includes(adminArea as (typeof adminAreas)[number])));
+  if (badDepth || !sections.includes(name as Section)) notFound();
   const features = computeFeatures();
   if (isComputeProduct(name) && !features[name]) notFound();
   const availableProviders = configuredProviders();

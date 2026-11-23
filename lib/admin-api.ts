@@ -146,6 +146,8 @@ export async function adminCrm(
     }
     case "tasks":
       return json(await db.query(api.crmTasks.mine, { ...auth, openOnly: true }));
+    case "nav-badges":
+      return json(await db.query(api.crm.navBadges, auth));
     case "audit": {
       const filters = z
         .object({
