@@ -7,6 +7,7 @@ import { ArrowUpRight, BookOpen, Box, ChevronRight, CircleHelp, Fingerprint, Roc
 import { usePathname } from "next/navigation";
 import { apiOrigin } from "@/lib/api-contract";
 import { SonnelySocialLink } from "@/components/sonnely-social-link";
+import { MotionSwitch } from "@/components/ambient-motion";
 
 const sectionIcons = {
   "Get started": Rocket,
@@ -64,6 +65,7 @@ export function SonnelyDocsSidebar(props: SidebarProps) {
             </a>
             <SonnelySocialLink compact />
           </nav>
+          <MotionSwitch icon />
         </div>
       }
     />

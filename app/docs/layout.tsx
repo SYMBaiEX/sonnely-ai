@@ -6,6 +6,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import { SiteHeader } from "@/components/site-header";
 import { themeKey } from "@/lib/appearance";
 import { docsSource } from "@/lib/docs-source";
+import { DocsBackdrop } from "./backdrop";
 import { SonnelyDocsSidebar } from "./sidebar";
 import { DocsThemeSwitch } from "./theme-switch";
 import "./docs.css";
@@ -14,6 +15,7 @@ export default function DocumentationLayout({ children }: { children: ReactNode 
   return (
     <RootProvider theme={{ storageKey: themeKey, defaultTheme: "dark" }}>
       <div className="docs-shell">
+        <DocsBackdrop />
         <SiteHeader fromDocs themeSwitch={<DocsThemeSwitch />} />
         <DocsLayout
           tree={docsSource.getPageTree()}

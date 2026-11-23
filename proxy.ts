@@ -29,6 +29,7 @@ export function proxy(request: NextRequest) {
       pathname.startsWith("/_next/") ||
       pathname.startsWith("/brand/") ||
       pathname.startsWith("/sdk/") ||
+      /^\/(?:forest|winter)-(?:day|night)\.webp$/.test(pathname) ||
       /^\/(?:api\/(?:search|openapi)|llms(?:-full)?\.txt|robots\.txt|sitemap\.xml|favicon\.ico|apple-icon\.png)$/.test(
         pathname,
       )

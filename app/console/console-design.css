@@ -2,28 +2,6 @@
   --console-selected: color-mix(in srgb, var(--active-fill) 82%, var(--surface));
 }
 
-.console .console-world {
-  opacity: 0.29;
-  animation: none;
-}
-
-.console[data-motion="on"] .console-world {
-  animation: workspace-scene-in 760ms var(--ease-out) both;
-}
-
-@keyframes workspace-scene-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 0.29;
-  }
-}
-
-.console .ambient-visualizer {
-  opacity: 0.64;
-}
-
 .console :is(.rail, .console-bar, .mobile-dock) {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;

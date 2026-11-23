@@ -1601,9 +1601,11 @@ button {
   inset: 0;
   pointer-events: none;
   background: var(--art) center 55% / cover;
-  opacity: 0.47;
+  opacity: 0.29;
   mask-image: radial-gradient(ellipse 78% 60% at 83% 5%, #000 13%, transparent 85%);
-  animation: console-world-in 0.9s var(--ease-out) both;
+}
+:is(.console, .docs-backdrop)[data-motion="on"] .console-world {
+  animation: workspace-scene-in 760ms var(--ease-out) both;
 }
 .console-world::after {
   content: "";
@@ -1678,14 +1680,12 @@ button {
     transform: translateY(0);
   }
 }
-@keyframes console-world-in {
+@keyframes workspace-scene-in {
   from {
     opacity: 0;
-    transform: scale(1.03);
   }
   to {
-    opacity: 0.47;
-    transform: scale(1);
+    opacity: 0.29;
   }
 }
 @keyframes draw-bar {
@@ -1843,7 +1843,7 @@ button {
   pointer-events: none;
 }
 .console .ambient-visualizer {
-  opacity: 0.76;
+  opacity: 0.64;
 }
 .footer-motion {
   width: max-content;

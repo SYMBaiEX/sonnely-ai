@@ -40,13 +40,27 @@ html:has(.docs-shell) #nd-sidebar {
 html.light:has(.docs-shell),
 html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
   color-scheme: light;
-  --brand-art: url("/brand/sonnely-blue.svg");
 }
 
 .docs-shell {
+  isolation: isolate;
   color: var(--ink);
   background: var(--surface);
   min-height: 100dvh;
+}
+
+.docs-backdrop .ambient-visualizer {
+  opacity: 0.42;
+}
+
+.docs-backdrop[data-motion="off"] .ambient-visualizer {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .docs-backdrop .ambient-visualizer {
+    display: none;
+  }
 }
 
 .docs-shell > .site-header {

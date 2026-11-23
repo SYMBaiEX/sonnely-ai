@@ -1,4 +1,4 @@
-.theme-root {
+:is(.theme-root, .docs-shell) {
   --art-day: url("/forest-day.webp");
   --art-night: url("/forest-night.webp");
   --feature-day: url("/sanctuary-day.webp");
@@ -7,14 +7,16 @@
   --feature-art: var(--feature-night);
   --brand-art: url("/brand/sonnely-crimson.svg");
 }
-html[data-season="winter"] .theme-root {
+html[data-season="winter"] :is(.theme-root, .docs-shell) {
   --art-day: url("/winter-day.webp");
   --art-night: url("/winter-night.webp");
   --feature-day: url("/winter-sanctuary-day.webp");
   --feature-night: url("/winter-sanctuary-night.webp");
 }
 html[data-initial-theme="light"] .theme-root,
-.theme-root[data-theme="light"] {
+.theme-root[data-theme="light"],
+html.light .docs-shell,
+html[data-initial-theme="light"]:not(.dark) .docs-shell {
   --art: var(--art-day);
   --feature-art: var(--feature-day);
   --brand-art: url("/brand/sonnely-blue.svg");
@@ -661,7 +663,7 @@ html[data-initial-theme="light"] .theme-root,
     var(--wordmark-color) 32%,
     color-mix(in srgb, var(--wordmark-color) 84%, var(--accent))
   );
-  mask: url("/brand/sonnely-wordmark.svg") center / contain no-repeat;
+  mask: url("/brand/sonnely-wordmark.svg?v=2") center / contain no-repeat;
 }
 @media (forced-colors: active) {
   .brand-wordmark {

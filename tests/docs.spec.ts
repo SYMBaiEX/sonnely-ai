@@ -55,6 +55,17 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   const legacy = await request.get("/docs/api-reference", { maxRedirects: 0 });
   expect(legacy.status()).toBe(308);
   expect(legacy.headers().location).toBe("/docs/api");
+
+  for (const season of ["forest", "winter"]) {
+    for (const theme of ["day", "night"]) {
+      const artwork = await request.head(`/${season}-${theme}.webp`, {
+        headers: { Host: "docs.sonnely.com" },
+        maxRedirects: 0,
+      });
+      expect(artwork.ok()).toBe(true);
+      expect(artwork.headers()["content-type"]).toBe("image/webp");
+    }
+  }
 });
 
 test("the shared docs header leads to the site and console on desktop and mobile", async ({ page }) => {
@@ -68,7 +79,7 @@ test("the shared docs header leads to the site and console on desktop and mobile
     const theme = header.getByRole("switch", { name: "Switch color theme" });
     await expect(logo).toHaveAttribute("href", "https://sonnely.com");
     await expect(logo.locator(".brand-wordmark")).toBeVisible();
-    await expect(logo.locator(".brand-wordmark")).toHaveCSS("mask-image", /sonnely-wordmark\.svg/);
+    await expect(logo.locator(".brand-wordmark")).toHaveCSS("mask-image", /sonnely-wordmark\.svg\?v=2/);
     await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-crimson\.svg/);
     await theme.click();
     await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-blue\.svg/);
@@ -135,6 +146,7 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   page,
   context,
 }) => {
+  await page.clock.setFixedTime(new Date("2026-12-01T12:00:00Z"));
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/docs/streaming");
   const sidebar = page.getByRole("complementary", { name: "Documentation sidebar" });
@@ -144,17 +156,30 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
     "page",
   );
   const shell = page.locator(".docs-shell");
+  const forest = shell.locator(".console-world");
+  const visualizer = shell.locator(".ambient-visualizer");
+  const motion = sidebar.getByRole("switch", { name: "Ambient motion" });
   const header = page.getByRole("banner", { name: "Sonnely" });
   await expect(shell).toHaveCSS("background-color", "rgb(12, 11, 14)");
   await expect(header).toHaveCSS("background-color", "rgb(12, 11, 14)");
   await expect(sidebar).toHaveCSS("background-color", "rgb(12, 11, 14)");
+  await expect(forest).toHaveCSS("background-image", /winter-night\.webp/);
+  await expect(forest).toHaveCSS("animation-name", "workspace-scene-in");
+  await expect(visualizer).toBeVisible();
   const switcher = header.getByRole("switch", { name: "Switch color theme" });
   await switcher.click();
   await expect(shell).toHaveCSS("background-color", "rgb(238, 240, 250)");
   await expect(header).toHaveCSS("background-color", "rgb(238, 240, 250)");
   await expect(sidebar).toHaveCSS("background-color", "rgb(238, 240, 250)");
+  await expect(forest).toHaveCSS("background-image", /winter-day\.webp/);
+  await motion.click();
+  await expect(forest).toHaveCSS("animation-name", "none");
+  await expect(visualizer).toBeHidden();
   await page.reload();
   await expect(switcher).toHaveAttribute("aria-checked", "true");
+  await expect(motion).toHaveAttribute("aria-checked", "false");
+  await motion.click();
+  await expect(visualizer).toBeVisible();
 
   await page.getByRole("button", { name: "Copy Markdown" }).click();
   await expect
@@ -179,6 +204,9 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   await expect(page).toHaveURL(/\/docs\/quickstart$/);
   await expect(mobile).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(forest).toHaveCSS("animation-name", "none");
+  await expect(visualizer).toBeHidden();
 });
 
 test("quickstart and streaming keep commands copyable and preserve guide anchors", async ({
