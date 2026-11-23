@@ -5,8 +5,10 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 
 import { guardProvider } from "./launchGuard";
 import { creditDeposit, settleUsage } from "./ledger";
+import { recordEvent } from "./events";
 import { gatewayDetails } from "./usageMaxOutboxValidators";
 import { termsVersion } from "../lib/policy";
+import { creditDecimal } from "../lib/credit-amount";
 import {
   accountFor,
   accountRole,
@@ -66,6 +68,12 @@ export const signIn = mutation({
         invitedBy: inviter?._id,
       }));
     await ctx.db.insert("sessions", { hash: args.session, account, expires: now + sessionLife });
+    await recordEvent(ctx, {
+      account,
+      kind: "session",
+      actor: args.wallet,
+      summary: "Signed in with Solana wallet",
+    });
     return null;
   },
 });
@@ -124,8 +132,15 @@ export const acceptTerms = mutation({
     service(args.secret);
     const account = await requireAccount(ctx, args.session);
     if (args.version !== termsVersion) throw new ConvexError("Refresh to review the current terms.");
-    if (account.termsVersion !== termsVersion)
+    if (account.termsVersion !== termsVersion) {
       await ctx.db.patch(account._id, { termsVersion, termsAcceptedAt: Date.now() });
+      await recordEvent(ctx, {
+        account: account._id,
+        kind: "terms",
+        actor: account.wallet,
+        summary: `Accepted terms v${args.version}`,
+      });
+    }
     return null;
   },
 });
@@ -138,6 +153,12 @@ export const finishOnboarding = mutation({
     const account = await requireAccount(ctx, args.session);
     if (account.onboarding === "pending") {
       await ctx.db.patch(account._id, { onboarding: args.funding });
+      await recordEvent(ctx, {
+        account: account._id,
+        kind: "onboarding",
+        actor: account.wallet,
+        summary: `Workspace setup: ${args.funding}`,
+      });
     }
     return null;
   },
@@ -160,6 +181,12 @@ export const rename = mutation({
       if (owner && owner._id !== account._id) throw new ConvexError("That username is already taken.");
     }
     await ctx.db.patch(account._id, { name: args.name, username: requested });
+    await recordEvent(ctx, {
+      account: account._id,
+      kind: "profile",
+      actor: account.wallet,
+      summary: "Profile updated",
+    });
     return null;
   },
 });
@@ -232,6 +259,12 @@ export const createKey = mutation({
       .take(5);
     if (recent.length >= 5) throw new ConvexError("Wait a minute before creating another key.");
     await ctx.db.insert("keys", { ...fields, account: account._id, revoked: false, lifetime: 0 });
+    await recordEvent(ctx, {
+      account: account._id,
+      kind: "key",
+      actor: account.wallet,
+      summary: `Created API key ${fields.name.slice(0, 80)}`,
+    });
     return null;
   },
 });
@@ -245,6 +278,12 @@ export const revokeKey = mutation({
     const key = await ctx.db.get(args.id);
     if (!key || key.account !== account._id) throw new ConvexError("Key unavailable.");
     await ctx.db.patch(key._id, { revoked: true });
+    await recordEvent(ctx, {
+      account: account._id,
+      kind: "key",
+      actor: account.wallet,
+      summary: `Revoked API key ${key.name.slice(0, 80)}`,
+    });
     return null;
   },
 });
@@ -439,7 +478,14 @@ export const ticket = mutation({
       )
       .take(5);
     if (recent.length >= 5) throw new ConvexError("Daily request limit reached.");
-    return await ctx.db.insert("tickets", { account: account._id, ...fields });
+    const id = await ctx.db.insert("tickets", { account: account._id, ...fields });
+    await recordEvent(ctx, {
+      account: account._id,
+      kind: "support",
+      actor: account.wallet,
+      summary: `Opened support request: ${fields.topic.slice(0, 120)}`,
+    });
+    return id;
   },
 });
 
@@ -462,6 +508,12 @@ export const createDeposit = mutation({
       .take(5);
     if (recent.length >= 5) throw new ConvexError("Wait a minute before opening another payment.");
     await ctx.db.insert("deposits", { account: account._id, ...fields });
+    await recordEvent(ctx, {
+      account: account._id,
+      kind: "billing",
+      actor: account.wallet,
+      summary: `Started USDC deposit $${creditDecimal(fields.amount, 2)}`,
+    });
     return null;
   },
 });
@@ -494,6 +546,13 @@ export const confirmDeposit = mutation({
       .unique();
     if (!row || row.account !== account._id) throw new ConvexError("Payment request unavailable.");
     await creditDeposit(ctx, row, account, args.signature);
+    if (row.signature !== args.signature)
+      await recordEvent(ctx, {
+        account: account._id,
+        kind: "billing",
+        actor: account.wallet,
+        summary: `Finalized USDC deposit $${creditDecimal(row.amount, 2)}`,
+      });
     return null;
   },
 });
