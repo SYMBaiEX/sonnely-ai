@@ -155,7 +155,6 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
 
   return (
     <ThemeSurface className="console">
-      <div className="console-world" aria-hidden="true" />
       <a href="#console-content" className="skip">
         Skip to workspace
       </a>

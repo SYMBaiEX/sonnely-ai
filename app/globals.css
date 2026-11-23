@@ -1595,19 +1595,19 @@ button {
 .console-stage {
   min-width: 0;
 }
-.console-world {
+.workspace-scene {
   position: fixed;
   z-index: -1;
   inset: 0;
   pointer-events: none;
   background: var(--art) center 55% / cover;
-  opacity: 0.29;
+  opacity: var(--workspace-scene-opacity, 0.29);
   mask-image: radial-gradient(ellipse 78% 60% at 83% 5%, #000 13%, transparent 85%);
 }
-:is(.console, .docs-backdrop)[data-motion="on"] .console-world {
+:is(.theme-root, .docs-backdrop)[data-motion="on"] .workspace-scene {
   animation: workspace-scene-in 760ms var(--ease-out) both;
 }
-.console-world::after {
+.workspace-scene::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1685,7 +1685,7 @@ button {
     opacity: 0;
   }
   to {
-    opacity: 0.29;
+    opacity: var(--workspace-scene-opacity, 0.29);
   }
 }
 @keyframes draw-bar {
@@ -1765,7 +1765,7 @@ button {
     padding-inline: 10px;
     min-height: calc(100dvh - 86px);
   }
-  .console-world {
+  .workspace-scene {
     background-position: 64% 22%;
   }
   .nav-toggle,
@@ -1806,7 +1806,7 @@ button {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  .console-world {
+  .workspace-scene {
     display: none;
   }
   .chat-layout {

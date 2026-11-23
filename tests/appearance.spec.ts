@@ -6,9 +6,11 @@ test("the theme follows the user across the site and all console pages", async (
   await page.clock.setFixedTime(new Date("2027-01-02T12:00:00Z"));
   await page.goto("/");
   const site = page.locator(".theme-root");
+  const backdrop = page.locator(".workspace-scene");
   const switcher = page.getByRole("switch", { name: "Switch color theme" });
   await expect(site).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-night\.webp/);
+  await expect(backdrop).toBeHidden();
 
   const thumb = switcher.locator(".theme-switch-thumb");
   await expect(thumb).toHaveCSS("transform", "none");
@@ -20,6 +22,13 @@ test("the theme follows the user across the site and all console pages", async (
   await expect(thumb).toHaveCSS("transform", /^matrix/);
   await expect(switcher.locator(".theme-switch-sun")).toHaveCSS("color", "rgb(36, 66, 194)");
   await expect(page.locator(".hero .scene-image")).toHaveCSS("background-image", /signal-day\.webp/);
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Models" })
+    .click();
+  await expect(page).toHaveURL(/\/models$/);
+  await expect(backdrop).toHaveCSS("background-image", /forest-day\.webp/);
+  await expect(backdrop).toHaveCSS("position", "fixed");
   for (const route of [
     "",
     "/models",
@@ -33,6 +42,7 @@ test("the theme follows the user across the site and all console pages", async (
   ]) {
     await page.goto("/console" + route);
     await expect(site).toHaveAttribute("data-theme", "light");
+    await expect(backdrop).toHaveCSS("background-image", /forest-day\.webp/);
     const current = page
       .getByRole("navigation", { name: "Workspace navigation" })
       .locator("[aria-current='page']");
@@ -89,7 +99,14 @@ test("winter artwork switches across the site and the console at Chicago midnigh
   await expect(art).toHaveCSS("background-image", /signal-day\.webp/);
   await expect(closing).toHaveCSS("background-image", /signal-day\.webp/);
   await page.goto("/console");
-  await expect(page.locator(".console-world")).toHaveCSS("background-image", /forest-day\.webp/);
+  await expect(page.locator(".workspace-scene")).toHaveCSS("background-image", /forest-day\.webp/);
+  await expect(page.locator(".workspace-scene")).toHaveCSS("opacity", "0.52");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".chat-layout")).toHaveCSS("background-color", /\/ 0\.36\)$/);
+  await expect(page.locator(".console-bar")).toHaveCSS("background-color", /\/ 0\.78\)$/);
+  await page.emulateMedia({ contrast: "more" });
+  await expect(page.locator(".workspace-scene")).toBeHidden();
+  await expect(page.locator(".chat-layout")).toHaveCSS("background-color", "rgb(238, 240, 250)");
 });
 
 test("request stages, catalog ordering and keyboard navigation work", async ({ page }) => {

@@ -159,7 +159,7 @@ test("the docs sidebar groups pages and adopts the Sonnely palette in both theme
   await expect(currentLink).toHaveAttribute("aria-current", "page");
   await expect(currentLink).toHaveCSS("box-shadow", "none");
   const shell = page.locator(".docs-shell");
-  const forest = shell.locator(".console-world");
+  const forest = shell.locator(".workspace-scene");
   const visualizer = shell.locator(".ambient-visualizer");
   const motion = sidebar.getByRole("switch", { name: "Ambient motion" });
   const header = page.getByRole("banner", { name: "Sonnely" });

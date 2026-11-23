@@ -9,7 +9,7 @@ export function DocsBackdrop() {
 
   return (
     <div className="docs-backdrop" data-motion={motion ? "on" : "off"} aria-hidden="true">
-      <div className="console-world" />
+      <div className="workspace-scene" />
       <AmbientVisualizer motion={motion} theme={resolvedTheme === "light" ? "light" : "dark"} />
     </div>
   );

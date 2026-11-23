@@ -1,5 +1,10 @@
 .console {
   --console-selected: color-mix(in srgb, var(--active-fill) 82%, var(--surface));
+  --workspace-scene-opacity: 0.52;
+}
+
+.console .workspace-scene {
+  mask-image: radial-gradient(ellipse 96% 85% at 77% 12%, #000 18%, transparent 91%);
 }
 
 .console :is(.rail, .console-bar, .mobile-dock) {
@@ -87,7 +92,7 @@
 }
 
 .console .console-bar {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
 }
 
 .console .console-bar .crumb,
@@ -329,8 +334,14 @@
 }
 
 .console .chat-layout {
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  background: color-mix(in srgb, var(--surface) 36%, transparent);
   border-radius: var(--radius);
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .console :is(.console-bar, .chat-layout) {
+    background: var(--surface);
+  }
 }
 
 .console .sessions {

@@ -35,6 +35,7 @@ export function ThemeSurface({ children, className }: { children: ReactNode; cla
   }, [theme]);
   return (
     <div className={"theme-root " + className} data-theme={theme} data-motion={motion ? "on" : "off"}>
+      <div className="workspace-scene" aria-hidden="true" />
       {children}
       <AmbientVisualizer motion={motion} theme={theme} />
     </div>
