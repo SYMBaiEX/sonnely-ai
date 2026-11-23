@@ -6,9 +6,13 @@ import {
   MessageSquare,
   ArrowUpRight,
   BadgeCheck,
+  Download,
   Fingerprint,
   History,
+  Pencil,
   Plus,
+  RotateCcw,
+  Square,
   Trash2,
   KeyRound,
   Wallet,
@@ -21,8 +25,37 @@ import { CopyButton } from "./shared";
 import { PlaygroundRoute } from "./playground-route";
 import { type Session } from "./wallet";
 
-type Message = { role: "user" | "assistant"; content: string; model?: string };
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  model?: string;
+  at?: number;
+  stopped?: boolean;
+};
 type Thread = { id: string; model: string; provider?: ProviderId; messages: Message[] };
+
+function transcript(thread: Thread, format: "md" | "txt") {
+  const title = thread.messages[0]?.content || "Sonnely conversation";
+  const name = (id: string | undefined) =>
+    models.find((item) => item.id === (id ?? thread.model))?.name ?? "Model";
+  const head = [
+    (format === "md" ? "# " : "") + title,
+    "",
+    "Model: " + name(thread.model) + " (" + thread.model + ")",
+    "Provider: " + providerNames[thread.provider ?? "near-ai"],
+    "Exported: " + new Date().toLocaleString(),
+    "",
+  ];
+  const body = thread.messages.flatMap((message) => [
+    (format === "md" ? "## " : "") +
+      (message.role === "user" ? "You" : name(message.model)) +
+      (format === "txt" ? ":" : ""),
+    "",
+    message.content,
+    "",
+  ]);
+  return [...head, ...body].join("\n");
+}
 
 const samples = [
   {
@@ -81,6 +114,9 @@ export function Chat({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const owner = session?.profile?.wallet ?? "guest";
   const storageKey = "sonnely.chats." + owner;
   const selectionKey = storageKey + ".active";
@@ -150,48 +186,76 @@ export function Chat({
     setSample(null);
     setText("");
     setError("");
+    setEditIndex(null);
   }
 
-  async function send(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!text.trim() || !ready || busy) return;
-    const prompt = text.trim();
-    const thread = activeSample ? undefined : current;
-    const id = thread?.id ?? crypto.randomUUID();
-    const history: Message[] = [...(thread?.messages ?? []), { role: "user", content: prompt }];
+  async function run(
+    id: string,
+    history: Message[],
+    runModel: string,
+    runProvider: ProviderId,
+    restore?: () => void,
+  ) {
     const previous = threads;
+    const previousActive = active;
     const rest = threads.filter((item) => item.id !== id);
     const payload = history.map(({ role, content }) => ({ role, content }));
     const requestMessages = plain
       ? [{ role: "system", content: "Use concise, clear language." }, ...payload.slice(-31)]
       : payload.slice(-32);
-    if (!routes.includes(provider)) {
-      setError(providerNames[provider] + " is unavailable for this model. Choose an available provider.");
+    const entry = models.find((item) => item.id === runModel);
+    if (!entry || !availableProviders.some((route) => providerRoute(entry, route) && route === runProvider)) {
+      setError(
+        providerNames[runProvider] + " is unavailable for this model. Choose an available provider.",
+      );
       return;
     }
-    const selectedProvider = provider;
     const input = {
-      model,
+      model: runModel,
       messages: requestMessages,
       max_tokens: 1024,
       stream: true,
-      ...(selectedProvider !== "near-ai" ? { provider: { only: [selectedProvider] } } : {}),
+      ...(runProvider !== "near-ai" ? { provider: { only: [runProvider] } } : {}),
     };
     if (new TextEncoder().encode(JSON.stringify(input)).byteLength > 36_000) {
       setError("This conversation is too long for the gateway. Start a new chat or shorten your message.");
       return;
     }
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const replyAt = Date.now();
+    let content = "";
+    const reply = (text: string, stopped = false): Thread[] => [
+      {
+        id,
+        model: runModel,
+        provider: runProvider,
+        messages: [
+          ...history,
+          {
+            role: "assistant",
+            content: text,
+            model: runModel,
+            at: replyAt,
+            ...(stopped ? { stopped: true } : {}),
+          },
+        ],
+      },
+      ...rest,
+    ];
     setBusy(true);
     setError("");
     setSample(null);
     setActive(id);
     setText("");
-    setThreads([{ id, model, provider: selectedProvider, messages: history }, ...rest]);
+    setEditIndex(null);
+    setThreads([{ id, model: runModel, provider: runProvider, messages: history }, ...rest]);
     try {
       const response = await fetch("/api/sonnely/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
+        signal: controller.signal,
         body: JSON.stringify(input),
       });
       if (
@@ -202,17 +266,7 @@ export function Chat({
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error ?? "The request did not return a stream.");
       }
-      let content = "";
       let complete = false;
-      const reply = (text: string): Thread[] => [
-        {
-          id,
-          model,
-          provider: selectedProvider,
-          messages: [...history, { role: "assistant", content: text, model }],
-        },
-        ...rest,
-      ];
       for await (const event of readSse(response.body)) {
         if (event === "[DONE]") {
           complete = true;
@@ -231,13 +285,65 @@ export function Chat({
       save(reply(content || "The provider returned no text."), id);
       await refresh();
     } catch (error) {
-      setThreads(previous);
-      setActive(thread?.id ?? null);
-      setText(prompt);
-      setError(error instanceof Error ? error.message : "Could not complete request.");
+      if (controller.signal.aborted) {
+        save(
+          content
+            ? reply(content, true)
+            : [{ id, model: runModel, provider: runProvider, messages: history }, ...rest],
+          id,
+        );
+        await refresh();
+      } else {
+        setThreads(previous);
+        setActive(previousActive);
+        restore?.();
+        setError(error instanceof Error ? error.message : "Could not complete request.");
+      }
     } finally {
+      abortRef.current = null;
       setBusy(false);
     }
+  }
+
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!text.trim() || !ready || busy) return;
+    const prompt = text.trim();
+    const thread = activeSample ? undefined : current;
+    const id = thread?.id ?? crypto.randomUUID();
+    const editing = editIndex;
+    const base = editing === null ? (thread?.messages ?? []) : (thread?.messages ?? []).slice(0, editing);
+    const history: Message[] = [...base, { role: "user", content: prompt, at: Date.now() }];
+    await run(id, history, model, provider, () => {
+      setText(prompt);
+      setEditIndex(editing);
+    });
+  }
+
+  function retry() {
+    if (busy || !ready || !current || activeSample) return;
+    const index = current.messages.map((message) => message.role).lastIndexOf("user");
+    if (index < 0) return;
+    void run(current.id, current.messages.slice(0, index + 1), current.model, current.provider ?? "near-ai");
+  }
+
+  function edit(index: number) {
+    const message = current?.messages[index];
+    if (busy || !message || message.role !== "user") return;
+    setEditIndex(index);
+    setText(message.content);
+    setError("");
+    composerRef.current?.focus();
+  }
+
+  function downloadTranscript() {
+    if (!current) return;
+    const url = URL.createObjectURL(new Blob([transcript(current, "md")], { type: "text/markdown" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "sonnely-chat-" + current.id.slice(0, 8) + ".md";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -273,6 +379,7 @@ export function Chat({
                     setProvider(thread.provider ?? "near-ai");
                     setShowHistory(false);
                     setError("");
+                    setEditIndex(null);
                   }}
                 >
                   {thread.messages[0]?.content || "Untitled chat"}
@@ -311,6 +418,19 @@ export function Chat({
             <h1>Playground</h1>
           </div>
           <div className="chat-tools">
+            {!activeSample && !!current?.messages.length && (
+              <>
+                <button
+                  className="button quiet small"
+                  type="button"
+                  onClick={downloadTranscript}
+                  disabled={busy}
+                >
+                  <Download size={16} aria-hidden="true" /> Export
+                </button>
+                <CopyButton value={transcript(current, "txt")} label="Copy transcript" />
+              </>
+            )}
             <button
               className="button quiet small mobile-history"
               type="button"
@@ -335,7 +455,11 @@ export function Chat({
           <div className="messages" aria-label="Messages">
             {activeSample && <p className="playground-sample-note">Sample transcript</p>}
             {messages.map((message, index) => (
-              <article className={"message " + message.role} key={index}>
+              <article
+                className={"message " + message.role}
+                key={index}
+                title={message.at ? new Date(message.at).toLocaleString() : undefined}
+              >
                 <div className="mono">
                   {message.role === "user"
                     ? "You"
@@ -345,7 +469,44 @@ export function Chat({
                         "Model")}
                 </div>
                 <p>{message.content}</p>
-                {message.role === "assistant" && <CopyButton value={message.content} label="Copy response" />}
+                {message.role === "assistant" && (
+                  <CopyButton value={message.content} label="Copy response" />
+                )}
+                {!activeSample && (
+                  <div className="message-footer">
+                    <span className="message-stamp">
+                      {message.at
+                        ? new Date(message.at).toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })
+                        : ""}
+                      {message.stopped ? (message.at ? " · " : "") + "Stopped" : ""}
+                    </span>
+                    <span className="message-actions">
+                      {message.role === "user" && (
+                        <button
+                          type="button"
+                          className="button quiet small"
+                          disabled={busy}
+                          onClick={() => edit(index)}
+                        >
+                          <Pencil size={13} aria-hidden="true" /> Edit
+                        </button>
+                      )}
+                      {index === messages.length - 1 && ready && (
+                        <button
+                          type="button"
+                          className="button quiet small"
+                          disabled={busy}
+                          onClick={retry}
+                        >
+                          <RotateCcw size={13} aria-hidden="true" /> Retry
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                )}
               </article>
             ))}
             {busy && (
@@ -356,8 +517,21 @@ export function Chat({
           </div>
         )}
         <div className="playground-entry">
+          {editIndex !== null && (
+            <p className="playground-editing" role="status">
+              <span>Editing an earlier message. Sending replaces it and anything after it.</span>
+              <button
+                type="button"
+                className="playground-history-save"
+                onClick={() => setEditIndex(null)}
+              >
+                Cancel
+              </button>
+            </p>
+          )}
           <form id="playground-message-form" className="composer" onSubmit={send}>
             <textarea
+              ref={composerRef}
               rows={3}
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -393,16 +567,28 @@ export function Chat({
                 setError("");
               }}
             />
-            <button
-              className="button accent playground-send"
-              type="submit"
-              form="playground-message-form"
-              aria-label="Send message"
-              disabled={!ready || !text.trim() || busy || !routes.includes(provider)}
-            >
-              <span>{busy ? "Sending…" : "Send"}</span>
-              <ArrowUp size={17} aria-hidden="true" />
-            </button>
+            {busy ? (
+              <button
+                className="button quiet playground-send"
+                type="button"
+                onClick={() => abortRef.current?.abort()}
+                aria-label="Stop response"
+              >
+                <span>Stop</span>
+                <Square size={13} aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                className="button accent playground-send"
+                type="submit"
+                form="playground-message-form"
+                aria-label="Send message"
+                disabled={!ready || !text.trim() || !routes.includes(provider)}
+              >
+                <span>Send</span>
+                <ArrowUp size={17} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
         {error && (
@@ -451,6 +637,7 @@ export function Chat({
                     setSample(index);
                     setActive(null);
                     setError("");
+                    setEditIndex(null);
                   }}
                 >
                   <Icon size={17} className="prompt-icon" aria-hidden="true" />
