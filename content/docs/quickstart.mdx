@@ -10,9 +10,18 @@ import { Step, Steps } from "fumadocs-ui/components/steps";
 
 ## Set up your workspace
 
-1. **Connect your wallet.** Open the [console](/console), choose **Set up your workspace**, and connect a Solana wallet. On mobile, use your wallet’s browser or Chrome on Solana Seeker. You can try a built-in sample before funding.
-2. **Add credits.** Accept the current terms, set a display name if you like, and follow the [funding guide](/docs/billing) to add Solana USDC in Billing.
-3. **Create an API key.** Open [API keys](/console/keys), create a key, and copy it when it appears. Set it as the `SONNELY_API_KEY` environment variable in the shell where you’ll run the example.
+1. **Connect your wallet.** Open the [console](/console), choose **Set up your workspace**, and connect a Solana wallet. Check the wallet shown in the console header before adding credits or creating a key. On mobile, use your wallet’s browser or Chrome on Solana Seeker. You can try a built-in sample before funding.
+2. **Add credits.** Accept the current terms, set a display name if you like, and check your credit balance in [Billing](/console/billing). If you need credits, follow the [funding guide](/docs/billing) to pay with Solana USDC.
+3. **Create an API key.** Open [API keys](/console/keys), select **Create key**, and give it a name you’ll recognize in Usage. For a temporary test key, set a **Lifetime cap (USD)** and an expiry. Copy the full key when it appears.
+
+In Bash or Zsh, run this command, paste the key at the prompt, and press Enter. The terminal hides what you paste. Run the examples from the same terminal.
+
+```bash title="Terminal · Set your API key"
+printf 'Sonnely API key: ' &&
+  IFS= read -rs SONNELY_API_KEY &&
+  printf '\n' &&
+  export SONNELY_API_KEY
+```
 
 > **Keep your key server-side.** In an app, load it from your server’s environment or secret manager.
 
@@ -54,7 +63,9 @@ curl -sS --fail-with-body https://sonnely.com/api/sonnely/v1/chat/completions \
 
 - **Answer** is in `choices[0].message.content`.
 - **Token counts** are in `usage`, including `prompt_tokens`, `completion_tokens`, and `total_tokens`.
-- **Final charge and request status** appear in [Usage](/console/usage) after settlement.
+- **Final charge and request status** appear under **Recent requests** in [Usage](/console/usage). Look for the model and time of your request and a **Charged** amount. Group the usage breakdown by **Key** to identify spend for your test key.
+
+When you finish testing, revoke the temporary key in [API keys](/console/keys) and run `unset SONNELY_API_KEY` in your terminal.
 
 </Step>
 </Steps>

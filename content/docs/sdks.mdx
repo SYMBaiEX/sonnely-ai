@@ -5,7 +5,7 @@ description: Install the Sonnely clients for TypeScript and Python, or bring an 
 
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 
-Use a funded key from the [quickstart](/docs/quickstart) and set `SONNELY_API_KEY` in your server environment. Choose either **Completion** or **Streaming** below. Each run sends one billable request.
+Use a key from a workspace with credits. Follow [Quickstart](/docs/quickstart#set-up-your-workspace) to create the key and set `SONNELY_API_KEY` in the terminal where you’ll run the examples. Choose either **Completion** or **Streaming** below. Each run sends one billable request.
 
 ## TypeScript or JavaScript
 
@@ -15,7 +15,7 @@ Install the first-party server-side package from [npm](https://www.npmjs.com/pac
 npm install @sonnely/sdk
 ```
 
-A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.2.tgz) is also available from Sonnely. Save the example as `complete.mjs` or `stream.mjs` and run it with Node.js.
+A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.2.tgz) is also available from Sonnely. Save the example in the folder where you installed the package. Run `node complete.mjs` or `node stream.mjs`.
 
 <Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
 <Tab value="Completion">
@@ -65,7 +65,7 @@ Install the first-party client from [PyPI](https://pypi.org/project/sonnely-sdk/
 python -m pip install sonnely-sdk
 ```
 
-A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.2-py3-none-any.whl) is also available from Sonnely. Save the example as `complete.py` or `stream.py` and run it with Python.
+A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.2-py3-none-any.whl) is also available from Sonnely. Use the same Python environment you installed into. Run `python complete.py` or `python stream.py`.
 
 <Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
 <Tab value="Completion">
@@ -111,6 +111,8 @@ for chunk in sonnely.stream(request):
 </Tabs>
 
 > **Streaming confirms settlement.** Both clients request final usage by default, surface stream errors, and require `[DONE]` before ending normally.
+
+Find the final charge under **Recent requests** in [Usage](/console/usage). The token counts printed by the examples are separate from the dollar amount charged there.
 
 Both clients also provide public `models()`, route pinning through `provider.only`, per-request ceilings through `max_cost_microusd`, and optional [completion receipts](/docs/attestation#completion-receipts).
 
