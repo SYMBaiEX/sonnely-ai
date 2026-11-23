@@ -1532,6 +1532,90 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   }
 }
 
+/* === Admin UI kit === */
+
+.pill-ok {
+  color: #2f7d4f;
+  border-color: color-mix(in srgb, #2f7d4f 40%, var(--line));
+}
+.pill-warn {
+  color: #9a6b16;
+  border-color: color-mix(in srgb, #9a6b16 40%, var(--line));
+}
+.pill-error {
+  color: #b3261e;
+  border-color: color-mix(in srgb, #b3261e 40%, var(--line));
+}
+.pill-info {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 34px 16px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.empty-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.skeleton-stack {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.skeleton-row {
+  height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(90deg, var(--raised) 25%, var(--card) 55%, var(--raised) 75%);
+  background-size: 220% 100%;
+  animation: skeleton-sweep 1.4s linear infinite;
+}
+
+@keyframes skeleton-sweep {
+  to {
+    background-position: -120% 0;
+  }
+}
+
+.loading-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  padding: 10px 0;
+}
+
+.spin {
+  animation: ui-spin 0.9s linear infinite;
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.admin-toolbar > select,
+.admin-toolbar > input {
+  width: auto;
+  max-width: 100%;
+}
+
 .crm-workspace,
 .crm-records {
   display: grid;
