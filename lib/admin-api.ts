@@ -101,6 +101,15 @@ export async function adminCrm(
       const status = z.enum(["all", "pending", "complete", "failed", "unreported"]).parse(filter);
       return json(await db.query(api.crm.traces, { ...auth, status, search, page }));
     }
+    case "analytics": {
+      const parsed = z
+        .number()
+        .int()
+        .positive()
+        .catch(30)
+        .parse(Number(params.get("days") ?? "30"));
+      return json(await db.query(api.analytics.daily, { ...auth, days: Math.min(90, Math.max(7, parsed)) }));
+    }
     default:
       throw new SonnelyError("Choose an admin view.", 404);
   }
