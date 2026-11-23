@@ -319,6 +319,11 @@ export const reserve = mutation({
     if (args.requireTerms && account?.termsVersion !== termsVersion)
       throw new ConvexError("Accept the current Sonnely terms in the console.");
     if (!account) throw new ConvexError("Invalid account.");
+    const suspended = await ctx.db
+      .query("accountFlags")
+      .withIndex("by_account_flag", (q) => q.eq("account", account._id).eq("flag", "suspended"))
+      .unique();
+    if (suspended) throw new ConvexError("Inference is suspended on this account. Contact support.");
     if (args.retryKey) {
       const retryKey = args.retryKey;
       const previous = await ctx.db

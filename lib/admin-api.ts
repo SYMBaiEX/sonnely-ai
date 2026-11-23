@@ -163,6 +163,55 @@ export async function adminAction(
     await db.mutation(api.creditRecovery.resolve, { ...auth, id: id as Id<"usage">, ...fields });
     return json({ ok: true });
   }
+  if (task === "admin-adjust-balance") {
+    const { account, ...fields } = z
+      .object({
+        account: z.string().min(1).max(64),
+        delta: z
+          .number()
+          .int()
+          .safe()
+          .min(-1_000_000_000)
+          .max(1_000_000_000)
+          .refine((value) => value !== 0),
+        reason: z.string().trim().min(8).max(500),
+      })
+      .parse(raw);
+    await db.mutation(api.adminActions.adjustBalance, {
+      ...auth,
+      account: account as Id<"accounts">,
+      ...fields,
+    });
+    return json({ ok: true });
+  }
+  if (task === "admin-revoke-key") {
+    const { id } = z.object({ id: z.string().min(1).max(64) }).parse(raw);
+    await db.mutation(api.adminActions.revokeKey, { ...auth, id: id as Id<"keys"> });
+    return json({ ok: true });
+  }
+  if (task === "admin-suspend") {
+    const { account, ...fields } = z
+      .object({
+        account: z.string().min(1).max(64),
+        suspended: z.boolean(),
+        note: z.string().trim().min(1).max(500).optional(),
+      })
+      .parse(raw);
+    await db.mutation(api.adminActions.setSuspended, {
+      ...auth,
+      account: account as Id<"accounts">,
+      ...fields,
+    });
+    return json({ ok: true });
+  }
+  if (task === "admin-reset-sessions") {
+    const { account } = z.object({ account: z.string().min(1).max(64) }).parse(raw);
+    await db.mutation(api.adminActions.resetSessions, {
+      ...auth,
+      account: account as Id<"accounts">,
+    });
+    return json({ ok: true });
+  }
   if (task === "admin-invoice-preview" || task === "admin-invoice-record") {
     const payload = z
       .strictObject({

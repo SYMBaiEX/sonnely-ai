@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Search } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
-import { creditBalance } from "@/lib/credit-amount";
+import { creditBalance, parseCreditAmount } from "@/lib/credit-amount";
 import { models, shorten } from "@/lib/models";
 import { providerNames } from "@/lib/provider-catalog";
 import { CopyButton } from "./shared";
@@ -251,6 +251,260 @@ function TicketList({
   );
 }
 
+type PendingAction = { kind: "suspend" } | { kind: "sessions" } | { kind: "key"; id: string; name: string };
+
+function AccountActions({ id, data, refresh }: { id: string; data: CustomerDetail; refresh: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [failure, setFailure] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function run(action: () => Promise<string>) {
+    setBusy(true);
+    setFailure("");
+    setNotice("");
+    try {
+      setNotice(await action());
+      setPending(null);
+      refresh();
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : "The account action failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function adjust(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fields = new FormData(form);
+    const amount = String(fields.get("amount") ?? "").trim();
+    const negative = amount.startsWith("-");
+    const parsed = parseCreditAmount(negative ? amount.slice(1) : amount);
+    void run(async () => {
+      if (parsed === null || parsed > 1_000_000_000)
+        throw new Error("Enter a USD amount up to $1,000 with up to six decimal places.");
+      await request("admin-adjust-balance", {
+        account: id,
+        delta: negative ? -parsed : parsed,
+        reason: String(fields.get("reason") ?? ""),
+      });
+      form.reset();
+      return "Balance adjustment applied and written to the audit log.";
+    });
+  }
+
+  function suspend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const note = String(new FormData(event.currentTarget).get("note") ?? "").trim();
+    const suspended = !data.suspended;
+    void run(async () => {
+      await request("admin-suspend", { account: id, suspended, ...(note ? { note } : {}) });
+      return suspended ? "Inference access suspended." : "Inference access restored.";
+    });
+  }
+
+  return (
+    <section className="panel stack-panel">
+      <div className="between">
+        <h2>Account actions</h2>
+        {data.flags.length > 0 && (
+          <div className="actions">
+            {data.flags.map((flag) => (
+              <span key={flag} className="crm-state">
+                {flag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      {failure && (
+        <p role="alert" className="error">
+          {failure}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="status">
+          {notice}
+        </p>
+      )}
+      <form className="recovery-form" onSubmit={adjust}>
+        <label>
+          Balance adjustment in USD, prefix with - to debit
+          <input name="amount" inputMode="decimal" maxLength={24} placeholder="25.00 or -25.00" required />
+        </label>
+        <label>
+          Evidence note
+          <textarea
+            name="reason"
+            rows={2}
+            minLength={8}
+            maxLength={500}
+            required
+            placeholder="Ticket, receipt, or incident reference."
+          />
+        </label>
+        <p className="caption">
+          Adjustments take effect immediately and are recorded on the customer timeline and in the admin audit
+          log.
+        </p>
+        <button className="button quiet" disabled={busy}>
+          Apply audited adjustment
+        </button>
+      </form>
+      {data.keys.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>API key</th>
+                <th>Prefix</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.keys.map((key) => (
+                <tr key={key.id}>
+                  <th scope="row">{key.name}</th>
+                  <td>
+                    <code>{key.prefix}…</code>
+                  </td>
+                  <td>{key.revoked ? "Revoked" : "Active"}</td>
+                  <td>
+                    {!key.revoked && (
+                      <button
+                        type="button"
+                        className="button quiet small"
+                        disabled={busy}
+                        onClick={() => setPending({ kind: "key", id: key.id, name: key.name })}
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="actions">
+        <button
+          type="button"
+          className="button quiet"
+          disabled={busy}
+          onClick={() => setPending({ kind: "suspend" })}
+        >
+          {data.suspended ? "Restore access" : "Suspend inference"}
+        </button>
+        <button
+          type="button"
+          className="button danger"
+          disabled={busy}
+          onClick={() => setPending({ kind: "sessions" })}
+        >
+          Reset sessions
+        </button>
+      </div>
+      {pending?.kind === "suspend" && (
+        <form className="panel callout" onSubmit={suspend}>
+          <div>
+            <h2>{data.suspended ? "Restore inference access?" : "Suspend inference?"}</h2>
+            <p>
+              {data.suspended
+                ? "The customer can reserve inference credit again."
+                : "New inference reservations are blocked immediately."}
+            </p>
+            <label>
+              Note for the record
+              <input name="note" maxLength={500} placeholder="Optional context" />
+            </label>
+          </div>
+          <div className="actions">
+            <button className="button danger" disabled={busy}>
+              {data.suspended ? "Restore access" : "Suspend account"}
+            </button>
+            <button type="button" className="button quiet" disabled={busy} onClick={() => setPending(null)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+      {pending?.kind === "sessions" && (
+        <div className="panel callout">
+          <div>
+            <h2>Reset sessions?</h2>
+            <p>The customer is signed out on every device. API keys keep working.</p>
+          </div>
+          <div className="actions">
+            <button
+              type="button"
+              className="button danger"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await request("admin-reset-sessions", { account: id });
+                  return "All customer sessions were signed out.";
+                })
+              }
+            >
+              Reset sessions
+            </button>
+            <button type="button" className="button quiet" disabled={busy} onClick={() => setPending(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {pending?.kind === "key" && (
+        <div className="panel callout">
+          <div>
+            <h2>Revoke {pending.name}?</h2>
+            <p>Clients using this key lose API access immediately.</p>
+          </div>
+          <div className="actions">
+            <button
+              type="button"
+              className="button danger"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await request("admin-revoke-key", { id: pending.id });
+                  return "API key " + pending.name + " revoked.";
+                })
+              }
+            >
+              Revoke key
+            </button>
+            <button type="button" className="button quiet" disabled={busy} onClick={() => setPending(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {data.adjustments.length > 0 && (
+        <details>
+          <summary>Recent balance adjustments</summary>
+          <ul className="crm-activity">
+            {data.adjustments.map((item) => (
+              <li key={item.id}>
+                <p className="crm-note">
+                  {(item.delta < 0 ? "-" : "+") + creditBalance(Math.abs(item.delta))} →{" "}
+                  {creditBalance(item.balanceAfter)}
+                </p>
+                <p className="caption">
+                  {localTime(item.time)} · {shorten(item.adminWallet)} · {item.reason}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -296,7 +550,10 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
               <h2>
                 <Identity customer={data.customer} />
               </h2>
-              <CopyButton value={data.customer.wallet} label="Copy customer wallet" />
+              <div className="actions">
+                {data.suspended && <span className="crm-state">Suspended</span>}
+                <CopyButton value={data.customer.wallet} label="Copy customer wallet" />
+              </div>
             </div>
             <dl className="crm-facts">
               <div>
@@ -347,6 +604,7 @@ function CustomerWorkspace({ id, back }: { id: string; back: () => void }) {
               </div>
             </dl>
           </section>
+          <AccountActions id={id} data={data} refresh={refresh} />
           <section className="panel stack-panel">
             <h2>Account activity</h2>
             <form className="recovery-form" onSubmit={(event) => void addNote(event)}>
