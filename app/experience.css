@@ -1881,3 +1881,22 @@ details.stack-panel[open] > summary.crm-section-head::after {
   align-items: start;
   gap: 0.8rem;
 }
+
+/* === traces-surface === */
+
+.trace-panel,
+.trace-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.trace-panel .admin-toolbar .crm-search {
+  flex: 0 1 14rem;
+}
+
+.trace-cost {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

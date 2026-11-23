@@ -756,7 +756,7 @@ export function CustomerWorkspace({
             )}
           </CrmSection>
           <CrmSection title="Recent requests">
-            <TraceList rows={data.traces} />
+            <TraceList rows={data.traces} compact />
           </CrmSection>
           <CrmSection title="Support history">
             <TicketList rows={data.tickets} refresh={refresh} />

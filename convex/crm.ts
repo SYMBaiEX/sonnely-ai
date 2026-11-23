@@ -46,6 +46,7 @@ const trace = v.object({
   output: v.number(),
   providerRequest: v.optional(v.string()),
   provider: v.union(v.literal("near-ai"), v.literal("phala"), v.literal("tinfoil")),
+  wallet: v.optional(v.string()),
   providerCostNano: v.optional(v.number()),
   providerReportedCostNano: v.optional(v.number()),
   providerStatus: v.optional(v.number()),
@@ -124,10 +125,11 @@ function customerDoc(row: Doc<"accounts">) {
   };
 }
 
-function traceDoc(row: Doc<"usage">) {
+function traceDoc(row: Doc<"usage">, wallet?: string) {
   return {
     id: row._id,
     account: row.account,
+    wallet,
     started: row._creationTime,
     settled: row.settledAt,
     status: row.status,
@@ -143,6 +145,12 @@ function traceDoc(row: Doc<"usage">) {
     providerStatus: row.providerStatus,
     outcome: row.outcome,
   };
+}
+
+function traceWalletPage(ctx: QueryCtx, rows: Doc<"usage">[]) {
+  return Promise.all(
+    rows.map(async (row) => traceDoc(row, (await ctx.db.get(row.account))?.wallet)),
+  );
 }
 
 async function ticketDoc(ctx: QueryCtx, row: Doc<"tickets">) {
@@ -321,12 +329,27 @@ export const navBadges = query({
 });
 
 export const traces = query({
-  args: { ...auth, status: traceFilter, search: v.string(), page: paginationOptsValidator },
+  args: {
+    ...auth,
+    status: traceFilter,
+    search: v.string(),
+    model: v.optional(v.string()),
+    provider: v.optional(v.string()),
+    since: v.optional(v.number()),
+    page: paginationOptsValidator,
+  },
   returns: v.object({ page: v.array(trace), ...paging }),
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
     const search = args.search.trim().slice(0, 80);
     const selected = args.status;
+    const model = args.model?.trim().slice(0, 60) || undefined;
+    const provider = args.provider?.trim().slice(0, 20) || undefined;
+    const since = args.since;
+    const matches = (row: Doc<"usage">) =>
+      (!model || row.model === model) &&
+      (!provider || (row.provider ?? "near-ai") === provider) &&
+      (since === undefined || row._creationTime >= since);
     if (search) {
       const id = ctx.db.normalizeId("usage", search);
       const match = id
@@ -335,8 +358,10 @@ export const traces = query({
             .query("usage")
             .withIndex("by_provider_request", (q) => q.eq("providerRequest", search))
             .first();
+      const hit =
+        match && (selected === "all" || selected === match.status) && matches(match) ? match : null;
       return {
-        page: match && (selected === "all" || selected === match.status) ? [traceDoc(match)] : [],
+        page: hit ? await traceWalletPage(ctx, [hit]) : [],
         isDone: true,
         continueCursor: "",
       };
@@ -345,8 +370,19 @@ export const traces = query({
       selected === "all"
         ? ctx.db.query("usage")
         : ctx.db.query("usage").withIndex("by_status", (q) => q.eq("status", selected));
-    const result = await rows.order("desc").paginate({ ...args.page, numItems: 30 });
-    return { page: result.page.map(traceDoc), isDone: result.isDone, continueCursor: result.continueCursor };
+    if (!model && !provider && since === undefined) {
+      const result = await rows.order("desc").paginate({ ...args.page, numItems: 30 });
+      return {
+        page: await traceWalletPage(ctx, result.page),
+        isDone: result.isDone,
+        continueCursor: result.continueCursor,
+      };
+    }
+    // Filtered scans cap at 200 recent candidates and skip cursor paging.
+    const page = (await rows.order("desc").take(200))
+      .filter(matches)
+      .slice(0, Math.min(args.page.numItems, 30));
+    return { page: await traceWalletPage(ctx, page), isDone: true, continueCursor: "" };
   },
 });
 
@@ -523,7 +559,7 @@ export const customer = query({
         reference: row.reference,
         signature: row.signature,
       })),
-      traces: usageRows.slice(0, 12).map(traceDoc),
+      traces: usageRows.slice(0, 12).map((row) => traceDoc(row, account.wallet)),
       tickets: await Promise.all(tickets.map((row) => ticketDoc(ctx, row))),
       suspended: flagRows.some((row) => row.flag === "suspended"),
       flags: flagRows.map((row) => row.flag),

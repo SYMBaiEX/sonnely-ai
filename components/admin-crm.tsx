@@ -7,17 +7,15 @@ import { BulkFlagBar, CustomerFilters, CustomersTable } from "./admin/customers"
 import { CustomerWorkspace } from "./admin/customer";
 import {
   ticketStates,
-  traceStates,
   useCrm,
   type CrmPage,
   type CrmView,
   type Customer,
   type Segment,
   type Ticket,
-  type Trace,
 } from "./admin/shared";
 import { TicketList } from "./admin/support";
-import { TraceList } from "./admin/traces";
+import { TracesPanel } from "./admin/traces";
 
 export { useCrm };
 export type { CrmView };
@@ -44,7 +42,7 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
     if (funded !== "any") params.set("funded", funded);
     if (activeOnly) params.set("active", "true");
   }
-  const state = useCrm<CrmPage>("admin-crm?" + params, revision);
+  const state = useCrm<CrmPage>(view === "traces" ? "" : "admin-crm?" + params, revision);
   const segments = useCrm<Segment[]>(view === "customers" ? "admin-crm?view=segments" : "", revision);
   const flagOptions = useCrm<string[]>(view === "customers" ? "admin-crm?view=flags" : "", revision);
   const refresh = () => setRevision((value) => value + 1);
@@ -132,71 +130,73 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
           <h2 id="crm-heading">{title[view]}</h2>
           <p className="caption">{description[view]}</p>
         </div>
-        <button type="button" className="button quiet small" onClick={refresh}>
-          Refresh {view}
-        </button>
+        {view !== "traces" && (
+          <button type="button" className="button quiet small" onClick={refresh}>
+            Refresh {view}
+          </button>
+        )}
       </div>
-      <div className="crm-controls">
-        {view !== "support" && (
-          <form
-            className="crm-search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSearch(String(new FormData(event.currentTarget).get("search") ?? "").trim());
-              setTrail([]);
-            }}
-          >
-            <input
-              name="search"
-              type="search"
-              maxLength={80}
-              aria-label={view === "customers" ? "Search customers" : "Search request traces"}
-              placeholder={
-                view === "customers" ? "@username or wallet address" : "Sonnely or provider request ID"
-              }
+      {view !== "traces" && (
+        <div className="crm-controls">
+          {view === "customers" && (
+            <form
+              className="crm-search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setSearch(String(new FormData(event.currentTarget).get("search") ?? "").trim());
+                setTrail([]);
+              }}
+            >
+              <input
+                name="search"
+                type="search"
+                maxLength={80}
+                aria-label="Search customers"
+                placeholder="@username or wallet address"
+              />
+              <button className="button quiet">
+                <Search size={16} /> Search
+              </button>
+            </form>
+          )}
+          {view === "support" && (
+            <select
+              aria-label="Support status"
+              value={filter}
+              onChange={(event) => {
+                setFilter(event.target.value);
+                setTrail([]);
+              }}
+            >
+              <option value="all">All statuses</option>
+              {Object.entries(ticketStates).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
+          {view === "customers" && (
+            <CustomerFilters
+              flag={flag}
+              setFlag={setFlag}
+              funded={funded}
+              setFunded={setFunded}
+              activeOnly={activeOnly}
+              setActiveOnly={setActiveOnly}
+              segmentId={segmentId}
+              setSegmentId={setSegmentId}
+              segments={segments}
+              flagOptions={flagOptions}
+              applySegment={applySegment}
+              deleteView={deleteView}
+              saveView={saveView}
+              segmentError={segmentError}
+              setTrail={setTrail}
             />
-            <button className="button quiet">
-              <Search size={16} /> Search
-            </button>
-          </form>
-        )}
-        {view !== "customers" && (
-          <select
-            aria-label={view === "support" ? "Support status" : "Trace status"}
-            value={filter}
-            onChange={(event) => {
-              setFilter(event.target.value);
-              setTrail([]);
-            }}
-          >
-            <option value="all">All statuses</option>
-            {Object.entries(view === "support" ? ticketStates : traceStates).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        )}
-        {view === "customers" && (
-          <CustomerFilters
-            flag={flag}
-            setFlag={setFlag}
-            funded={funded}
-            setFunded={setFunded}
-            activeOnly={activeOnly}
-            setActiveOnly={setActiveOnly}
-            segmentId={segmentId}
-            setSegmentId={setSegmentId}
-            segments={segments}
-            flagOptions={flagOptions}
-            applySegment={applySegment}
-            deleteView={deleteView}
-            saveView={saveView}
-            segmentError={segmentError}
-            setTrail={setTrail}
-          />
-        )}
-      </div>
+          )}
+        </div>
+      )}
       {view === "customers" && selected.length > 0 && (
         <BulkFlagBar
           selected={selected}
@@ -209,7 +209,9 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
           flagSelected={flagSelected}
         />
       )}
-      {state?.error ? (
+      {view === "traces" ? (
+        <TracesPanel open={setAccount} />
+      ) : state?.error ? (
         <p className="error" role="alert">
           {state.error}
         </p>
@@ -232,7 +234,6 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
               refresh={refresh}
             />
           )}
-          {view === "traces" && <TraceList rows={state.data.page as Trace[]} open={setAccount} />}
           {(trail.length > 0 || !state.data.isDone) && (
             <div className="actions">
               <button
