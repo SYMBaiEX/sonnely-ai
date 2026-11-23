@@ -1899,4 +1899,133 @@ details.stack-panel[open] > summary.crm-section-head::after {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
+/* === customer360 === */
+
+.crm-head {
+  gap: 14px;
+}
+
+.crm-head.crm-suspended {
+  border-color: light-dark(#d694a2, #7e3b4d);
+  background: color-mix(in srgb, light-dark(#fff0f2, #391e28) 55%, var(--card));
+}
+
+.crm-head-top {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.crm-avatar {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border: 1px solid var(--rim);
+  border-radius: 13px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.crm-head-id {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.crm-head-id h2 {
+  overflow-wrap: anywhere;
+}
+
+.crm-head-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.crm-head .crm-facts {
+  margin-block: 0;
+}
+
+.crm-body {
+  display: grid;
+  grid-template-columns: minmax(17rem, 21rem) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.crm-side {
+  position: sticky;
+  top: 12px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.crm-side .callout {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.crm-main {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  align-content: start;
+}
+
+.crm-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.crm-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.45;
+}
+
+.crm-tab:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+
+.crm-tab[aria-selected="true"] {
+  background: var(--raised);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.crm-tab-panel[hidden] {
+  display: none;
+}
+
+@media (max-width: 920px) {
+  .crm-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .crm-side {
+    position: static;
+  }
 }
