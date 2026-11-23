@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AdminCrm } from "./admin-crm";
 import { AdminGateway } from "./admin-gateway";
+import { AdminOperators } from "./admin-operators";
 
 export type AdminTab = {
   id: string;
@@ -26,4 +27,5 @@ export const adminTabs: AdminTab[] = [
     render: (wallet) => <AdminCrm view="traces" key={wallet + ":traces"} />,
   },
   { id: "gateway", label: "Inference ops", render: (wallet) => <AdminGateway key={wallet} /> },
+  { id: "operators", label: "Operators", render: (wallet) => <AdminOperators key={wallet} /> },
 ];

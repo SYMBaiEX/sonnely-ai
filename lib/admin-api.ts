@@ -93,6 +93,10 @@ export async function adminCrm(
       const state = z.enum(["all", "open", "in_progress", "resolved"]).parse(filter);
       return json(await db.query(api.crm.tickets, { ...auth, state, page }));
     }
+    case "operators":
+      return json(await db.query(api.operators.directory, auth));
+    case "operator-list":
+      return json(await db.query(api.operators.operators, auth));
     case "traces": {
       const status = z.enum(["all", "pending", "complete", "failed", "unreported"]).parse(filter);
       return json(await db.query(api.crm.traces, { ...auth, status, search, page }));
@@ -141,14 +145,20 @@ export async function adminAction(
     return json({ ok: true }, 201);
   }
   if (task === "admin-ticket") {
-    const { id, ...fields } = z
+    const { id, assignTo, ...fields } = z
       .object({
         id: z.string().min(1).max(64),
         state: z.enum(["open", "in_progress", "resolved"]),
-        assignment: z.enum(["keep", "claim", "unassign"]),
+        assignment: z.enum(["keep", "claim", "unassign", "assign"]),
+        assignTo: z.string().min(1).max(64).optional(),
       })
       .parse(raw);
-    await db.mutation(api.crm.updateTicket, { ...auth, id: id as Id<"tickets">, ...fields });
+    await db.mutation(api.crm.updateTicket, {
+      ...auth,
+      id: id as Id<"tickets">,
+      ...fields,
+      assignTo: assignTo as Id<"accounts"> | undefined,
+    });
     return json({ ok: true });
   }
   if (task === "admin-resolve-credit") {

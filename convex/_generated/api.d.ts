@@ -25,6 +25,7 @@ import type * as launchGuard from "../launchGuard.js";
 import type * as ledger from "../ledger.js";
 import type * as operations from "../operations.js";
 import type * as operationsContract from "../operationsContract.js";
+import type * as operators from "../operators.js";
 import type * as providerInvoiceContract from "../providerInvoiceContract.js";
 import type * as providerInvoices from "../providerInvoices.js";
 import type * as recoveryData from "../recoveryData.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   ledger: typeof ledger;
   operations: typeof operations;
   operationsContract: typeof operationsContract;
+  operators: typeof operators;
   providerInvoiceContract: typeof providerInvoiceContract;
   providerInvoices: typeof providerInvoices;
   recoveryData: typeof recoveryData;
