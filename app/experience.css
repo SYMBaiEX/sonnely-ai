@@ -2141,3 +2141,170 @@ details.stack-panel[open] > summary.crm-section-head::after {
   justify-content: flex-end;
   gap: 4px;
 }
+
+/* === support-inbox === */
+
+.inbox {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22.5rem) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.inbox-list {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+  max-height: 36rem;
+  overflow-y: auto;
+}
+
+.inbox-list-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 4px;
+  color: var(--muted);
+}
+
+.inbox-list-head input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+}
+
+.inbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--glass-solid);
+}
+
+.inbox-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.inbox-row.active {
+  border-color: var(--accent);
+}
+
+.inbox-row > input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.inbox-row-main {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.inbox-row-main:focus-visible {
+  outline: none;
+}
+
+.inbox-row:has(.inbox-row-main:focus-visible) {
+  border-color: var(--accent);
+}
+
+.inbox-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.inbox-row-top strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-row-meta {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.inbox-detail {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+
+.inbox-thread {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.inbox-thread-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.inbox-thread-title {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 12rem;
+  overflow-wrap: anywhere;
+}
+
+.inbox-thread-meta {
+  margin: 0;
+}
+
+.inbox-thread-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.inbox-back {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .inbox {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inbox .inbox-detail {
+    display: none;
+  }
+
+  .inbox.inbox-open .inbox-list {
+    display: none;
+  }
+
+  .inbox.inbox-open .inbox-detail {
+    display: grid;
+  }
+
+  .inbox-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}

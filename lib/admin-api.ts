@@ -123,7 +123,7 @@ export async function adminCrm(
     }
     case "support": {
       const state = z.enum(["all", "open", "in_progress", "resolved"]).parse(filter);
-      return json(await db.query(api.crm.tickets, { ...auth, state, page }));
+      return json(await db.query(api.crm.tickets, { ...auth, state, search, page }));
     }
     case "operators":
       return json(await db.query(api.operators.directory, auth));
@@ -268,6 +268,15 @@ export async function adminAction(
       assignTo: assignTo as Id<"accounts"> | undefined,
     });
     return json({ ok: true });
+  }
+  if (task === "admin-ticket-bulk") {
+    const { ids, op } = z
+      .object({
+        ids: z.array(z.string().min(1).max(64)).min(1).max(50),
+        op: z.enum(["claim", "unassign", "resolve"]),
+      })
+      .parse(raw);
+    return json(await db.mutation(api.ticketBulk.apply, { ...auth, ids: ids as Id<"tickets">[], op }));
   }
   if (task === "admin-reply") {
     const { id, ...fields } = z

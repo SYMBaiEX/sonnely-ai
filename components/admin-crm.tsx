@@ -12,16 +12,8 @@ import {
   type CustomerSort,
 } from "./admin/customers";
 import { CustomerWorkspace } from "./admin/customer";
-import {
-  ticketStates,
-  useCrm,
-  type CrmPage,
-  type CrmView,
-  type Customer,
-  type Segment,
-  type Ticket,
-} from "./admin/shared";
-import { TicketList } from "./admin/support";
+import { useCrm, type CrmPage, type CrmView, type Customer, type Segment } from "./admin/shared";
+import { SupportInbox } from "./admin/support";
 import { TracesPanel } from "./admin/traces";
 import { Skeleton } from "./admin/ui";
 
@@ -30,7 +22,6 @@ export type { CrmView };
 
 export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canOpenCustomer?: boolean }) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
   const [flag, setFlag] = useState("");
   const [funded, setFunded] = useState("any");
   const [activeOnly, setActiveOnly] = useState(false);
@@ -45,14 +36,14 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
   const [account, setAccount] = useState("");
   const [revision, setRevision] = useState(0);
   const cursor = trail.at(-1);
-  const params = new URLSearchParams({ view, filter, search, ...(cursor ? { cursor } : {}) });
+  const params = new URLSearchParams({ view, search, ...(cursor ? { cursor } : {}) });
   if (view === "customers") {
     if (flag) params.set("flag", flag);
     if (funded !== "any") params.set("funded", funded);
     if (activeOnly) params.set("active", "true");
     if (sort !== "recent") params.set("sort", sort);
   }
-  const state = useCrm<CrmPage>(view === "traces" ? "" : "admin-crm?" + params, revision);
+  const state = useCrm<CrmPage>(view === "customers" ? "admin-crm?" + params : "", revision);
   const segments = useCrm<Segment[]>(view === "customers" ? "admin-crm?view=segments" : "", revision);
   const flagOptions = useCrm<string[]>(view === "customers" ? "admin-crm?view=flags" : "", revision);
   const refresh = () => setRevision((value) => value + 1);
@@ -126,6 +117,7 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
   }
 
   if (account) return <CustomerWorkspace id={account} back={() => setAccount("")} open={setAccount} />;
+  if (view === "support") return <SupportInbox open={canOpenCustomer ? setAccount : undefined} />;
 
   const description = {
     customers: "Find a wallet and review its account, referrals, payments, requests, and support history.",
@@ -140,76 +132,53 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
           <h2 id="crm-heading">{title[view]}</h2>
           <p className="caption">{description[view]}</p>
         </div>
-        {view !== "traces" && (
+        {view === "customers" && (
           <button type="button" className="button quiet small" onClick={refresh}>
             Refresh {view}
           </button>
         )}
       </div>
-      {view !== "traces" && (
+      {view === "customers" && (
         <div className="crm-controls">
-          {view === "customers" && (
-            <form
-              className="crm-search"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setSearch(String(new FormData(event.currentTarget).get("search") ?? "").trim());
-                setTrail([]);
-              }}
-            >
-              <input
-                name="search"
-                type="search"
-                maxLength={80}
-                aria-label="Search customers"
-                placeholder="@username or wallet address"
-              />
-              <button className="button quiet">
-                <Search size={16} /> Search
-              </button>
-            </form>
-          )}
-          {view === "support" && (
-            <select
-              aria-label="Support status"
-              value={filter}
-              onChange={(event) => {
-                setFilter(event.target.value);
-                setTrail([]);
-              }}
-            >
-              <option value="all">All statuses</option>
-              {Object.entries(ticketStates).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          )}
-          {view === "customers" && (
-            <CustomerFilters
-              flag={flag}
-              setFlag={setFlag}
-              funded={funded}
-              setFunded={setFunded}
-              activeOnly={activeOnly}
-              setActiveOnly={setActiveOnly}
-              sort={sort}
-              setSort={setSort}
-              segmentId={segmentId}
-              setSegmentId={setSegmentId}
-              segments={segments}
-              flagOptions={flagOptions}
-              applySegment={applySegment}
-              deleteView={deleteView}
-              saveView={saveView}
-              segmentError={segmentError}
-              setTrail={setTrail}
+          <form
+            className="crm-search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearch(String(new FormData(event.currentTarget).get("search") ?? "").trim());
+              setTrail([]);
+            }}
+          >
+            <input
+              name="search"
+              type="search"
+              maxLength={80}
+              aria-label="Search customers"
+              placeholder="@username or wallet address"
             />
-          )}
-          {view === "customers" && (
-            <ExportCustomers rows={(state?.data?.page ?? []) as Customer[]} />
-          )}
+            <button className="button quiet">
+              <Search size={16} /> Search
+            </button>
+          </form>
+          <CustomerFilters
+            flag={flag}
+            setFlag={setFlag}
+            funded={funded}
+            setFunded={setFunded}
+            activeOnly={activeOnly}
+            setActiveOnly={setActiveOnly}
+            sort={sort}
+            setSort={setSort}
+            segmentId={segmentId}
+            setSegmentId={setSegmentId}
+            segments={segments}
+            flagOptions={flagOptions}
+            applySegment={applySegment}
+            deleteView={deleteView}
+            saveView={saveView}
+            segmentError={segmentError}
+            setTrail={setTrail}
+          />
+          <ExportCustomers rows={(state?.data?.page ?? []) as Customer[]} />
         </div>
       )}
       {view === "customers" && (
@@ -239,11 +208,7 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
           {state.error}
         </p>
       ) : !state?.data ? (
-        view === "customers" ? (
-          <Skeleton rows={6} />
-        ) : (
-          <p role="status">Loading {title[view].toLowerCase()}…</p>
-        )
+        <Skeleton rows={6} />
       ) : (
         <>
           {view === "customers" && (
@@ -252,13 +217,6 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
               selected={selected}
               setSelected={setSelected}
               open={setAccount}
-            />
-          )}
-          {view === "support" && (
-            <TicketList
-              rows={state.data.page as Ticket[]}
-              open={canOpenCustomer ? setAccount : undefined}
-              refresh={refresh}
             />
           )}
           {(trail.length > 0 || !state.data.isDone) && (
