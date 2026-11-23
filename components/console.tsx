@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { computeProducts, isComputeProduct, type ComputeFeatures } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
@@ -108,9 +109,18 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
     setNavOpen(false);
     navToggle.current?.focus();
   }
+  function toggleNavigation(trigger: HTMLButtonElement) {
+    navToggle.current = trigger;
+    if (navOpen) closeNavigation();
+    else setNavOpen(true);
+  }
   useEffect(() => {
     if (!navOpen) return;
-    navPanel.current?.querySelector<HTMLAnchorElement>("[aria-current='page']")?.focus();
+    const panel = navPanel.current;
+    (
+      panel?.querySelector<HTMLAnchorElement>("[aria-current='page']") ??
+      panel?.querySelector<HTMLAnchorElement>("nav a")
+    )?.focus();
     function dismiss(event: KeyboardEvent) {
       if (event.key === "Escape") closeNavigation();
     }
@@ -261,6 +271,16 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
               <ThemeSwitch />
             </span>
             <WalletControl session={session} refresh={refresh} checkingAccount={checkingAccount} />
+            <button
+              type="button"
+              className="button quiet console-menu-toggle"
+              aria-expanded={navOpen}
+              aria-controls="console-navigation"
+              aria-label={navOpen ? "Close workspace menu" : "Open workspace menu"}
+              onClick={(event) => toggleNavigation(event.currentTarget)}
+            >
+              {navOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+            </button>
           </div>
         </header>
         <CommandMenu open={palette} onClose={() => setPalette(false)} pages={visibleNav} />
@@ -311,13 +331,12 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
             </Link>
           ))}
         <button
-          ref={navToggle}
           className="dock-item"
           type="button"
           aria-expanded={navOpen}
           aria-controls="console-navigation"
           aria-label="Toggle navigation"
-          onClick={() => setNavOpen(!navOpen)}
+          onClick={(event) => toggleNavigation(event.currentTarget)}
         >
           <Menu size={20} aria-hidden />
           <span>All pages</span>

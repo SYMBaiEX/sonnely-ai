@@ -232,7 +232,7 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   }
   .console .rail {
     inset: auto 10px calc(80px + env(safe-area-inset-bottom));
-    max-height: calc(100dvh - 106px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 158px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     width: auto;
     max-width: 460px;
     margin-inline: auto;

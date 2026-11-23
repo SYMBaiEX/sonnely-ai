@@ -254,11 +254,18 @@ export function WalletControl({
     }
   }
 
+  const walletLabel = session?.profile
+    ? shorten(session.profile.wallet)
+    : checkingAccount
+      ? "Checking wallet…"
+      : "Connect wallet";
+
   return (
     <div className="wallet-widget">
       <button
         type="button"
         className="button wallet-button"
+        aria-label={walletLabel}
         aria-expanded={open}
         disabled={checkingAccount}
         onClick={() => {
@@ -266,13 +273,9 @@ export function WalletControl({
           setOpen(!open);
         }}
       >
-        <WalletIcon size={16} />
-        {session?.profile
-          ? shorten(session.profile.wallet)
-          : checkingAccount
-            ? "Checking wallet…"
-            : "Connect wallet"}
-        <ChevronDown size={14} />
+        <WalletIcon size={16} aria-hidden="true" />
+        <span className="wallet-button-label">{walletLabel}</span>
+        <ChevronDown size={14} className="wallet-button-chevron" aria-hidden="true" />
       </button>
       {open && (
         <div className="wallet-pop panel">

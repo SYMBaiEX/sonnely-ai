@@ -95,6 +95,10 @@
   background: color-mix(in srgb, var(--surface) 78%, transparent);
 }
 
+.console .console-menu-toggle {
+  display: none;
+}
+
 .console .console-bar .crumb,
 .console .crumb-page {
   min-width: 0;
@@ -421,12 +425,53 @@
 }
 
 @media (max-width: 720px) {
+  .console .console-bar {
+    gap: 8px;
+    padding-inline: 9px;
+  }
+
+  .console .console-bar .crumb-page {
+    display: none;
+  }
+
+  .console .console-bar .bar-controls {
+    gap: 5px;
+  }
+
+  .console .console-bar :is(.console-menu-toggle, .command-toggle) {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .console .rail-top {
+    display: none;
+  }
+
+  .console .rail-identity {
+    margin-top: 2px;
+  }
+
   .console .mobile-dock {
     background: var(--surface);
   }
 
   .console .rail-nav a {
     min-height: 44px;
+  }
+}
+
+@media (max-width: 440px) {
+  .console .console-bar .wallet-button {
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  .console .wallet-button :is(.wallet-button-label, .wallet-button-chevron) {
+    display: none;
   }
 }
 
@@ -564,21 +609,6 @@
 @media (max-width: 360px) {
   .console .stat {
     padding-inline: 13px;
-  }
-
-  .console .console-bar .crumb-page {
-    display: block;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .console .bar-controls {
-    gap: 4px;
-  }
-
-  .console .wallet-button {
-    padding-inline: 10px;
   }
 }
 

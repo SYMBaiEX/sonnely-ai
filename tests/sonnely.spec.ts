@@ -98,6 +98,15 @@ test("public routes and console work across desktop and mobile", async ({ page }
   await page.goto("/console");
   await expect(page.locator(".compact-brand .brand-icon")).toBeVisible();
   await expect(page.locator(".compact-brand .brand-wordmark")).toBeVisible();
+  const workspaceMenu = page.getByRole("button", { name: "Open workspace menu" });
+  await workspaceMenu.click();
+  const workspaceNav = page.getByRole("navigation", { name: "Workspace navigation", exact: true });
+  await expect(workspaceNav.getByRole("link", { name: "Playground" })).toBeFocused();
+  const bar = (await page.locator(".console-bar").boundingBox())!;
+  expect((await page.locator(".rail-open").boundingBox())!.y).toBeGreaterThan(bar.y + bar.height);
+  await page.keyboard.press("Escape");
+  await expect(workspaceMenu).toBeFocused();
+  await expect(workspaceNav).toBeHidden();
   await route.click();
   await expect(picker.getByRole("button", { name: "Apply route" })).toBeInViewport();
   await picker.getByRole("button", { name: "Cancel" }).click();
@@ -177,6 +186,8 @@ test("wallet account workflow scopes keys, referrals, and support requests", asy
   await page.setViewportSize({ width: 320, height: 720 });
   await expect(page.locator(".compact-brand .brand-wordmark")).toBeInViewport({ ratio: 1 });
   await expect(page.locator(".console-bar .wallet-button")).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole("button", { name: "Open workspace menu" })).toBeInViewport({ ratio: 1 });
+  await expect(page.locator(".console-bar .wallet-button")).toHaveCSS("width", "44px");
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".compact-brand .brand-wordmark")).toBeInViewport({ ratio: 1 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);

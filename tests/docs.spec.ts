@@ -5,6 +5,11 @@ test("the Platform menu exposes the enabled product pages on desktop and mobile"
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main navigation" });
+    const headerMenu = page.getByRole("button", { name: "Open navigation", exact: true });
+    if (width === 320) {
+      await expect(nav).toBeHidden();
+      await headerMenu.click();
+    }
     const trigger = nav.locator("summary");
     await trigger.focus();
     await page.keyboard.press("Enter");
@@ -26,6 +31,7 @@ test("the Platform menu exposes the enabled product pages on desktop and mobile"
     await panel.getByRole("link", { name: /^Compute/ }).click();
     await expect(page).toHaveURL(/\/compute$/);
     await expect(panel).toBeHidden();
+    if (width === 320) await expect(headerMenu).toHaveAttribute("aria-expanded", "false");
   }
 });
 
@@ -89,6 +95,10 @@ test("the shared docs header leads to the site and console on desktop and mobile
     await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-blue\.svg/);
     await theme.click();
     await expect(logo.locator(".brand-icon")).toHaveCSS("background-image", /sonnely-crimson\.svg/);
+    if (width === 320) {
+      await expect(nav).toBeHidden();
+      await header.getByRole("button", { name: "Open navigation", exact: true }).click();
+    }
     await expect(nav.getByRole("link", { name: "Docs" })).toHaveAttribute("aria-current", "location");
     await nav.locator("summary").click();
     await expect(nav.getByRole("link", { name: /^Compute/ })).toBeVisible();
@@ -103,6 +113,35 @@ test("the shared docs header leads to the site and console on desktop and mobile
     await expect(page).toHaveURL(/\/docs$/);
     await expect(header).toBeVisible();
   }
+});
+
+test("the mobile header fits short screens and dismisses without shifting the page", async ({ page }) => {
+  await page.setViewportSize({ width: 667, height: 375 });
+  await page.goto("/docs/api");
+  const header = page.getByRole("banner", { name: "Sonnely" });
+  const menu = header.getByRole("button", { name: "Open navigation", exact: true });
+  const nav = header.getByRole("navigation", { name: "Main navigation" });
+  const closedHeight = (await header.boundingBox())?.height;
+  await menu.focus();
+  await page.keyboard.press("Enter");
+  await expect(nav.locator("summary")).toBeFocused();
+  expect((await header.boundingBox())?.height).toBe(closedHeight);
+  await nav.locator("summary").press("Enter");
+  await expect(nav.getByRole("link", { name: "Open console", exact: true })).toBeAttached();
+  await nav.getByRole("link", { name: "Open console", exact: true }).focus();
+  await expect(nav.getByRole("link", { name: "Open console", exact: true })).toBeInViewport();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeFocused();
+  await expect(nav).toBeHidden();
+  await menu.click();
+  await page.mouse.click(3, 180);
+  await expect(nav).toBeHidden();
+  await page.evaluate(() => window.scrollTo({ top: 500, behavior: "instant" }));
+  const bars = await page.evaluate(() => ({
+    headerBottom: document.querySelector(".site-header")!.getBoundingClientRect().bottom,
+    subnavTop: document.querySelector("#nd-subnav")!.getBoundingClientRect().top,
+  }));
+  expect(bars.subnavTop).toBeGreaterThanOrEqual(bars.headerBottom);
 });
 
 test("the docs overview groups its guide links and fits a narrow phone", async ({ page }) => {

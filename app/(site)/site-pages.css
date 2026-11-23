@@ -590,7 +590,11 @@
 }
 @media (max-width: 820px) {
   .site {
-    --site-anchor-offset: 146px;
+    --site-anchor-offset: calc(var(--site-mobile-header-height) + 20px);
+  }
+
+  .site :is(.market-back, .reader-toc a, .journal-filters button, .contact-resources a, .footer-group a) {
+    min-height: 44px;
   }
 }
 @media (max-width: 525px) {
@@ -604,12 +608,6 @@
     aspect-ratio: 2.15;
   }
 }
-@media (max-width: 350px) {
-  .site {
-    --site-anchor-offset: 195px;
-  }
-}
-
 .market-page :is(.section-head h2, .pricing-questions h2, .compute-pricing h2) {
   font-size: clamp(25px, 3.5vw, 46px);
   letter-spacing: -0.047em;

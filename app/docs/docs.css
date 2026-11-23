@@ -64,7 +64,6 @@ html[data-initial-theme="light"]:not(.dark):has(.docs-shell) {
 }
 
 .docs-shell > .site-header {
-  position: relative;
   z-index: 35;
 }
 
@@ -93,8 +92,22 @@ html:has(.docs-shell) div:has(> input[aria-controls="fd-search-list"]:focus-visi
   }
 
   .docs-shell > .site-header {
-    position: sticky;
     min-height: var(--fd-banner-height);
+  }
+}
+
+@media (max-width: 820px) {
+  .docs-shell {
+    --fd-banner-height: var(--site-mobile-header-height);
+  }
+
+  .docs-shell #nd-subnav button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .docs-shell .docs-sidebar-link {
+    min-height: 44px;
   }
 }
 
