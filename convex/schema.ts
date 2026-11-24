@@ -170,6 +170,7 @@ export default defineSchema({
     mint: v.string(),
     cluster: v.string(),
     amount: v.number(),
+    sol: v.optional(v.object({ lamports: v.number(), expiresAt: v.number(), priceUsd: v.string() })),
     signature: v.optional(v.string()),
     nextCheckAt: v.optional(v.number()),
     finalizedAt: v.optional(v.number()),

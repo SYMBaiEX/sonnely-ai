@@ -2,7 +2,8 @@ import { z } from "zod";
 import bs58 from "bs58";
 import { getAddress } from "ethers";
 import { fundingAtomic, intentFunds, type FundingQuote, type IntentFund } from "./intent-funding";
-import { configuredProviders, solFundingEnabled } from "./managed-access";
+import { configuredProviders } from "./managed-access";
+import type { SolPayment } from "./sol-quote";
 import { SonnelyError } from "./sonnely-error";
 
 export const address = z
@@ -97,19 +98,99 @@ export async function findPaymentSignatures(
   return parsed.data.filter((entry) => entry.err === null).map((entry) => entry.signature);
 }
 
+const systemProgram = "11111111111111111111111111111111";
+const nativeTransaction = z.object({
+  blockTime: z.int().positive(),
+  meta: z.object({
+    err: z.unknown(),
+    loadedAddresses: z.object({ writable: z.array(z.string()), readonly: z.array(z.string()) }).optional(),
+  }),
+  transaction: z.object({
+    message: z.object({
+      accountKeys: z.array(z.string()),
+      header: z.object({
+        numRequiredSignatures: z.int().positive(),
+        numReadonlySignedAccounts: z.int().nonnegative(),
+        numReadonlyUnsignedAccounts: z.int().nonnegative(),
+      }),
+      instructions: z.array(
+        z.object({
+          programIdIndex: z.int().nonnegative(),
+          accounts: z.array(z.int().nonnegative()),
+          data: z.string(),
+        }),
+      ),
+    }),
+  }),
+});
+
+function verifySolTransfer(
+  result: unknown,
+  wallet: string,
+  order: { reference: string; recipient: string },
+  sol: SolPayment,
+) {
+  const tx = nativeTransaction.safeParse(result);
+  if (!tx.success || tx.data.meta.err !== null)
+    throw new SonnelyError("No successful SOL payment was found at the required confirmation level.");
+  if (tx.data.blockTime * 1000 > sol.expiresAt)
+    throw new SonnelyError(
+      "This SOL payment was sent after the quote expired. Contact support with its signature.",
+    );
+  const { accountKeys, header, instructions } = tx.data.transaction.message;
+  const loaded = tx.data.meta.loadedAddresses;
+  const keys = [...accountKeys, ...(loaded?.writable ?? []), ...(loaded?.readonly ?? [])];
+  const signedWritable = header.numRequiredSignatures - header.numReadonlySignedAccounts;
+  const readonlyStart = accountKeys.length - header.numReadonlyUnsignedAccounts;
+  const ref = keys.indexOf(order.reference);
+  const readonlyReference =
+    (ref >= readonlyStart && ref >= header.numRequiredSignatures && ref < accountKeys.length) ||
+    ref >= accountKeys.length + (loaded?.writable.length ?? 0);
+  const matches = instructions.filter((instruction) => {
+    const [from, to, reference] = instruction.accounts;
+    if (
+      keys[instruction.programIdIndex] !== systemProgram ||
+      instruction.accounts.length !== 3 ||
+      from >= signedWritable ||
+      keys[from] !== wallet ||
+      keys[to] !== order.recipient ||
+      reference !== ref ||
+      !readonlyReference
+    )
+      return false;
+    try {
+      const data = Buffer.from(bs58.decode(instruction.data));
+      return (
+        data.length === 12 && data.readUInt32LE(0) === 2 && data.readBigUInt64LE(4) === BigInt(sol.lamports)
+      );
+    } catch {
+      return false;
+    }
+  });
+  if (matches.length !== 1) throw new SonnelyError("The SOL transfer does not match this payment.");
+}
+
 export async function verifyPayment(
   rpc: string,
   signature: string,
   wallet: string,
-  order: { reference: string; recipient: string; mint: string; amount: number; cluster: string },
+  order: {
+    reference: string;
+    recipient: string;
+    mint: string;
+    amount: number;
+    cluster: string;
+    sol?: SolPayment;
+  },
   commitment: "confirmed" | "finalized" = "finalized",
   verifyNetwork = true,
 ) {
   if (verifyNetwork) await verifyCluster(rpc, order.cluster);
   const result = await rpcCall(rpc, "getTransaction", [
     signature,
-    { commitment, encoding: "jsonParsed", maxSupportedTransactionVersion: 0 },
+    { commitment, encoding: order.sol ? "json" : "jsonParsed", maxSupportedTransactionVersion: 0 },
   ]);
+  if (order.sol) return verifySolTransfer(result, wallet, order, order.sol);
   const tx = transaction.safeParse(result);
   if (!tx.success || tx.data.meta.err !== null)
     throw new SonnelyError("No successful payment was found at the required confirmation level.");
@@ -163,7 +244,7 @@ export async function quote(
 ): Promise<FundingQuote> {
   const token = process.env.NEAR_INTENTS_API_KEY;
   const { asset, amount: quantity, prepare = false } = input;
-  if (prepare && (billing().cluster !== "mainnet" || (!token && !(asset === "sol" && solFundingEnabled())))) {
+  if (prepare && (!token || billing().cluster !== "mainnet")) {
     throw new SonnelyError("Cross-chain funding is unavailable.", 503);
   }
   const fund = intentFunds[asset];

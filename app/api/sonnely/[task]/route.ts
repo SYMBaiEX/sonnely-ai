@@ -10,6 +10,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { address, billing, findMatchingPayment, quote, verifyCluster, verifyPayment } from "@/lib/payments";
 import { intentFunds } from "@/lib/intent-funding";
+import { quoteSolPayment, solDecimal, type SolPayment } from "@/lib/sol-quote";
 import { preparePayment } from "@/lib/payment-transaction";
 import { creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import { usageSince } from "@/lib/usage";
@@ -51,17 +52,25 @@ async function paymentDraft(order: {
   mint: string;
   amount: number;
   cluster: string;
+  sol?: SolPayment;
 }) {
   const payment = new URLSearchParams({
-    amount: creditDecimal(order.amount),
-    "spl-token": order.mint,
+    amount: order.sol ? solDecimal(order.sol.lamports) : creditDecimal(order.amount),
+    ...(order.sol ? {} : { "spl-token": order.mint }),
     reference: order.reference,
     label: "Sonnely",
     message: "Compute credit top-up",
   });
   const uri = "solana:" + order.recipient + "?" + payment.toString();
   const qr = await QRCode.toDataURL(uri, { margin: 2, width: 220 });
-  return { uri, reference: order.reference, cluster: order.cluster, amount: order.amount, qr };
+  return {
+    uri,
+    reference: order.reference,
+    cluster: order.cluster,
+    amount: order.amount,
+    sol: order.sol,
+    qr,
+  };
 }
 
 export async function GET(request: NextRequest, context: Context) {
@@ -135,8 +144,7 @@ export async function POST(request: NextRequest, context: Context) {
   try {
     const site = ensureSameOrigin(request);
     const { task } = await context.params;
-    if (task === "quote" && !nearIntentsFundingEnabled() && !solFundingEnabled())
-      throw new SonnelyError("Unknown route.", 404);
+    if (task === "quote" && !nearIntentsFundingEnabled()) throw new SonnelyError("Unknown route.", 404);
     const raw = await readBody(request);
     const { db, secret } = backend();
 
@@ -356,10 +364,7 @@ export async function POST(request: NextRequest, context: Context) {
           })),
         ])
         .parse(raw);
-      if (!nearIntentsFundingEnabled() && input.asset !== "sol")
-        throw new SonnelyError("This funding asset is unavailable.", 400);
-      if (input.prepare && !billing().billingEnabled)
-        throw new SonnelyError("USDC checkout is unavailable.", 503);
+      if (input.prepare && !billing().billingEnabled) throw new SonnelyError("Checkout is unavailable.", 503);
       if (input.prepare && publicInference() && profile.acceptedTerms !== termsVersion)
         throw new SonnelyError("Accept the current Sonnely terms in the console.", 403);
       await db.mutation(api.sonnely.throttleQuote, auth);
@@ -370,19 +375,26 @@ export async function POST(request: NextRequest, context: Context) {
       if (task !== "confirm" && publicInference() && profile.acceptedTerms !== termsVersion)
         throw new SonnelyError("Accept the current Sonnely terms in the console.", 403);
       if (task === "deposit") {
-        if (!billingEnabled || !recipient || !rpc)
-          throw new SonnelyError("USDC checkout is unavailable.", 503);
-        const { dollars } = z.object({ dollars: z.union([z.string().max(32), z.number()]) }).parse(raw);
+        if (!billingEnabled || !recipient || !rpc) throw new SonnelyError("Checkout is unavailable.", 503);
+        const { dollars, asset } = z
+          .object({
+            dollars: z.union([z.string().max(32), z.number()]),
+            asset: z.enum(["usdc", "sol"]).default("usdc"),
+          })
+          .parse(raw);
+        if (asset === "sol" && (!solFundingEnabled() || cluster !== "mainnet"))
+          throw new SonnelyError("SOL checkout is unavailable.", 503);
         const amount = parseCreditAmount(dollars);
         if (amount === null)
-          throw new SonnelyError("Enter a positive USDC amount with up to six decimal places.");
+          throw new SonnelyError("Enter a positive dollar amount with up to six decimal places.");
         if (!Number.isSafeInteger(profile.balance + amount))
           throw new SonnelyError("This payment would exceed the credit balance limit.");
         if (recipient === profile.wallet)
           throw new SonnelyError("Use a wallet other than the treasury wallet.");
         await verifyCluster(rpc, cluster);
         const reference = bs58.encode(randomBytes(32));
-        const order = { reference, recipient, mint, cluster, amount };
+        const sol = asset === "sol" ? await quoteSolPayment(amount) : undefined;
+        const order = { reference, recipient, mint, cluster, amount, ...(sol ? { sol } : {}) };
         const draft = await paymentDraft(order);
         await db.mutation(api.sonnely.createDeposit, { ...auth, ...order });
         return json(draft, 201);
@@ -409,10 +421,7 @@ export async function POST(request: NextRequest, context: Context) {
       if (order.signature && task === "confirm" && (!signature || order.signature === signature))
         return json({ ok: true, cluster: order.cluster });
       if (!paymentVerificationEnabled || !rpc)
-        throw new SonnelyError(
-          "USDC payment verification is unavailable. Retry with the same signature.",
-          503,
-        );
+        throw new SonnelyError("Payment verification is unavailable. Retry with the same signature.", 503);
       if (
         order.signature ||
         order.cluster !== cluster ||
@@ -422,8 +431,10 @@ export async function POST(request: NextRequest, context: Context) {
         throw new SonnelyError("This payment cannot be matched with the configured treasury.");
       await verifyCluster(rpc, cluster);
       if (task === "payment-transaction") {
-        if (!billingEnabled) throw new SonnelyError("USDC checkout is unavailable.", 503);
+        if (!billingEnabled) throw new SonnelyError("Checkout is unavailable.", 503);
         if (version === undefined) throw new SonnelyError("Choose a supported wallet transaction version.");
+        if (order.sol && order.sol.expiresAt <= Date.now())
+          throw new SonnelyError("This SOL quote expired. Start a new payment.", 409);
         if (await findMatchingPayment(rpc, profile.wallet, order, "confirmed"))
           throw new SonnelyError("This payment is on chain. Wait for finality before trying again.", 409);
         return json({ transaction: await preparePayment(rpc, profile.wallet, order, version) });

@@ -21,6 +21,7 @@ import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 
 import { creditBalance, creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
+import { solDecimal, type SolPayment } from "@/lib/sol-quote";
 import { intentFunds, type FundingQuote, type IntentFund } from "@/lib/intent-funding";
 import { MotionSwitch } from "./ambient-motion";
 import { IntentsCheckout } from "./intents-checkout";
@@ -814,9 +815,23 @@ export function Usage({
   );
 }
 
-type Payment = { uri: string; reference: string; cluster: string; amount: number; qr: string };
+type Payment = {
+  uri: string;
+  reference: string;
+  cluster: string;
+  amount: number;
+  sol?: SolPayment;
+  qr: string;
+};
 type Confirmation = { ok: boolean; cluster: string };
-type Receipt = { reference: string; cluster: string; amount: number; signature?: string; time: number };
+type Receipt = {
+  reference: string;
+  cluster: string;
+  amount: number;
+  sol?: SolPayment;
+  signature?: string;
+  time: number;
+};
 
 export function Billing({
   session,
@@ -843,6 +858,14 @@ export function Billing({
   const fundingDetails = intent?.recipient === profile?.wallet ? intent : null;
   const swapAsset = intentFunds[fund];
   const [order, setOrder] = useState<Payment | null>(null);
+  const [quoteExpired, setQuoteExpired] = useState(false);
+  const expiresAt = order?.sol?.expiresAt;
+  useEffect(() => {
+    setQuoteExpired(Boolean(expiresAt && expiresAt <= Date.now()));
+    if (!expiresAt) return;
+    const timer = setTimeout(() => setQuoteExpired(true), Math.max(0, expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
   const [submitted, setSubmitted] = useState(false);
   const [signature, setSignature] = useState("");
   const [pending, setPending] = useState("");
@@ -899,13 +922,15 @@ export function Billing({
 
   function openPayment(payment: Payment) {
     setOrder(payment);
+    setQuoteExpired(Boolean(payment.sol && payment.sol.expiresAt <= Date.now()));
     setSignature("");
     setSubmitted(false);
   }
 
   async function resumePayment(reference: string) {
-    setMethod("usdc");
-    openPayment(await request<Payment>("payment?reference=" + encodeURIComponent(reference)));
+    const payment = await request<Payment>("payment?reference=" + encodeURIComponent(reference));
+    setMethod(payment.sol ? "sol" : "usdc");
+    openPayment(payment);
   }
 
   async function run(name: string, action: () => Promise<void>) {
@@ -965,24 +990,25 @@ export function Billing({
                 onChange={(event) => {
                   const next = event.currentTarget.value as typeof method;
                   setMethod(next);
-                  if (next === "sol") setFund("sol");
                   setIntent(null);
                   setFailure(undefined);
                 }}
               >
                 <option value="usdc">USDC</option>
-                {showSol && <option value="sol">SOL via swap</option>}
+                {showSol && <option value="sol">SOL</option>}
                 {showOther && <option value="other">Other crypto</option>}
               </select>
             </label>
           )}
-          {method === "usdc" && (
+          {method !== "other" && (
             <>
               <p className="caption">
                 {session?.termsRequired
                   ? "Accept the current terms above to buy credits."
                   : profile
-                    ? "Enter any positive USDC amount with up to six decimal places. Credits post after your wallet transfer finalizes."
+                    ? method === "sol"
+                      ? "Enter the USD credit amount. You’ll review a time-limited SOL quote before you pay."
+                      : "Enter a USDC amount. Credits post after your wallet transfer finalizes."
                     : "Connect your Solana wallet in the header to buy credits."}
               </p>
               <form
@@ -992,22 +1018,32 @@ export function Billing({
                   void run("deposit", async () => {
                     const amount = parseCreditAmount(dollars);
                     if (amount === null)
-                      throw new Error("Enter a positive USDC amount with up to six decimal places.");
-                    if (order?.amount === amount) return;
+                      throw new Error("Enter a positive amount with up to six decimal places.");
+                    if (
+                      order?.amount === amount &&
+                      Boolean(order.sol) === (method === "sol") &&
+                      !quoteExpired
+                    )
+                      return;
                     const existing = data?.find(
                       (item) =>
                         !item.signature && item.cluster === session?.cluster && item.amount === amount,
                     );
                     if (existing) await resumePayment(existing.reference);
                     else {
-                      openPayment(await request<Payment>("deposit", { dollars }));
+                      openPayment(
+                        await request<Payment>("deposit", {
+                          dollars,
+                          ...(method === "sol" ? { asset: "sol" } : {}),
+                        }),
+                      );
                       reload();
                     }
                   });
                 }}
               >
                 <label>
-                  Amount in USDC
+                  {method === "sol" ? "Credits in USD" : "Amount in USDC"}
                   <input
                     type="number"
                     min="0.000001"
@@ -1045,7 +1081,7 @@ export function Billing({
               }
             />
           )}
-          {((method === "sol" && showSol) || (method === "other" && showOther && !intentsWidgetUrl)) && (
+          {method === "other" && showOther && !intentsWidgetUrl && (
             <div className="stack-panel">
               <p className="caption">
                 NEAR Intents converts your funds to USDC in your wallet. Then pay with USDC to add credits.
@@ -1179,22 +1215,27 @@ export function Billing({
               )}
             </div>
           )}
-          {order && profile && (
+          {order && profile && method === (order.sol ? "sol" : "usdc") && (
             <section ref={review} className="checkout" aria-label="Review transfer">
               <div className="between">
                 <h2 ref={reviewHeading} tabIndex={-1}>
-                  Pay {creditBalance(order.amount)} in USDC
+                  {order.sol
+                    ? "Pay " + solDecimal(order.sol.lamports) + " SOL"
+                    : "Pay " + creditBalance(order.amount) + " in USDC"}
                 </h2>
                 <span className="pill">{order.cluster}</span>
               </div>
               <p className="caption">
-                Your wallet shows the transfer before you approve. A small SOL fee and token account setup may
-                apply.
+                {order.sol
+                  ? `${creditBalance(order.amount)} in credits at $${order.sol.priceUsd} per SOL. Quote expires at ${new Date(order.sol.expiresAt).toLocaleTimeString()}. Network fees are separate.`
+                  : "Your wallet shows the transfer before you approve. A small SOL fee and token account setup may apply."}
               </p>
               {submitted ? (
                 <p role="status" className="status">
                   Payment submitted. Waiting for Solana finality…
                 </p>
+              ) : quoteExpired ? (
+                <p role="status">SOL quote expired. Continue to payment to request a new quote.</p>
               ) : (
                 <>
                   <button
@@ -1278,7 +1319,8 @@ export function Billing({
                   <tr>
                     <th>Date (UTC)</th>
                     <th>Network</th>
-                    <th>USDC</th>
+                    <th>Credits</th>
+                    <th>Paid with</th>
                     <th>Status</th>
                     <th>Reference</th>
                   </tr>
@@ -1289,6 +1331,7 @@ export function Billing({
                       <td>{date(item.time)}</td>
                       <td>{item.cluster}</td>
                       <td>{creditBalance(item.amount)}</td>
+                      <td>{item.sol ? solDecimal(item.sol.lamports) + " SOL" : "USDC"}</td>
                       <td>
                         {item.signature ? (
                           <div className="payment-status">
@@ -1303,7 +1346,7 @@ export function Billing({
                               Finalized <ArrowUpRight size={13} />
                             </a>
                             <CopyButton
-                              value={`Sonnely USDC receipt ${creditBalance(item.amount)} ${item.cluster} ${item.signature}`}
+                              value={`Sonnely ${item.sol ? "SOL" : "USDC"} receipt ${creditBalance(item.amount)} ${item.cluster} ${item.signature}`}
                               label="Copy receipt"
                             />
                           </div>

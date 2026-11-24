@@ -207,3 +207,59 @@ test("USDC checkout accepts fractional amounts without a five-dollar minimum", a
   expect(creditDecimal(1)).toBe("0.000001");
   expect(creditBalance(4_998_674)).toBe("$4.998674");
 });
+
+test("native SOL credits require the exact referenced system transfer before quote expiry", async () => {
+  const { default: bs58 } = await import("bs58");
+  const fetchOriginal = globalThis.fetch;
+  const sol = { lamports: 50_000_000, expiresAt: 1_800_000_000_000, priceUsd: "100" };
+  const data = Buffer.alloc(12);
+  data.writeUInt32LE(2, 0);
+  data.writeBigUInt64LE(BigInt(sol.lamports), 4);
+  const message = {
+    accountKeys: [payer, order.recipient, order.reference, "11111111111111111111111111111111"],
+    header: { numRequiredSignatures: 1, numReadonlySignedAccounts: 0, numReadonlyUnsignedAccounts: 2 },
+    instructions: [{ programIdIndex: 3, accounts: [0, 1, 2], data: bs58.encode(data) }],
+  };
+  const result = { blockTime: 1_799_999_999, meta: { err: null }, transaction: { message } };
+  globalThis.fetch = async (_url, init) => {
+    const { params } = JSON.parse(String(init?.body));
+    expect(params[1]).toMatchObject({ commitment: "finalized", encoding: "json" });
+    return Response.json({ result });
+  };
+  try {
+    await expect(
+      verifyPayment(rpc, "signature", payer, { ...order, sol }, "finalized", false),
+    ).resolves.toBeUndefined();
+    await expect(
+      verifyPayment(rpc, "signature", payer, { ...order, sol: { ...sol, lamports: 1 } }, "finalized", false),
+    ).rejects.toThrow(/does not match/);
+    message.instructions[0].accounts = [0, 1, 3];
+    await expect(
+      verifyPayment(rpc, "signature", payer, { ...order, sol }, "finalized", false),
+    ).rejects.toThrow(/does not match/);
+    message.instructions[0].accounts = [0, 1, 2];
+    result.blockTime = 1_800_000_001;
+    await expect(
+      verifyPayment(rpc, "signature", payer, { ...order, sol }, "finalized", false),
+    ).rejects.toThrow(/expired/);
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+});
+
+test("SOL quotes round up to whole lamports and reject stale prices", async () => {
+  const { quoteSolPayment, solDecimal } = await import("../lib/sol-quote");
+  const fetchOriginal = globalThis.fetch;
+  let observed = Date.now();
+  globalThis.fetch = async () => Response.json({ price: "73.125", time: new Date(observed).toISOString() });
+  try {
+    const quote = await quoteSolPayment(5_000_000);
+    expect(quote.lamports).toBe(68_376_069);
+    expect(solDecimal(quote.lamports)).toBe("0.068376069");
+    expect(quote.expiresAt).toBeGreaterThan(observed + 299_000);
+    observed -= 61_000;
+    await expect(quoteSolPayment(5_000_000)).rejects.toThrow(/fresh SOL\/USD price/);
+  } finally {
+    globalThis.fetch = fetchOriginal;
+  }
+});

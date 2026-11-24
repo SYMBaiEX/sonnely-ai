@@ -489,12 +489,17 @@ export const ticket = mutation({
   },
 });
 
+const solPayment = v.optional(
+  v.object({ lamports: v.number(), expiresAt: v.number(), priceUsd: v.string() }),
+);
+
 const deposit = {
   reference: v.string(),
   recipient: v.string(),
   mint: v.string(),
   cluster: v.string(),
   amount: v.number(),
+  sol: solPayment,
 };
 export const createDeposit = mutation({
   args: { ...auth, ...deposit },
@@ -507,12 +512,20 @@ export const createDeposit = mutation({
       .withIndex("by_account", (q) => q.eq("account", account._id).gte("_creationTime", Date.now() - 60_000))
       .take(5);
     if (recent.length >= 5) throw new ConvexError("Wait a minute before opening another payment.");
+    if (
+      fields.sol &&
+      (fields.cluster !== "mainnet" ||
+        !Number.isSafeInteger(fields.sol.lamports) ||
+        fields.sol.lamports <= 0 ||
+        fields.sol.expiresAt <= Date.now())
+    )
+      throw new ConvexError("Invalid SOL payment quote.");
     await ctx.db.insert("deposits", { account: account._id, ...fields });
     await recordEvent(ctx, {
       account: account._id,
       kind: "billing",
       actor: account.wallet,
-      summary: `Started USDC deposit $${creditDecimal(fields.amount, 2)}`,
+      summary: `Started ${fields.sol ? "SOL" : "USDC"} deposit $${creditDecimal(fields.amount, 2)}`,
     });
     return null;
   },
@@ -529,8 +542,8 @@ export const depositDetails = query({
       .withIndex("by_reference", (q) => q.eq("reference", args.reference))
       .unique();
     if (!row || row.account !== account._id) throw new ConvexError("Payment request unavailable.");
-    const { reference, recipient, mint, cluster, amount, signature } = row;
-    return { reference, recipient, mint, cluster, amount, signature };
+    const { reference, recipient, mint, cluster, amount, signature, sol } = row;
+    return { reference, recipient, mint, cluster, amount, signature, sol };
   },
 });
 
@@ -551,7 +564,7 @@ export const confirmDeposit = mutation({
         account: account._id,
         kind: "billing",
         actor: account.wallet,
-        summary: `Finalized USDC deposit $${creditDecimal(row.amount, 2)}`,
+        summary: `Finalized ${row.sol ? "SOL" : "USDC"} deposit $${creditDecimal(row.amount, 2)}`,
       });
     return null;
   },
@@ -565,6 +578,7 @@ export const history = query({
       cluster: v.string(),
       amount: v.number(),
       signature: v.optional(v.string()),
+      sol: solPayment,
       time: v.number(),
     }),
   ),
@@ -576,11 +590,12 @@ export const history = query({
       .withIndex("by_account", (q) => q.eq("account", account._id))
       .order("desc")
       .take(30);
-    return rows.map(({ reference, cluster, amount, signature, _creationTime }) => ({
+    return rows.map(({ reference, cluster, amount, signature, sol, _creationTime }) => ({
       reference,
       cluster,
       amount,
       signature,
+      sol,
       time: _creationTime,
     }));
   },

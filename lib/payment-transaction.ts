@@ -7,6 +7,7 @@ import {
   createNoopSigner,
   createTransactionMessage,
   getBase64EncodedWireTransaction,
+  lamports,
   pipe,
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
@@ -18,6 +19,8 @@ import {
   getCreateAssociatedTokenIdempotentInstructionAsync,
   getTransferCheckedInstruction,
 } from "@solana-program/token";
+import { getTransferSolInstruction } from "@solana-program/system";
+import type { SolPayment } from "./sol-quote";
 import { z } from "zod";
 import { creditDecimal } from "./credit-amount";
 import { rpcCall } from "./payments";
@@ -38,38 +41,47 @@ const insufficientUsdc = z.object({
 export async function preparePaymentEnvelope(
   rpc: string,
   wallet: string,
-  order: { amount: number; mint: string; reference: string; recipient: string },
+  order: { amount: number; mint: string; reference: string; recipient: string; sol?: SolPayment },
   version: "legacy" | 0,
 ) {
   const payer = createNoopSigner(address(wallet));
-  const mint = address(order.mint);
   const owner = address(order.recipient);
-  const [source, destination, latest] = await Promise.all([
-    findAssociatedTokenPda({ owner: payer.address, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS }),
-    findAssociatedTokenPda({ owner, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS }),
-    rpcCall(rpc, "getLatestBlockhash", [{ commitment: "confirmed" }]),
-  ]);
+  const latest = await rpcCall(rpc, "getLatestBlockhash", [{ commitment: "confirmed" }]);
   const parsedBlockhash = latestBlockhash.safeParse(latest);
   if (!parsedBlockhash.success) throw new SonnelyError("Solana RPC could not prepare the payment.", 503);
 
-  const createRecipient = await getCreateAssociatedTokenIdempotentInstructionAsync({
-    payer,
-    owner,
-    mint,
-    ata: destination,
-  });
-  const transfer = getTransferCheckedInstruction({
-    source,
-    destination,
-    mint,
-    authority: payer,
-    amount: BigInt(order.amount),
-    decimals: 6,
-  });
-  const withReference = {
-    ...transfer,
-    accounts: [...transfer.accounts, { address: address(order.reference), role: AccountRole.READONLY }],
-  };
+  const reference = { address: address(order.reference), role: AccountRole.READONLY } as const;
+  const instructions = order.sol
+    ? (() => {
+        const transfer = getTransferSolInstruction({
+          source: payer,
+          destination: owner,
+          amount: lamports(BigInt(order.sol.lamports)),
+        });
+        return [{ ...transfer, accounts: [...transfer.accounts, reference] }];
+      })()
+    : await (async () => {
+        const mint = address(order.mint);
+        const [source, destination] = await Promise.all([
+          findAssociatedTokenPda({ owner: payer.address, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS }),
+          findAssociatedTokenPda({ owner, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS }),
+        ]);
+        const createRecipient = await getCreateAssociatedTokenIdempotentInstructionAsync({
+          payer,
+          owner,
+          mint,
+          ata: destination,
+        });
+        const transfer = getTransferCheckedInstruction({
+          source,
+          destination,
+          mint,
+          authority: payer,
+          amount: BigInt(order.amount),
+          decimals: 6,
+        });
+        return [createRecipient, { ...transfer, accounts: [...transfer.accounts, reference] }];
+      })();
   const { value } = parsedBlockhash.data;
   const message = pipe(
     createTransactionMessage({ version }),
@@ -79,7 +91,7 @@ export async function preparePaymentEnvelope(
         { blockhash: blockhash(value.blockhash), lastValidBlockHeight: BigInt(value.lastValidBlockHeight) },
         tx,
       ),
-    (tx) => appendTransactionMessageInstructions([createRecipient, withReference], tx),
+    (tx) => appendTransactionMessageInstructions(instructions, tx),
   );
   const transaction = getBase64EncodedWireTransaction(compileTransaction(message));
   const result = simulation.safeParse(
@@ -90,7 +102,7 @@ export async function preparePaymentEnvelope(
   );
   if (!result.success) throw new SonnelyError("Solana RPC could not simulate the payment.", 503);
   const { err } = result.data.value;
-  if (insufficientUsdc.safeParse(err).success)
+  if (!order.sol && insufficientUsdc.safeParse(err).success)
     throw new SonnelyError(
       `Your wallet needs ${creditDecimal(order.amount, 2)} USDC on this Solana network for this transfer.`,
     );
@@ -98,7 +110,9 @@ export async function preparePaymentEnvelope(
     throw new SonnelyError("Your wallet needs more SOL on this network to pay the transaction fee.");
   if (err !== null)
     throw new SonnelyError(
-      "This transfer did not pass simulation. Check your wallet’s USDC and SOL balances.",
+      order.sol
+        ? "This transfer did not pass simulation. Check your SOL balance and network fee."
+        : "This transfer did not pass simulation. Check your wallet’s USDC and SOL balances.",
     );
   return { transaction, lastValidBlockHeight: value.lastValidBlockHeight };
 }

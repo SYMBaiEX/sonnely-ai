@@ -15,6 +15,7 @@ export const pending = internalQuery({
       recipient: v.string(),
       mint: v.string(),
       amount: v.number(),
+      sol: v.optional(v.object({ lamports: v.number(), expiresAt: v.number(), priceUsd: v.string() })),
       cluster: v.string(),
     }),
   ),
@@ -35,8 +36,8 @@ export const pending = internalQuery({
           const account = await ctx.db.get(row.account);
           if (!account || row.mint !== mainnetMint || !Number.isSafeInteger(row.amount) || row.amount <= 0)
             return null;
-          const { _id: id, _creationTime: created, reference, recipient, mint, amount, cluster } = row;
-          return { id, created, wallet: account.wallet, reference, recipient, mint, amount, cluster };
+          const { _id: id, _creationTime: created, reference, recipient, mint, amount, cluster, sol } = row;
+          return { id, created, wallet: account.wallet, reference, recipient, mint, amount, cluster, sol };
         }),
       )
     ).filter((row) => row !== null);
