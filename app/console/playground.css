@@ -227,7 +227,7 @@
 }
 
 .playground-route-dialog {
-  width: min(490px, calc(100% - 24px));
+  width: min(740px, calc(100% - 24px));
   max-height: calc(100dvh - 24px);
   color: var(--ink);
   background: var(--glass-solid);
@@ -267,6 +267,8 @@
 
 .playground-route-body {
   display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  align-items: start;
   gap: 15px;
   min-height: 0;
   padding: 14px 16px;
@@ -289,9 +291,34 @@
   font-weight: 620;
 }
 
-.playground-model-options {
+.playground-route-dialog .playground-model-search {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding-inline: 9px;
+  margin-block-end: 6px;
+  border: 1px solid var(--control-edge);
+  border-radius: 8px;
+}
+
+.playground-model-search svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.playground-model-search input {
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+}
+
+.playground-model-results {
+  display: grid;
+  max-block-size: min(45dvh, 25rem);
   gap: 3px;
+  overflow-y: auto;
 }
 
 .playground-route-dialog label {
@@ -308,7 +335,7 @@
   padding: 0;
 }
 
-.playground-model-options label {
+.playground-route-dialog .playground-model-results label {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 9px;
@@ -336,24 +363,28 @@
   color: var(--accent);
 }
 
-.playground-model-options input:checked ~ .playground-route-check {
+.playground-route-dialog input:checked ~ .playground-route-check {
   visibility: visible;
 }
 
+.playground-providers .caption {
+  margin-block: 0 6px;
+}
+
 .playground-providers > div {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 6px;
 }
 
-.playground-providers label {
+.playground-route-dialog .playground-providers label {
   display: grid;
-  place-items: center;
-  min-height: 44px;
-  padding: 5px 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 7px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  font-size: 0.83rem;
 }
 
 .playground-route-dialog footer {
@@ -386,7 +417,15 @@
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
-  .playground-model-options label,
+  .playground-route-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .playground-model-results {
+    max-block-size: min(20dvh, 12rem);
+  }
+
+  .playground-model-results label,
   .playground-route-dialog footer .button {
     min-height: 44px;
   }

@@ -1,9 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, Search, X } from "lucide-react";
+import { contextFormat } from "@/lib/model-catalog";
 import { models } from "@/lib/models";
-import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
+import { formatRate, markedUpRates } from "@/lib/pricing";
+import { providerNames, providerRoute, type Model, type ProviderId } from "@/lib/provider-catalog";
+
+function availableRoutes(model: Model, providers: readonly ProviderId[]) {
+  return providers.flatMap((provider) => providerRoute(model, provider) ?? []);
+}
 
 export function PlaygroundRoute({
   model,
@@ -21,21 +27,30 @@ export function PlaygroundRoute({
   const dialog = useRef<HTMLDialogElement>(null);
   const [draftModel, setDraftModel] = useState(model);
   const [draftProvider, setDraftProvider] = useState(provider);
+  const [search, setSearch] = useState("");
   const current = models.find((item) => item.id === model) ?? models[0];
   const next = models.find((item) => item.id === draftModel) ?? models[0];
-  const routes = availableProviders.filter((id) => providerRoute(next, id));
+  const routes = availableRoutes(next, availableProviders);
+  const selectedRoute = routes.find(({ provider }) => provider === draftProvider);
+  const searchQuery = search.trim().toLowerCase();
+  const matches = models.filter((item) =>
+    `${item.name} ${item.id} ${item.type}`.toLowerCase().includes(searchQuery),
+  );
   const available = availableProviders.includes(provider) && Boolean(providerRoute(current, provider));
 
   function open() {
     setDraftModel(model);
     setDraftProvider(provider);
+    setSearch("");
     dialog.current?.showModal();
   }
 
-  function selectModel(model: (typeof models)[number]) {
+  function selectModel(model: Model) {
     setDraftModel(model.id);
-    const eligible = availableProviders.filter((id) => providerRoute(model, id));
-    if (!eligible.includes(draftProvider)) setDraftProvider(eligible[0] ?? model.provider);
+    const eligible = availableRoutes(model, availableProviders);
+    if (!eligible.some(({ provider }) => provider === draftProvider)) {
+      setDraftProvider(eligible[0]?.provider ?? model.provider);
+    }
   }
 
   return (
@@ -54,7 +69,7 @@ export function PlaygroundRoute({
         <span className="playground-route-label">
           <strong>{current.name}</strong>
           <small>
-            {current.type}
+            {providerNames[provider]} · {current.type}
             {available ? "" : " · unavailable"}
           </small>
         </span>
@@ -75,26 +90,82 @@ export function PlaygroundRoute({
         <div className="playground-route-body">
           <fieldset className="playground-model-options">
             <legend>Model</legend>
-            {models.map((item) => (
-              <label key={item.id}>
-                <input
-                  type="radio"
-                  name="playground-model"
-                  checked={draftModel === item.id}
-                  onChange={() => selectModel(item)}
-                />
-                <span className="playground-model-mark" aria-hidden="true">
-                  {item.mark}
-                </span>
-                <span className="playground-route-label">
-                  <strong>{item.name}</strong>
-                  <small>
-                    {item.type} · {item.context} context
-                  </small>
-                </span>
-                <Check size={17} className="playground-route-check" aria-hidden="true" />
-              </label>
-            ))}
+            <label className="playground-model-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Find a model"
+                aria-label="Find a model"
+              />
+            </label>
+            <div className="playground-model-results">
+              {matches.map((item) => (
+                <label key={item.id}>
+                  <input
+                    type="radio"
+                    name="playground-model"
+                    checked={draftModel === item.id}
+                    onChange={() => selectModel(item)}
+                  />
+                  <span className="playground-model-mark" aria-hidden="true">
+                    {item.mark}
+                  </span>
+                  <span className="playground-route-label">
+                    <strong>{item.name}</strong>
+                    <small>
+                      {item.type} · {item.context} context
+                    </small>
+                  </span>
+                  <Check size={17} className="playground-route-check" aria-hidden="true" />
+                </label>
+              ))}
+              {matches.length === 0 && (
+                <p className="caption" role="status">
+                  No models match your search.
+                </p>
+              )}
+            </div>
+          </fieldset>
+          <fieldset className="playground-providers">
+            <legend>Provider</legend>
+            <p className="caption">{next.name}</p>
+            {routes.length ? (
+              <>
+                <p className="caption">USD per million tokens</p>
+                <div>
+                  {routes.map((route) => {
+                    const rates = markedUpRates(route);
+                    return (
+                      <label key={route.provider}>
+                        <input
+                          type="radio"
+                          name="playground-provider"
+                          checked={draftProvider === route.provider}
+                          onChange={() => setDraftProvider(route.provider)}
+                        />
+                        <span className="playground-route-label">
+                          <strong>{providerNames[route.provider]}</strong>
+                          {route.context !== null && (
+                            <small>{contextFormat.format(route.context)} context tokens</small>
+                          )}
+                          <small>
+                            {formatRate(rates.input)} input · {formatRate(rates.output)} output
+                            {rates.cache !== rates.input && " · " + formatRate(rates.cache) + " cached input"}
+                          </small>
+                        </span>
+                        <Check size={17} className="playground-route-check" aria-hidden="true" />
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="caption" role="status">
+                This model has no available providers.
+              </p>
+            )}
           </fieldset>
         </div>
         <footer>
@@ -104,9 +175,10 @@ export function PlaygroundRoute({
           <button
             className="button accent"
             type="button"
-            disabled={disabled || !routes.includes(draftProvider)}
+            disabled={disabled || !selectedRoute}
             onClick={() => {
-              onChange(draftModel, draftProvider);
+              if (!selectedRoute) return;
+              onChange(draftModel, selectedRoute.provider);
               dialog.current?.close();
             }}
           >
