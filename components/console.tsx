@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,6 +13,7 @@ import {
   CircleHelp,
   Cpu,
   KeyRound,
+  Files,
   LifeBuoy,
   List,
   Menu,
@@ -49,12 +51,15 @@ import { TermsAcceptance } from "./terms-acceptance";
 import { useSession, WalletControl } from "./wallet";
 import { WorkspaceHeading } from "./workspace-heading";
 
+const BatchPanel = dynamic(() => import("./batch-panel").then((module) => module.BatchPanel));
+
 const nav = [
   { id: "chat", title: "Playground", path: "/console", Icon: MessageSquare },
   { id: "models", title: "Models", path: "/console/models", Icon: Cpu },
   { id: "keys", title: "API keys", path: "/console/keys", Icon: KeyRound },
   { id: "usage", title: "Usage", path: "/console/usage", Icon: Activity },
   { id: "logs", title: "Request logs", path: "/console/logs", Icon: List },
+  { id: "batch", title: "Batch", path: "/console/batch", Icon: Files },
   { id: "blackboxes", title: "Blackboxes", path: "/console/blackboxes", Icon: Box },
   { id: "dry-docks", title: "Dry Docks", path: "/console/dry-docks", Icon: Container },
   { id: "billing", title: "Billing", path: "/console/billing", Icon: Wallet },
@@ -201,7 +206,7 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
         </Link>
         <nav aria-label="Workspace navigation" className="rail-nav">
           <p className="mono">Inference</p>
-          {sidebar(visibleNav.slice(0, 5))}
+          {sidebar(visibleNav.slice(0, 6))}
           {computeNav.length > 0 && (
             <>
               <p className="mono">Compute</p>
@@ -209,7 +214,7 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
             </>
           )}
           <p className="mono">Workspace</p>
-          {sidebar(visibleNav.slice(5).filter(({ id }) => !isComputeProduct(id)))}
+          {sidebar(visibleNav.slice(6).filter(({ id }) => !isComputeProduct(id)))}
         </nav>
         <div className="rail-bottom">
           <span className="rail-theme">
@@ -373,6 +378,7 @@ export function ConsoleScreen({
   initialProvider,
   initialRun,
   availableProviders,
+  agentFeatures,
   intentsFunding,
   solFunding,
 }: {
@@ -383,6 +389,7 @@ export function ConsoleScreen({
   initialProvider: ProviderId;
   initialRun?: string;
   availableProviders: ProviderId[];
+  agentFeatures: boolean;
   intentsFunding?: { widgetUrl?: string };
   solFunding?: boolean;
 }) {
@@ -452,6 +459,14 @@ export function ConsoleScreen({
       {section === "admin" && <Admin session={session} features={features} />}
       {section === "keys" && <Keys signedIn={signedIn} />}
       {section === "teams" && <Teams wallet={profile?.wallet} />}
+      {section === "batch" && (
+        <BatchPanel
+          wallet={profile?.wallet}
+          inferenceEnabled={session?.inferenceEnabled === true}
+          providers={availableProviders}
+          agentFeatures={agentFeatures}
+        />
+      )}
       {section === "logs" && <RequestLogs key={profile?.wallet ?? "guest"} wallet={profile?.wallet} />}
       {section === "usage" && (
         <>
