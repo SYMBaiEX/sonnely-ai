@@ -1,6 +1,6 @@
 import { adminAction, adminCrm, adminGateway, adminOverview } from "@/lib/admin-api";
 import { createHmac, randomBytes } from "node:crypto";
-import { createSignInMessageText, verifySignIn } from "@solana/wallet-standard-util";
+import { createSignInMessageText } from "@solana/wallet-standard-util";
 import type { SolanaSignInInput } from "@solana/wallet-standard-features";
 import bs58 from "bs58";
 import QRCode from "qrcode";
@@ -8,10 +8,11 @@ import { after, NextRequest } from "next/server";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { address, billing, findMatchingPayment, quote, verifyCluster, verifyPayment } from "@/lib/payments";
+import { address, billing, findMatchingPayment, finalizedBlockHeight, quote, verifyCluster, verifyPayment } from "@/lib/payments";
 import { intentFunds } from "@/lib/intent-funding";
 import { quoteSolPayment, solDecimal, type SolPayment } from "@/lib/sol-quote";
-import { preparePayment } from "@/lib/payment-transaction";
+import { paymentEnvelopeResponse, paymentTransactionVersion, preparePaymentEnvelope } from "@/lib/payment-transaction";
+import { offchainSignInFormat, verifyWalletSignIn } from "@/lib/solana-sign-in";
 import { creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import { usageSince } from "@/lib/usage";
 import {
@@ -184,20 +185,16 @@ export async function POST(request: NextRequest, context: Context) {
     }
 
     if (task === "verify") {
-      const { wallet, signature, signedMessage, invite } = z
+      const { wallet, signature, signedMessage, signedMessageFormat, invite } = z
         .object({
           wallet: address,
           signature: signatureBytes(64),
           signedMessage: z.array(z.int().min(0).max(255)).min(1).max(2048).optional(),
+          signedMessageFormat: offchainSignInFormat.optional(),
           invite: inviteCode.optional(),
         })
         .parse(raw);
-      const input = JSON.parse(
-        unseal(
-          secret,
-          request.cookies.get("sonnely_challenge")?.value ?? request.cookies.get("fathom_challenge")?.value,
-        ),
-      ) as SolanaSignInInput;
+      const input = JSON.parse(unseal(secret, request.cookies.get("sonnely_challenge")?.value)) as SolanaSignInInput;
       const expires = Date.parse(input.expirationTime ?? "");
       if (
         !Number.isFinite(expires) ||
@@ -209,15 +206,12 @@ export async function POST(request: NextRequest, context: Context) {
       ) {
         throw new SonnelyError("Start a new sign-in challenge.", 401);
       }
-      const expectedMessage = new TextEncoder().encode(
-        createSignInMessageText({ ...input, address: wallet, domain: input.domain }),
+      const verified = await verifyWalletSignIn(
+        { ...input, address: wallet, domain: input.domain },
+        Uint8Array.from(signature),
+        signedMessage && Uint8Array.from(signedMessage),
+        signedMessageFormat,
       );
-      const publicKey = bs58.decode(wallet);
-      const verified = verifySignIn(input, {
-        account: { address: wallet, publicKey, chains: [], features: [] },
-        signedMessage: signedMessage ? Uint8Array.from(signedMessage) : expectedMessage,
-        signature: Uint8Array.from(signature),
-      });
       if (!verified) throw new SonnelyError("Wallet signature could not be verified.", 401);
       const token = randomBytes(32).toString("base64url");
       await db.mutation(api.sonnely.signIn, {
@@ -232,7 +226,6 @@ export async function POST(request: NextRequest, context: Context) {
       const response = json({ wallet });
       response.cookies.set("sonnely_session", token, { ...cookie, maxAge: 7 * 86400 });
       response.cookies.set("sonnely_challenge", "", { ...cookie, maxAge: 0 });
-      response.cookies.set("fathom_challenge", "", { ...cookie, maxAge: 0 });
       return response;
     }
 
@@ -242,7 +235,6 @@ export async function POST(request: NextRequest, context: Context) {
       await db.mutation(api.sonnely.signOut, auth);
       const response = json({ ok: true });
       response.cookies.set("sonnely_session", "", { ...cookie, maxAge: 0 });
-      response.cookies.set("fathom_session", "", { ...cookie, maxAge: 0 });
       return response;
     }
     if (task === "accept-terms") {
@@ -408,7 +400,7 @@ export async function POST(request: NextRequest, context: Context) {
       const { reference, signature, version } = z
         .object({
           reference: address,
-          version: z.union([z.literal("legacy"), z.literal(0), z.literal(1)]).optional(),
+          version: paymentTransactionVersion.optional(),
           signature: z
             .string()
             .min(64)
@@ -441,9 +433,23 @@ export async function POST(request: NextRequest, context: Context) {
         if (version === undefined) throw new SonnelyError("Choose a supported wallet transaction version.");
         if (order.sol && order.sol.expiresAt <= Date.now())
           throw new SonnelyError("This SOL quote expired. Start a new payment.", 409);
-        if (await findMatchingPayment(rpc, profile.wallet, order, "confirmed"))
+        const [height, submitted] = await Promise.all([
+          finalizedBlockHeight(rpc),
+          findMatchingPayment(rpc, profile.wallet, order, "confirmed"),
+        ]);
+        if (submitted)
           throw new SonnelyError("This payment is on chain. Wait for finality before trying again.", 409);
-        return json({ transaction: await preparePayment(rpc, profile.wallet, order, version) });
+        const active = order.checkoutTransaction;
+        if (active && active.lastValidBlockHeight >= height)
+          return json(paymentEnvelopeResponse(active.transaction, version));
+        const draft = await preparePaymentEnvelope(rpc, profile.wallet, order, version);
+        const transaction = await db.mutation(api.sonnely.saveDepositTransaction, {
+          ...auth,
+          reference,
+          ...draft,
+          observedHeight: height,
+        });
+        return json(paymentEnvelopeResponse(transaction, version));
       }
       if (signature) await verifyPayment(rpc, signature, profile.wallet, order, "finalized", false);
       const finalized = signature ?? (await findMatchingPayment(rpc, profile.wallet, order, "finalized"));

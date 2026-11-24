@@ -55,10 +55,10 @@ export const articles = [
     slug: "credits-and-quotes",
     title: "How wallet funding works",
     category: "Billing",
-    summary: "What happens between a USDC payment request and a credit entry.",
+    summary: "What happens between a SOL or USDC payment request and a credit entry.",
     body: [
-      "The wallet funding page shows a Solana Pay request when a treasury is configured. Each request has a unique reference and a fixed USDC amount. Your wallet shows the transfer before you authorize it. On Seeker, you can connect through Mobile Wallet Adapter in Android Chrome. A Solana Pay link and QR code are available from checkout.",
-      "The account receives credits once Sonnely verifies a finalized mainnet payment with the matching wallet, token, amount, recipient, and reference. Billing checks automatically while the payment is open. Resume a pending payment from history if you close the page. Devnet payments support testing without creating spendable credits.",
+      "Checkout creates a unique Solana Pay reference for each SOL or USDC transfer. SOL quotes show the amount and when it expires. Review the transfer in your wallet before approving it. On Seeker, connect through Mobile Wallet Adapter in Android Chrome, or use the Solana Pay link or QR code from checkout.",
+      "The account receives credits once Sonnely verifies a finalized mainnet payment with the matching wallet, asset, amount, recipient, and reference. Billing checks automatically while the payment is open. Resume a pending payment from history if you close the page. Devnet payments support testing without creating spendable credits.",
     ],
   },
   {

@@ -5,6 +5,8 @@ import bs58 from "bs58";
 import { models } from "../lib/models";
 import { createSignInMessageText, verifySignIn } from "@solana/wallet-standard-util";
 import type { SolanaSignInInput } from "@solana/wallet-standard-features";
+import { address, getOffchainMessageV1Encoder } from "@solana/kit";
+import { verifyWalletSignIn } from "../lib/solana-sign-in";
 
 function createWallet() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -25,14 +27,23 @@ async function registerWallet(context: BrowserContext, mobileAdapter = false) {
       features: ["solana:signMessage"],
     };
     const browserWindow = window as typeof window & { signFixture: (message: number[]) => Promise<number[]> };
+    let accounts: typeof account[] = [];
     const fixture = {
       version: "1.0.0",
       name: mobileAdapter ? "Mobile Wallet Adapter" : "Test Solana Wallet",
       icon: "data:image/png;base64,",
-      accounts: [],
+      get accounts() {
+        return accounts;
+      },
       chains: [chain],
       features: {
-        "standard:connect": { version: "1.0.0", connect: async () => ({ accounts: [account] }) },
+        "standard:connect": {
+          version: "1.0.0",
+          connect: async () => {
+            accounts = [account];
+            return { accounts };
+          },
+        },
         ...(mobileAdapter && {
           "solana:signIn": {
             version: "1.0.0",
@@ -60,85 +71,117 @@ async function registerWallet(context: BrowserContext, mobileAdapter = false) {
   return identity.wallet;
 }
 
-test("wallet sign-in uses native SIWS and posts the exact signed bytes", async ({ page }) => {
-  const identity = createWallet();
-  const input = {
-    address: identity.wallet,
-    domain: "localhost",
-    uri: "http://localhost",
-    statement: "Sign in to Sonnely.",
-    nonce: "ab0123456789",
-    version: "1",
-  };
-  let verified = false;
-  await page.exposeFunction("signNativeFixture", (draft: SolanaSignInInput) => {
-    expect(draft).toEqual(input);
-    const message = new TextEncoder().encode(createSignInMessageText(input));
-    return { signedMessage: [...message], signature: identity.sign(message) };
-  });
-  await page.addInitScript(
-    ({ wallet, bytes }) => {
-      const account = {
-        address: wallet,
-        publicKey: Uint8Array.from(bytes),
-        chains: ["solana:mainnet"],
-        features: ["solana:signIn"],
-      };
-      const browser = window as typeof window & {
-        signNativeFixture: (draft: unknown) => Promise<{ signedMessage: number[]; signature: number[] }>;
-      };
-      window.addEventListener("wallet-standard:app-ready", (event) => {
-        (event as CustomEvent).detail.register({
-          version: "1.0.0",
-          name: "Native SIWS fixture",
-          icon: "data:image/png;base64,",
-          accounts: [],
-          chains: account.chains,
-          features: {
-            "standard:connect": { version: "1.0.0", connect: async () => ({ accounts: [account] }) },
-            "solana:signIn": {
-              version: "1.0.0",
-              signIn: async (draft: unknown) => {
-                const result = await browser.signNativeFixture(draft);
-                return [
-                  {
-                    account,
-                    signedMessage: Uint8Array.from(result.signedMessage),
-                    signature: Uint8Array.from(result.signature),
-                  },
-                ];
-              },
-            },
-          },
-        });
-      });
-    },
-    { wallet: identity.wallet, bytes: identity.bytes },
-  );
-  await page.route("**/api/sonnely/session", (route) =>
-    route.fulfill({
-      json: { enabled: true, profile: verified ? { wallet: identity.wallet, balance: 0 } : null },
-    }),
-  );
-  await page.route("**/api/sonnely/challenge", (route) =>
-    route.fulfill({ json: { input, message: createSignInMessageText(input) } }),
-  );
-  await page.route("**/api/sonnely/verify", (route) => {
-    const { wallet, signature, signedMessage } = route.request().postDataJSON();
-    expect(wallet).toBe(identity.wallet);
-    verified = verifySignIn(input, {
-      account: { address: wallet, publicKey: Uint8Array.from(identity.bytes), chains: [], features: [] },
-      signature: Uint8Array.from(signature),
-      signedMessage: Uint8Array.from(signedMessage),
+for (const mode of ["native SIWS", "native SIWS with off-chain signing", "standalone off-chain signing"]) {
+  test(`wallet sign-in uses ${mode} and posts the exact signed bytes`, async ({ page }) => {
+    const standalone = mode === "standalone off-chain signing";
+    const offchain = mode !== "native SIWS";
+    const identity = createWallet();
+    const input = {
+      address: identity.wallet,
+      domain: "localhost",
+      uri: "http://localhost",
+      statement: "Sign in to Sonnely.",
+      nonce: "ab0123456789",
+      version: "1",
+    };
+    let verified = false;
+    const signedMessageFormat = offchain ? { kind: "offchainMessage", messageVersion: 1 } as const : undefined;
+    await page.exposeFunction("signNativeFixture", (draft: SolanaSignInInput | string) => {
+      const content = createSignInMessageText(input);
+      expect(draft).toEqual(
+        standalone ? content : offchain ? { ...input, useOffchainMessage: { messageVersion: 1 } } : input,
+      );
+      const message = offchain
+        ? Uint8Array.from(getOffchainMessageV1Encoder().encode({
+            content,
+            requiredSignatories: [{ address: address(identity.wallet) }],
+            version: 1,
+          }))
+        : new TextEncoder().encode(content);
+      return { signedMessage: [...message], signature: identity.sign(message) };
     });
-    expect(verified).toBe(true);
-    return route.fulfill({ json: { wallet } });
+    await page.addInitScript(
+      ({ wallet, bytes, offchain, standalone }) => {
+        const account = {
+          address: wallet,
+          publicKey: Uint8Array.from(bytes),
+          chains: ["solana:mainnet"],
+          features: [standalone ? "solana:signOffchainMessage" : "solana:signIn"],
+        };
+        const browser = window as typeof window & {
+          signNativeFixture: (draft: unknown) => Promise<{ signedMessage: number[]; signature: number[] }>;
+        };
+        let accounts: typeof account[] = [];
+        window.addEventListener("wallet-standard:app-ready", (event) => {
+          (event as CustomEvent).detail.register({
+            version: "1.0.0",
+            name: "Native SIWS fixture",
+            icon: "data:image/png;base64,",
+            get accounts() {
+              return accounts;
+            },
+            chains: account.chains,
+            features: {
+              "standard:connect": {
+                version: "1.0.0",
+                connect: async () => {
+                  accounts = [account];
+                  return { accounts };
+                },
+              },
+              ...(standalone ? {
+                "solana:signOffchainMessage": {
+                  version: "1.0.0",
+                  supportedMessageVersions: [1],
+                  signOffchainMessage: async ({ message }: { message: string }) => {
+                    const result = await browser.signNativeFixture(message);
+                    return [{
+                      signedOffchainMessage: Uint8Array.from(result.signedMessage),
+                      signature: Uint8Array.from(result.signature),
+                    }];
+                  },
+                },
+              } : { "solana:signIn": {
+                version: offchain ? "1.1.0" : "1.0.0",
+                signIn: async (draft: unknown) => {
+                  const result = await browser.signNativeFixture(draft);
+                  return [
+                    {
+                      account,
+                      signedMessage: Uint8Array.from(result.signedMessage),
+                      signature: Uint8Array.from(result.signature),
+                    },
+                  ];
+                },
+              } }),
+            },
+          });
+        });
+      },
+      { wallet: identity.wallet, bytes: identity.bytes, offchain, standalone },
+    );
+    await page.route("**/api/sonnely/session", (route) =>
+      route.fulfill({
+        json: { enabled: true, profile: verified ? { wallet: identity.wallet, balance: 0 } : null },
+      }),
+    );
+    await page.route("**/api/sonnely/challenge", (route) =>
+      route.fulfill({ json: { input, message: createSignInMessageText(input) } }),
+    );
+    await page.route("**/api/sonnely/verify", async (route) => {
+      const { wallet, signature, signedMessage, signedMessageFormat: format } = route.request().postDataJSON();
+      expect(wallet).toBe(identity.wallet);
+      expect(format).toEqual(signedMessageFormat);
+      verified = await verifyWalletSignIn(input, Uint8Array.from(signature), Uint8Array.from(signedMessage), format);
+      expect(verified).toBe(true);
+      return route.fulfill({ json: { wallet } });
+    });
+    await page.goto("/console");
+    await page.getByRole("button", { name: "Connect wallet" }).click();
+    await page.getByRole("button", { name: "Native SIWS fixture" }).click();
+    await expect.poll(() => verified).toBe(true);
   });
-  await page.goto("/console");
-  await page.getByRole("button", { name: "Connect wallet" }).click();
-  await page.getByRole("button", { name: "Native SIWS fixture" }).click();
-  await expect.poll(() => verified).toBe(true);
-});
+}
 
 test("Mobile Wallet Adapter signs a fresh challenge when native SIWS would use cached authorization", async ({
   page,
@@ -392,7 +435,17 @@ test("wallet challenges reject wrong origins, invalid signatures, and replay", a
     headers: { origin, cookie },
   });
   expect(invalid.status()).toBe(401);
-  const body = { wallet, signature: sign(new TextEncoder().encode(data.message)) };
+  const message = Uint8Array.from(getOffchainMessageV1Encoder().encode({
+    version: 1,
+    content: data.message,
+    requiredSignatories: [{ address: address(wallet) }],
+  }));
+  const body = {
+    wallet,
+    signature: sign(message),
+    signedMessage: [...message],
+    signedMessageFormat: { kind: "offchainMessage", messageVersion: 1 },
+  };
   const valid = await request.post(verifyRoute, { data: body, headers: { origin, cookie } });
   expect(valid.ok()).toBeTruthy();
   const replay = await request.post(verifyRoute, { data: body, headers: { origin, cookie } });
