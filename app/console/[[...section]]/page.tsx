@@ -17,6 +17,7 @@ const sections = [
   "blackboxes",
   "dry-docks",
   "billing",
+  "teams",
   "referrals",
   "support",
   "settings",

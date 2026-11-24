@@ -51,6 +51,32 @@ export default defineSchema({
     .index("by_referral", ["referral"])
     .index("by_username", ["username"])
     .index("by_inviter", ["invitedBy"]),
+  teams: defineTable({ name: v.string(), owner: v.id("accounts") }),
+  teamMembers: defineTable({
+    team: v.id("teams"),
+    account: v.id("accounts"),
+    role: v.union(v.literal("owner"), v.literal("admin"), v.literal("member")),
+  })
+    .index("by_team_and_account", ["team", "account"])
+    .index("by_account", ["account"]),
+  teamInvites: defineTable({
+    team: v.id("teams"),
+    wallet: v.string(),
+    role: v.union(v.literal("admin"), v.literal("member")),
+    inviter: v.id("teamMembers"),
+    expires: v.number(),
+  })
+    .index("by_team_and_wallet", ["team", "wallet"])
+    .index("by_team_and_expires", ["team", "expires"])
+    .index("by_wallet_and_expires", ["wallet", "expires"]),
+  teamProjects: defineTable({
+    team: v.id("teams"),
+    payer: v.id("accounts"),
+    name: v.string(),
+    budget: v.number(),
+    spent: v.number(),
+    archived: v.boolean(),
+  }).index("by_team_and_archived", ["team", "archived"]),
   sessions: defineTable({
     hash: v.string(),
     account: v.id("accounts"),
@@ -61,6 +87,8 @@ export default defineSchema({
     .index("by_expiry", ["expires"]),
   keys: defineTable({
     account: v.id("accounts"),
+    project: v.optional(v.id("teamProjects")),
+    issuer: v.optional(v.id("teamMembers")),
     name: v.string(),
     prefix: v.string(),
     hash: v.string(),
@@ -72,7 +100,9 @@ export default defineSchema({
     lastUsed: v.optional(v.number()),
   })
     .index("by_hash", ["hash"])
-    .index("by_account", ["account"]),
+    .index("by_account", ["account"])
+    .index("by_account_and_project", ["account", "project"])
+    .index("by_project_and_revoked", ["project", "revoked"]),
   keyDays: defineTable({ key: v.id("keys"), day: v.string(), spent: v.number() }).index("by_key_day", [
     "key",
     "day",
@@ -82,6 +112,7 @@ export default defineSchema({
     .index("by_window", ["window"]),
   usage: defineTable({
     account: v.id("accounts"),
+    project: v.optional(v.id("teamProjects")),
     key: v.optional(v.id("keys")),
     keyName: v.string(),
     keyDay: v.optional(v.string()),
@@ -105,6 +136,7 @@ export default defineSchema({
     status: requestStatus,
   })
     .index("by_account", ["account"])
+    .index("by_project", ["project"])
     .index("by_account_keyName", ["account", "keyName"])
     .index("by_account_model", ["account", "model"])
     .index("by_account_provider", ["account", "provider"])

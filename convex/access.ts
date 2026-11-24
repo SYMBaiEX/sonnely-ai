@@ -20,6 +20,14 @@ export async function requireActiveKey(ctx: QueryCtx, hash: string, now: number)
     .unique();
   if (!key || key.revoked || (key.expires !== null && key.expires <= now))
     throw new ConvexError("Invalid or expired API key.");
+  if (key.project) {
+    const project = await ctx.db.get("teamProjects", key.project);
+    if (!project || project.archived || project.payer !== key.account || !key.issuer)
+      throw new ConvexError("Invalid or expired API key.");
+    const membership = await ctx.db.get("teamMembers", key.issuer);
+    if (!membership || membership.team !== project.team || membership.role === "member")
+      throw new ConvexError("Invalid or expired API key.");
+  }
   return key;
 }
 

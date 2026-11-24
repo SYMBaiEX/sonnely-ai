@@ -35,6 +35,10 @@ export async function settleUsage(
       await ctx.db.patch(key._id, { lifetime: key.lifetime - refund });
     }
   }
+  if (row.project && refund > 0) {
+    const project = await ctx.db.get("teamProjects", row.project);
+    if (project) await ctx.db.patch("teamProjects", project._id, { spent: project.spent - refund });
+  }
   const settledAt = Date.now();
   const providerReportedCostNano = row.provider === undefined ? undefined : args.providerReportedCostNano;
   const knownUsage =

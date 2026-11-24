@@ -44,6 +44,7 @@ import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from
 import { Onboarding } from "./onboarding";
 import { RequestLogs } from "./request-logs";
 import { SupportPanel } from "./support";
+import { Teams } from "./teams";
 import { TermsAcceptance } from "./terms-acceptance";
 import { useSession, WalletControl } from "./wallet";
 import { WorkspaceHeading } from "./workspace-heading";
@@ -57,6 +58,7 @@ const nav = [
   { id: "blackboxes", title: "Blackboxes", path: "/console/blackboxes", Icon: Box },
   { id: "dry-docks", title: "Dry Docks", path: "/console/dry-docks", Icon: Container },
   { id: "billing", title: "Billing", path: "/console/billing", Icon: Wallet },
+  { id: "teams", title: "Teams", path: "/console/teams", Icon: Users },
   { id: "referrals", title: "Referrals", path: "/console/referrals", Icon: Users },
   { id: "support", title: "Support", path: "/console/support", Icon: LifeBuoy },
   { id: "admin", title: "Admin", path: "/console/admin", Icon: ShieldCheck },
@@ -449,6 +451,7 @@ export function ConsoleScreen({
       )}
       {section === "admin" && <Admin session={session} features={features} />}
       {section === "keys" && <Keys signedIn={signedIn} />}
+      {section === "teams" && <Teams wallet={profile?.wallet} />}
       {section === "logs" && <RequestLogs key={profile?.wallet ?? "guest"} wallet={profile?.wallet} />}
       {section === "usage" && (
         <>
