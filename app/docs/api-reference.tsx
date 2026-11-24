@@ -4,6 +4,7 @@ import { CopyButton } from "@/components/shared";
 
 const endpoints = [
   ["GET", "/models", "#list-models", "Discover model IDs and provider rates"],
+  ["GET", "/key", "#check-the-current-api-key", "Inspect API key budget and expiry"],
   ["GET", "/provider-models", "#provider-catalogs", "Browse upstream model inventories"],
   ["POST", "/chat/completions", "#create-a-completion", "Generate text or stream a completion"],
   ["POST", "/embeddings", "#specialized-inference", "Create text embeddings"],

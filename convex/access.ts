@@ -13,6 +13,16 @@ export function service(input: string) {
   if (mismatch !== 0) throw new ConvexError("Unauthorized.");
 }
 
+export async function requireActiveKey(ctx: QueryCtx, hash: string, now: number) {
+  const key = await ctx.db
+    .query("keys")
+    .withIndex("by_hash", (q) => q.eq("hash", hash))
+    .unique();
+  if (!key || key.revoked || (key.expires !== null && key.expires <= now))
+    throw new ConvexError("Invalid or expired API key.");
+  return key;
+}
+
 export async function accountFor(ctx: QueryCtx, session: string) {
   const row = await ctx.db
     .query("sessions")
