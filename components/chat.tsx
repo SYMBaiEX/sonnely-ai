@@ -421,6 +421,14 @@ export function Chat({
             {localHistory ? "History stays on this device." : "History saving is off."}
           </p>
         )}
+        {!activeSample && !!current?.messages.length && (
+          <div className="playground-history-actions">
+            <button className="button quiet small" type="button" onClick={downloadTranscript} disabled={busy}>
+              <Download size={16} aria-hidden="true" /> Export
+            </button>
+            <CopyButton value={transcript(current, "txt")} label="Copy transcript" />
+          </div>
+        )}
         <Link className="text-link" href="/console/keys">
           <KeyRound size={15} /> Set up API access
         </Link>
@@ -442,38 +450,32 @@ export function Chat({
                 }}
               />
               <div className="chat-tools">
-                {!activeSample && !!current?.messages.length && (
-                  <>
-                    <button
-                      className="button quiet small"
-                      type="button"
-                      onClick={downloadTranscript}
-                      disabled={busy}
-                    >
-                      <Download size={16} aria-hidden="true" /> Export
-                    </button>
-                    <CopyButton value={transcript(current, "txt")} label="Copy transcript" />
-                  </>
-                )}
                 <button
                   className="button quiet small"
                   type="button"
                   onClick={() => setShowHistory(!showHistory)}
                   ref={historyButton}
+                  aria-label="History"
                   aria-expanded={showHistory}
                   aria-controls="playground-history"
                 >
-                  <History size={16} aria-hidden="true" /> History
+                  <History size={16} aria-hidden="true" /> <span>History</span>
                 </button>
-                <button className="button quiet small" type="button" onClick={start} disabled={busy}>
-                  <Plus size={16} aria-hidden="true" /> New chat
+                <button
+                  className="button quiet small"
+                  type="button"
+                  aria-label="New chat"
+                  onClick={start}
+                  disabled={busy}
+                >
+                  <Plus size={16} aria-hidden="true" /> <span>New chat</span>
                 </button>
               </div>
             </div>,
             controls.mount,
           )}
         {!messages.length && (
-          <div className="chat-welcome">
+          <div className="playground-editor-title">
             <h2>What are you working on?</h2>
           </div>
         )}

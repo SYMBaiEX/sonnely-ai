@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { ArrowRight, Download, FileUp, Terminal } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowRight, Download, FileUp } from "lucide-react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   isSpecializedMultipart,
   realtimeModel,
@@ -160,6 +160,9 @@ export function PlaygroundInference({
   onRunningChange: (value: boolean) => void;
   controls: HTMLDivElement | null;
 }) {
+  const uid = useId();
+  const formId = uid + "-request";
+  const fileHintId = uid + "-file-hint";
   const pending = useRef<AbortController | null>(null);
   const [selectedModel, setSelectedModel] = useState("");
   const [result, setResult] = useState<Result>();
@@ -293,19 +296,19 @@ export function PlaygroundInference({
   }
 
   return (
-    <div className="playground-run-grid">
-      <section className="playground-pane" aria-labelledby="playground-request-title">
-        <header className="playground-pane-header">
-          <h2 id="playground-request-title">Request</h2>
-        </header>
+    <div className="playground-editor">
+      <div className="playground-editor-title">
+        <h2>{workload.label}</h2>
+      </div>
+      <section className="playground-pane" aria-label="Request">
         {controls &&
           createPortal(
             <div className="playground-model-select">
               <label>
-                Model
+                <span className="visually-hidden">Model</span>
                 <select
                   name="model"
-                  form="playground-specialized-request"
+                  form={formId}
                   value={model}
                   disabled={busy}
                   onChange={(event) => setSelectedModel(event.currentTarget.value)}
@@ -318,23 +321,7 @@ export function PlaygroundInference({
             </div>,
             controls,
           )}
-        <div className="playground-request-config">
-          <div className="playground-route-summary">
-            <strong>{provider}</strong>
-            <span>
-              {requestPrice === null ? (
-                <Link href="/docs/providers">Usage-based pricing</Link>
-              ) : (
-                new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                  maximumFractionDigits: 6,
-                }).format(requestPrice) + " per completed request"
-              )}
-            </span>
-          </div>
-        </div>
-        <form id="playground-specialized-request" className="playground-request" onSubmit={run}>
+        <form id={formId} className="playground-request playground-entry" onSubmit={run}>
           {"field" in workload && (
             <label>
               {workload.field === "query"
@@ -389,17 +376,30 @@ export function PlaygroundInference({
                   accept={workload.accept}
                   required
                   disabled={busy}
-                  aria-describedby="playground-file-hint"
+                  aria-describedby={fileHintId}
                   onChange={(event) => setFileName(event.currentTarget.files?.[0]?.name ?? "")}
                 />
               </label>
-              <p id="playground-file-hint">
-                {"hint" in workload ? workload.hint : "Maximum file size 2 MB."}
-              </p>
+              <p id={fileHintId}>{"hint" in workload ? workload.hint : "Maximum file size 2 MB."}</p>
               {fileName && <p className="playground-file-name">{fileName}</p>}
             </div>
           )}
           <div className="playground-run-actions">
+            <div className="playground-route-summary">
+              <strong>{provider}</strong>
+              <span>
+                {requestPrice === null ? (
+                  <Link href="/docs/providers">Usage-based pricing</Link>
+                ) : (
+                  new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                    maximumFractionDigits: 6,
+                  }).format(requestPrice) + " per completed request"
+                )}
+              </span>
+            </div>
+
             <button className="button accent" type="submit" disabled={Boolean(blocked)} aria-disabled={busy}>
               {busy ? "Running…" : "Run request"} <ArrowRight size={17} aria-hidden="true" />
             </button>
@@ -412,11 +412,17 @@ export function PlaygroundInference({
           </div>
         </form>
       </section>
-      <section className="playground-pane" aria-labelledby="playground-result-title">
-        <header className="playground-pane-header">
-          <h2 id="playground-result-title">Result</h2>
-          {result?.text && <CopyButton value={result.text} label="Copy result" />}
-        </header>
+      <section
+        className="playground-output"
+        aria-label="Result"
+        data-idle={(!busy && !result && !error && !notice) || undefined}
+      >
+        {(busy || result || error || notice) && (
+          <header className="playground-pane-header">
+            <h2>Result</h2>
+            {result?.text && <CopyButton value={result.text} label="Copy result" />}
+          </header>
+        )}
         <div className="playground-result">
           <p className="playground-result-status" role="status">
             {busy ? "Running request…" : result ? "Request completed." : notice}
@@ -425,12 +431,6 @@ export function PlaygroundInference({
             <p className="playground-request-error" role="alert">
               {error}
             </p>
-          )}
-          {!busy && !result && !error && !notice && (
-            <div className="playground-result-empty">
-              <Terminal size={28} aria-hidden="true" />
-              <p>Run a request to see its result here.</p>
-            </div>
           )}
           {partial && (
             <pre tabIndex={0} aria-label="Partial transcript">

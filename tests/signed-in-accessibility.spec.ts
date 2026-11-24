@@ -112,6 +112,12 @@ test("the playground switches endpoints in one workspace and preserves the chat 
   await endpoint.selectOption("redact");
   await expect(page.getByText("POST /redact", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  const request = page.getByRole("region", { name: "Request", exact: true });
+  const input = request.getByRole("textbox", { name: "Input text" });
+  await input.fill("Private sample for this endpoint");
+  await endpoint.selectOption("realtime");
+  await endpoint.selectOption("redact");
+  await expect(input).toHaveValue("Private sample for this endpoint");
   const run = page.getByRole("button", { name: "Run request" });
   if (await run.isDisabled()) {
     await expect(page.getByText("This route is currently unavailable.")).toBeVisible();
@@ -120,6 +126,9 @@ test("the playground switches endpoints in one workspace and preserves the chat 
     const result = page.getByRole("region", { name: "Result" });
     await expect(result.getByRole("status")).toHaveText("Request completed.");
     await expect(result).toContainText("Contact [EMAIL].");
+    await expect(result).toContainText("fixture-reference");
+    await endpoint.selectOption("chat");
+    await endpoint.selectOption("redact");
     await expect(result).toContainText("fixture-reference");
   }
   await endpoint.selectOption("chat");

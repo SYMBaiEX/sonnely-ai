@@ -397,7 +397,12 @@ export function ConsoleScreen({
   return (
     <>
       {section === "chat" && (
-        <Playground session={session} providers={availableProviders} refresh={refresh}>
+        <Playground
+          key={profile?.wallet ?? "guest"}
+          session={session}
+          providers={availableProviders}
+          refresh={refresh}
+        >
           <Chat
             key={
               (profile?.wallet ?? "guest") +

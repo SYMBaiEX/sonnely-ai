@@ -455,15 +455,6 @@
   margin-inline-start: auto;
 }
 
-.playground-run-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.playground-pane + .playground-pane {
-  border-inline-start: 1px solid var(--line);
-}
-
 .playground-pane {
   min-inline-size: 0;
   display: flex;
@@ -483,18 +474,12 @@
 }
 
 .playground-request,
-.playground-request-config,
 .playground-result {
   display: grid;
   align-content: start;
   gap: 1rem;
   padding: 1rem clamp(.875rem, 2vw, 1.375rem);
   min-inline-size: 0;
-}
-
-.playground-request-config {
-  border-block-end: 1px solid var(--line);
-  gap: .5rem;
 }
 
 .playground-pane label {
@@ -579,16 +564,6 @@
   margin-block-end: -1rem;
 }
 
-.playground-result-empty {
-  color: var(--muted);
-  display: grid;
-  place-items: center;
-  align-content: center;
-  min-block-size: 14rem;
-  text-align: center;
-  gap: .75rem;
-}
-
 .playground-result pre {
   margin: 0;
   padding: .875rem;
@@ -655,21 +630,8 @@
     margin-inline-start: 0;
   }
 
-  .playground-run-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .playground-pane + .playground-pane {
-    border-inline-start: none;
-    border-block-start: 1px solid var(--line);
-  }
-
   .playground-pane {
     min-block-size: 0;
-  }
-
-  .playground-result-empty {
-    min-block-size: 8rem;
   }
 
   .playground-canvas .chat-layout {
@@ -823,4 +785,140 @@
 
 .playground-workload-shortcuts svg {
   color: var(--accent);
+}
+
+.playground-stage {
+  min-block-size: clamp(30rem, calc(100dvh - 9rem), 49rem);
+  min-inline-size: 0;
+}
+
+.playground-mode:not([hidden]) {
+  animation: playground-content-in 160ms ease-out both;
+}
+
+@keyframes playground-content-in {
+  from {
+    opacity: .65;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playground-mode:not([hidden]) {
+    animation: none;
+  }
+}
+
+.playground-canvas .chat-layout {
+  min-block-size: 0;
+}
+
+.playground-canvas .chat-main,
+.playground-editor {
+  width: min(53rem, 100%);
+  margin-inline: auto;
+  padding: clamp(2.25rem, 6vh, 4rem) clamp(1rem, 4vw, 2rem) 1.5rem;
+}
+
+.playground-editor-title {
+  margin: 0 0 1.25rem;
+}
+
+.playground-editor-title h2 {
+  font-size: clamp(1.5rem, 3vw, 2.375rem);
+  font-weight: 560;
+  line-height: 1.12;
+  letter-spacing: -.04em;
+}
+
+.playground-editor .playground-pane {
+  min-block-size: 0;
+}
+
+.playground-editor .playground-request {
+  padding: 1rem;
+}
+
+.playground-editor .playground-request textarea {
+  min-block-size: 6rem;
+}
+
+.playground-editor .playground-run-actions {
+  align-items: center;
+  padding-block-start: .75rem;
+  border-block-start: 1px solid var(--line);
+}
+
+.playground-editor .playground-route-summary {
+  flex: 1 1 12rem;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.playground-editor .playground-output:not([data-idle]) {
+  margin-block-start: 1.125rem;
+  border-block-start: 1px solid var(--line);
+}
+
+.playground-editor .playground-output[data-idle] .playground-result {
+  padding: 0;
+}
+
+.playground-editor .playground-result,
+.playground-editor .playground-pane-header,
+.playground-editor .playground-result-footer {
+  padding-inline: 0;
+}
+
+@media (max-width: 700px) {
+  .playground-canvas .chat-main,
+  .playground-editor {
+    padding-block-start: 1.625rem;
+  }
+}
+
+.playground-toolbar-controls {
+  min-block-size: 3rem;
+}
+
+.playground-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .375rem;
+  margin-block-start: .75rem;
+}
+
+@media (max-width: 700px) {
+  .playground-chat-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .playground-chat-controls .chat-tools {
+    flex-wrap: nowrap;
+  }
+
+  .playground-chat-controls .chat-tools .button {
+    inline-size: 2.75rem;
+    padding-inline: 0;
+  }
+
+  .playground-chat-controls .chat-tools .button span {
+    display: none;
+  }
+
+  .playground-chat-controls .playground-route-trigger {
+    block-size: 3rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .playground-chat-controls .playground-route-label strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }

@@ -35,9 +35,16 @@ export function Playground({
   refresh: () => Promise<void>;
 }) {
   const [endpoint, setEndpoint] = useState<Workload | "chat">("chat");
+  const [visited, setVisited] = useState<Workload[]>([]);
   const [controls, setControls] = useState<HTMLDivElement | null>(null);
   const endpointPicker = useRef<HTMLSelectElement>(null);
   const [running, setRunning] = useState(false);
+  function choose(next: Workload | "chat") {
+    if (next === endpoint || running) return;
+    if (next !== "chat") setVisited((current) => (current.includes(next) ? current : [...current, next]));
+    setEndpoint(next);
+  }
+
   const route =
     endpoint === "chat"
       ? "POST /chat/completions"
@@ -56,7 +63,7 @@ export function Playground({
             value={endpoint}
             disabled={running}
             onChange={(event) => {
-              setEndpoint(event.currentTarget.value as Workload | "chat");
+              choose(event.currentTarget.value as Workload | "chat");
             }}
           >
             <option value="chat">Chat Completions</option>
@@ -79,23 +86,28 @@ export function Playground({
           mount: controls,
           chat: endpoint === "chat",
           select: (next) => {
-            setEndpoint(next);
+            choose(next);
             endpointPicker.current?.focus();
           },
         }}
       >
-        <div hidden={endpoint !== "chat"}>{children}</div>
-        {endpoint !== "chat" && (
-          <PlaygroundInference
-            key={endpoint}
-            endpoint={endpoint}
-            session={session}
-            providers={providers}
-            refresh={refresh}
-            onRunningChange={setRunning}
-            controls={controls}
-          />
-        )}
+        <div className="playground-stage">
+          <div className="playground-mode" hidden={endpoint !== "chat"}>
+            {children}
+          </div>
+          {visited.map((id) => (
+            <div className="playground-mode" key={id} hidden={endpoint !== id}>
+              <PlaygroundInference
+                endpoint={id}
+                session={session}
+                providers={providers}
+                refresh={refresh}
+                onRunningChange={setRunning}
+                controls={endpoint === id ? controls : null}
+              />
+            </div>
+          ))}
+        </div>
       </PlaygroundControls.Provider>
     </div>
   );
