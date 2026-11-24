@@ -17,6 +17,7 @@ import { useAction } from "@solana/react";
 import {
   SolanaSignAndSendTransaction,
   SolanaSignMessage,
+  SolanaSignTransaction,
   SolanaSignIn,
   SolanaSignOffchainMessage,
   type SolanaSignInInput,
@@ -187,7 +188,10 @@ export function WalletControl({
   const ready = useIsWalletReady(client);
   const connected = useConnectedWallet(client);
   const wallets = useWallets(client).filter((wallet) =>
-    session?.profile ? wallet.features.includes(SolanaSignAndSendTransaction) : canAuthenticateWallet(wallet),
+    session?.profile
+      ? wallet.features.includes(SolanaSignAndSendTransaction) ||
+        (wallet.features.includes(SolanaSignTransaction) && wallet.features.includes(SolanaSignMessage))
+      : canAuthenticateWallet(wallet),
   );
 
   useEffect(() => {

@@ -23,6 +23,7 @@ import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 
 import { creditBalance, creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
+import { confidentialPilotAmount, type ConfidentialPilotOrder } from "@/lib/confidential-pilot-types";
 import { solDecimal, type SolPayment } from "@/lib/sol-quote";
 import { intentFunds, type FundingQuote, type IntentFund } from "@/lib/intent-funding";
 import { MotionSwitch } from "./ambient-motion";
@@ -30,6 +31,11 @@ import { IntentsCheckout } from "./intents-checkout";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
 import { usernameHelp } from "@/lib/username";
+import {
+  confidentialPilotWalletIssue,
+  prepareConfidentialPilot,
+  signConfidentialPilot,
+} from "./confidential-usdc-wallet";
 import { solanaWalletClients } from "./solana-wallet";
 import { payWithWallet, request, type Session, type UsageRow } from "./wallet";
 import { WorkspaceHeading } from "./workspace-heading";
@@ -838,12 +844,26 @@ type Receipt = {
   archivedAt?: number;
 };
 
-function ConfidentialBilling({ wallet }: { wallet: string }) {
+const confidentialPilotRoute = "confidential-pilot/";
+
+function ConfidentialBilling({ wallet, refresh }: { wallet: string; refresh: () => Promise<void> }) {
   const [expanded, setExpanded] = useState(false);
   const summary = useRef<HTMLElement>(null);
+  const review = useRef<HTMLHeadingElement>(null);
+  const pilotStatus = useRef<HTMLParagraphElement>(null);
+  const [currentOrder, setCurrentOrder] = useState<ConfidentialPilotOrder>();
+  const [draft, setDraft] = useState<Awaited<ReturnType<typeof prepareConfidentialPilot>>>();
+  const [signed, setSigned] = useState<string>();
+  const [pending, setPending] = useState<"prepare" | "send" | "check">();
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("");
   const { data, error, reload } = useRemote<{ treasuryRegistered: boolean; walletRegistered: boolean }>(
     expanded,
     "billing-privacy-rings",
+  );
+  const pilot = useRemote<{ available: boolean; order: ConfidentialPilotOrder | null }>(
+    expanded,
+    confidentialPilotRoute + "order",
   );
   const client = solanaWalletClients.mainnet;
   const connected = useConnectedWallet(client);
@@ -861,6 +881,10 @@ function ConfidentialBilling({ wallet }: { wallet: string }) {
         : `${matchingWallet.wallet.name} · support unavailable`;
   const treasuryRegistered = data?.treasuryRegistered;
   const walletRegistered = data?.walletRegistered;
+  const order = currentOrder ?? pilot.data?.order;
+  const waitForSignature = order?.status === "pending" ? order.submission?.signature : undefined;
+  const walletIssue = walletReady ? confidentialPilotWalletIssue(wallet, matchingWallet ?? undefined) : "Checking connected wallet…";
+  const canPrepare = Boolean(pilot.data?.available && treasuryRegistered && walletRegistered && !walletIssue);
   const registrationLabel = (registered?: boolean) =>
     error ? "Unavailable" : registered === undefined ? "Checking…" : registered ? "Registered" : "Unregistered";
   const registrationStatus = error
@@ -868,6 +892,92 @@ function ConfidentialBilling({ wallet }: { wallet: string }) {
     : data
       ? `Treasury: ${registrationLabel(treasuryRegistered)}. Your wallet: ${registrationLabel(walletRegistered)}.`
       : "Checking mainnet Privacy Rings registration…";
+
+  async function receiveOrder(result: ConfidentialPilotOrder) {
+    setCurrentOrder(result);
+    if (result.status === "finalized") {
+      setDraft(undefined);
+      setSigned(undefined);
+      setPaymentError("");
+      setPaymentStatus("Confidential payment finalized. $0.01 in credits added.");
+      await refresh();
+    } else if (!result.submission) {
+      setDraft(undefined);
+      setSigned(undefined);
+      setPaymentError("");
+      setPaymentStatus("The transfer expired or failed. You can prepare it again.");
+    } else {
+      setPaymentStatus("Waiting for Solana finality…");
+    }
+  }
+
+  const reportOrder = useEffectEvent(receiveOrder);
+  const reference = order?.reference;
+  useEffect(() => {
+    if (!reference || !waitForSignature) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const updated = await request<ConfidentialPilotOrder>(confidentialPilotRoute + "status", { reference });
+        if (stopped) return;
+        await reportOrder(updated);
+        if (updated.status === "finalized" || !updated.submission) return;
+      } catch {
+        // The order stays recoverable if an RPC is temporarily unavailable.
+      }
+      if (!stopped) timer = setTimeout(poll, 7_000);
+    }
+    timer = setTimeout(poll, 7_000);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [reference, waitForSignature]);
+
+  useEffect(() => {
+    if (draft) review.current?.focus();
+  }, [draft]);
+
+  async function run(action: NonNullable<typeof pending>, callback: () => Promise<void>) {
+    setPending(action);
+    setPaymentError("");
+    try {
+      await callback();
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : "The pilot request failed.");
+    } finally {
+      setPending(undefined);
+    }
+  }
+
+  function prepare() {
+    void run("prepare", async () => {
+      setDraft(undefined);
+      setSigned(undefined);
+      setPaymentStatus("");
+      const next = await request<ConfidentialPilotOrder>(confidentialPilotRoute + "order", {});
+      setCurrentOrder(next);
+      if (next.submission) return;
+      setDraft(await prepareConfidentialPilot(next));
+    });
+  }
+
+  function approve() {
+    if (!order || !draft) return;
+    void run("send", async () => {
+      const transaction = signed ?? await signConfidentialPilot(order, draft);
+      setSigned(transaction);
+      setPaymentStatus("Submitting approved transfer…");
+      const submission = await request<ConfidentialPilotOrder>(confidentialPilotRoute + "submit", {
+        reference: order.reference, transaction, approval: draft.approval,
+      });
+      setDraft(undefined);
+      setSigned(undefined);
+      await receiveOrder(submission);
+      pilotStatus.current?.focus();
+    });
+  }
 
   return (
     <details
@@ -877,13 +987,10 @@ function ConfidentialBilling({ wallet }: { wallet: string }) {
       <summary ref={summary}>
         <Shield size={18} aria-hidden="true" />
         <span>Confidential USDC</span>
-        <span className="pill">Unavailable</span>
+        <span className="pill">Pilot</span>
         <ChevronDown size={17} aria-hidden="true" />
       </summary>
       <div className="billing-confidential-body">
-        <p className="caption">
-          Private transfers need receipt verification before they can add compute credits.
-        </p>
         <p role="status" className={error ? "caption" : "visually-hidden"}>
           {expanded ? registrationStatus : ""}
         </p>
@@ -912,6 +1019,78 @@ function ConfidentialBilling({ wallet }: { wallet: string }) {
           >
             Retry registration check
           </button>
+        )}
+        {expanded && (
+          <div className="billing-pilot-transfer">
+            <p className="caption">
+              Pay 0.01 USDC from your Privacy Rings balance. The wallet addresses and order reference are public.
+              Helius’s attested prover processes private proof inputs. Sonnely reads this transfer to verify your credits.
+            </p>
+            {!pilot.error && !pilot.data && <p role="status" className="caption">Checking pilot availability…</p>}
+            {pilot.error && (
+              <button type="button" className="button quiet" onClick={() => {
+                summary.current?.focus();
+                pilot.reload();
+              }}>Retry checkout status</button>
+            )}
+            {pilot.data && !pilot.data.available && (
+              <p className="caption">This wallet or deployment is unavailable for the pilot.</p>
+            )}
+            {pilot.data?.available && walletIssue && !waitForSignature && <p className="caption">{walletIssue}</p>}
+            {order?.status === "finalized" && order.signature && (
+              <p className="caption">
+                Latest test credited {creditBalance(confidentialPilotAmount)}.{" "}
+                <a className="text-link" href={`https://explorer.solana.com/tx/${order.signature}`}>
+                  View transaction <ArrowUpRight size={14} aria-hidden="true" />
+                </a>
+              </p>
+            )}
+            <p
+              className={paymentStatus || waitForSignature ? "status" : "visually-hidden"}
+              ref={pilotStatus}
+              tabIndex={-1}
+              role="status"
+            >
+              {paymentStatus || (waitForSignature ? "Waiting for Solana finality…" : "")}
+            </p>
+            <Failure message={paymentError} />
+            {waitForSignature && (
+              <button
+                type="button"
+                className="button quiet"
+                disabled={Boolean(pending)}
+                onClick={() => void run("check", async () => receiveOrder(await request<ConfidentialPilotOrder>(
+                  confidentialPilotRoute + "status", { reference },
+                )))}
+              >
+                {pending === "check" ? "Checking…" : "Check payment"}
+              </button>
+            )}
+            {draft && order && (
+              <section className="checkout" aria-labelledby="confidential-pilot-review">
+                <h3 id="confidential-pilot-review" tabIndex={-1} ref={review}>Review 0.01 USDC</h3>
+                <dl>
+                  <div><dt>Network</dt><dd>Solana mainnet</dd></div>
+                  <div><dt>Recipient</dt><dd>{order.treasury}</dd></div>
+                  <div><dt>Fee payer</dt><dd>{order.payer}</dd></div>
+                  <div><dt>Simulated SOL cost</dt><dd>{solDecimal(Number(draft.payerDebitLamports))} SOL</dd></div>
+                </dl>
+                <button type="button" className="button accent" disabled={Boolean(pending) || Boolean(!signed && walletIssue)} onClick={approve}>
+                  {pending === "send" ? "Waiting for approval…" : signed ? "Retry signed transfer" : "Approve 0.01 USDC"}
+                </button>
+                {!waitForSignature && (
+                  <button type="button" className="button quiet" disabled={Boolean(pending)} onClick={prepare}>
+                    Prepare a fresh simulation
+                  </button>
+                )}
+              </section>
+            )}
+            {!draft && !waitForSignature && pilot.data?.available && (
+              <button type="button" className="button quiet" disabled={!canPrepare || Boolean(pending)} onClick={prepare}>
+                {pending === "prepare" ? "Preparing test transfer…" : "Prepare 0.01 USDC test"}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </details>
@@ -1433,7 +1612,10 @@ export function Billing({
             </section>
           )}
           {profile?.role === "admin" && session?.cluster === "mainnet" && (
-            <ConfidentialBilling key={profile.wallet} wallet={profile.wallet} />
+            <ConfidentialBilling key={profile.wallet} wallet={profile.wallet} refresh={async () => {
+              reload();
+              await refresh();
+            }} />
           )}
         </section>
         <section className="panel breakdown billing-history">

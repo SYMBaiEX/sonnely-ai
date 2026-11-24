@@ -182,6 +182,25 @@ export default defineSchema({
     .index("by_account", ["account"])
     .index("by_account_cluster_signature", ["account", "cluster", "signature"])
     .index("by_cluster_recipient_signature_next_check", ["cluster", "recipient", "signature", "nextCheckAt"]),
+  confidentialPilotOrders: defineTable({
+    account: v.id("accounts"),
+    reference: v.string(),
+    payer: v.string(),
+    treasury: v.string(),
+    status: v.union(v.literal("pending"), v.literal("finalized")),
+    submission: v.optional(
+      v.object({
+        signature: v.string(),
+        messageHash: v.string(),
+        lastValidBlockHeight: v.number(),
+      }),
+    ),
+    signature: v.optional(v.string()),
+    finalizedAt: v.optional(v.number()),
+  })
+    .index("by_account_and_status", ["account", "status"])
+    .index("by_reference", ["reference"])
+    .index("by_submission_signature", ["submission.signature"]),
   creditResolutions: defineTable({
     usage: v.id("usage"),
     admin: v.id("accounts"),
