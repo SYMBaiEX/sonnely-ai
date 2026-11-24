@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowUp,
-  MessageSquare,
   ArrowUpRight,
   BadgeCheck,
   Download,
@@ -416,10 +415,17 @@ export function Chat({
       </aside>
       <section className="chat-main">
         <header className="playground-header">
-          <div className="playground-title">
-            <MessageSquare size={18} aria-hidden="true" />
-            <h2>Chat</h2>
-          </div>
+          <PlaygroundRoute
+            model={model}
+            provider={provider}
+            availableProviders={availableProviders}
+            disabled={busy}
+            onChange={(model, provider) => {
+              setModel(model);
+              setProvider(provider);
+              setError("");
+            }}
+          />
           <div className="chat-tools">
             {!activeSample && !!current?.messages.length && (
               <>
@@ -551,17 +557,6 @@ export function Chat({
             />
           </form>
           <div className="composer-controls">
-            <PlaygroundRoute
-              model={model}
-              provider={provider}
-              availableProviders={availableProviders}
-              disabled={busy}
-              onChange={(model, provider) => {
-                setModel(model);
-                setProvider(provider);
-                setError("");
-              }}
-            />
             {busy ? (
               <button
                 className="button quiet playground-send"

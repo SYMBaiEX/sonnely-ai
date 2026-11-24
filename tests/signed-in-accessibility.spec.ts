@@ -102,6 +102,8 @@ test("the playground switches endpoints in one workspace and preserves the chat 
   await page.goto("/console");
   const endpoint = page.getByRole("combobox", { name: "Endpoint", exact: true });
   await expect(endpoint).toHaveValue("chat");
+  await expect(page.getByRole("heading", { name: "Playground", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "API reference", exact: true })).toHaveCount(0);
   const message = page.getByRole("textbox", { name: "Message", exact: true });
   await message.fill("Draft conversation");
   await endpoint.selectOption("realtime");

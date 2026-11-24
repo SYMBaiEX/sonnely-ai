@@ -207,10 +207,10 @@ export function PlaygroundInference({ endpoint, session, providers, refresh, onR
         <header className="playground-pane-header">
           <h2 id="playground-request-title">Request</h2>
         </header>
-        <form className="playground-request" onSubmit={run}>
+        <div className="playground-request-config">
           <label>
             Model
-            <select name="model" value={model} disabled={busy}
+            <select name="model" form="playground-specialized-request" value={model} disabled={busy}
               onChange={(event) => setSelectedModel(event.currentTarget.value)}>
               {modelIds.map((id) => <option key={id}>{id}</option>)}
             </select>
@@ -221,6 +221,8 @@ export function PlaygroundInference({ endpoint, session, providers, refresh, onR
               new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 6 })
                 .format(requestPrice) + " per completed request"}</span>
           </div>
+        </div>
+        <form id="playground-specialized-request" className="playground-request" onSubmit={run}>
           {"field" in workload && (
             <label>
               {workload.field === "query" ? "Search query" : workload.field === "state" ? "State"
