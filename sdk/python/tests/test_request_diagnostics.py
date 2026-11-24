@@ -22,9 +22,11 @@ def message(**values):
     return headers
 
 
-def response(body, request_id=REQUEST_ID):
+def response(body, request_id=REQUEST_ID, provider=None):
     stream = io.BytesIO(body)
     stream.headers = message(x_sonnely_request_id=request_id)
+    if provider is not None:
+        stream.headers["X-Sonnely-Provider"] = provider
     return stream
 
 
@@ -57,6 +59,22 @@ class RequestDiagnosticsTest(unittest.TestCase):
         )
         self.assertEqual(observed, [ResponseMetadata(REQUEST_ID, None)] * 2)
 
+    def test_failover_order_and_serving_provider(self):
+        policy = {"only": ["tinfoil", "near-ai", "phala"], "allow_fallbacks": True}
+        request = {**REQUEST, "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017", "provider": policy}
+        observed = []
+        with patch.object(
+            self.client._opener, "open", side_effect=[
+                response(b'{"sonnely_provider":"phala"}', provider="phala"),
+                response(b'data: [DONE]\n\n', provider="phala"),
+            ],
+        ) as send:
+            result = self.client.complete(request, on_response=observed.append)
+            self.assertEqual(result["sonnely_provider"], "phala")
+            list(self.client.stream(request, on_response=observed.append))
+        self.assertEqual([json.loads(call.args[0].data)["provider"] for call in send.call_args_list], [policy] * 2)
+        self.assertEqual(observed, [ResponseMetadata(REQUEST_ID, None, "phala")] * 2)
+
     def test_duplicate_and_rate_limit_errors_expose_headers_without_retrying(self):
         url = "https://example.test/chat/completions"
         conflict = HTTPError(
@@ -79,8 +97,8 @@ class RequestDiagnosticsTest(unittest.TestCase):
 
     def test_stream_errors_keep_the_original_request_id(self):
         streams = [
-            response(b'data: {"error":{"message":"Settlement is pending.","code":502}}\n\n'),
-            response(b"data: {}\n\n"),
+            response(b'data: {"error":{"message":"Settlement is pending.","code":502}}\n\n', provider="phala"),
+            response(b"data: {}\n\n", provider="phala"),
         ]
         with patch.object(self.client._opener, "open", side_effect=streams):
             for error in ("Settlement is pending.", "The stream ended before Sonnely confirmed settlement."):
@@ -89,6 +107,7 @@ class RequestDiagnosticsTest(unittest.TestCase):
                 self.assertEqual(str(failed.exception), error)
                 self.assertEqual(failed.exception.status, 502)
                 self.assertEqual(failed.exception.request_id, REQUEST_ID)
+                self.assertEqual(failed.exception.provider, "phala")
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ const currentPages = new Set([
   "/terms",
   "/status",
   "/inference",
+  "/verify",
   "/observability",
   "/compute",
   "/blackboxes",

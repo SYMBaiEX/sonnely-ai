@@ -40,8 +40,8 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   await page.goto("/docs/sdks");
   await expect(page.getByRole("heading", { name: "SDKs", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-  await expect(page.getByText("npm install https://sonnely.com/sdk/sonnely-typescript-0.1.5.tgz", { exact: true })).toBeVisible();
-  await expect(page.getByText("python -m pip install https://sonnely.com/sdk/sonnely_sdk-0.1.5-py3-none-any.whl", { exact: true })).toBeVisible();
+  await expect(page.getByText("npm install https://sonnely.com/sdk/sonnely-typescript-0.1.6.tgz", { exact: true })).toBeVisible();
+  await expect(page.getByText("python -m pip install https://sonnely.com/sdk/sonnely_sdk-0.1.6-py3-none-any.whl", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open Search", exact: true }).click();
   const searchInput = page.getByRole("dialog").getByRole("combobox");
   await expect(searchInput).toBeFocused();
@@ -54,10 +54,12 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   expect(search.ok()).toBe(true);
   expect(await search.text()).not.toContain("/docs/blackboxes");
 
-  for (const archive of ["sonnely-typescript-0.1.4.tgz", "sonnely-typescript-0.1.5.tgz", "sonnely_sdk-0.1.4-py3-none-any.whl", "sonnely_sdk-0.1.5-py3-none-any.whl"]) {
-    const asset = await request.get("/sdk/" + archive);
-    expect(asset.ok()).toBe(true);
-    expect((await asset.body()).length).toBeGreaterThan(1000);
+  for (const version of ["0.1.4", "0.1.5", "0.1.6"]) {
+    for (const archive of [`sonnely-typescript-${version}.tgz`, `sonnely_sdk-${version}-py3-none-any.whl`]) {
+      const asset = await request.get("/sdk/" + archive);
+      expect(asset.ok()).toBe(true);
+      expect((await asset.body()).length).toBeGreaterThan(1000);
+    }
   }
   const markdown = await request.get("/docs/api.md");
   expect(markdown.headers()["content-type"]).toMatch(/^text\/markdown/);
@@ -75,6 +77,21 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
       expect(artwork.ok()).toBe(true);
       expect(artwork.headers()["content-type"]).toBe("image/webp");
     }
+  }
+});
+
+test("the Teams guide opens at its canonical and Markdown routes", async ({ page, request }) => {
+  const guide = await page.goto("/docs/teams");
+  expect(guide?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/docs\/teams$/);
+  await expect(page.getByRole("heading", { name: "Teams and projects", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Teams", exact: true })).toHaveAttribute("href", /\/console\/teams$/);
+
+  for (const route of ["/docs/teams.md", "/llms.mdx/docs/teams/content.md"]) {
+    const markdown = await request.get(route, { maxRedirects: 0 });
+    expect(markdown.status()).toBe(200);
+    expect(markdown.headers()["content-type"]).toMatch(/^text\/markdown/);
+    expect(await markdown.text()).toContain("Project requests draw credits");
   }
 });
 

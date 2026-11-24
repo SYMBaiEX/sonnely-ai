@@ -8,7 +8,6 @@ const legacyDocs = {
   authentication: "keys",
   credits: "billing",
   models: "providers",
-  teams: "workspace",
   cli: "migration",
   media: "migration",
 } as const;

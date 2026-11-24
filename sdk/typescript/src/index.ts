@@ -1,12 +1,15 @@
 import { createParser } from "eventsource-parser";
 
 export type Provider = "near-ai" | "phala" | "tinfoil";
+export type ProviderPolicy =
+  | { only: [Provider]; allow_fallbacks?: false }
+  | { only: [Provider, Provider] | [Provider, Provider, Provider]; allow_fallbacks: true };
 export type Message = { role: "system" | "user" | "assistant"; content: string };
 export type CompletionRequest = {
   model: string;
   messages: Message[];
   max_tokens?: number;
-  provider?: { only: [Provider] };
+  provider?: ProviderPolicy;
   max_cost_microusd?: number;
 };
 
@@ -45,9 +48,10 @@ export type Completion = {
   usage: Usage;
   sonnely_receipt?: Receipt;
   sonnely_request_id?: string;
+  sonnely_provider?: Provider;
 };
 
-export type CompletionChunk = Omit<Completion, "choices" | "object" | "usage" | "sonnely_request_id"> & {
+export type CompletionChunk = Omit<Completion, "choices" | "object" | "usage" | "sonnely_request_id" | "sonnely_provider"> & {
   object: "chat.completion.chunk";
   choices: {
     index: number;
@@ -70,12 +74,14 @@ export type ModelList = {
       provider: Provider;
       provider_name: string;
       upstream_model: string;
+      private_failover?: boolean;
+      capabilities?: { tools: boolean; structured_outputs: boolean };
       price_usd_per_million: { input: number; cache: number; output: number };
     }[];
   }[];
 };
 
-export type ResponseMetadata = { requestId: string | null; retryAfter: string | null };
+export type ResponseMetadata = { requestId: string | null; retryAfter: string | null; provider?: Provider };
 export type CompletionOptions = InferenceOptions & {
   receipt?: boolean;
   onResponse?: (metadata: ResponseMetadata) => void;
@@ -85,19 +91,23 @@ type ErrorEvent = { error?: { message?: string; code?: number } };
 export class SonnelyError extends Error {
   readonly requestId: string | null;
   readonly retryAfter: string | null;
+  readonly provider: Provider | null;
 
   constructor(message: string, public readonly status: number, details?: ResponseMetadata) {
     super(message);
     this.name = "SonnelyError";
     this.requestId = details?.requestId ?? null;
     this.retryAfter = details?.retryAfter ?? null;
+    this.provider = details?.provider ?? null;
   }
 }
 
 function responseMetadata(response: Response): ResponseMetadata {
+  const provider = response.headers.get("X-Sonnely-Provider");
   return {
     requestId: response.headers.get("X-Sonnely-Request-Id"),
     retryAfter: response.headers.get("Retry-After"),
+    ...(provider === "near-ai" || provider === "phala" || provider === "tinfoil" ? { provider } : {}),
   };
 }
 
