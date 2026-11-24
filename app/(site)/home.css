@@ -38,7 +38,7 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   line-height: 0.84;
   letter-spacing: -0.062em;
   word-spacing: 0.055em;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   animation: settle-in 650ms var(--ease-out) both;
 }
 .hero h1 span {
@@ -836,6 +836,12 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   gap: var(--home-collection-gap);
 }
 .gateway-tile {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  gap: clamp(12px, 1.45vw, 20px);
+  padding: var(--home-inset);
   min-width: 0;
   border: 1px solid var(--home-divider);
   border-radius: var(--radius);
@@ -853,17 +859,18 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
 .gateway-tile-funding {
   grid-column: 1 / -1;
 }
-.gateway-tile > a {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  align-items: center;
-  gap: clamp(12px, 1.45vw, 20px);
-  min-height: 100%;
-  padding: var(--home-inset);
-  border-radius: inherit;
+.gateway-tile .text-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
 }
-.gateway-tile > a:is(:hover, :focus-visible) {
-  background: color-mix(in srgb, var(--active-fill) 25%, transparent);
+.gateway-tile:has(.text-link:is(:hover, :focus-visible)) {
+  border-color: var(--control-edge);
+}
+.gateway-tile .text-link:focus-visible::after {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 .gateway-tile-copy {
   display: flex;
@@ -962,7 +969,7 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   font-size: 15px;
 }
 @media (min-width: 870px) {
-  .gateway-tile-funding > a {
+  .gateway-tile-funding {
     grid-template: auto / minmax(0, 1.2fr) minmax(0, 0.9fr) auto;
   }
 }
@@ -1005,7 +1012,6 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
 }
 .home-model-row:focus-visible,
 .home-platform a:focus-visible,
-.gateway-tile a:focus-visible,
 .resource-row:focus-visible {
   outline-offset: -2px;
 }
@@ -1246,7 +1252,7 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
     display: flex;
     flex-direction: column;
   }
-  .gateway-tile > a {
+  .gateway-tile {
     gap: 10px;
   }
   .home-platform {

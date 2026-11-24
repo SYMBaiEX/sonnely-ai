@@ -75,11 +75,11 @@ test("public routes and console work across desktop and mobile", async ({ page }
   await expect(route).toBeFocused();
   await page.getByRole("button", { name: "What is a trusted execution environment?" }).click();
   await expect(page.getByText("Sample transcript")).toBeVisible();
-  await page.getByRole("button", { name: "Quick navigation" }).click();
+  await page.getByRole("button", { name: "Jump to ⌘ K" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Usage", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Usage", exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Toggle navigation" }).click();
+  await page.getByRole("button", { name: "All pages" }).click();
   await page.getByRole("link", { name: "Settings" }).click();
   await page.getByRole("button", { name: "light", exact: true }).click();
   await expect(page.locator(".console")).toHaveAttribute("data-theme", "light");

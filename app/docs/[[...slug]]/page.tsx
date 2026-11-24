@@ -47,6 +47,7 @@ export default async function DocumentationPage({ params }: Props) {
   const markdownUrl = page.url === "/docs" ? "/llms.mdx/docs/content.md" : page.url + ".md";
   return (
     <DocsPage
+      tabIndex={-1}
       toc={page.data.toc}
       tableOfContent={{ style: "block" }}
       tableOfContentPopover={{ style: "block" }}

@@ -43,7 +43,7 @@ export function PlaygroundRoute({
       <button
         type="button"
         className="playground-route-trigger"
-        aria-label={`Choose model. ${current.name}${available ? "" : " unavailable"}`}
+        aria-label={`${current.name} ${current.type}${available ? "" : " · unavailable"}. Choose model and provider.`}
         aria-haspopup="dialog"
         onClick={open}
         disabled={disabled}

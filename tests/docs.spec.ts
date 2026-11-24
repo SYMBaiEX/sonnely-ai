@@ -122,7 +122,7 @@ test("the shared docs header leads to the site and console on desktop and mobile
 
     await header.getByRole("link", { name: "Open console" }).click();
     await expect(page).toHaveURL(/\/console$/);
-    const toggle = page.getByRole("button", { name: "Toggle navigation" });
+    const toggle = page.getByRole("button", { name: "All pages" });
     if (await toggle.isVisible()) await toggle.click();
     await page.getByRole("link", { name: "Documentation", exact: true }).click();
     await expect(page).toHaveURL(/\/docs$/);

@@ -141,7 +141,7 @@ export function RequestPath() {
               className="request-station"
               key={label}
               style={{ left: `${points[point][0]}%`, top: `${points[point][1]}%` }}
-              aria-label={label}
+              aria-label={`${short}: ${label}`}
               aria-pressed={active === index}
               aria-controls="request-path-detail"
               onClick={() => select(index)}

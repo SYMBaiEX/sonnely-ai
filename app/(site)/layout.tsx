@@ -14,7 +14,7 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
         Skip to content
       </a>
       <SiteHeader />
-      <main id="content">{children}</main>
+      <main id="content" tabIndex={-1}>{children}</main>
       <footer className="site-footer">
         <div className="wrap footer-inner">
           <div className="footer-brand">

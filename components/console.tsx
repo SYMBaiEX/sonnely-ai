@@ -10,7 +10,6 @@ import {
   Box,
   Container,
   CircleHelp,
-  Command,
   Cpu,
   KeyRound,
   LifeBuoy,
@@ -179,12 +178,7 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
           <Brand />
           <p className="mono rail-caption">Developer console</p>
         </div>
-        <Link
-          className="rail-identity"
-          href="/console/settings"
-          aria-label="Manage workspace identity"
-          onClick={() => setNavOpen(false)}
-        >
+        <Link className="rail-identity" href="/console/settings" onClick={() => setNavOpen(false)}>
           <span className="rail-identity-icon">
             <Wallet size={17} aria-hidden="true" />
           </span>
@@ -265,13 +259,12 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
               type="button"
               className="button quiet small command-toggle"
               onClick={() => setPalette(true)}
-              aria-label="Quick navigation"
+              aria-label="Jump to ⌘ K"
+              aria-keyshortcuts="Meta+K Control+K"
             >
               <Search size={16} />
               <span>Jump to</span>
-              <kbd>
-                <Command size={12} /> K
-              </kbd>
+              <kbd aria-hidden="true">⌘ K</kbd>
             </button>
             <span className="console-theme">
               <ThemeSwitch />
@@ -301,7 +294,11 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
           }}
           inviteUrl={profile && origin ? origin + "/console?ref=" + profile.referral : undefined}
         />
-        <main id="console-content" className={section === "chat" ? "console-chat" : "console-content"}>
+        <main
+          id="console-content"
+          tabIndex={-1}
+          className={section === "chat" ? "console-chat" : "console-content"}
+        >
           {failure && (
             <p role="alert" className="error">
               {failure}
@@ -352,7 +349,6 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
           type="button"
           aria-expanded={navOpen}
           aria-controls="console-navigation"
-          aria-label="Toggle navigation"
           onClick={(event) => toggleNavigation(event.currentTarget)}
         >
           <Menu size={20} aria-hidden />

@@ -151,20 +151,18 @@ export function HomeCapabilities() {
             className={"gateway-tile gateway-tile-" + id}
             data-reveal={id === "route" ? "fade" : "rise"}
           >
-            <Link href={href} aria-labelledby={"capability-" + id}>
-              <div className="gateway-tile-copy">
-                <span className="home-feature-icon">
-                  <Icon size={19} aria-hidden="true" />
-                </span>
-                <div>
-                  <h3 id={"capability-" + id}>{title}</h3>
-                  <p>{body}</p>
-                </div>
-              </div>
-              <Sample />
-              <span className="text-link">
-                {action} <ArrowUpRight size={14} aria-hidden="true" />
+            <div className="gateway-tile-copy">
+              <span className="home-feature-icon">
+                <Icon size={19} aria-hidden="true" />
               </span>
+              <div>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </div>
+            </div>
+            <Sample />
+            <Link href={href} className="text-link">
+              {action} <ArrowUpRight size={14} aria-hidden="true" />
             </Link>
           </li>
         ))}

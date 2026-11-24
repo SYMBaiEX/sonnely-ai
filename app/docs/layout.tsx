@@ -15,6 +15,9 @@ export default function DocumentationLayout({ children }: { children: ReactNode 
   return (
     <RootProvider theme={{ storageKey: themeKey, defaultTheme: "dark" }}>
       <div className="docs-shell">
+        <a href="#nd-page" className="skip">
+          Skip to documentation
+        </a>
         <DocsBackdrop />
         <SiteHeader fromDocs themeSwitch={<DocsThemeSwitch />} />
         <DocsLayout

@@ -127,7 +127,7 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
     page.getByRole("table", { name: "Model rates and context" }).getByRole("heading").first(),
   ).toHaveText("Qwen 3.8 27B");
   await page.goto("/console");
-  await page.getByRole("button", { name: "Quick navigation" }).click();
+  await page.getByRole("button", { name: "Jump to ⌘ K" }).click();
   const commandInput = page.getByRole("searchbox", { name: "Find a workspace page" });
   await expect(commandInput).toBeFocused();
   await expect(commandInput).toHaveCSS("border-width", "0px");
@@ -183,7 +183,7 @@ test("switching trace steps keeps the homepage content in place on narrow screen
     const map = page.getByRole("region", { name: "Follow the request" });
     const position = () => quickstart.evaluate((element) => (element as HTMLElement).offsetTop);
     const top = await position();
-    for (const name of ["Sonnely gateway", "Confidential enclave", "Your client"]) {
+    for (const name of ["Gateway: Sonnely gateway", "Private TEE: Confidential enclave", "Client: Your client"]) {
       const step = map.getByRole("button", { name, exact: true });
       await step.click();
       await expect(step).toHaveAttribute("aria-pressed", "true");
@@ -310,7 +310,7 @@ test("the homepage offers a copyable request and links to the selected model", a
       },
     ],
   });
-  await expect(demo.getByRole("link", { name: "Open GLM 5.3 Flash in playground" })).toHaveAttribute(
+  await expect(demo.getByRole("link", { name: "Open in playground: GLM 5.3 Flash" })).toHaveAttribute(
     "href",
     "/console?model=z-ai%2Fglm-5.3-flash",
   );
@@ -350,11 +350,11 @@ test("the homepage offers a copyable request and links to the selected model", a
     "/console?model=deepseek-ai%2FDeepSeek-V4.1-Flash-1017",
   );
   const gateway = page.getByRole("region", { name: "From request to receipt." });
-  await expect(gateway.getByRole("link", { name: "Confidential inference" })).toHaveAttribute(
+  await expect(gateway.getByRole("link", { name: "Verify the attestation" })).toHaveAttribute(
     "href",
     "/inference#evidence",
   );
-  await expect(gateway.getByText("Pinned", { exact: true })).toBeVisible();
+  await expect(gateway.getByText("Selected", { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 720 });
   await expect(list.getByRole("link", { name: /Qwen 3.6 35B/ })).toBeVisible();
   expect(await list.evaluate((element) => element.scrollWidth)).toBe(

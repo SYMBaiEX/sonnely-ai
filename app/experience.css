@@ -142,8 +142,9 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
   outline: none;
   padding-inline: 0;
 }
-.command-search:has(input:focus-visible) > svg {
-  color: var(--accent);
+.command-search:has(input:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 .command-results {
   padding-top: 8px;
@@ -190,7 +191,13 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
 .mobile-dock {
   display: none;
 }
+html:has(.console-bar) {
+  scroll-padding-block-start: 88px;
+}
 @media (max-width: 720px) {
+  html:has(.mobile-dock) {
+    scroll-padding-block-end: calc(80px + env(safe-area-inset-bottom));
+  }
   .page-blog .journal-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2188,7 +2195,8 @@ details.stack-panel[open] > summary.crm-section-head::after {
 }
 
 .inbox-row:has(.inbox-row-main:focus-visible) {
-  border-color: var(--accent);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
 }
 
 .inbox-row-top {

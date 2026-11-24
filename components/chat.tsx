@@ -618,7 +618,7 @@ export function Chat({
                   type="button"
                   className="button prompt"
                   key={prompt}
-                  aria-label={prompt}
+                  aria-description={prompt}
                   onClick={() => {
                     setSample(index);
                     setActive(null);

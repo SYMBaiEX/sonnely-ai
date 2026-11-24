@@ -207,7 +207,7 @@ export function HomeDemo() {
               <Link
                 className="text-link"
                 href={"/console?model=" + encodeURIComponent(model.id)}
-                aria-label={"Open " + model.name + " in playground"}
+                aria-label={"Open in playground: " + model.name}
               >
                 Open in playground <ArrowUpRight size={14} aria-hidden />
               </Link>
