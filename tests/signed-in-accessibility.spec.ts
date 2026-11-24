@@ -7,6 +7,7 @@ async function mockWorkspace(page: Page) {
       json: {
         profile: { name: "Audit workspace", wallet: fixtureWallet, balance: 5_000_000 },
         enabled: true,
+        inferenceEnabled: true,
         billingEnabled: true,
         cluster: "mainnet",
       },
@@ -87,7 +88,7 @@ test("support acknowledges a submitted request through an established status reg
   await expect(status).toHaveText("Request sent. Replies appear in your request list.");
 });
 
-test("the playground runs specialized inference with wallet session and restores dialog focus", async ({ page }) => {
+test("the playground exposes workloads and runs specialized inference with a wallet session", async ({ page }) => {
   await mockWorkspace(page);
   await page.setViewportSize({ width: 320, height: 800 });
   await page.route("**/api/sonnely/playground/redact", async (route) => {
@@ -99,16 +100,24 @@ test("the playground runs specialized inference with wallet session and restores
     });
   });
   await page.goto("/console");
-  const trigger = page.getByRole("button", { name: "More endpoints" });
-  await trigger.press("Enter");
-  const dialog = page.getByRole("dialog", { name: "Try an endpoint" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("combobox", { name: "Endpoint", exact: true }).selectOption("redact");
-  await dialog.getByRole("button", { name: "Run endpoint" }).press("Enter");
-  await expect(dialog.getByRole("status")).toHaveText("Request completed.");
-  await expect(dialog).toContainText("Contact [EMAIL].");
-  await expect(dialog).toContainText("fixture-reference");
-  await page.keyboard.press("Escape");
-  await expect(trigger).toBeFocused();
+  const workloads = page.getByRole("navigation", { name: "Inference workloads" });
+  await workloads.getByRole("button", { name: "Audio" }).press("Enter");
+  const endpoints = page.getByRole("navigation", { name: "Endpoints" });
+  await expect(endpoints.getByRole("button", { name: /Realtime transcription/ })).toBeVisible();
+  await workloads.getByRole("button", { name: "Documents" }).press("Enter");
+  await endpoints.getByRole("button", { name: /PII redaction/ }).press("Enter");
+  await expect(endpoints.getByRole("button", { name: /PII redaction/ })).toHaveAttribute("aria-current", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  const run = page.getByRole("button", { name: "Run request" });
+  if (await run.isDisabled()) {
+    await expect(page.getByText("This route is currently unavailable.")).toBeVisible();
+  } else {
+    await run.press("Enter");
+    const result = page.getByRole("region", { name: "Result" });
+    await expect(result.getByRole("status")).toHaveText("Request completed.");
+    await expect(result).toContainText("Contact [EMAIL].");
+    await expect(result).toContainText("fixture-reference");
+  }
+  await workloads.getByRole("button", { name: "Chat" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
 });

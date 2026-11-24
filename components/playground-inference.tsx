@@ -1,16 +1,20 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight, Download, FileUp, Terminal } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { isSpecializedMultipart, realtimeModel, specializedModels, specializedRoute, type SpecializedEndpoint } from "@/lib/specialized-models";
 import { markupPercent } from "@/lib/pricing";
+import type { ProviderId } from "@/lib/provider-catalog";
+import type { Session } from "./wallet";
 import { CopyButton } from "./shared";
 
 const workloads = {
   responses: { label: "Text response", field: "input", example: "Explain what a Solana transaction fee covers." },
   redact: { label: "PII redaction", field: "text", example: "Contact the sample customer at alice@example.com." },
   embeddings: { label: "Text embeddings", field: "input", example: "Solana transaction" },
-  rerank: { label: "Rerank documents", field: "JSON", example: '{"query":"Solana network fees","documents":["A guide to transaction fees","How to resize an image"]}' },
-  systemone: { label: "System One decisions", field: "JSON", example: '{"state":"The request asks about billing.","questions":{"billing":{"type":"noul","instructions":"Does this request concern billing?"}}}' },
+  rerank: { label: "Rerank documents", field: "query", example: "Solana network fees" },
+  systemone: { label: "System One decisions", field: "state", example: "The request asks about billing." },
   "images/generations": { label: "Generate an image", field: "prompt", example: "A watercolor painting of a quiet harbor at dawn" },
   "images/edits": { label: "Edit an image", field: "prompt", example: "Change the lighting to sunset", upload: "image", accept: "image/png,image/jpeg,image/webp" },
   "audio/transcriptions": { label: "Transcribe audio", upload: "file", accept: ".wav,.mp3,.mp4,.webm,.ogg,.flac" },
@@ -27,7 +31,7 @@ const workloads = {
   hint?: string;
 }>;
 
-type Workload = keyof typeof workloads;
+export type Workload = keyof typeof workloads;
 type Result = { text?: string; audio?: Blob; image?: string; requestId?: string | null };
 
 async function realtime(file: File, signal: AbortSignal, progress: (text: string) => void): Promise<Result> {
@@ -83,16 +87,23 @@ async function realtime(file: File, signal: AbortSignal, progress: (text: string
   });
 }
 
-export function PlaygroundInference({ signedIn }: { signedIn: boolean }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+export function PlaygroundInference({ endpoints, session, providers, refresh, onRunningChange }: {
+  endpoints: Workload[];
+  session: Session | null;
+  providers: ProviderId[];
+  refresh: () => Promise<void>;
+  onRunningChange: (value: boolean) => void;
+}) {
   const pending = useRef<AbortController | null>(null);
-  const [endpoint, setEndpoint] = useState<Workload>("responses");
+  const [endpoint, setEndpoint] = useState<Workload>(endpoints[0]);
   const [selectedModel, setSelectedModel] = useState("");
   const [result, setResult] = useState<Result>();
   const [audioUrl, setAudioUrl] = useState<string>();
   const [partial, setPartial] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [fileName, setFileName] = useState("");
   const workload = workloads[endpoint];
   const modelIds = endpoint === "realtime" ? [realtimeModel.id] : Object.keys(specializedModels[endpoint]);
 
@@ -101,6 +112,22 @@ export function PlaygroundInference({ signedIn }: { signedIn: boolean }) {
     : specializedRoute(endpoint, model);
   const requestPrice = route?.unit === "request" ? route.rate * (1 + markupPercent / 100) : null;
   const provider = route?.provider === "near-ai" ? "NEAR AI" : "Tinfoil";
+  const available = Boolean(route && providers.includes(route.provider));
+  const blocked = !session?.profile ? "Sign in with your Solana wallet to run this request."
+    : session.termsRequired ? "Accept the workspace terms to run inference."
+    : !session.inferenceEnabled || !available ? "This route is currently unavailable."
+    : "";
+  const imageUrl = result?.image ? `data:image/png;base64,${result.image}` : undefined;
+
+  function selectEndpoint(next: Workload) {
+    if (next === endpoint) return;
+    setEndpoint(next);
+    setSelectedModel("");
+    setFileName("");
+    setResult(undefined);
+    setError("");
+    setNotice("");
+  }
 
   useEffect(() => {
     if (!result?.audio) {
@@ -116,11 +143,13 @@ export function PlaygroundInference({ signedIn }: { signedIn: boolean }) {
 
   async function run(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!signedIn || pending.current) return;
+    if (blocked || pending.current) return;
     const fields = new FormData(event.currentTarget);
     const controller = new AbortController();
     pending.current = controller;
     setBusy(true);
+    onRunningChange(true);
+    setNotice("");
     setError("");
     setPartial("");
     setResult(undefined);
@@ -128,14 +157,21 @@ export function PlaygroundInference({ signedIn }: { signedIn: boolean }) {
       const signal = controller.signal;
       if (endpoint === "realtime") {
         setResult(await realtime(fields.get("file") as File, signal, setPartial));
+        void refresh().catch(() => {});
         return;
       }
       const field = "field" in workload ? workload.field : undefined;
       const value = field ? String(fields.get(field) ?? "") : "";
       const multipart = isSpecializedMultipart(endpoint);
-      const body = field === "JSON" ? JSON.parse(value) : field ? { [field]: value } : {};
-      if (field === "JSON" && (!body || typeof body !== "object" || Array.isArray(body)))
-        throw new Error("Enter a JSON object.");
+      const body: Record<string, unknown> = field ? { [field]: value } : {};
+      if (endpoint === "rerank") {
+        const documents = String(fields.get("documents") ?? "").split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+        if (!documents.length || documents.length > 16) throw new Error("Enter 1 to 16 documents, one per line.");
+        body.documents = documents;
+      }
+      if (endpoint === "systemone") {
+        body.questions = { decision: { type: "noul", instructions: fields.get("question") } };
+      }
       if ("upload" in workload) {
         const file = fields.get(workload.upload);
         if (file instanceof File && file.size > 2_000_000) throw new Error("Upload a file under 2 MB.");
@@ -149,6 +185,7 @@ export function PlaygroundInference({ signedIn }: { signedIn: boolean }) {
       const requestId = response.headers.get("X-Sonnely-Request-Id");
       if (response.ok && endpoint === "audio/speech") {
         setResult({ audio: await response.blob(), requestId });
+        void refresh().catch(() => {});
         return;
       }
       const data = await response.json();
@@ -162,77 +199,138 @@ export function PlaygroundInference({ signedIn }: { signedIn: boolean }) {
         : undefined;
       setResult({ image, requestId, text: image ? undefined :
         outputText || data.redacted_text || data.document?.md_content || data.text || JSON.stringify(data, null, 2) });
+      void refresh().catch(() => {});
     } catch (cause) {
-      if (!controller.signal.aborted)
-        setError(cause instanceof SyntaxError ? "Enter valid JSON." :
-          cause instanceof Error ? cause.message : "The request failed.");
+      if (controller.signal.aborted) setNotice("Stopped waiting. Check Usage for settlement.");
+      else setError(cause instanceof SyntaxError ? "The gateway returned an unreadable response."
+        : cause instanceof Error ? cause.message : "The request failed.");
     } finally {
       pending.current = null;
       setBusy(false);
+      onRunningChange(false);
       setPartial("");
     }
   }
 
   return (
-    <>
-      <button type="button" className="button quiet small" aria-haspopup="dialog"
-        onClick={() => dialog.current?.showModal()}>
-        More endpoints
-      </button>
-      <dialog ref={dialog} className="panel playground-inference-dialog" aria-labelledby="playground-inference-title"
-        onClose={() => pending.current?.abort()}>
-        <header>
-          <h2 id="playground-inference-title">Try an endpoint</h2>
-          <button type="button" className="button quiet small" onClick={() => dialog.current?.close()}>Close</button>
-        </header>
-        <label>
-          Endpoint
-          <select value={endpoint} disabled={busy} onChange={(event) => {
-            setEndpoint(event.currentTarget.value as Workload);
-            setSelectedModel("");
-            setResult(undefined);
-            setError("");
-          }}>
-            {Object.entries(workloads).map(([id, entry]) => <option value={id} key={id}>{entry.label}</option>)}
-          </select>
-        </label>
-        <form key={endpoint} onSubmit={run}>
-          <label>
-            Model
-            <select name="model" value={model} onChange={(event) => setSelectedModel(event.currentTarget.value)} disabled={busy}>{modelIds.map((id) => <option key={id}>{id}</option>)}</select>
-          </label>
-          {"field" in workload && (
+    <div className="playground-studio">
+      <nav className="playground-endpoints" aria-label="Endpoints">
+        {endpoints.map((id) => (
+          <button type="button" key={id} disabled={busy && id !== endpoint}
+            aria-current={id === endpoint ? "true" : undefined} onClick={() => selectEndpoint(id)}>
+            <strong>{workloads[id].label}</strong>
+            <code>{id === "realtime" ? "WS" : "POST"} /{id}</code>
+          </button>
+        ))}
+      </nav>
+      <div className="playground-run-grid">
+        <section className="playground-pane" aria-labelledby="playground-request-title">
+          <header className="playground-pane-header">
+            <h2 id="playground-request-title">{workload.label}</h2>
+            <span>Request</span>
+          </header>
+          <form key={endpoint} className="playground-request" onSubmit={run}>
             <label>
-              {workload.field === "JSON" ? "Request JSON" : "Input text"}
-              <textarea name={workload.field} rows={4} required disabled={busy} defaultValue={workload.example} />
+              Model
+              <select name="model" value={model} disabled={busy}
+                onChange={(event) => setSelectedModel(event.currentTarget.value)}>
+                {modelIds.map((id) => <option key={id}>{id}</option>)}
+              </select>
             </label>
+            <div className="playground-route-summary">
+              <strong>{provider}</strong>
+              <span>{requestPrice === null ? <Link href="/docs/providers">Usage-based pricing</Link> :
+                new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 6 })
+                  .format(requestPrice) + " per completed request"}</span>
+            </div>
+            {"field" in workload && (
+              <label>
+                {workload.field === "query" ? "Search query" : workload.field === "state" ? "State"
+                  : workload.field === "prompt" ? "Image prompt" : "Input text"}
+                <textarea name={workload.field} rows={endpoint === "rerank" || endpoint === "systemone" ? 2 : 6}
+                  required disabled={busy} defaultValue={workload.example} />
+              </label>
+            )}
+            {endpoint === "rerank" && (
+              <label>Documents, one per line
+                <textarea name="documents" rows={4} required disabled={busy}
+                  defaultValue={"A guide to transaction fees\nHow to resize an image"} />
+              </label>
+            )}
+            {endpoint === "systemone" && (
+              <label>Decision question
+                <textarea name="question" rows={3} required disabled={busy}
+                  defaultValue="Does this request concern billing?" />
+              </label>
+            )}
+            {"upload" in workload && (
+              <div className="playground-file">
+                <label>
+                  <span><FileUp size={18} aria-hidden="true" /> Upload file</span>
+                  <input type="file" name={workload.upload} accept={workload.accept} required disabled={busy}
+                    aria-describedby="playground-file-hint"
+                    onChange={(event) => setFileName(event.currentTarget.files?.[0]?.name ?? "")} />
+                </label>
+                <p id="playground-file-hint">{"hint" in workload ? workload.hint : "Maximum file size 2 MB."}</p>
+                {fileName && <p className="playground-file-name">{fileName}</p>}
+              </div>
+            )}
+            <div className="playground-run-actions">
+              <button className="button accent" type="submit" disabled={Boolean(blocked)} aria-disabled={busy}>
+                {busy ? "Running…" : "Run request"} <ArrowRight size={17} aria-hidden="true" />
+              </button>
+              {busy && (
+                <button type="button" className="button quiet" onClick={() => pending.current?.abort()}>
+                  Stop waiting
+                </button>
+              )}
+              {blocked && <p>{blocked}</p>}
+            </div>
+          </form>
+        </section>
+        <section className="playground-pane" aria-labelledby="playground-result-title">
+          <header className="playground-pane-header">
+            <h2 id="playground-result-title">Result</h2>
+            {result?.text && <CopyButton value={result.text} label="Copy result" />}
+          </header>
+          <div className="playground-result">
+            <p className="playground-result-status" role="status">
+              {busy ? "Running request…" : result ? "Request completed." : notice}
+            </p>
+            {error && <p className="playground-request-error" role="alert">{error}</p>}
+            {!busy && !result && !error && !notice && (
+              <div className="playground-result-empty">
+                <Terminal size={28} aria-hidden="true" />
+                <p>Run a request to see its result here.</p>
+              </div>
+            )}
+            {partial && <pre tabIndex={0} aria-label="Partial transcript">{partial}</pre>}
+            {result?.text && <pre tabIndex={0} aria-label="Response output">{result.text}</pre>}
+            {imageUrl && (
+              <>
+                <img src={imageUrl} alt="Image returned by the model" />
+                <a className="button quiet small" download="sonnely-image.png" href={imageUrl}>
+                  <Download size={16} aria-hidden="true" /> Download image
+                </a>
+              </>
+            )}
+            {result?.audio && audioUrl && (
+              <>
+                <audio controls src={audioUrl} aria-label="Synthesized speech" />
+                <a className="button quiet small" download="sonnely-speech.wav" href={audioUrl}>
+                  <Download size={16} aria-hidden="true" /> Download WAV
+                </a>
+              </>
+            )}
+          </div>
+          {result?.requestId && (
+            <footer className="playground-result-footer">
+              <div><span>Request reference</span><code>{result.requestId}</code></div>
+              <Link href="/console/usage">View usage</Link>
+            </footer>
           )}
-          {"upload" in workload && (
-            <label>
-              File
-              <input type="file" name={workload.upload} accept={workload.accept} required disabled={busy}
-                aria-describedby={"hint" in workload ? "playground-inference-hint" : undefined} />
-            </label>
-          )}
-          {"hint" in workload && <p id="playground-inference-hint">{workload.hint}</p>}
-          <p>{provider} · {requestPrice === null ? "See model rates for usage charges" :
-            new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 6 })
-              .format(requestPrice) + " per completed request"}</p>
-          {!signedIn && <p>Sign in with your Solana wallet to run inference.</p>}
-          <button className="button accent" type="submit" disabled={!signedIn || busy}>Run endpoint</button>
-        </form>
-        <p role="status">{busy ? "Running request…" : result ? "Request completed." : ""}</p>
-        {error && <p role="alert">{error}</p>}
-        {partial && <pre aria-label="Partial transcript">{partial}</pre>}
-        {result && (
-          <section aria-label="Endpoint result">
-            {result.text && <><pre>{result.text}</pre><CopyButton value={result.text} label="Copy result" /></>}
-            {result.image && <img src={`data:image/png;base64,${result.image}`} alt="Image returned by the model" />}
-            {result.audio && audioUrl && <audio controls src={audioUrl} aria-label="Synthesized speech" />}
-            {result.requestId && <p>Usage reference <code>{result.requestId}</code></p>}
-          </section>
-        )}
-      </dialog>
-    </>
+        </section>
+      </div>
+    </div>
   );
 }

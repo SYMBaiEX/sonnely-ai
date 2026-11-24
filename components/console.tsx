@@ -35,6 +35,7 @@ import { CommandMenu } from "./command-menu";
 import { setTheme, ThemeSurface, ThemeSwitch, useTheme } from "./appearance";
 import { Admin } from "./admin";
 import { Chat } from "./chat";
+import { Playground } from "./playground";
 
 import { ModelCatalog } from "./shared";
 import type { ProviderId } from "@/lib/provider-catalog";
@@ -394,26 +395,28 @@ export function ConsoleScreen({
   return (
     <>
       {section === "chat" && (
-        <Chat
-          key={
-            (profile?.wallet ?? "guest") +
-            ":" +
-            initialModel +
-            ":" +
-            initialProvider +
-            ":" +
-            restoreConversation
-          }
-          session={session}
-          initialModel={initialModel}
-          initialProvider={initialProvider}
-          availableProviders={availableProviders}
-          refresh={refresh}
-          localHistory={preferences.localHistory}
-          restoreConversation={restoreConversation}
-          enableHistory={() => change({ ...preferences, localHistory: true })}
-          plain={preferences.plain}
-        />
+        <Playground session={session} providers={availableProviders} refresh={refresh}>
+          <Chat
+            key={
+              (profile?.wallet ?? "guest") +
+              ":" +
+              initialModel +
+              ":" +
+              initialProvider +
+              ":" +
+              restoreConversation
+            }
+            session={session}
+            initialModel={initialModel}
+            initialProvider={initialProvider}
+            availableProviders={availableProviders}
+            refresh={refresh}
+            localHistory={preferences.localHistory}
+            restoreConversation={restoreConversation}
+            enableHistory={() => change({ ...preferences, localHistory: true })}
+            plain={preferences.plain}
+          />
+        </Playground>
       )}
       {section === "models" && (
         <>

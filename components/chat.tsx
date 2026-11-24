@@ -23,7 +23,6 @@ import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
 import { readSse } from "@/lib/sse";
 import { CopyButton } from "./shared";
 import { PlaygroundRoute } from "./playground-route";
-import { PlaygroundInference } from "./playground-inference";
 import { type Session } from "./wallet";
 
 type Message = {
@@ -419,10 +418,9 @@ export function Chat({
         <header className="playground-header">
           <div className="playground-title">
             <MessageSquare size={18} aria-hidden="true" />
-            <h1>Playground</h1>
+            <h2>Chat</h2>
           </div>
           <div className="chat-tools">
-            <PlaygroundInference signedIn={Boolean(session)} />
             {!activeSample && !!current?.messages.length && (
               <>
                 <button

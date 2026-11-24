@@ -39,7 +39,7 @@ Each endpoint accepts `max_cost_microusd` and the `Idempotency-Key` header. If p
 
 Responses accepts single-turn text with `stream: false` and `store: false`. Audio translation returns `text` in English and costs $0.00275 per completed request. Tinfoil processes the audio and translates the transcript through an attested text route. PDF conversion returns `document.md_content` and costs $0.055 per completed request. Redaction returns `redacted_text` and charges the request fee plus an input estimate based on UTF-8 bytes with a 256-token allowance. Review redacted output before sharing it. A detector can miss sensitive information.
 
-For realtime transcription, authenticate the WebSocket upgrade with a bearer key and wait for `session.created`. Send `input_audio_buffer.append` messages with base64-encoded mono 16 kHz PCM16 chunks up to 32 KiB each and 30 seconds total. Send `input_audio_buffer.commit` to finalize. Sonnely emits `transcription.delta` updates and `transcription.done` after settlement. A completed session costs $0.0022. Use a server-side WebSocket client that can set the Authorization header, or try an uploaded WAV with **More endpoints** in the [Playground](/console).
+For realtime transcription, authenticate the WebSocket upgrade with a bearer key and wait for `session.created`. Send `input_audio_buffer.append` messages with base64-encoded mono 16 kHz PCM16 chunks up to 32 KiB each and 30 seconds total. Send `input_audio_buffer.commit` to finalize. Sonnely emits `transcription.delta` updates and `transcription.done` after settlement. A completed session costs $0.0022. Use a server-side WebSocket client that can set the Authorization header, or try an uploaded WAV under **Audio** in the [Playground](/console).
 
 ## Compare prices
 
