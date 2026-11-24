@@ -4,7 +4,7 @@ import { ConvexError } from "convex/values";
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { limits } from "./api-contract";
-import { SonnelyError } from "./sonnely-error";
+import { InferenceRequestError, SonnelyError } from "./sonnely-error";
 export { SonnelyError } from "./sonnely-error";
 
 export function serviceSecret() {
@@ -53,6 +53,7 @@ export function errorResponse(error: unknown, openai = false) {
     { error: openai ? { message, type: "sonnely_error", code: status } : message },
     status,
   );
+  if (error instanceof InferenceRequestError) response.headers.set("X-Sonnely-Request-Id", error.requestId);
   if (status === 429 && !message.includes("daily reservation limit"))
     response.headers.set("Retry-After", "60");
   return response;
@@ -84,7 +85,10 @@ export function inferenceErrorResponse(error: unknown) {
     typeof error.data.reference === "string"
   ) {
     const response = errorResponse(
-      new SonnelyError("This Idempotency-Key already started a request. Look up the reference in Request logs.", 409),
+      new SonnelyError(
+        "This Idempotency-Key already started a request. Look up the reference in Request logs.",
+        409,
+      ),
       true,
     );
     response.headers.set("X-Sonnely-Request-Id", error.data.reference);

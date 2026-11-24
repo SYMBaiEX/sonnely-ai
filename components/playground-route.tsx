@@ -5,7 +5,13 @@ import { Check, ChevronDown, Search, X } from "lucide-react";
 import { contextFormat } from "@/lib/model-catalog";
 import { models } from "@/lib/models";
 import { formatRate, markedUpRates } from "@/lib/pricing";
-import { providerNames, providerRoute, type Model, type ProviderId } from "@/lib/provider-catalog";
+import {
+  privateFailoverProviders,
+  providerNames,
+  providerRoute,
+  type Model,
+  type ProviderId,
+} from "@/lib/provider-catalog";
 
 function availableRoutes(model: Model, providers: readonly ProviderId[]) {
   return providers.flatMap((provider) => providerRoute(model, provider) ?? []);
@@ -14,24 +20,31 @@ function availableRoutes(model: Model, providers: readonly ProviderId[]) {
 export function PlaygroundRoute({
   model,
   provider,
+  fallbacks,
   availableProviders,
   disabled,
   onChange,
 }: {
   model: string;
   provider: ProviderId;
+  fallbacks: readonly ProviderId[];
   availableProviders: ProviderId[];
   disabled: boolean;
-  onChange: (model: string, provider: ProviderId) => void;
+  onChange: (model: string, provider: ProviderId, fallbacks: ProviderId[]) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draftModel, setDraftModel] = useState(model);
   const [draftProvider, setDraftProvider] = useState(provider);
+  const [draftFallbacks, setDraftFallbacks] = useState<ProviderId[]>([]);
   const [search, setSearch] = useState("");
   const current = models.find((item) => item.id === model) ?? models[0];
   const next = models.find((item) => item.id === draftModel) ?? models[0];
   const routes = availableRoutes(next, availableProviders);
   const selectedRoute = routes.find(({ provider }) => provider === draftProvider);
+  const eligible = privateFailoverProviders(next, availableProviders);
+  const fallbackOptions = eligible.includes(draftProvider)
+    ? eligible.filter((id) => id !== draftProvider)
+    : [];
   const searchQuery = search.trim().toLowerCase();
   const matches = models.filter((item) =>
     `${item.name} ${item.id} ${item.type}`.toLowerCase().includes(searchQuery),
@@ -41,12 +54,14 @@ export function PlaygroundRoute({
   function open() {
     setDraftModel(model);
     setDraftProvider(provider);
+    setDraftFallbacks(fallbacks.filter((id) => id !== provider));
     setSearch("");
     dialog.current?.showModal();
   }
 
   function selectModel(model: Model) {
     setDraftModel(model.id);
+    setDraftFallbacks([]);
     const eligible = availableRoutes(model, availableProviders);
     if (!eligible.some(({ provider }) => provider === draftProvider)) {
       setDraftProvider(eligible[0]?.provider ?? model.provider);
@@ -70,6 +85,7 @@ export function PlaygroundRoute({
           <strong>{current.name}</strong>
           <small>
             {providerNames[provider]} · {current.type}
+            {fallbacks.length > 0 ? " · Failover enabled" : ""}
             {available ? "" : " · unavailable"}
           </small>
         </span>
@@ -143,7 +159,10 @@ export function PlaygroundRoute({
                           type="radio"
                           name="playground-provider"
                           checked={draftProvider === route.provider}
-                          onChange={() => setDraftProvider(route.provider)}
+                          onChange={() => {
+                            setDraftProvider(route.provider);
+                            setDraftFallbacks([]);
+                          }}
                         />
                         <span className="playground-route-label">
                           <strong>{providerNames[route.provider]}</strong>
@@ -166,6 +185,57 @@ export function PlaygroundRoute({
                 This model has no available providers.
               </p>
             )}
+            {fallbackOptions.length > 0 && (
+              <div className="playground-fallback-pickers">
+                <div className="playground-fallback-field">
+                  <label htmlFor="playground-first-fallback">First fallback</label>
+                  <select
+                    id="playground-first-fallback"
+                    value={draftFallbacks[0] ?? ""}
+                    onChange={(event) => {
+                      const selected = fallbackOptions.find((id) => id === event.target.value);
+                      setDraftFallbacks(selected ? [selected] : []);
+                    }}
+                  >
+                    <option value="">None</option>
+                    {fallbackOptions.map((id) => (
+                      <option value={id} key={id}>
+                        {providerNames[id]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {draftFallbacks[0] && fallbackOptions.length > 1 && (
+                  <div className="playground-fallback-field">
+                    <label htmlFor="playground-second-fallback">Second fallback</label>
+                    <select
+                      id="playground-second-fallback"
+                      value={draftFallbacks[1] ?? ""}
+                      onChange={(event) => {
+                        const first = draftFallbacks[0];
+                        const selected = fallbackOptions.find(
+                          (id) => id === event.target.value && id !== first,
+                        );
+                        setDraftFallbacks(selected ? [first, selected] : [first]);
+                      }}
+                    >
+                      <option value="">None</option>
+                      {fallbackOptions
+                        .filter((id) => id !== draftFallbacks[0])
+                        .map((id) => (
+                          <option value={id} key={id}>
+                            {providerNames[id]}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+                <p className="caption">
+                  Fallbacks are tried in order when a route is at capacity or explicitly rate-limits the
+                  request.
+                </p>
+              </div>
+            )}
           </fieldset>
         </div>
         <footer>
@@ -178,7 +248,11 @@ export function PlaygroundRoute({
             disabled={disabled || !selectedRoute}
             onClick={() => {
               if (!selectedRoute) return;
-              onChange(draftModel, selectedRoute.provider);
+              onChange(
+                draftModel,
+                selectedRoute.provider,
+                draftFallbacks.filter((id) => fallbackOptions.includes(id)),
+              );
               dialog.current?.close();
             }}
           >

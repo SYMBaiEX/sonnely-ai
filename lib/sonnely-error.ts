@@ -6,3 +6,12 @@ export class SonnelyError extends Error {
     super(message);
   }
 }
+
+export class InferenceRequestError extends SonnelyError {
+  constructor(
+    cause: SonnelyError,
+    public readonly requestId: string,
+  ) {
+    super(cause.message, cause.status);
+  }
+}

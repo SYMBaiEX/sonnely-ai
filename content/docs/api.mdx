@@ -58,12 +58,30 @@ curl https://sonnely.com/api/sonnely/v1/chat/completions \
 | `model`                        | Required. Use the exact public ID from `/models`.                       |
 | `messages`                     | Required. Text-only objects with `role` and `content`.                  |
 | `max_tokens`                   | Optional output allowance. Defaults to 512.                             |
-| `provider.only`                | Optional array containing exactly one route ID advertised by `/models`. |
+| `provider.only`                | One advertised route ID to pin, or an ordered list with failover enabled. |
+| `provider.allow_fallbacks`     | Set to `true` with two or three distinct Private TEE provider IDs. |
 | `max_cost_microusd`            | Optional positive integer ceiling on the credit reservation.            |
 | `stream`                       | Set to `true` to receive [SSE](/docs/streaming).                        |
 | `stream_options.include_usage` | Set to `true` to include settled usage in the stream.                   |
 
 Send `Content-Type: application/json`. Add `X-Sonnely-Receipt: v1` to receive the [completion receipt](/docs/attestation#completion-receipts).
+
+## Private routing and failover
+
+Use `provider.only` to pin a route. To permit failover for Chat Completions, list eligible provider IDs in the order you want and set `allow_fallbacks` to `true`. Check the exact model’s configured routes in `GET /models` for `private_failover` and supported capabilities.
+
+```json
+{
+  "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  "messages": [{ "role": "user", "content": "Summarize this request." }],
+  "provider": { "only": ["near-ai", "phala", "tinfoil"], "allow_fallbacks": true },
+  "max_cost_microusd": 4000
+}
+```
+
+Sonnely selects from the listed routes that support the request and fit its cost ceiling. It makes one credit reservation sized for the most expensive eligible route and charges the route that completes. It advances when a provider is unavailable, has no capacity, or returns HTTP 429 without an execution reference. Transport failures, ambiguous upstream errors, evidence failures, and streams that have started end the routing attempt so the request can be reconciled.
+
+On success, `X-Sonnely-Provider` identifies the serving provider. JSON completions also include `sonnely_provider`. Use [Request logs](/console/logs) to review the attempted providers and the original request reference. In Playground, set the first and optional second fallback in the model picker.
 
 ## Chat Completions limits
 

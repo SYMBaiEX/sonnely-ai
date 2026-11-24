@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { computeProgress, kind, spec } from "./computeValidators";
 import { invoiceProvider, invoiceLineView } from "./providerInvoiceContract";
 import { alertDelivery, operationState } from "./operationsContract";
-import { requestEndpoint, requestStatus } from "./requestLogContract";
+import { providerRejection, requestEndpoint, requestStatus } from "./requestLogContract";
 import { gatewayDetails, gatewayReceipt } from "./usageMaxOutboxValidators";
 
 export default defineSchema({
@@ -91,6 +91,7 @@ export default defineSchema({
     output: v.number(),
     cost: v.number(),
     provider: v.optional(v.union(v.literal("phala"), v.literal("tinfoil"))),
+    providerRejections: v.optional(v.array(providerRejection)),
     providerRequest: v.optional(v.string()),
     retryKey: v.optional(v.string()),
     providerStatus: v.optional(v.number()),

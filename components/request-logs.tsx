@@ -142,6 +142,19 @@ function RequestDetail({ id, close }: { id: string; close: () => void }) {
               <CopyButton value={apiOrigin + detailPath(row.id)} label="Copy link to request" />
             </div>
             <h3>Route and status</h3>
+            {!!row.providerRejections?.length && (
+              <ol className={styles.routeAttempts} aria-label="Provider attempts">
+                {row.providerRejections.map((attempt) => (
+                  <li key={attempt.provider}>
+                    {providerNames[attempt.provider]} · Rate limited (HTTP 429) ·{" "}
+                    {milliseconds(attempt.endedAt - attempt.startedAt)}
+                  </li>
+                ))}
+                <li>
+                  {providerNames[row.provider]} · {statusLabels[row.status]}
+                </li>
+              </ol>
+            )}
             <DetailList
               fields={[
                 ["Request reference", row.id],

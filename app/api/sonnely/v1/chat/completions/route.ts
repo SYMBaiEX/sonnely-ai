@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     if (result instanceof Response) return result;
     const response = json(result);
     response.headers.set("X-Sonnely-Request-Id", result.sonnely_request_id);
+    response.headers.set("X-Sonnely-Provider", result.sonnely_provider);
     return response;
   } catch (error) {
     return inferenceErrorResponse(error);

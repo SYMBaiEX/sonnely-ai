@@ -7,7 +7,7 @@ import { guardProvider } from "./launchGuard";
 import { assertDepositReferenceUnused, creditDeposit, settleUsage } from "./ledger";
 import { recordEvent } from "./events";
 import { gatewayDetails } from "./usageMaxOutboxValidators";
-import { requestEndpoint } from "./requestLogContract";
+import { providerRejection, requestEndpoint, requestProvider } from "./requestLogContract";
 import { termsVersion } from "../lib/policy";
 import { creditDecimal } from "../lib/credit-amount";
 import {
@@ -371,6 +371,7 @@ export const reserve = mutation({
     model: v.string(),
     endpoint: v.optional(requestEndpoint),
     provider: v.optional(v.union(v.literal("phala"), v.literal("tinfoil"))),
+    providerCost: v.optional(v.number()),
     cost: v.number(),
     retryKey: v.optional(v.string()),
   },
@@ -396,14 +397,22 @@ export const reserve = mutation({
         .unique();
       if (previous) throw new ConvexError({ code: "duplicate_request", reference: previous._id });
     }
-    if (!Number.isSafeInteger(args.cost) || args.cost < 0) throw new ConvexError("Invalid reservation.");
+    const providerCost = args.providerCost ?? args.cost;
+    if (
+      !Number.isSafeInteger(args.cost) ||
+      args.cost < 0 ||
+      !Number.isSafeInteger(providerCost) ||
+      providerCost < 0 ||
+      providerCost > args.cost
+    )
+      throw new ConvexError("Invalid reservation.");
     if (account.balance < args.cost) throw new ConvexError("Insufficient compute credits.");
     const recent = await ctx.db
       .query("usage")
       .withIndex("by_account", (q) => q.eq("account", account._id).gte("_creationTime", now - 60_000))
       .take(15);
     if (recent.length >= 15) throw new ConvexError("Request limit reached. Try again in one minute.");
-    await guardProvider(ctx, args.provider, args.cost, now);
+    await guardProvider(ctx, args.provider, providerCost, now);
     const day = new Date(now).toISOString().slice(0, 10);
     if (key) {
       const usage = await ctx.db
@@ -435,6 +444,47 @@ export const reserve = mutation({
       cost: args.cost,
       status: "pending",
     });
+  },
+});
+
+export const advancePrivateRoute = mutation({
+  args: {
+    ...secret,
+    id: v.id("usage"),
+    rejected: providerRejection,
+    next: requestProvider,
+    providerCost: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const row = await ctx.db.get(args.id);
+    const { rejected, next, providerCost } = args;
+    const history = row?.providerRejections ?? [];
+    const now = Date.now();
+    if (
+      !row ||
+      row.status !== "pending" ||
+      row.endpoint !== "chat/completions" ||
+      (row.provider ?? "near-ai") !== rejected.provider ||
+      next === rejected.provider ||
+      history.length >= 2 ||
+      history.some((attempt) => attempt.provider === next) ||
+      !Number.isSafeInteger(providerCost) ||
+      providerCost < 0 ||
+      providerCost > row.cost ||
+      !Number.isSafeInteger(rejected.startedAt) ||
+      !Number.isSafeInteger(rejected.endedAt) ||
+      rejected.startedAt < (history.at(-1)?.endedAt ?? Math.floor(row._creationTime) - 5_000) ||
+      rejected.endedAt < rejected.startedAt ||
+      rejected.endedAt > now + 5_000 ||
+      !/^[A-Za-z0-9][A-Za-z0-9_./:-]{0,199}$/.test(rejected.model)
+    )
+      throw new ConvexError("Invalid private route transition.");
+    const provider = next === "near-ai" ? undefined : next;
+    await guardProvider(ctx, provider, providerCost, now);
+    await ctx.db.patch(row._id, { provider, providerRejections: [...history, rejected] });
+    return null;
   },
 });
 

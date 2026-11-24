@@ -10,6 +10,7 @@ import { termsVersion } from "../lib/policy";
 import { requestCharge } from "../lib/pricing";
 import { infer } from "../lib/inference";
 import { readSse } from "../lib/sse";
+import { providerPolicy } from "../lib/private-routing";
 import { backend, hash } from "../lib/server";
 
 const model = models[0];
@@ -32,7 +33,7 @@ const sha = (value: string) => createHash("sha256").update(value).digest("hex");
 
 async function fundedKey(baseURL: string | undefined) {
   test.skip(!baseURL || new URL(baseURL).hostname !== "127.0.0.1", "Local Convex fixture");
-  process.loadEnvFile(".env.local");
+  if (!process.env.CONVEX_URL) process.loadEnvFile(".env.local");
   if (!process.env.CONVEX_URL?.startsWith("http://127.0.0.1:")) throw new Error("Local Convex required");
 
   const { db, secret } = backend();
@@ -477,5 +478,142 @@ test("idempotent API retries return the original request reference without a sec
     provider.mock.restore();
     if (previous === undefined) delete process.env.NEAR_AI_API_KEY;
     else process.env.NEAR_AI_API_KEY = previous;
+  }
+});
+
+test("private route policies require explicit, unique ordered backups", () => {
+  expect(providerPolicy.safeParse({ only: ["near-ai"] }).success).toBe(true);
+  expect(providerPolicy.safeParse({ only: ["near-ai", "phala"], allow_fallbacks: true }).success).toBe(true);
+  for (const value of [
+    { only: ["near-ai", "phala"] },
+    { only: ["near-ai", "phala"], allow_fallbacks: false },
+    { only: ["near-ai"], allow_fallbacks: true },
+    { only: ["near-ai", "near-ai"], allow_fallbacks: true },
+    { only: ["near-ai", "other"], allow_fallbacks: true },
+  ])
+    expect(providerPolicy.safeParse(value).success).toBe(false);
+});
+
+test("private failover holds once, records rejections, and stops on ambiguous execution", async ({
+  baseURL,
+}) => {
+  const { db, auth, apiKey, balance } = await fundedKey(baseURL);
+  const originalEnv = process.env;
+  process.env = {
+    ...originalEnv,
+    NEAR_AI_API_KEY: "private-near-fixture",
+    PHALA_AI_API_KEY: "private-phala-fixture",
+    VERCEL_ENV: "",
+    SONNELY_PUBLIC_INFERENCE: "false",
+    SONNELY_PAUSED_PROVIDERS: "",
+  };
+  let scenario: "rejected" | "ambiguous" | "started" | "stream" = "rejected";
+  const calls: string[] = [];
+  const originalFetch = globalThis.fetch;
+  const providerFetch = mock.method(
+    globalThis,
+    "fetch",
+    async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input);
+      if (url.origin === "https://inference.phala.com") {
+        calls.push("phala");
+        expect(JSON.parse(String(init?.body)).provider).toEqual({
+          only: ["phala"],
+          allow_fallbacks: false,
+          aci_verified: true,
+        });
+        if (scenario === "ambiguous") return new Response(null, { status: 503 });
+        if (scenario === "started")
+          return new Response(null, { status: 429, headers: { "x-receipt-id": "known-receipt" } });
+        return new Response(null, { status: 429 });
+      }
+      if (url.origin !== "https://cloud-api.near.ai") return originalFetch(input, init);
+      calls.push("near-ai");
+      expect(new Headers(init?.headers).get("x-no-aliasing")).toBe("true");
+      if (scenario === "stream") {
+        const streamId = { id: completionId, object: "chat.completion.chunk", created: 1 };
+        const events = [
+          { ...streamId, choices: [{ index: 0, delta: { content: "Backup stream" } }] },
+          { ...streamId, choices: [], usage: { prompt_tokens: 50, completion_tokens: 10 } },
+        ];
+        return new Response(
+          events.map((event) => "data: " + JSON.stringify(event) + "\n\n").join("") + "data: [DONE]\n\n",
+          {
+            headers: { "content-type": "text/event-stream", "inference-id": randomUUID() },
+          },
+        );
+      }
+      return new Response(body, {
+        headers: { "Content-Type": "application/json", "inference-id": randomUUID() },
+      });
+    },
+  );
+  const provider = { only: ["phala", "near-ai"], allow_fallbacks: true };
+  const submit = (retryKey: string) =>
+    POST(
+      new NextRequest("http://localhost/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + apiKey,
+          "Idempotency-Key": retryKey,
+        },
+        body: JSON.stringify({ model: model.id, messages, max_tokens: 32, provider }),
+      }),
+    );
+  const log = (id: string) => db.query(api.requestLogs.details, { ...auth, id });
+  try {
+    const ok = await submit("route-one");
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("X-Sonnely-Provider")).toBe("near-ai");
+    const id = ok.headers.get("X-Sonnely-Request-Id")!;
+    const cost = requestCharge(model, 50, 25, 10);
+    expect(await ok.json()).toMatchObject({ sonnely_request_id: id, sonnely_provider: "near-ai" });
+    expect(await log(id)).toMatchObject({
+      provider: "near-ai",
+      status: "complete",
+      cost,
+      providerRejections: [{ provider: "phala", httpStatus: 429 }],
+    });
+    expect((await db.query(api.sonnely.consoleLive, { ...auth }))?.balance).toBe(balance - cost);
+    expect(calls).toEqual(["phala", "near-ai"]);
+    const replay = await submit("route-one");
+    expect(replay.status).toBe(409);
+    expect(replay.headers.get("X-Sonnely-Request-Id")).toBe(id);
+    expect(calls).toHaveLength(2);
+
+    scenario = "stream";
+    const stream = await infer(
+      { model: model.id, messages, max_tokens: 32, provider, stream: true },
+      { hash: hash(apiKey) },
+    );
+    if (!(stream instanceof Response)) throw new Error("Expected a stream.");
+    expect(stream.headers.get("X-Sonnely-Provider")).toBe("near-ai");
+    expect(await stream.text()).toContain("Backup stream");
+    expect(await log(stream.headers.get("X-Sonnely-Request-Id")!)).toMatchObject({
+      provider: "near-ai",
+      status: "complete",
+      providerRejections: [{ provider: "phala", httpStatus: 429 }],
+    });
+
+    for (const failure of ["ambiguous", "started"] as const) {
+      scenario = failure;
+      const recent = calls.length;
+      const failed = await submit("route-" + failure);
+      expect(failed.status).toBe(502);
+      expect(calls.slice(recent)).toEqual(["phala"]);
+      const failedId = failed.headers.get("X-Sonnely-Request-Id")!;
+      expect(await log(failedId)).toMatchObject({ provider: "phala", status: "unreported" });
+    }
+
+    process.env.SONNELY_PAUSED_PROVIDERS = "phala";
+    scenario = "rejected";
+    const recent = calls.length;
+    const paused = await submit("route-paused");
+    expect(paused.status).toBe(200);
+    expect(calls.slice(recent)).toEqual(["near-ai"]);
+  } finally {
+    providerFetch.mock.restore();
+    process.env = originalEnv;
   }
 });

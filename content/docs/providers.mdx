@@ -7,7 +7,7 @@ description: Discover available models and estimate token costs.
 
 [GET /models](/api/sonnely/v1/models) lists Sonnely Chat Completions model IDs and configured routes. [GET /provider-models](/api/sonnely/v1/provider-models) returns the full NEAR AI, Phala, and Tinfoil catalogs, including provider privacy classifications and workload types. The [model catalog](/models) distinguishes entries that Sonnely can run from entries listed for discovery.
 
-Chat uses the model’s default provider unless you select an available route. Check configured routes before sending a request.
+Chat uses the model’s default provider unless you pin a route or supply an explicit [private failover policy](/docs/api#private-routing-and-failover). Check configured routes before sending a request.
 
 ## Embeddings, decisions, images, and audio
 

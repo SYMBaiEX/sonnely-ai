@@ -24,7 +24,13 @@ import { createPortal } from "react-dom";
 import { Streamdown } from "streamdown";
 import { PlaygroundControls } from "./playground";
 import { models } from "@/lib/models";
-import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
+import {
+  privateFailoverProviders,
+  providerIds,
+  providerNames,
+  providerRoute,
+  type ProviderId,
+} from "@/lib/provider-catalog";
 import { readPlaygroundReply } from "@/lib/playground-stream";
 import { CopyButton } from "./shared";
 import { PlaygroundRoute } from "./playground-route";
@@ -36,8 +42,15 @@ type Message = {
   model?: string;
   at?: number;
   stopped?: boolean;
+  provider?: ProviderId;
 };
-type Thread = { id: string; model: string; provider?: ProviderId; messages: Message[] };
+type Thread = {
+  id: string;
+  model: string;
+  provider?: ProviderId;
+  fallbacks?: ProviderId[];
+  messages: Message[];
+};
 
 function transcript(thread: Thread, format: "md" | "txt") {
   const title = thread.messages[0]?.content || "Sonnely conversation";
@@ -109,8 +122,14 @@ export function Chat({
   const [text, setText] = useState("");
   const [model, setModel] = useState(initialModel);
   const [provider, setProvider] = useState(initialProvider);
+  const [fallbacks, setFallbacks] = useState<ProviderId[]>([]);
   const modelEntry = models.find((item) => item.id === model);
   const routes = availableProviders.filter((id) => modelEntry && providerRoute(modelEntry, id));
+  const privateRoutes = modelEntry ? privateFailoverProviders(modelEntry, providerIds) : [];
+  const routeReady =
+    routes.includes(provider) ||
+    (privateRoutes.includes(provider) &&
+      fallbacks.some((id) => privateRoutes.includes(id) && availableProviders.includes(id)));
   const [threads, setThreads] = useState<Thread[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [sample, setSample] = useState<number | null>(null);
@@ -161,6 +180,7 @@ export function Chat({
         setActive(thread.id);
         setModel(thread.model);
         setProvider(thread.provider ?? "near-ai");
+        setFallbacks(Array.isArray(thread.fallbacks) ? thread.fallbacks : []);
       }
     } catch {
       /* Playground remains usable when browser storage is unavailable. */
@@ -206,6 +226,7 @@ export function Chat({
     history: Message[],
     runModel: string,
     runProvider: ProviderId,
+    requestedFallbacks: readonly ProviderId[],
     restore?: () => void,
   ) {
     const previous = threads;
@@ -216,7 +237,14 @@ export function Chat({
       ? [{ role: "system", content: "Use concise, clear language." }, ...payload.slice(-31)]
       : payload.slice(-32);
     const entry = models.find((item) => item.id === runModel);
-    if (!entry || !availableProviders.some((route) => providerRoute(entry, route) && route === runProvider)) {
+    const eligible = entry ? privateFailoverProviders(entry, providerIds) : [];
+    const fallbacks = eligible.includes(runProvider)
+      ? [...new Set(requestedFallbacks)].filter((id) => id !== runProvider && eligible.includes(id))
+      : [];
+    if (
+      !entry ||
+      ![runProvider, ...fallbacks].some((id) => availableProviders.includes(id) && providerRoute(entry, id))
+    ) {
       setError("That model is temporarily unavailable. Try another model.");
       return;
     }
@@ -225,7 +253,7 @@ export function Chat({
       messages: requestMessages,
       max_tokens: 1024,
       stream: true,
-      ...(runProvider !== "near-ai" ? { provider: { only: [runProvider] } } : {}),
+      provider: { only: [runProvider, ...fallbacks], ...(fallbacks.length ? { allow_fallbacks: true } : {}) },
     };
     if (new TextEncoder().encode(JSON.stringify(input)).byteLength > 36_000) {
       setError("This conversation is too long for the gateway. Start a new chat or shorten your message.");
@@ -235,17 +263,19 @@ export function Chat({
     abortRef.current = controller;
     const replyAt = Date.now();
     let content = "";
+    let servingProvider: ProviderId | undefined;
+    const route = { model: runModel, provider: runProvider, ...(fallbacks.length ? { fallbacks } : {}) };
     const reply = (text: string, stopped = false): Thread[] => [
       {
         id,
-        model: runModel,
-        provider: runProvider,
+        ...route,
         messages: [
           ...history,
           {
             role: "assistant",
             content: text,
             model: runModel,
+            ...(servingProvider ? { provider: servingProvider } : {}),
             at: replyAt,
             ...(stopped ? { stopped: true } : {}),
           },
@@ -260,7 +290,7 @@ export function Chat({
     setActive(id);
     setText("");
     setEditIndex(null);
-    setThreads([{ id, model: runModel, provider: runProvider, messages: history }, ...rest]);
+    setThreads([{ id, ...route, messages: history }, ...rest]);
     try {
       const response = await fetch("/api/sonnely/chat", {
         method: "POST",
@@ -277,6 +307,7 @@ export function Chat({
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error ?? "The request did not return a stream.");
       }
+      servingProvider = providerIds.find((id) => id === response.headers.get("X-Sonnely-Provider"));
       for await (const text of readPlaygroundReply(response.body)) {
         content = text;
         setThreads(reply(content));
@@ -287,12 +318,7 @@ export function Chat({
     } catch (error) {
       if (controller.signal.aborted) {
         setAnnouncement("Response stopped.");
-        save(
-          content
-            ? reply(content, true)
-            : [{ id, model: runModel, provider: runProvider, messages: history }, ...rest],
-          id,
-        );
+        save(content ? reply(content, true) : [{ id, ...route, messages: history }, ...rest], id);
         await refresh();
       } else {
         setAnnouncement("");
@@ -317,7 +343,7 @@ export function Chat({
     const base = editing === null ? (thread?.messages ?? []) : (thread?.messages ?? []).slice(0, editing);
     const history: Message[] = [...base, { role: "user", content: prompt, at: Date.now() }];
     composerRef.current?.focus();
-    await run(id, history, model, provider, () => {
+    await run(id, history, model, provider, fallbacks, () => {
       setText(prompt);
       setEditIndex(editing);
     });
@@ -327,7 +353,13 @@ export function Chat({
     if (busy || !ready || !current || activeSample) return;
     const index = current.messages.map((message) => message.role).lastIndexOf("user");
     if (index < 0) return;
-    void run(current.id, current.messages.slice(0, index + 1), current.model, current.provider ?? "near-ai");
+    void run(
+      current.id,
+      current.messages.slice(0, index + 1),
+      current.model,
+      current.provider ?? "near-ai",
+      Array.isArray(current.fallbacks) ? current.fallbacks : [],
+    );
   }
 
   function edit(index: number) {
@@ -399,6 +431,7 @@ export function Chat({
                       setSample(null);
                       setModel(thread.model);
                       setProvider(thread.provider ?? "near-ai");
+                      setFallbacks(Array.isArray(thread.fallbacks) ? thread.fallbacks : []);
                       setShowHistory(false);
                       composerRef.current?.focus();
                       setError("");
@@ -456,11 +489,13 @@ export function Chat({
               <PlaygroundRoute
                 model={model}
                 provider={provider}
+                fallbacks={fallbacks}
                 availableProviders={availableProviders}
                 disabled={busy}
-                onChange={(model, provider) => {
+                onChange={(model, provider, fallbacks) => {
                   setModel(model);
                   setProvider(provider);
+                  setFallbacks(fallbacks);
                   setError("");
                 }}
               />
@@ -537,6 +572,7 @@ export function Chat({
                           })
                         : ""}
                       {message.stopped ? (message.at ? " · " : "") + "Stopped" : ""}
+                      {message.provider ? (message.at ? " · " : "") + providerNames[message.provider] : ""}
                     </span>
                     <span className="message-actions">
                       {message.role === "assistant" && !(busy && index === messages.length - 1) && (
@@ -599,7 +635,7 @@ export function Chat({
                   ready &&
                   text.trim() &&
                   !busy &&
-                  routes.includes(provider)
+                  routeReady
                 ) {
                   e.preventDefault();
                   e.currentTarget.form?.requestSubmit();
@@ -627,7 +663,7 @@ export function Chat({
                 type="submit"
                 form="playground-message-form"
                 aria-label="Send message"
-                disabled={!ready || !text.trim() || !routes.includes(provider)}
+                disabled={!ready || !text.trim() || !routeReady}
               >
                 <span>Send</span>
                 <ArrowUp size={17} aria-hidden="true" />

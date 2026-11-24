@@ -3,7 +3,7 @@ import { requestLogPageSize, type RequestLogRow } from "../lib/request-logs";
 import type { Doc, Id } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
 import { auth, requireAccount, service } from "./access";
-import { requestEndpoint, requestStatus } from "./requestLogContract";
+import { providerRejection, requestEndpoint, requestStatus } from "./requestLogContract";
 
 const provider = v.union(v.literal("near-ai"), v.literal("phala"), v.literal("tinfoil"));
 const requestRow = v.object({
@@ -12,6 +12,7 @@ const requestRow = v.object({
   keyName: v.string(),
   model: v.string(),
   provider,
+  providerRejections: v.optional(v.array(providerRejection)),
   input: v.number(),
   output: v.number(),
   cost: v.number(),
@@ -50,6 +51,7 @@ function toRow(row: Doc<"usage">): typeof requestRow.type & RequestLogRow {
     keyName: row.keyName,
     model: row.model,
     provider: row.provider ?? "near-ai",
+    providerRejections: row.providerRejections,
     input: row.input,
     output: row.output,
     cost: row.cost,
