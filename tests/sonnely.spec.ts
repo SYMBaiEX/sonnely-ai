@@ -127,7 +127,7 @@ test("Playground saves chats only after opt-in and restores the selected convers
   await page.route("**/api/sonnely/chat", (route) =>
     route.fulfill({
       contentType: "text/event-stream",
-      body: 'data: {"choices":[{"delta":{"content":"History fixture response"}}]}\n\ndata: [DONE]\n\n',
+      body: 'data: {"choices":[{"delta":{"content":"**History fixture response**"}}]}\n\ndata: [DONE]\n\n',
     }),
   );
   await page.goto("/console");
@@ -141,6 +141,7 @@ test("Playground saves chats only after opt-in and restores the selected convers
     .getByRole("region", { name: "Messages" })
     .getByText("History fixture response", { exact: true });
   await expect(reply).toBeVisible();
+  await expect(reply).toHaveJSProperty("tagName", "STRONG");
   expect(await page.evaluate((key) => localStorage.getItem(key), "sonnely.chats." + wallet)).toBeNull();
 
   await page.getByRole("button", { name: "Save chats on this device" }).click();
@@ -151,13 +152,19 @@ test("Playground saves chats only after opt-in and restores the selected convers
   await page.goto("/console?model=Qwen/Qwen3.6-35B-A3B-FP8");
   await expect(page.getByRole("button", { name: /Qwen 3\.6 35B/ })).toContainText("Qwen 3.6 35B");
   await expect(reply).toHaveCount(0);
+  const history = page.getByRole("button", { name: "History", exact: true });
+  await history.click();
+  await expect(page.getByRole("searchbox", { name: "Search conversations" })).toBeFocused();
   const sidebar = page.getByRole("complementary", { name: "Conversation history" });
   await sidebar.getByRole("button", { name: "Remember this chat", exact: true }).click();
   await expect(reply).toBeVisible();
   await page.locator(".chat-tools").getByRole("button", { name: "New chat", exact: true }).click();
   await page.goto("/console");
-  await expect(page.getByRole("heading", { name: "Start a conversation" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What are you working on?" })).toBeVisible();
+  await history.click();
   await expect(sidebar.getByRole("button", { name: "Remember this chat", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(history).toBeFocused();
 
   await page
     .getByRole("navigation", { name: "Workspace navigation" })

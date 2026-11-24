@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowUp,
   ArrowUpRight,
+  AudioLines,
+  FileText,
+  ShieldCheck,
   BadgeCheck,
   Download,
   Fingerprint,
@@ -17,9 +20,12 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
+import { Streamdown } from "streamdown";
+import { PlaygroundControls } from "./playground";
 import { models } from "@/lib/models";
 import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
-import { readSse } from "@/lib/sse";
+import { readPlaygroundReply } from "@/lib/playground-stream";
 import { CopyButton } from "./shared";
 import { PlaygroundRoute } from "./playground-route";
 import { type Session } from "./wallet";
@@ -112,7 +118,13 @@ export function Chat({
   const [busy, setBusy] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [error, setError] = useState("");
+  const controls = useContext(PlaygroundControls);
+  const historyButton = useRef<HTMLButtonElement>(null);
+  const historySearch = useRef<HTMLInputElement>(null);
   const [showHistory, setShowHistory] = useState(false);
+  useEffect(() => {
+    if (showHistory && controls.chat) historySearch.current?.focus();
+  }, [showHistory, controls.chat]);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -264,22 +276,10 @@ export function Chat({
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.error ?? "The request did not return a stream.");
       }
-      let complete = false;
-      for await (const event of readSse(response.body)) {
-        if (event === "[DONE]") {
-          complete = true;
-          break;
-        }
-        const chunk = JSON.parse(event);
-        if (chunk.error) throw new Error(chunk.error.message);
-        const delta = chunk.choices?.[0]?.delta?.content;
-        if (typeof delta === "string" && delta) {
-          content += delta;
-          setThreads(reply(content));
-        }
+      for await (const text of readPlaygroundReply(response.body)) {
+        content = text;
+        setThreads(reply(content));
       }
-      if (!complete)
-        throw new Error("The stream ended before billing was finalized. Check Usage before retrying.");
       save(reply(content || "The model returned no text."), id);
       setAnnouncement("Model response ready in Messages.");
       await refresh();
@@ -350,7 +350,18 @@ export function Chat({
 
   return (
     <div className={"chat-layout" + (showHistory ? " show-sessions" : "")}>
-      <aside id="playground-history" className="sessions" aria-label="Conversation history">
+      <aside
+        id="playground-history"
+        className="sessions"
+        aria-label="Conversation history"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            setShowHistory(false);
+            historyButton.current?.focus();
+          }
+        }}
+      >
         <div className="between">
           <strong>Conversations</strong>
           <button type="button" className="icon-button" aria-label="New chat" onClick={start} disabled={busy}>
@@ -358,6 +369,7 @@ export function Chat({
           </button>
         </div>
         <input
+          ref={historySearch}
           type="search"
           aria-label="Search conversations"
           placeholder="Search conversations"
@@ -414,50 +426,55 @@ export function Chat({
         </Link>
       </aside>
       <section className="chat-main">
-        <header className="playground-header">
-          <PlaygroundRoute
-            model={model}
-            provider={provider}
-            availableProviders={availableProviders}
-            disabled={busy}
-            onChange={(model, provider) => {
-              setModel(model);
-              setProvider(provider);
-              setError("");
-            }}
-          />
-          <div className="chat-tools">
-            {!activeSample && !!current?.messages.length && (
-              <>
+        {controls.chat &&
+          controls.mount &&
+          createPortal(
+            <div className="playground-chat-controls">
+              <PlaygroundRoute
+                model={model}
+                provider={provider}
+                availableProviders={availableProviders}
+                disabled={busy}
+                onChange={(model, provider) => {
+                  setModel(model);
+                  setProvider(provider);
+                  setError("");
+                }}
+              />
+              <div className="chat-tools">
+                {!activeSample && !!current?.messages.length && (
+                  <>
+                    <button
+                      className="button quiet small"
+                      type="button"
+                      onClick={downloadTranscript}
+                      disabled={busy}
+                    >
+                      <Download size={16} aria-hidden="true" /> Export
+                    </button>
+                    <CopyButton value={transcript(current, "txt")} label="Copy transcript" />
+                  </>
+                )}
                 <button
                   className="button quiet small"
                   type="button"
-                  onClick={downloadTranscript}
-                  disabled={busy}
+                  onClick={() => setShowHistory(!showHistory)}
+                  ref={historyButton}
+                  aria-expanded={showHistory}
+                  aria-controls="playground-history"
                 >
-                  <Download size={16} aria-hidden="true" /> Export
+                  <History size={16} aria-hidden="true" /> History
                 </button>
-                <CopyButton value={transcript(current, "txt")} label="Copy transcript" />
-              </>
-            )}
-            <button
-              className="button quiet small mobile-history"
-              type="button"
-              onClick={() => setShowHistory(!showHistory)}
-              aria-expanded={showHistory}
-              aria-controls="playground-history"
-            >
-              <History size={16} aria-hidden="true" /> History
-            </button>
-            <button className="button quiet small" type="button" onClick={start} disabled={busy}>
-              <Plus size={16} aria-hidden="true" /> New chat
-            </button>
-          </div>
-        </header>
+                <button className="button quiet small" type="button" onClick={start} disabled={busy}>
+                  <Plus size={16} aria-hidden="true" /> New chat
+                </button>
+              </div>
+            </div>,
+            controls.mount,
+          )}
         {!messages.length && (
           <div className="chat-welcome">
-            <h2>Start a conversation</h2>
-            <p>Choose a model and send a prompt.</p>
+            <h2>What are you working on?</h2>
           </div>
         )}
         {!!messages.length && (
@@ -477,7 +494,19 @@ export function Chat({
                       : (models.find((item) => item.id === (message.model ?? current?.model))?.name ??
                         "Model")}
                 </div>
-                <p>{message.content}</p>
+                {message.role === "assistant" ? (
+                  <div className="playground-markdown">
+                    <Streamdown
+                      disallowedElements={["img", "video", "audio", "source", "iframe"]}
+                      controls={false}
+                      components={{ strong: ({ children }) => <strong>{children}</strong> }}
+                    >
+                      {message.content}
+                    </Streamdown>
+                  </div>
+                ) : (
+                  <p>{message.content}</p>
+                )}
                 {message.role === "assistant" && <CopyButton value={message.content} label="Copy response" />}
                 {!activeSample && (
                   <div className="message-footer">
@@ -539,7 +568,7 @@ export function Chat({
               maxLength={12000}
               aria-label="Message"
               enterKeyHint="send"
-              placeholder="Write a message…"
+              placeholder="Ask a question or describe a task…"
               onKeyDown={(e) => {
                 if (
                   e.key === "Enter" &&
@@ -616,7 +645,24 @@ export function Chat({
             </button>
           )}
         </p>
-        {!messages.length && (
+        {!messages.length && ready && (
+          <div className="playground-workload-shortcuts" aria-label="Other inference tasks" role="group">
+            <button
+              type="button"
+              className="button quiet"
+              onClick={() => controls.select("audio/transcriptions")}
+            >
+              <AudioLines size={17} aria-hidden="true" /> Transcribe audio
+            </button>
+            <button type="button" className="button quiet" onClick={() => controls.select("convert/file")}>
+              <FileText size={17} aria-hidden="true" /> Convert a PDF
+            </button>
+            <button type="button" className="button quiet" onClick={() => controls.select("redact")}>
+              <ShieldCheck size={17} aria-hidden="true" /> Redact text
+            </button>
+          </div>
+        )}
+        {!messages.length && !ready && (
           <section className="playground-starters" aria-labelledby="playground-starters-title">
             <h2 id="playground-starters-title">Try a sample</h2>
             <div className="prompts">

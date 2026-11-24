@@ -4,19 +4,6 @@
   padding: 18px clamp(14px, 3vw, 36px) 26px;
 }
 
-.playground-header {
-  display: flex;
-  align-items: center;
-}
-
-.playground-header {
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 13px;
-}
-
 .playground-title {
   gap: 9px;
 }
@@ -383,10 +370,6 @@
     padding: 12px 10px 22px;
   }
 
-  .playground-header .chat-tools .button {
-    padding-inline: 8px;
-  }
-
   .console .chat-welcome {
     margin: clamp(26px, 6svh, 50px) 0 15px;
   }
@@ -639,10 +622,6 @@
   min-inline-size: 0;
 }
 
-.playground-header .chat-tools {
-  flex-wrap: wrap;
-}
-
 .playground-canvas .composer-controls {
   justify-content: flex-end;
 }
@@ -696,4 +675,152 @@
   .playground-canvas .chat-layout {
     min-block-size: 31rem;
   }
+}
+
+/* One command bar and a focused writing surface across Playground modes. */
+.playground-canvas {
+  background: color-mix(in srgb, var(--card) 74%, var(--surface));
+}
+
+.playground-request-toolbar {
+  gap: .625rem;
+  padding: .625rem clamp(.75rem, 2vw, 1.25rem);
+}
+
+.playground-endpoint-picker {
+  position: relative;
+  flex: 0 1 auto;
+  min-inline-size: 0;
+}
+
+.playground-endpoint-picker svg {
+  position: absolute;
+  inset-inline-start: .75rem;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+.playground-request-toolbar .playground-endpoint-picker select {
+  inline-size: min(14.5rem, 100%);
+  padding-inline-start: 2.25rem;
+}
+
+.playground-toolbar-controls,
+.playground-chat-controls {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem;
+  min-inline-size: 0;
+}
+
+.playground-chat-controls .chat-tools {
+  margin-inline-start: auto;
+  flex-wrap: wrap;
+  gap: .375rem;
+}
+
+.playground-chat-controls .button,
+.playground-chat-controls .playground-route-trigger {
+  min-block-size: 2.75rem;
+}
+
+.playground-request-toolbar .playground-model-select select {
+  inline-size: min(16rem, 100%);
+}
+
+.playground-canvas .chat-layout {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  min-block-size: clamp(30rem, calc(100dvh - 9rem), 49rem);
+}
+
+.playground-canvas .chat-layout .sessions {
+  display: none;
+}
+
+.playground-canvas .chat-layout.show-sessions .sessions {
+  display: block;
+  position: absolute;
+  z-index: 4;
+  inset-block-start: .625rem;
+  inset-inline-end: .625rem;
+  inline-size: min(19rem, calc(100% - 1.25rem));
+  max-block-size: min(28rem, 65vh);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: .875rem;
+  background: var(--card);
+  box-shadow: 0 12px 35px var(--shadow);
+}
+
+.playground-canvas .chat-main {
+  width: min(53rem, 100%);
+  padding: clamp(1.25rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem) 1.5rem;
+}
+
+.playground-canvas .chat-welcome {
+  margin: clamp(1rem, 9vh, 5rem) 0 1.25rem;
+}
+
+.playground-canvas .chat-welcome h2 {
+  font-weight: 560;
+  font-size: clamp(1.75rem, 4vw, 3rem);
+  letter-spacing: -.045em;
+}
+
+.playground-entry {
+  border-radius: 1.25rem;
+}
+
+.playground-canvas .composer-controls {
+  border-block-start: 0;
+  background: transparent;
+}
+
+.playground-markdown {
+  font-size: 1rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.playground-markdown :is(pre, table) {
+  max-inline-size: 100%;
+  overflow: auto;
+}
+
+@media (max-width: 700px) {
+  .playground-toolbar-controls {
+    flex-basis: 100%;
+  }
+
+  .playground-request-toolbar .playground-endpoint-picker select {
+    inline-size: 100%;
+  }
+
+  .playground-chat-controls .chat-tools {
+    margin-inline-start: 0;
+  }
+
+  .playground-canvas .chat-welcome {
+    margin-block-start: 1rem;
+  }
+}
+
+.playground-workload-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-block: 1.125rem 0;
+}
+
+.playground-workload-shortcuts .button {
+  min-block-size: 2.75rem;
+  padding-inline: .875rem;
+  border-radius: 999px;
+}
+
+.playground-workload-shortcuts svg {
+  color: var(--accent);
 }
