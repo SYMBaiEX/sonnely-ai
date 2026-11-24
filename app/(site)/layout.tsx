@@ -39,6 +39,7 @@ export default function SiteLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/docs">Documentation</Link>
               <Link href="/docs/api">API reference</Link>
               <Link href="/docs/sdks">SDKs</Link>
+              <Link href="/verify">Receipt verification</Link>
               <Link href="/status">Status</Link>
             </div>
             <div className="footer-group">

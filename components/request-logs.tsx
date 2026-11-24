@@ -188,6 +188,11 @@ function RequestDetail({ id, close }: { id: string; close: () => void }) {
                 ["Time to first token", milliseconds(row.timeToFirstTokenMs)],
               ]}
             />
+            {(row.endpoint === "chat/completions" || !row.endpoint) && (
+              <Link className="text-link" href="/verify">
+                Inspect a completion receipt <ArrowUpRight size={15} aria-hidden="true" />
+              </Link>
+            )}
             <Link className="text-link" href="/console/support">
               Get help with a request <ArrowUpRight size={15} aria-hidden="true" />
             </Link>

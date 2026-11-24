@@ -7,7 +7,7 @@ import { productPages } from "@/lib/product-pages";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const features = computeFeatures();
-  const pages = ["/", "/models", "/pricing", "/blog", "/contact", "/terms", "/privacy", "/status"];
+  const pages = ["/", "/models", "/pricing", "/blog", "/contact", "/verify", "/terms", "/privacy", "/status"];
   return [
     ...pages,
     ...docsSource.getPages().map(({ url }) => url),
