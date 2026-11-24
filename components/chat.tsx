@@ -111,6 +111,7 @@ export function Chat({
   const [sample, setSample] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
   const [error, setError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -241,6 +242,7 @@ export function Chat({
       ...rest,
     ];
     setBusy(true);
+    setAnnouncement("Waiting for model response.");
     setError("");
     setSample(null);
     setActive(id);
@@ -280,9 +282,11 @@ export function Chat({
       if (!complete)
         throw new Error("The stream ended before billing was finalized. Check Usage before retrying.");
       save(reply(content || "The model returned no text."), id);
+      setAnnouncement("Model response ready in Messages.");
       await refresh();
     } catch (error) {
       if (controller.signal.aborted) {
+        setAnnouncement("Response stopped.");
         save(
           content
             ? reply(content, true)
@@ -291,6 +295,7 @@ export function Chat({
         );
         await refresh();
       } else {
+        setAnnouncement("");
         setThreads(previous);
         setActive(previousActive);
         restore?.();
@@ -311,6 +316,7 @@ export function Chat({
     const editing = editIndex;
     const base = editing === null ? (thread?.messages ?? []) : (thread?.messages ?? []).slice(0, editing);
     const history: Message[] = [...base, { role: "user", content: prompt, at: Date.now() }];
+    composerRef.current?.focus();
     await run(id, history, model, provider, () => {
       setText(prompt);
       setEditIndex(editing);
@@ -449,7 +455,7 @@ export function Chat({
           </div>
         )}
         {!!messages.length && (
-          <div className="messages" aria-label="Messages">
+          <section className="messages" aria-label="Messages">
             {activeSample && <p className="playground-sample-note">Sample transcript</p>}
             {messages.map((message, index) => (
               <article
@@ -500,12 +506,15 @@ export function Chat({
               </article>
             ))}
             {busy && (
-              <p role="status" className="caption">
+              <p className="caption" aria-hidden="true">
                 Waiting for model response…
               </p>
             )}
-          </div>
+          </section>
         )}
+        <div role="status" className="visually-hidden">
+          {announcement}
+        </div>
         <div className="playground-entry">
           {editIndex !== null && (
             <p className="playground-editing" role="status">
@@ -557,7 +566,10 @@ export function Chat({
               <button
                 className="button quiet playground-send"
                 type="button"
-                onClick={() => abortRef.current?.abort()}
+                onClick={() => {
+                  composerRef.current?.focus();
+                  abortRef.current?.abort();
+                }}
                 aria-label="Stop response"
               >
                 <span>Stop</span>

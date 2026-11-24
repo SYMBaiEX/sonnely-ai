@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
 import { getWallets } from "@wallet-standard/app";
@@ -178,6 +178,8 @@ export function WalletControl({
   checkingAccount?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
   const [failure, setFailure] = useState("");
   const [busy, setBusy] = useState(false);
   const [wallets, setWallets] = useState<ReturnType<ReturnType<typeof getWallets>["get"]>>([]);
@@ -205,6 +207,11 @@ export function WalletControl({
     };
   }, []);
 
+  function closeWallet() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
+
   async function connect(wallet: (typeof wallets)[number]) {
     setFailure("");
     setBusy(true);
@@ -214,7 +221,7 @@ export function WalletControl({
       if (session?.profile) {
         if (!accounts.some((item) => item.address === session.profile?.wallet))
           throw new Error("Select the same address you used to sign in.");
-        setOpen(false);
+        closeWallet();
         return;
       }
       const account = accounts.find((item) => item.chains.some((chain) => chain.startsWith("solana:")));
@@ -232,7 +239,7 @@ export function WalletControl({
       });
       sessionStorage.removeItem("sonnely.invite");
       await refresh();
-      setOpen(false);
+      closeWallet();
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Wallet connection failed.");
     } finally {
@@ -246,7 +253,7 @@ export function WalletControl({
     try {
       await request("logout", {});
       await refresh();
-      setOpen(false);
+      closeWallet();
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Could not sign out.");
     } finally {
@@ -261,11 +268,20 @@ export function WalletControl({
       : "Connect wallet";
 
   return (
-    <div className="wallet-widget">
+    <div
+      className="wallet-widget"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || !open) return;
+        event.stopPropagation();
+        closeWallet();
+      }}
+    >
       <button
         type="button"
+        ref={trigger}
         className="button wallet-button"
-        aria-label={walletLabel}
+        aria-label={session?.profile ? `${walletLabel}, wallet options` : walletLabel}
+        aria-controls={open ? panelId : undefined}
         aria-expanded={open}
         disabled={checkingAccount}
         onClick={() => {
@@ -278,7 +294,7 @@ export function WalletControl({
         <ChevronDown size={14} className="wallet-button-chevron" aria-hidden="true" />
       </button>
       {open && (
-        <div className="wallet-pop panel">
+        <div id={panelId} className="wallet-pop panel">
           {session?.enabled ? (
             <>
               <strong>{session.profile ? "Reconnect for payments" : "Solana wallets"}</strong>

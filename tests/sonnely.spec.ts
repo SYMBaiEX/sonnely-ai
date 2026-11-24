@@ -64,7 +64,7 @@ test("public routes and console work across desktop and mobile", async ({ page }
     .filter({ has: page.getByRole("heading", { name: "Qwen 3.6 35B", exact: true }) })
     .getByRole("link", { name: "Open in chat" })
     .click();
-  const route = page.getByRole("button", { name: /Choose model/ });
+  const route = page.getByRole("button", { name: /Qwen 3\.6 35B/ });
   await expect(route).toContainText("Qwen 3.6 35B");
   await route.click();
   const picker = page.getByRole("dialog", { name: "Choose a model" });
@@ -133,7 +133,13 @@ test("Playground saves chats only after opt-in and restores the selected convers
   await page.goto("/console");
   await page.getByRole("textbox", { name: "Message", exact: true }).fill("Remember this chat");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
-  const reply = page.getByText("History fixture response", { exact: true });
+  await expect(
+    page.getByRole("status").filter({ hasText: "Model response ready in Messages." }),
+  ).toBeAttached();
+  await expect(page.getByRole("textbox", { name: "Message", exact: true })).toBeFocused();
+  const reply = page
+    .getByRole("region", { name: "Messages" })
+    .getByText("History fixture response", { exact: true });
   await expect(reply).toBeVisible();
   expect(await page.evaluate((key) => localStorage.getItem(key), "sonnely.chats." + wallet)).toBeNull();
 
@@ -143,7 +149,7 @@ test("Playground saves chats only after opt-in and restores the selected convers
   await expect(reply).toBeVisible();
 
   await page.goto("/console?model=Qwen/Qwen3.6-35B-A3B-FP8");
-  await expect(page.getByRole("button", { name: /Choose model and provider/ })).toContainText("Qwen 3.6 35B");
+  await expect(page.getByRole("button", { name: /Qwen 3\.6 35B/ })).toContainText("Qwen 3.6 35B");
   await expect(reply).toHaveCount(0);
   const sidebar = page.getByRole("complementary", { name: "Conversation history" });
   await sidebar.getByRole("button", { name: "Remember this chat", exact: true }).click();
@@ -194,12 +200,12 @@ test("wallet account workflow scopes keys, referrals, and support requests", asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   const record = page.getByRole("row").filter({ hasText: "Local fixture" });
   await expect(record.getByText("Active", { exact: true })).toBeInViewport();
-  await expect(record.getByRole("button", { name: "Revoke", exact: true })).toBeInViewport();
+  await expect(record.getByRole("button", { name: "Revoke Local fixture", exact: true })).toBeInViewport();
   expect(await page.locator(".key-records .table-wrap").evaluate((element) => element.scrollWidth)).toBe(
     await page.locator(".key-records .table-wrap").evaluate((element) => element.clientWidth),
   );
   await page.setViewportSize(desktop);
-  await page.getByRole("button", { name: "Revoke", exact: true }).click();
+  await page.getByRole("button", { name: "Revoke Local fixture", exact: true }).click();
   await page.getByRole("button", { name: "Revoke key", exact: true }).click();
   await expect(page.getByText("Revoked", { exact: true })).toBeVisible();
 

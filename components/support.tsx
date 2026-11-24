@@ -194,11 +194,9 @@ function NewRequest({ email, done }: { email?: string; done: () => void }) {
             {failure}
           </p>
         )}
-        {notice && (
-          <p role="status" className="status">
-            {notice}
-          </p>
-        )}
+        <p role="status" className={notice ? "status" : "visually-hidden"}>
+          {notice}
+        </p>
       </form>
     </section>
   );

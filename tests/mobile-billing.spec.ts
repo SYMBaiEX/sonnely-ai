@@ -106,7 +106,7 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   const input = page.getByRole("spinbutton", { name: "Amount in USDC" });
   await expect(input).toHaveValue("5");
   await page.getByRole("button", { name: "Continue to payment" }).click();
-  await expect(page.getByRole("heading", { name: "Pay $5.00 in USDC" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pay $5.00 in USDC" })).toBeFocused();
   const review = page.getByRole("region", { name: "Review transfer" });
   await page.getByRole("button", { name: "Pay with connected wallet" }).click();
   await expect(review.getByRole("alert")).toHaveText(/Your wallet needs 5\.00 USDC/);
@@ -114,11 +114,13 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   await input.fill("0.10");
   await expect(review.getByRole("alert")).toBeHidden();
   await page.getByRole("button", { name: "Continue to payment" }).click();
-  await expect(page.getByRole("heading", { name: "Pay $0.10 in USDC" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pay $0.10 in USDC" })).toBeFocused();
   await page.getByText("Use a Solana Pay link or QR code", { exact: true }).click();
   await expect(page.getByRole("link", { name: "Open in wallet" })).toHaveAttribute("href", "solana:fixture");
   await page.getByRole("button", { name: "Pay with connected wallet" }).click();
   await expect(page.getByText("Payment submitted. Waiting for Solana finality…")).toBeVisible();
-  await expect(page.getByText("Payment confirmed. Credits added.")).toBeVisible({ timeout: 12_000 });
+  await expect(page.getByRole("status").filter({ hasText: "Payment confirmed. Credits added." })).toBeVisible(
+    { timeout: 12_000 },
+  );
   await expect(page.locator(".amount")).toHaveText("$0.10");
 });

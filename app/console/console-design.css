@@ -1,4 +1,7 @@
 .console {
+  --console-control-size: 2.75rem;
+  --console-text: 1rem;
+  --console-caption: 0.875rem;
   --console-selected: color-mix(in srgb, var(--active-fill) 82%, var(--surface));
   --workspace-scene-opacity: 0.46;
 }
@@ -185,7 +188,7 @@
 
 .console .console-title h1 {
   margin-bottom: 0.38rem;
-  font-size: clamp(27px, 3.1vw, 43px);
+  font-size: clamp(1.75rem, 1.25rem + 1.6vw, 2.75rem);
   font-weight: 630;
   letter-spacing: -0.049em;
   text-wrap: balance;
@@ -193,7 +196,7 @@
 
 .console .console-title p {
   max-width: 65ch;
-  font-size: 0.91rem;
+  font-size: var(--console-text);
 }
 
 .console :is(.panel, .composer) {
@@ -774,4 +777,28 @@
     grid-column: 2;
     grid-row: 1 / 4;
   }
+}
+
+
+.console :is(input:not([type="radio"], [type="checkbox"]), select, textarea) {
+  font-size: var(--console-text);
+}
+
+.console :is(form label, .caption) {
+  font-size: var(--console-caption);
+}
+
+.console :is(.console-content, .console-chat) :is(.button, .icon-button) {
+  min-block-size: var(--console-control-size);
+}
+
+.console :is(.console-content, .console-chat) .icon-button {
+  min-inline-size: var(--console-control-size);
+}
+
+.console :is(.console-content, .console-chat) .button:not(.icon-button) {
+  font-size: var(--console-caption);
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

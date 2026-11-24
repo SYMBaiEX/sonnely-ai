@@ -114,6 +114,26 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
   const [revoke, setRevoke] = useState<Key | null>(null);
   const [editing, setEditing] = useState<Key | null>(null);
   const revokeHeading = useRef<HTMLHeadingElement>(null);
+  const createButton = useRef<HTMLButtonElement>(null);
+  const formHeading = useRef<HTMLHeadingElement>(null);
+  const newKeyHeading = useRef<HTMLHeadingElement>(null);
+  const rowAction = useRef<HTMLButtonElement>(null);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    if (key) newKeyHeading.current?.focus();
+    else if (open || editing) formHeading.current?.focus();
+  }, [key, open, editing]);
+
+  useEffect(() => {
+    if (status && !busy) createButton.current?.focus();
+  }, [status, busy]);
+
+  function cancelRowAction() {
+    setEditing(null);
+    setRevoke(null);
+    rowAction.current?.focus();
+  }
 
   useEffect(() => {
     if (revoke) revokeHeading.current?.focus();
@@ -161,6 +181,7 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
         expires: expires ? Date.parse(String(expires) + "T23:59:59Z") : null,
       });
       setEditing(null);
+      setStatus("API key updated.");
       reload();
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Could not update the key.");
@@ -176,6 +197,7 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
     try {
       await request("revoke", { id: revoke.id });
       setRevoke(null);
+      setStatus("API key revoked.");
       reload();
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Could not revoke the key.");
@@ -194,8 +216,17 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
         <button
           type="button"
           className="button accent"
-          disabled={!signedIn || open || busy}
+          ref={createButton}
+          disabled={!signedIn || busy}
+          aria-expanded={open}
           onClick={() => {
+            if (open) {
+              formHeading.current?.focus();
+              return;
+            }
+            setEditing(null);
+            setRevoke(null);
+            setStatus("");
             setOpen(true);
             setKey("");
             setFailure("");
@@ -205,16 +236,28 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
         </button>
       </WorkspaceHeading>
       <Failure message={failure || error} />
+      <div role="status" className="visually-hidden">
+        {status}
+      </div>
       {signedIn && !!key && (
         <section className="panel callout" aria-label="New API key">
           <div>
-            <h2>Save your new key</h2>
+            <h2 ref={newKeyHeading} tabIndex={-1}>
+              Save your new key
+            </h2>
             <p>Store it securely. The full key is shown once.</p>
             <code className="secret-code">{key}</code>
           </div>
           <div className="actions">
             <CopyButton value={key} label="Copy key" />
-            <button type="button" className="button quiet" onClick={() => setKey("")}>
+            <button
+              type="button"
+              className="button quiet"
+              onClick={() => {
+                setKey("");
+                createButton.current?.focus();
+              }}
+            >
               Done
             </button>
           </div>
@@ -222,7 +265,9 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
       )}
       {signedIn && open && (
         <form className="panel stack-panel" onSubmit={create}>
-          <h2>Create an API key</h2>
+          <h2 ref={formHeading} tabIndex={-1}>
+            Create an API key
+          </h2>
           <div className="form-row">
             <label>
               Name
@@ -245,7 +290,15 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
             <button type="submit" className="button accent" disabled={busy}>
               {busy ? "Creating…" : "Create key"}
             </button>
-            <button type="button" className="button quiet" onClick={() => setOpen(false)} disabled={busy}>
+            <button
+              type="button"
+              className="button quiet"
+              onClick={() => {
+                setOpen(false);
+                createButton.current?.focus();
+              }}
+              disabled={busy}
+            >
               Cancel
             </button>
           </div>
@@ -253,7 +306,9 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
       )}
       {signedIn && editing && (
         <form className="panel stack-panel" onSubmit={update} key={editing.id}>
-          <h2>Edit {editing.name}</h2>
+          <h2 ref={formHeading} tabIndex={-1}>
+            Edit {editing.name}
+          </h2>
           <div className="form-row">
             <label>
               Name
@@ -295,7 +350,7 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
             <button type="submit" className="button accent" disabled={busy}>
               {busy ? "Saving…" : "Save changes"}
             </button>
-            <button type="button" className="button quiet" onClick={() => setEditing(null)} disabled={busy}>
+            <button type="button" className="button quiet" onClick={cancelRowAction} disabled={busy}>
               Cancel
             </button>
           </div>
@@ -313,7 +368,7 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
             <button className="button danger" type="button" onClick={disable} disabled={busy}>
               Revoke key
             </button>
-            <button className="button quiet" type="button" onClick={() => setRevoke(null)} disabled={busy}>
+            <button className="button quiet" type="button" onClick={cancelRowAction} disabled={busy}>
               Cancel
             </button>
           </div>
@@ -384,7 +439,14 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
                           <button
                             type="button"
                             className="button quiet small"
-                            onClick={() => {
+                            aria-label={`Edit ${item.name}`}
+                            disabled={busy}
+                            onClick={(event) => {
+                              rowAction.current = event.currentTarget;
+                              setOpen(false);
+                              setKey("");
+                              setRevoke(null);
+                              setStatus("");
                               setEditing(item);
                               setFailure("");
                             }}
@@ -394,7 +456,16 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
                           <button
                             type="button"
                             className="button quiet small"
-                            onClick={() => setRevoke(item)}
+                            aria-label={`Revoke ${item.name}`}
+                            disabled={busy}
+                            onClick={(event) => {
+                              rowAction.current = event.currentTarget;
+                              setOpen(false);
+                              setKey("");
+                              setEditing(null);
+                              setStatus("");
+                              setRevoke(item);
+                            }}
                           >
                             Revoke
                           </button>
@@ -775,10 +846,19 @@ export function Billing({
   const [failure, setFailure] = useState<{ action: string; message: string }>();
   const [status, setStatus] = useState("");
 
+  const reviewHeading = useRef<HTMLHeadingElement>(null);
+  const review = useRef<HTMLElement>(null);
+  const paymentAmount = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (order) reviewHeading.current?.focus();
+  }, [order]);
+
   const reference = order?.reference;
   const wallet = profile?.wallet;
 
   async function finishPayment(cluster: string) {
+    if (review.current?.contains(document.activeElement)) paymentAmount.current?.focus();
     setStatus(cluster === "mainnet" ? "Payment confirmed. Credits added." : "Devnet payment verified.");
     setFailure(undefined);
     setOrder(null);
@@ -845,11 +925,9 @@ export function Billing({
       <Failure
         message={failure && !["deposit", "pay", "confirm"].includes(failure.action) ? failure.message : error}
       />
-      {status && (
-        <p role="status" className="status">
-          {status}
-        </p>
-      )}
+      <p role="status" className={status ? "status" : "visually-hidden"}>
+        {status}
+      </p>
       <div className="billing-grid">
         <section className="panel stack-panel billing-balance">
           <div className="between">
@@ -907,6 +985,7 @@ export function Billing({
                 step="0.000001"
                 inputMode="decimal"
                 required
+                ref={paymentAmount}
                 value={dollars}
                 onChange={(e) => {
                   setDollars(e.target.value);
@@ -923,9 +1002,11 @@ export function Billing({
           </form>
           {failure?.action === "deposit" && <Failure message={failure.message} />}
           {order && profile && (
-            <section className="checkout" aria-label="Review transfer">
+            <section ref={review} className="checkout" aria-label="Review transfer">
               <div className="between">
-                <h2>Pay {creditBalance(order.amount)} in USDC</h2>
+                <h2 ref={reviewHeading} tabIndex={-1}>
+                  Pay {creditBalance(order.amount)} in USDC
+                </h2>
                 <span className="pill">{order.cluster}</span>
               </div>
               <p className="caption">
@@ -1461,11 +1542,9 @@ export function SettingsPanel({
         description="Edit your profile and choose how this device displays the console."
       />
       <Failure message={error} />
-      {notice && (
-        <p role="status" className="status">
-          {notice}
-        </p>
-      )}
+      <p role="status" className={notice ? "status" : "visually-hidden"}>
+        {notice}
+      </p>
       <section className="panel stack-panel settings-panel">
         <div className="between">
           <h2>Workspace identity</h2>
