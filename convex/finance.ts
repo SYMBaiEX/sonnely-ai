@@ -21,6 +21,7 @@ const payoutView = v.object({
 const payoutDoc = v.object({
   ...payoutOrder,
   id: v.id("payouts"),
+  signature: v.optional(v.string()),
   transaction: v.optional(v.string()),
   lastValidBlockHeight: v.optional(v.number()),
 });
@@ -290,12 +291,21 @@ async function pendingPayout(ctx: QueryCtx, reference: string) {
   return { ledger, row };
 }
 
+function payoutByReference(ctx: QueryCtx, reference: string) {
+  return ctx.db
+    .query("payouts")
+    .withIndex("by_reference", (q) => q.eq("reference", reference))
+    .unique();
+}
+
 export const payoutDetails = query({
   args: { ...auth, reference: v.string() },
   returns: payoutDoc,
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
-    const { row } = await pendingPayout(ctx, args.reference);
+    const row = await payoutByReference(ctx, args.reference);
+    if (!row || (!row.signature && (await totals(ctx))?.pendingPayout !== row._id))
+      throw new ConvexError("Payout unavailable.");
     const {
       _id: id,
       reference,
@@ -304,10 +314,22 @@ export const payoutDetails = query({
       amount,
       mint,
       cluster,
+      signature,
       transaction,
       lastValidBlockHeight,
     } = row;
-    return { id, reference, treasury, recipient, amount, mint, cluster, transaction, lastValidBlockHeight };
+    return {
+      id,
+      reference,
+      treasury,
+      recipient,
+      amount,
+      mint,
+      cluster,
+      signature,
+      transaction,
+      lastValidBlockHeight,
+    };
   },
 });
 
@@ -347,10 +369,7 @@ export const confirmPayout = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx, args);
-    const already = await ctx.db
-      .query("payouts")
-      .withIndex("by_reference", (q) => q.eq("reference", args.reference))
-      .unique();
+    const already = await payoutByReference(ctx, args.reference);
     if (already?.signature === args.signature) return null;
     const { ledger, row } = await pendingPayout(ctx, args.reference);
     await ctx.db.patch(row._id, { signature: args.signature });

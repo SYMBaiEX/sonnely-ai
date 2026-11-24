@@ -6,6 +6,7 @@ import {
   compileTransaction,
   createTransactionMessage,
   getAddressEncoder,
+  getBase58Decoder,
   getBase64EncodedWireTransaction,
   getCompiledTransactionMessageDecoder,
   getTransactionDecoder,
@@ -32,6 +33,10 @@ test("Android Chrome discovers the Solana mobile wallet and fits the billing pag
 test("checkout explains insufficient USDC and confirms a smaller transfer", async ({ page }) => {
   let signed = false;
   let credited = false;
+  let checkedSignature = false;
+  const finality = Promise.withResolvers<void>();
+  const signatureBytes = new Uint8Array(64).fill(17);
+  const expectedSignature = getBase58Decoder().decode(signatureBytes);
   const payer = address(wallet);
   const message = setTransactionMessageLifetimeUsingBlockhash(
     { blockhash: blockhash(reference), lastValidBlockHeight: 100n },
@@ -44,7 +49,7 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
     expect(compiled.version).toBe(1);
     expect(compiled.staticAccounts[0]).toBe(wallet);
     signed = true;
-    return Array(64).fill(17);
+    return [...signatureBytes];
   });
   await page.addInitScript(({ address, bytes }) => {
     const chain = "solana:mainnet";
@@ -122,12 +127,22 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
           });
         expect(route.request().postDataJSON()).toEqual({ reference, version: 1 });
         return route.fulfill({ json: { transaction } });
-      case "confirm":
-        if (route.request().postDataJSON().reference === firstReference)
+      case "confirm": {
+        const confirmation = route.request().postDataJSON();
+        if (confirmation.reference === firstReference)
           return route.fulfill({ json: { ok: false, cluster: "mainnet" } });
-        expect(route.request().postDataJSON()).toEqual({ reference });
-        credited = signed;
+        expect(confirmation.reference).toBe(reference);
+        if (confirmation.signature) {
+          expect(confirmation.signature).toBe(expectedSignature);
+          checkedSignature = true;
+          return route.fulfill({ status: 409, json: { error: "Payment has not reached finality." } });
+        }
+        if (signed && checkedSignature) {
+          await finality.promise;
+          credited = true;
+        }
         return route.fulfill({ json: { ok: credited, cluster: "mainnet" } });
+      }
       default:
         return route.continue();
     }
@@ -151,10 +166,79 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   await expect(page.getByRole("link", { name: "Open in wallet" })).toHaveAttribute("href", "solana:fixture");
   await page.getByRole("button", { name: "Pay with connected wallet" }).click();
   await expect(page.getByText("Payment submitted. Waiting for Solana finality…")).toBeVisible();
+  await expect.poll(() => checkedSignature).toBe(true);
+  finality.resolve();
   await expect(page.getByRole("status").filter({ hasText: "Payment confirmed. Credits added." })).toBeVisible(
     { timeout: 12_000 },
   );
   await expect(page.locator(".amount")).toHaveText("$0.10");
+});
+
+test("an archived payment stays recoverable and cannot be reused for checkout", async ({ page }) => {
+  const draft = { reference, amount: 5_000_000, cluster: "mainnet" };
+  const signature = getBase58Decoder().decode(new Uint8Array(64).fill(23));
+  let archivedAt: number | undefined;
+  let finalized = false;
+  await page.route("**/api/sonnely/*", async (route) => {
+    const url = new URL(route.request().url());
+    switch (url.pathname.split("/").at(-1)) {
+      case "session":
+        return route.fulfill({
+          json: {
+            profile: { wallet, balance: finalized ? draft.amount : 0 },
+            enabled: true,
+            billingEnabled: true,
+            paymentVerificationEnabled: true,
+            cluster: draft.cluster,
+          },
+        });
+      case "history":
+        return route.fulfill({
+          json: [{ ...draft, time: 1, archivedAt, signature: finalized ? signature : undefined }],
+        });
+      case "cancel-deposit":
+        expect(route.request().postDataJSON()).toEqual({ reference });
+        archivedAt = Date.now();
+        return route.fulfill({ json: { ok: true } });
+      case "payment":
+        expect(url.searchParams.get("reference")).toBe(reference);
+        expect(archivedAt).toBeDefined();
+        return route.fulfill({ json: { ...draft, archivedAt, uri: "", qr: "" } });
+      case "deposit":
+        expect(route.request().postDataJSON()).toEqual({ dollars: "5" });
+        return route.fulfill({
+          json: { ...draft, reference: firstReference, uri: "solana:new", qr: "data:image/png;base64," },
+        });
+      case "confirm": {
+        const check = route.request().postDataJSON();
+        if (check.reference === reference && check.signature === signature) finalized = true;
+        return route.fulfill({ json: { ok: finalized && check.reference === reference, cluster: draft.cluster } });
+      }
+      default:
+        return route.continue();
+    }
+  });
+
+  await page.goto("/console/billing");
+  await page.getByRole("button", { name: "Archive request" }).click();
+  const archive = page.getByRole("button", { name: "Confirm archive" });
+  await expect(archive).toBeFocused();
+  await archive.press("Enter");
+  await expect(page.getByRole("status").filter({ hasText: "Payment request archived." })).toBeVisible();
+  const reopen = page.getByRole("button", { name: "Check archived payment" });
+  await reopen.click();
+  const archived = page.getByRole("region", { name: "Archived payment" });
+  await expect(archived.getByRole("heading", { name: "Archived payment" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Pay with connected wallet" })).toHaveCount(0);
+  await expect(page.getByText("Use a Solana Pay link or QR code")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Continue to payment" }).click();
+  await expect(page.getByRole("heading", { name: "Pay $5.00 in USDC" })).toBeFocused();
+  await reopen.click();
+  await archived.getByRole("textbox", { name: "Transaction signature (optional)" }).fill(signature);
+  await archived.getByRole("button", { name: "Check now" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Payment confirmed. Credits added." })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Finalized" })).toBeVisible();
 });
 
 test("mainnet checkout quotes and shows a direct SOL transfer", async ({ page }) => {
@@ -163,7 +247,9 @@ test("mainnet checkout quotes and shows a direct SOL transfer", async ({ page })
       json: { profile: { wallet, balance: 0 }, enabled: true, billingEnabled: true, cluster: "mainnet" },
     }),
   );
-  await page.route("**/api/sonnely/history", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/sonnely/history", (route) =>
+    route.fulfill({ json: [{ reference: firstReference, amount: 5_000_000, cluster: "mainnet", time: 1 }] }),
+  );
   await page.route("**/api/sonnely/deposit", (route) => {
     expect(route.request().postDataJSON()).toEqual({ dollars: "5", asset: "sol" });
     return route.fulfill({
@@ -183,6 +269,7 @@ test("mainnet checkout quotes and shows a direct SOL transfer", async ({ page })
   test.skip(!(await method.count()), "SOL funding is disabled in this test deployment.");
   const usdc = method.getByRole("button", { name: "USDC", exact: true });
   const sol = method.getByRole("button", { name: "SOL", exact: true });
+  await expect(page.getByText("Awaiting payment")).toBeVisible();
   await expect(usdc).toHaveAttribute("aria-pressed", "true");
   await sol.press("Enter");
   await expect(sol).toHaveAttribute("aria-pressed", "true");

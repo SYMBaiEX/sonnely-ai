@@ -822,6 +822,7 @@ type Payment = {
   amount: number;
   sol?: SolPayment;
   qr: string;
+  archivedAt?: number;
 };
 type Confirmation = { ok: boolean; cluster: string };
 type Receipt = {
@@ -831,6 +832,7 @@ type Receipt = {
   sol?: SolPayment;
   signature?: string;
   time: number;
+  archivedAt?: number;
 };
 
 export function Billing({
@@ -866,10 +868,11 @@ export function Billing({
     const timer = setTimeout(() => setQuoteExpired(true), Math.max(0, expiresAt - Date.now()));
     return () => clearTimeout(timer);
   }, [expiresAt]);
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedSignature, setSubmittedSignature] = useState("");
+  const submitted = Boolean(submittedSignature);
   const [signature, setSignature] = useState("");
   const [pending, setPending] = useState("");
-  const [cancel, setCancel] = useState("");
+  const [archive, setArchive] = useState("");
   const quoting = pending === "quote" || pending === "prepare-swap";
   const [failure, setFailure] = useState<{ action: string; message: string }>();
   const [status, setStatus] = useState("");
@@ -877,13 +880,20 @@ export function Billing({
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const review = useRef<HTMLElement>(null);
   const paymentAmount = useRef<HTMLInputElement>(null);
+  const historyHeading = useRef<HTMLHeadingElement>(null);
+  const archiveConfirmation = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (order) reviewHeading.current?.focus();
   }, [order]);
 
+  useEffect(() => {
+    if (archive) archiveConfirmation.current?.focus();
+  }, [archive]);
+
   const reference = order?.reference;
   const wallet = profile?.wallet;
+  const archived = order?.archivedAt !== undefined;
 
   async function finishPayment(cluster: string) {
     if (review.current?.contains(document.activeElement)) paymentAmount.current?.focus();
@@ -891,7 +901,7 @@ export function Billing({
     setFailure(undefined);
     setOrder(null);
     setSignature("");
-    setSubmitted(false);
+    setSubmittedSignature("");
     reload();
     await refresh();
   }
@@ -903,7 +913,13 @@ export function Billing({
     let timer: ReturnType<typeof setTimeout>;
     async function check() {
       try {
-        const result = await request<Confirmation>("confirm", { reference });
+        const signed = submittedSignature
+          ? await request<Confirmation>("confirm", { reference, signature: submittedSignature }).catch(
+              () => undefined,
+            )
+          : undefined;
+        if (stopped) return;
+        const result = signed?.ok ? signed : await request<Confirmation>("confirm", { reference });
         if (!stopped && result.ok) {
           await reportFinality(result.cluster);
           return;
@@ -918,13 +934,13 @@ export function Billing({
       stopped = true;
       clearTimeout(timer);
     };
-  }, [reference, session?.paymentVerificationEnabled, wallet]);
+  }, [reference, session?.paymentVerificationEnabled, submittedSignature, wallet]);
 
   function openPayment(payment: Payment) {
     setOrder(payment);
     setQuoteExpired(Boolean(payment.sol && payment.sol.expiresAt <= Date.now()));
     setSignature("");
-    setSubmitted(false);
+    setSubmittedSignature("");
   }
 
   async function resumePayment(reference: string) {
@@ -1035,12 +1051,20 @@ export function Billing({
                     if (
                       order?.amount === amount &&
                       Boolean(order.sol) === (method === "sol") &&
-                      !quoteExpired
-                    )
+                      !quoteExpired &&
+                      !archived
+                    ) {
+                      reviewHeading.current?.focus();
                       return;
+                    }
                     const existing = data?.find(
                       (item) =>
-                        !item.signature && item.cluster === session?.cluster && item.amount === amount,
+                        !item.signature &&
+                        item.archivedAt === undefined &&
+                        item.cluster === session?.cluster &&
+                        item.amount === amount &&
+                        Boolean(item.sol) === (method === "sol") &&
+                        (!item.sol || item.sol.expiresAt > Date.now()),
                     );
                     if (existing) await resumePayment(existing.reference);
                     else {
@@ -1229,25 +1253,33 @@ export function Billing({
             </div>
           )}
           {order && profile && method === (order.sol ? "sol" : "usdc") && (
-            <section ref={review} className="checkout" aria-label="Review transfer">
+            <section
+              ref={review}
+              className="checkout"
+              aria-label={archived ? "Archived payment" : "Review transfer"}
+            >
               <div className="between">
                 <h2 ref={reviewHeading} tabIndex={-1}>
-                  {order.sol
-                    ? "Pay " + solDecimal(order.sol.lamports) + " SOL"
-                    : "Pay " + creditBalance(order.amount) + " in USDC"}
+                  {archived
+                    ? "Archived payment"
+                    : order.sol
+                      ? "Pay " + solDecimal(order.sol.lamports) + " SOL"
+                      : "Pay " + creditBalance(order.amount) + " in USDC"}
                 </h2>
                 <span className="pill">{order.cluster}</span>
               </div>
               <p className="caption">
-                {order.sol
-                  ? `${creditBalance(order.amount)} in credits at $${order.sol.priceUsd} per SOL. Quote expires at ${new Date(order.sol.expiresAt).toLocaleTimeString()}. Network fees are separate.`
-                  : "Your wallet shows the transfer before you approve. A small SOL fee and token account setup may apply."}
+                {archived
+                  ? "If you already sent this transfer, you can still check for confirmation and receive credits."
+                  : order.sol
+                    ? `${creditBalance(order.amount)} in credits at $${order.sol.priceUsd} per SOL. Quote expires at ${new Date(order.sol.expiresAt).toLocaleTimeString()}. Network fees are separate.`
+                    : "Your wallet shows the transfer before you approve. A small SOL fee and token account setup may apply."}
               </p>
               {submitted ? (
                 <p role="status" className="status">
                   Payment submitted. Waiting for Solana finality…
                 </p>
-              ) : quoteExpired ? (
+              ) : archived ? null : quoteExpired ? (
                 <p role="status">SOL quote expired. Continue to payment to request a new quote.</p>
               ) : (
                 <>
@@ -1259,7 +1291,7 @@ export function Billing({
                       void run("pay", async () => {
                         const sent = await payWithWallet(profile.wallet, order.reference, order.cluster);
                         setSignature(sent);
-                        setSubmitted(true);
+                        setSubmittedSignature(sent);
                       })
                     }
                   >
@@ -1281,7 +1313,7 @@ export function Billing({
                   </details>
                 </>
               )}
-              <details>
+              <details key={order.reference} open={archived || undefined}>
                 <summary>Check payment status</summary>
                 <form
                   className="inline-form"
@@ -1319,7 +1351,9 @@ export function Billing({
           )}
         </section>
         <section className="panel breakdown billing-history">
-          <h2 id="payment-history">Payment history</h2>
+          <h2 id="payment-history" ref={historyHeading} tabIndex={-1}>
+            Payment history
+          </h2>
           {profile && data?.length ? (
             <div
               className="table-wrap workspace-data-table payment-history"
@@ -1363,56 +1397,71 @@ export function Billing({
                               label="Copy receipt"
                             />
                           </div>
-                        ) : cancel === item.reference ? (
+                        ) : archive === item.reference ? (
                           <div className="payment-status">
-                            <span className="caption">Cancel this payment?</span>
+                            <span className="caption">Archive this payment request?</span>
                             <button
                               className="text-link"
                               type="button"
+                              ref={archiveConfirmation}
                               disabled={!!pending}
                               onClick={() =>
-                                void run("cancel", async () => {
+                                void run("archive", async () => {
                                   await request("cancel-deposit", { reference: item.reference });
-                                  if (order?.reference === item.reference) setOrder(null);
-                                  setCancel("");
+                                  historyHeading.current?.focus();
+                                  setOrder((current) =>
+                                    current?.reference === item.reference
+                                      ? { ...current, archivedAt: Date.now(), uri: "", qr: "" }
+                                      : current,
+                                  );
+                                  setArchive("");
                                   reload();
+                                  setStatus("Payment request archived. You can still check for a finalized transfer.");
                                 })
                               }
                             >
-                              Confirm cancel
+                              Confirm archive
                             </button>
                             <button
                               className="text-link"
                               type="button"
                               disabled={!!pending}
-                              onClick={() => setCancel("")}
+                              onClick={() => {
+                                setArchive("");
+                                historyHeading.current?.focus();
+                              }}
                             >
                               Keep
                             </button>
                           </div>
                         ) : (
                           <div className="payment-status">
-                            <span className="caption">Awaiting payment</span>
+                            <span className="caption">
+                              {item.archivedAt !== undefined ? "Archived" : "Awaiting payment"}
+                            </span>
                             <button
                               className="text-link"
                               type="button"
-                              aria-label="Resume payment"
+                              aria-label={item.archivedAt !== undefined ? "Check archived payment" : "Resume payment"}
                               disabled={!!pending}
                               onClick={() => {
-                                if (order?.reference !== item.reference)
-                                  void run("resume", () => resumePayment(item.reference));
+                                if (order?.reference === item.reference && reviewHeading.current)
+                                  reviewHeading.current.focus();
+                                else void run("resume", () => resumePayment(item.reference));
                               }}
                             >
-                              Resume
+                              {item.archivedAt !== undefined ? "Check status" : "Resume"}
                             </button>
-                            <button
-                              className="text-link"
-                              type="button"
-                              disabled={!!pending}
-                              onClick={() => setCancel(item.reference)}
-                            >
-                              Cancel
-                            </button>
+                            {item.archivedAt === undefined && (
+                              <button
+                                className="text-link"
+                                type="button"
+                                disabled={!!pending}
+                                onClick={() => setArchive(item.reference)}
+                              >
+                                Archive request
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>

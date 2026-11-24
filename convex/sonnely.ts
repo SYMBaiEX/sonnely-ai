@@ -537,6 +537,7 @@ export const depositDetails = query({
     ...deposit,
     signature: v.optional(v.string()),
     checkoutTransaction: v.optional(v.object({ transaction: v.string(), lastValidBlockHeight: v.number() })),
+    archivedAt: v.optional(v.number()),
   }),
   handler: async (ctx, args) => {
     service(args.secret);
@@ -546,8 +547,8 @@ export const depositDetails = query({
       .withIndex("by_reference", (q) => q.eq("reference", args.reference))
       .unique();
     if (!row || row.account !== account._id) throw new ConvexError("Payment request unavailable.");
-    const { reference, recipient, mint, cluster, amount, signature, sol, checkoutTransaction } = row;
-    return { reference, recipient, mint, cluster, amount, signature, sol, checkoutTransaction };
+    const { reference, recipient, mint, cluster, amount, signature, sol, checkoutTransaction, archivedAt } = row;
+    return { reference, recipient, mint, cluster, amount, signature, sol, checkoutTransaction, archivedAt };
   },
 });
 
@@ -569,6 +570,7 @@ export const saveDepositTransaction = mutation({
       .unique();
     if (!row || row.account !== account._id || row.signature)
       throw new ConvexError("Payment request unavailable.");
+    if (row.archivedAt !== undefined) throw new ConvexError("This payment request is archived.");
     if (row.sol && row.sol.expiresAt <= Date.now())
       throw new ConvexError("This SOL quote expired. Start a new payment.");
     const current = row.checkoutTransaction;
@@ -620,6 +622,7 @@ export const history = query({
       cluster: v.string(),
       amount: v.number(),
       signature: v.optional(v.string()),
+      archivedAt: v.optional(v.number()),
       sol: solPayment,
       time: v.number(),
     }),
@@ -632,11 +635,12 @@ export const history = query({
       .withIndex("by_account", (q) => q.eq("account", account._id))
       .order("desc")
       .take(30);
-    return rows.map(({ reference, cluster, amount, signature, sol, _creationTime }) => ({
+    return rows.map(({ reference, cluster, amount, signature, archivedAt, sol, _creationTime }) => ({
       reference,
       cluster,
       amount,
       signature,
+      archivedAt,
       sol,
       time: _creationTime,
     }));
@@ -748,7 +752,7 @@ export const cancelDeposit = mutation({
     if (!row || row.account !== account._id) throw new ConvexError("Payment request unavailable.");
     if (row.signature || row.finalizedAt !== undefined)
       throw new ConvexError("This payment is already finalized.");
-    await ctx.db.delete(row._id);
+    if (row.archivedAt === undefined) await ctx.db.patch(row._id, { archivedAt: Date.now() });
     return null;
   },
 });
