@@ -898,3 +898,15 @@
   overflow-wrap: anywhere;
   font-weight: 550;
 }
+
+.billing-pilot-transfer {
+  display: grid;
+  justify-items: start;
+  gap: .75rem;
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.billing-pilot-transfer > .checkout {
+  inline-size: 100%;
+}

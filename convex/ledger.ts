@@ -1,5 +1,5 @@
 import { ConvexError } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { enqueueGatewaySettlement } from "./usageMaxOutbox";
 
@@ -66,6 +66,25 @@ export async function settleUsage(
   });
 }
 
+export async function assertDepositSignatureUnused(
+  ctx: MutationCtx,
+  signature: string,
+  pilotOrder?: Id<"confidentialPilotOrders">,
+) {
+  const [publicDeposit, confidentialDeposit] = await Promise.all([
+    ctx.db
+      .query("deposits")
+      .withIndex("by_signature", (q) => q.eq("signature", signature))
+      .unique(),
+    ctx.db
+      .query("confidentialPilotOrders")
+      .withIndex("by_submission_signature", (q) => q.eq("submission.signature", signature))
+      .unique(),
+  ]);
+  if (publicDeposit || (confidentialDeposit && confidentialDeposit._id !== pilotOrder))
+    throw new ConvexError("Payment already recorded.");
+}
+
 export async function creditDeposit(
   ctx: MutationCtx,
   row: Doc<"deposits">,
@@ -73,11 +92,8 @@ export async function creditDeposit(
   signature: string,
 ) {
   if (row.signature === signature) return;
-  const used = await ctx.db
-    .query("deposits")
-    .withIndex("by_signature", (q) => q.eq("signature", signature))
-    .unique();
-  if (used || row.signature) throw new ConvexError("Payment already recorded.");
+  if (row.signature) throw new ConvexError("Payment already recorded.");
+  await assertDepositSignatureUnused(ctx, signature);
   const balance = account.balance + row.amount;
   if (row.cluster === "mainnet" && !Number.isSafeInteger(balance))
     throw new ConvexError("The payment exceeds the credit balance limit.");
