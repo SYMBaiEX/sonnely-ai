@@ -3,20 +3,34 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@/convex/_generated/api";
-import { getWallets } from "@wallet-standard/app";
-import { StandardConnect, type StandardConnectFeature } from "@wallet-standard/features";
+import {
+  address,
+  getBase58Decoder,
+  getBase64Encoder,
+  getCompiledTransactionMessageDecoder,
+  getTransactionDecoder,
+  isTransactionSendingSigner,
+} from "@solana/kit";
+import { supportsSignInWithOffchainMessage } from "@solana/kit-plugin-wallet";
+import { useConnectedWallet, useIsWalletReady, useWallets } from "@solana/kit-plugin-wallet/react";
+import { useAction } from "@solana/react";
 import {
   SolanaSignAndSendTransaction,
   SolanaSignMessage,
   SolanaSignIn,
-  type SolanaSignInFeature,
+  SolanaSignOffchainMessage,
   type SolanaSignInInput,
-  type SolanaSignAndSendTransactionFeature,
-  type SolanaSignMessageFeature,
+  type SolanaSignInOutput,
 } from "@solana/wallet-standard-features";
-import bs58 from "bs58";
 import { Wallet as WalletIcon, ChevronDown } from "lucide-react";
 import { shorten } from "@/lib/models";
+import {
+  canAuthenticateWallet,
+  isMobileAdapter,
+  mobileAdapterName,
+  registerMobileWallet,
+  solanaWalletClients,
+} from "./solana-wallet";
 
 export type Session = {
   profile: {
@@ -118,64 +132,42 @@ export function useSession(liveDays?: number) {
   return { session, failure, refresh, liveRows };
 }
 
-let mobileRegistration: Promise<void> | undefined;
-const mobileAdapterName = "Mobile Wallet Adapter";
-const remoteMobileAdapterName = "Remote Mobile Wallet Adapter";
-
-function registerMobileWallet() {
-  if (!window.isSecureContext || !/Android/i.test(navigator.userAgent)) return;
-  mobileRegistration ??= import("@solana-mobile/wallet-standard-mobile")
-    .then(({ registerMwa, createDefaultAuthorizationCache, createDefaultChainSelector }) => {
-      registerMwa({
-        appIdentity: { name: "Sonnely", uri: window.location.origin, icon: "/brand/sonnely-crimson-192.png" },
-        chains: ["solana:mainnet", "solana:devnet"],
-        authorizationCache: createDefaultAuthorizationCache(),
-        chainSelector: createDefaultChainSelector(),
-      });
-    })
-    .catch(() => {
-      mobileRegistration = undefined;
-    });
-}
-
 export async function payWithWallet(
   walletAddress: string,
   reference: string,
   cluster: string,
-  task = "payment-transaction",
+  task: "payment-transaction" | "admin-payout-transaction" = "payment-transaction",
 ) {
   if (cluster !== "mainnet" && cluster !== "devnet") throw new Error("Unsupported Solana network.");
-  const chain = `solana:${cluster}` as const;
-  for (const wallet of getWallets().get()) {
-    const account = wallet.accounts.find(
-      (item) => item.address === walletAddress && item.chains.includes(chain),
+  const { wallet } = solanaWalletClients[cluster];
+  await wallet.whenReady();
+  const connected = wallet.getState().connected;
+  if (connected?.account.address !== walletAddress || !connected.account.chains.includes(`solana:${cluster}`)) {
+    throw new Error(
+      task === "payment-transaction"
+        ? "Connect your signed-in wallet from the console header, or use the Solana Pay link."
+        : "Connect the treasury wallet from the console header.",
     );
-    const feature = (wallet.features as Partial<SolanaSignAndSendTransactionFeature>)[
-      SolanaSignAndSendTransaction
-    ];
-    if (!account || !feature || !account.features.includes(SolanaSignAndSendTransaction)) continue;
-    const versions = feature.supportedTransactionVersions;
-    const version =
-      task === "admin-payout-transaction"
-        ? versions.includes("legacy")
-          ? "legacy"
-          : undefined
-        : ([1, 0, "legacy"] as const).find((candidate) => versions.includes(candidate));
-    if (version === undefined) continue;
-    const { transaction } = await request<{ transaction: string }>(task, {
-      reference,
-      version,
-    });
-    const [sent] = await feature.signAndSendTransaction({
-      account,
-      chain,
-      transaction: Uint8Array.from(atob(transaction), (byte) => byte.charCodeAt(0)),
-      options: { preflightCommitment: "confirmed", skipPreflight: false },
-    });
-    if (!sent) throw new Error("The wallet did not return a signature. Check the payment status.");
-    return bs58.encode(sent.signature);
   }
-  throw new Error("Reconnect your signed-in wallet from the console header, or use the Solana Pay link.");
+  const { signer, supportedTransactionVersions } = connected;
+  const version = ([1, 0] as const).find((candidate) => supportedTransactionVersions.has(candidate));
+  if (!signer || !isTransactionSendingSigner(signer) || version === undefined) {
+    throw new Error("Use a wallet that supports sending Solana v0 or v1 transactions.");
+  }
+
+  const { transaction } = await request<{ transaction: string }>(task, { reference, version });
+  const current = wallet.getState().connected;
+  if (current?.account !== connected.account || current.signer !== signer) {
+    throw new Error("The wallet changed while preparing this transaction. Review it again before paying.");
+  }
+  const prepared = getTransactionDecoder().decode(getBase64Encoder().encode(transaction));
+  const message = getCompiledTransactionMessageDecoder().decode(prepared.messageBytes);
+  if (message.version !== version || message.staticAccounts[0] !== walletAddress) {
+    throw new Error("The prepared transaction does not match the selected wallet or transaction version.");
+  }
+  const [signature] = await signer.signAndSendTransactions([prepared]);
+  if (signature?.length !== 64) throw new Error("The wallet did not return a signature. Check the payment status.");
+  return getBase58Decoder().decode(signature);
 }
 
 export function WalletControl({
@@ -190,102 +182,100 @@ export function WalletControl({
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const trigger = useRef<HTMLButtonElement>(null);
-  const [failure, setFailure] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [wallets, setWallets] = useState<ReturnType<ReturnType<typeof getWallets>["get"]>>([]);
+  const cluster = session?.cluster === "devnet" ? "devnet" : "mainnet";
+  const client = solanaWalletClients[cluster];
+  const ready = useIsWalletReady(client);
+  const connected = useConnectedWallet(client);
+  const wallets = useWallets(client).filter((wallet) =>
+    session?.profile ? wallet.features.includes(SolanaSignAndSendTransaction) : canAuthenticateWallet(wallet),
+  );
 
   useEffect(() => {
-    const registry = getWallets();
-    registerMobileWallet();
-    const update = () =>
-      setWallets(
-        registry
-          .get()
-          .filter(
-            (wallet) =>
-              wallet.chains.some((chain) => chain.startsWith("solana:")) &&
-              StandardConnect in wallet.features &&
-              (SolanaSignIn in wallet.features || SolanaSignMessage in wallet.features),
-          ),
-      );
-    update();
-    const onRegister = registry.on("register", update);
-    const onUnregister = registry.on("unregister", update);
-    return () => {
-      onRegister();
-      onUnregister();
-    };
-  }, []);
+    if (session?.enabled) registerMobileWallet(`solana:${cluster}`);
+  }, [cluster, session?.enabled]);
 
   function closeWallet() {
     setOpen(false);
     trigger.current?.focus();
   }
 
-  async function connect(wallet: (typeof wallets)[number]) {
-    setFailure("");
-    setBusy(true);
-    try {
-      const features = wallet.features as StandardConnectFeature &
-        Partial<SolanaSignInFeature & SolanaSignMessageFeature>;
-      const { accounts } = await features[StandardConnect].connect();
-      if (session?.profile) {
-        if (!accounts.some((item) => item.address === session.profile?.wallet))
-          throw new Error("Select the same address you used to sign in.");
-        closeWallet();
-        return;
-      }
-      const account = accounts.find((item) => item.chains.some((chain) => chain.startsWith("solana:")));
-      if (!account) throw new Error("No Solana account is available in this wallet.");
-      const { input, message } = await request<{ input: SolanaSignInInput; message: string }>("challenge", {
-        wallet: account.address,
-      });
-      const signIn = features[SolanaSignIn];
-      const signer = features[SolanaSignMessage];
-      const isMobileAdapter = wallet.name === mobileAdapterName || wallet.name === remoteMobileAdapterName;
-      let signature: Uint8Array | undefined;
-      let signedMessage: Uint8Array | undefined;
-      // Mobile Wallet Adapter can reuse authorization that predates this challenge.
-      if (signIn && input && !isMobileAdapter) {
-        const [output] = await signIn.signIn(input);
-        if (output && output.account.address !== account.address)
-          throw new Error("The wallet signed in with a different address.");
-        signature = output?.signature;
-        signedMessage = output?.signedMessage;
-      } else if (signer && account.features.includes(SolanaSignMessage)) {
-        const [output] = await signer.signMessage({ account, message: new TextEncoder().encode(message) });
-        signature = output?.signature;
-      }
-      if (!signature) throw new Error("No signature was returned.");
-      await request("verify", {
-        wallet: account.address,
-        signature: [...signature],
-        ...(signedMessage ? { signedMessage: [...signedMessage] } : {}),
-        invite: sessionStorage.getItem("sonnely.invite") ?? undefined,
-      });
-      sessionStorage.removeItem("sonnely.invite");
-      await refresh();
+  const connect = useAction(async (abortSignal, wallet: (typeof wallets)[number]) => {
+    const options = { abortSignal };
+    const accounts = await client.wallet.connect(wallet, options);
+    abortSignal.throwIfAborted();
+    const chainAccounts = accounts.filter((account) => account.chains.includes(`solana:${cluster}`));
+    if (session?.profile) {
+      const account = chainAccounts.find((item) => item.address === session.profile?.wallet);
+      if (!account) throw new Error("Select the same account and network you used to sign in.");
+      client.wallet.selectAccount(account);
       closeWallet();
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : "Wallet connection failed.");
-    } finally {
-      setBusy(false);
+      return;
     }
-  }
+    const account = chainAccounts[0];
+    if (!account) throw new Error(`Select an account that supports Solana ${cluster}.`);
+    client.wallet.selectAccount(account);
+    const { input, message } = await request<{ input: SolanaSignInInput; message: string }>("challenge", {
+      wallet: account.address,
+    });
 
-  async function disconnect() {
-    setBusy(true);
-    setFailure("");
-    try {
-      await request("logout", {});
-      await refresh();
-      closeWallet();
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : "Could not sign out.");
-    } finally {
-      setBusy(false);
+    let signature: readonly number[];
+    let signedMessage: readonly number[] | undefined;
+    let signedMessageFormat: SolanaSignInOutput["signedMessageFormat"];
+    // Mobile Wallet Adapter can reuse authorization that predates this challenge.
+    const nativeSignIn = wallet.features.includes(SolanaSignIn) && !isMobileAdapter(wallet.name);
+    const offchainSignIn = nativeSignIn && supportsSignInWithOffchainMessage(wallet);
+    const canSignOffchain = account.features.includes(SolanaSignOffchainMessage);
+    if (nativeSignIn && (offchainSignIn || !canSignOffchain)) {
+      const output = await client.wallet.signIn(
+        wallet,
+        offchainSignIn ? { ...input, useOffchainMessage: { messageVersion: 1 } } : input,
+        options,
+      );
+      if (output.account.address !== account.address)
+        throw new Error("The wallet signed in with a different address.");
+      signature = [...output.signature];
+      signedMessage = [...output.signedMessage];
+      if (output.signedMessageFormat?.kind === "offchainMessage")
+        signedMessageFormat = output.signedMessageFormat;
+    } else {
+      if (client.wallet.getState().connected?.account.address !== account.address) {
+        throw new Error("The wallet changed while preparing this sign-in. Try again.");
+      }
+      if (canSignOffchain) {
+        const envelope = await client.wallet.signOffchainMessage({ message, version: 1 }, options);
+        const detachedSignature = envelope.signatures[address(account.address)];
+        if (!detachedSignature) throw new Error("The wallet did not return an off-chain signature.");
+        signature = [...detachedSignature];
+        signedMessage = [...envelope.content];
+        signedMessageFormat = { kind: "offchainMessage", messageVersion: 1 };
+      } else if (account.features.includes(SolanaSignMessage)) {
+        signature = [...(await client.wallet.signMessage(new TextEncoder().encode(message), options))];
+      } else {
+        throw new Error("This account does not support signing in.");
+      }
     }
-  }
+    abortSignal.throwIfAborted();
+    await request("verify", {
+      wallet: account.address,
+      signature,
+      signedMessage,
+      signedMessageFormat,
+      invite: sessionStorage.getItem("sonnely.invite") ?? undefined,
+    });
+    sessionStorage.removeItem("sonnely.invite");
+    await refresh();
+    closeWallet();
+  });
+
+  const disconnect = useAction(async (abortSignal) => {
+    await request("logout", {});
+    await client.wallet.disconnect(undefined, { abortSignal }).catch(() => {});
+    await refresh();
+    closeWallet();
+  });
+  const busy = connect.isRunning || disconnect.isRunning;
+  const error = disconnect.error ?? connect.error;
+  const failure = busy || !error ? "" : error instanceof Error ? error.message : "Wallet action failed.";
 
   const walletLabel = session?.profile
     ? shorten(session.profile.wallet)
@@ -310,8 +300,11 @@ export function WalletControl({
         aria-controls={open ? panelId : undefined}
         aria-expanded={open}
         disabled={checkingAccount}
+        aria-disabled={busy || undefined}
         onClick={() => {
-          setFailure("");
+          if (busy) return;
+          connect.reset();
+          disconnect.reset();
           setOpen(!open);
         }}
       >
@@ -323,14 +316,22 @@ export function WalletControl({
         <div id={panelId} className="wallet-pop panel">
           {session?.enabled ? (
             <>
-              <strong>{session.profile ? "Reconnect for payments" : "Solana wallets"}</strong>
-              {wallets.length ? (
+              <strong>{session.profile ? "Wallet connection" : "Solana wallets"}</strong>
+              {session.profile && connected?.account.address === session.profile.wallet && (
+                <p className="muted">Connected to {connected.wallet.name}</p>
+              )}
+              {!ready ? (
+                <p role="status">Looking for Solana wallets…</p>
+              ) : wallets.length ? (
                 wallets.map((wallet) => (
                   <button
                     className="button quiet full"
                     type="button"
                     key={wallet.name}
-                    onClick={() => connect(wallet)}
+                    onClick={() => {
+                      disconnect.reset();
+                      connect.dispatch(wallet);
+                    }}
                     disabled={busy}
                   >
                     {wallet.name === mobileAdapterName ? "Solana mobile wallet" : wallet.name}
@@ -345,7 +346,15 @@ export function WalletControl({
                 </>
               )}
               {session.profile && (
-                <button className="button quiet full" type="button" disabled={busy} onClick={disconnect}>
+                <button
+                  className="button quiet full"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    connect.reset();
+                    disconnect.dispatch();
+                  }}
+                >
                   Sign out
                 </button>
               )}

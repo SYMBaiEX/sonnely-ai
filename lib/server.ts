@@ -113,8 +113,7 @@ export async function readBody(request: NextRequest, limit: number = limits.body
 }
 
 export const hash = (token: string) => createHash("sha256").update(token).digest("hex");
-export const sessionToken = (request: NextRequest) =>
-  request.cookies.get("sonnely_session")?.value ?? request.cookies.get("fathom_session")?.value;
+export const sessionToken = (request: NextRequest) => request.cookies.get("sonnely_session")?.value;
 export function sessionHash(request: NextRequest) {
   const token = sessionToken(request);
   if (!token) throw new SonnelyError("Sign in with a Solana wallet.", 401);

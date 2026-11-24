@@ -3,42 +3,13 @@ import bs58 from "bs58";
 import { z } from "zod";
 import type { Id } from "@/convex/_generated/dataModel";
 import { api } from "@/convex/_generated/api";
-import { address, billing, findMatchingPayment, mainnetMint, rpcCall, verifyCluster } from "./payments";
-import { preparePaymentEnvelope } from "./payment-transaction";
+import { address, billing, finalizedBlockHeight, findMatchingPayment, mainnetMint, treasuryBalance, verifyCluster } from "./payments";
+import { paymentEnvelopeResponse, paymentTransactionVersion, preparePaymentEnvelope } from "./payment-transaction";
 import { getProviderCosts } from "./provider-billing";
 import { backend, json, SonnelyError } from "./server";
 import { readGatewayReport } from "./usagemax-gateway";
 import { gatewayRequestKey, readGatewayOperations, readGatewayTrace, reportDay } from "./usagemax-operations";
 import { invoiceAmountNanos, invoiceLineLimit, invoiceProviders, invoiceReference } from "./provider-invoice";
-
-const tokenBalance = z.object({
-  value: z.array(
-    z.object({
-      account: z.object({
-        data: z.object({
-          parsed: z.object({
-            info: z.object({ tokenAmount: z.object({ amount: z.string().regex(/^\d+$/) }) }),
-          }),
-        }),
-      }),
-    }),
-  ),
-});
-
-async function treasuryBalance(rpc: string, treasury: string) {
-  const balances = tokenBalance.safeParse(
-    await rpcCall(rpc, "getTokenAccountsByOwner", [
-      treasury,
-      { mint: mainnetMint },
-      { commitment: "finalized", encoding: "jsonParsed" },
-    ]),
-  );
-  if (!balances.success) throw new SonnelyError("Treasury USDC balance is unavailable.", 503);
-  return balances.data.value.reduce(
-    (sum, entry) => sum + BigInt(entry.account.data.parsed.info.tokenAmount.amount),
-    0n,
-  );
-}
 
 export async function adminOverview(
   auth: { secret: string; session: string },
@@ -423,7 +394,7 @@ export async function adminAction(
   }
 
   const { reference, version } = z
-    .object({ reference: address, version: z.literal("legacy").optional() })
+    .object({ reference: address, version: paymentTransactionVersion.optional() })
     .parse(raw);
   const order = await db.query(api.finance.payoutDetails, { ...auth, reference });
   const { rpc, cluster, recipient } = billing();
@@ -436,16 +407,13 @@ export async function adminAction(
     await db.mutation(api.finance.confirmPayout, { ...auth, reference, signature });
     return json({ ok: true });
   }
-  if (task === "admin-payout-transaction" && version === "legacy") {
+  if (task === "admin-payout-transaction") {
+    if (version === undefined) throw new SonnelyError("Choose a supported wallet transaction version.");
     const profile = await db.query(api.sonnely.profile, auth);
     if (profile?.wallet !== order.treasury)
       throw new SonnelyError("Connect the treasury wallet to approve.", 403);
     // A finalized block height safely bounds expiry and prevents two live drafts for one payout.
-    const height = z
-      .number()
-      .int()
-      .nonnegative()
-      .parse(await rpcCall(rpc, "getBlockHeight", [{ commitment: "finalized" }]));
+    const height = await finalizedBlockHeight(rpc);
     if (await findMatchingPayment(rpc, order.treasury, order, "confirmed"))
       throw new SonnelyError("The payout is already on chain. Check finality.", 409);
     const [liability, usdc] = await Promise.all([
@@ -457,16 +425,15 @@ export async function adminAction(
     if (usdc < BigInt(liability) + BigInt(order.amount))
       throw new SonnelyError("The treasury needs more USDC to cover available credits and this payout.", 409);
     if (order.transaction && (order.lastValidBlockHeight ?? 0) >= height)
-      return json({ transaction: order.transaction });
-    const draft = await preparePaymentEnvelope(rpc, order.treasury, order, "legacy");
-    return json({
-      transaction: await db.mutation(api.finance.savePayoutTransaction, {
-        ...auth,
-        reference,
-        ...draft,
-        observedHeight: height,
-      }),
+      return json(paymentEnvelopeResponse(order.transaction, version));
+    const draft = await preparePaymentEnvelope(rpc, order.treasury, order, version);
+    const transaction = await db.mutation(api.finance.savePayoutTransaction, {
+      ...auth,
+      reference,
+      ...draft,
+      observedHeight: height,
     });
+    return json(paymentEnvelopeResponse(transaction, version));
   }
   throw new SonnelyError("Unsupported admin action.");
 }

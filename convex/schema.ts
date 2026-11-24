@@ -172,6 +172,7 @@ export default defineSchema({
     amount: v.number(),
     sol: v.optional(v.object({ lamports: v.number(), expiresAt: v.number(), priceUsd: v.string() })),
     signature: v.optional(v.string()),
+    checkoutTransaction: v.optional(v.object({ transaction: v.string(), lastValidBlockHeight: v.number() })),
     nextCheckAt: v.optional(v.number()),
     finalizedAt: v.optional(v.number()),
   })

@@ -533,7 +533,11 @@ export const createDeposit = mutation({
 
 export const depositDetails = query({
   args: { ...auth, reference: v.string() },
-  returns: v.object({ ...deposit, signature: v.optional(v.string()) }),
+  returns: v.object({
+    ...deposit,
+    signature: v.optional(v.string()),
+    checkoutTransaction: v.optional(v.object({ transaction: v.string(), lastValidBlockHeight: v.number() })),
+  }),
   handler: async (ctx, args) => {
     service(args.secret);
     const account = await requireAccount(ctx, args.session);
@@ -542,8 +546,46 @@ export const depositDetails = query({
       .withIndex("by_reference", (q) => q.eq("reference", args.reference))
       .unique();
     if (!row || row.account !== account._id) throw new ConvexError("Payment request unavailable.");
-    const { reference, recipient, mint, cluster, amount, signature, sol } = row;
-    return { reference, recipient, mint, cluster, amount, signature, sol };
+    const { reference, recipient, mint, cluster, amount, signature, sol, checkoutTransaction } = row;
+    return { reference, recipient, mint, cluster, amount, signature, sol, checkoutTransaction };
+  },
+});
+
+export const saveDepositTransaction = mutation({
+  args: {
+    ...auth,
+    reference: v.string(),
+    transaction: v.string(),
+    lastValidBlockHeight: v.number(),
+    observedHeight: v.number(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    service(args.secret);
+    const account = await requireAccount(ctx, args.session);
+    const row = await ctx.db
+      .query("deposits")
+      .withIndex("by_reference", (q) => q.eq("reference", args.reference))
+      .unique();
+    if (!row || row.account !== account._id || row.signature)
+      throw new ConvexError("Payment request unavailable.");
+    if (row.sol && row.sol.expiresAt <= Date.now())
+      throw new ConvexError("This SOL quote expired. Start a new payment.");
+    const current = row.checkoutTransaction;
+    if (current && current.lastValidBlockHeight >= args.observedHeight) return current.transaction;
+    if (
+      !Number.isSafeInteger(args.observedHeight) ||
+      args.observedHeight < 0 ||
+      !Number.isSafeInteger(args.lastValidBlockHeight) ||
+      args.lastValidBlockHeight < args.observedHeight ||
+      args.transaction.length === 0 ||
+      args.transaction.length > 5500
+    )
+      throw new ConvexError("Invalid checkout transaction.");
+    await ctx.db.patch(row._id, {
+      checkoutTransaction: { transaction: args.transaction, lastValidBlockHeight: args.lastValidBlockHeight },
+    });
+    return args.transaction;
   },
 });
 

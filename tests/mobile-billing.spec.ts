@@ -1,5 +1,17 @@
 import { fixtureWallet } from "./fixtures/wallets";
 import { test, expect, devices } from "@playwright/test";
+import {
+  address,
+  blockhash,
+  compileTransaction,
+  createTransactionMessage,
+  getAddressEncoder,
+  getBase64EncodedWireTransaction,
+  getCompiledTransactionMessageDecoder,
+  getTransactionDecoder,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
 
 test.use({ ...devices["Pixel 7"], defaultBrowserType: "chromium" });
 
@@ -20,42 +32,60 @@ test("Android Chrome discovers the Solana mobile wallet and fits the billing pag
 test("checkout explains insufficient USDC and confirms a smaller transfer", async ({ page }) => {
   let signed = false;
   let credited = false;
-  await page.exposeFunction("sendFixturePayment", () => {
+  const payer = address(wallet);
+  const message = setTransactionMessageLifetimeUsingBlockhash(
+    { blockhash: blockhash(reference), lastValidBlockHeight: 100n },
+    setTransactionMessageFeePayer(payer, createTransactionMessage({ version: 1 })),
+  );
+  const transaction = getBase64EncodedWireTransaction(compileTransaction(message));
+  await page.exposeFunction("sendFixturePayment", (wire: number[]) => {
+    const prepared = getTransactionDecoder().decode(Uint8Array.from(wire));
+    const compiled = getCompiledTransactionMessageDecoder().decode(prepared.messageBytes);
+    expect(compiled.version).toBe(1);
+    expect(compiled.staticAccounts[0]).toBe(wallet);
     signed = true;
     return Array(64).fill(17);
   });
-  await page.addInitScript((address) => {
+  await page.addInitScript(({ address, bytes }) => {
     const chain = "solana:mainnet";
+    const account = {
+      address,
+      publicKey: Uint8Array.from(bytes),
+      chains: [chain],
+      features: ["solana:signAndSendTransaction"],
+    };
+    let accounts: typeof account[] = [];
     window.addEventListener("wallet-standard:app-ready", (event) => {
       (event as CustomEvent).detail.register({
         version: "1.0.0",
         name: "Payment fixture",
         icon: "data:image/png;base64,",
         chains: [chain],
-        accounts: [
-          {
-            address,
-            publicKey: new Uint8Array(32),
-            chains: [chain],
-            features: ["solana:signAndSendTransaction"],
-          },
-        ],
+        get accounts() {
+          return accounts;
+        },
         features: {
+          "standard:connect": {
+            version: "1.0.0",
+            connect: async () => {
+              accounts = [account];
+              return { accounts };
+            },
+          },
           "solana:signAndSendTransaction": {
             version: "1.0.0",
-            supportedTransactionVersions: ["legacy", 0, 1],
+            supportedTransactionVersions: [0, 1],
             signAndSendTransaction: async (input: { chain: string; transaction: Uint8Array }) => {
-              if (input.chain !== chain || input.transaction[0] !== 1)
-                throw new Error("Invalid fixture transfer");
-              const send = (window as typeof window & { sendFixturePayment: () => Promise<number[]> })
+              if (input.chain !== chain) throw new Error("Invalid fixture network");
+              const send = (window as typeof window & { sendFixturePayment: (wire: number[]) => Promise<number[]> })
                 .sendFixturePayment;
-              return [{ signature: Uint8Array.from(await send()) }];
+              return [{ signature: Uint8Array.from(await send([...input.transaction])) }];
             },
           },
         },
       });
     });
-  }, wallet);
+  }, { address: wallet, bytes: [...getAddressEncoder().encode(payer)] });
   await page.route("**/api/sonnely/*", async (route) => {
     const task = new URL(route.request().url()).pathname.split("/").at(-1);
     switch (task) {
@@ -91,7 +121,7 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
             json: { error: "Your wallet needs 5.00 USDC on this Solana network for this transfer." },
           });
         expect(route.request().postDataJSON()).toEqual({ reference, version: 1 });
-        return route.fulfill({ json: { transaction: "AQ==" } });
+        return route.fulfill({ json: { transaction } });
       case "confirm":
         if (route.request().postDataJSON().reference === firstReference)
           return route.fulfill({ json: { ok: false, cluster: "mainnet" } });
@@ -105,6 +135,8 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   await page.goto("/console/billing");
   const input = page.getByRole("spinbutton", { name: "Amount in USDC" });
   await expect(input).toHaveValue("5");
+  await page.getByRole("button", { name: /wallet options/ }).click();
+  await page.getByRole("button", { name: "Payment fixture" }).click();
   await page.getByRole("button", { name: "Continue to payment" }).click();
   await expect(page.getByRole("heading", { name: "Pay $5.00 in USDC" })).toBeFocused();
   const review = page.getByRole("region", { name: "Review transfer" });
