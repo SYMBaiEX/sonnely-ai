@@ -91,12 +91,14 @@ test("support acknowledges a submitted request through an established status reg
 test("the playground switches endpoints in one workspace and preserves the chat draft", async ({ page }) => {
   await mockWorkspace(page);
   await page.setViewportSize({ width: 320, height: 800 });
+  let calls = 0;
   await page.route("**/api/sonnely/playground/redact", async (route) => {
     expect(route.request().postDataJSON()).toMatchObject({ model: "pii-filter" });
     expect(route.request().headers()["authorization"]).toBeUndefined();
+    calls += 1;
     await route.fulfill({
       json: { redacted_text: "Contact [EMAIL]." },
-      headers: { "X-Sonnely-Request-Id": "fixture-reference" },
+      headers: { "X-Sonnely-Request-Id": "fixture-reference-" + calls },
     });
   });
   await page.goto("/console");
@@ -129,8 +131,54 @@ test("the playground switches endpoints in one workspace and preserves the chat 
     await expect(result).toContainText("fixture-reference");
     await endpoint.selectOption("chat");
     await endpoint.selectOption("redact");
-    await expect(result).toContainText("fixture-reference");
+    await expect(result).toContainText("fixture-reference-1");
+    await run.press("Enter");
+    await expect(result).toContainText("fixture-reference-2");
+    await page.getByText("Recent runs", { exact: true }).click();
+    await page.locator(".playground-run-list").getByRole("button").last().click();
+    await expect(result).toContainText("fixture-reference-1");
+    expect(calls).toBe(2);
   }
   await endpoint.selectOption("chat");
   await expect(message).toHaveValue("Draft conversation");
+});
+
+test("playground results preview images and summarize ranked documents", async ({ page }) => {
+  await mockWorkspace(page);
+  await page.setViewportSize({ width: 390, height: 800 });
+  const image =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR7sAAAAASUVORK5CYII=";
+  await page.route("**/api/sonnely/playground/images/generations", (route) =>
+    route.fulfill({
+      json: { data: [{ b64_json: image }] },
+      headers: { "X-Sonnely-Request-Id": "image-fixture" },
+    }),
+  );
+  await page.route("**/api/sonnely/playground/rerank", (route) =>
+    route.fulfill({ json: { results: [{ index: 1, relevance_score: 0.875 }] } }),
+  );
+  await page.goto("/console");
+  const endpoint = page.getByRole("combobox", { name: "Endpoint", exact: true });
+  await endpoint.selectOption("images/generations");
+  const run = page.getByRole("button", { name: "Run request" });
+  test.skip(await run.isDisabled(), "The image provider is disabled in this test deployment.");
+  await run.click();
+  const output = page.getByRole("region", { name: "Result" });
+  await expect(output.getByRole("img", { name: "Generated output" })).toBeVisible();
+  await expect(output.getByRole("link", { name: "Download image" })).toHaveAttribute(
+    "download",
+    "sonnely-image.png",
+  );
+  await expect(output.getByRole("link", { name: "View usage" })).toHaveAttribute(
+    "href",
+    "/console/usage#recent-request-references",
+  );
+  await endpoint.selectOption("rerank");
+  await run.click();
+  const ranked = output.getByRole("list", { name: "Ranked documents" });
+  await expect(ranked).toContainText("How to resize an image");
+  await expect(ranked).toContainText("0.875");
+  await output.getByText("View raw JSON", { exact: true }).click();
+  await expect(output.getByLabel("Raw response")).toContainText('"index": 1');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
 });

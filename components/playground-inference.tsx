@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { ArrowRight, Download, FileUp } from "lucide-react";
+import { ArrowRight, FileUp, History } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   isSpecializedMultipart,
@@ -15,6 +15,7 @@ import { markupPercent } from "@/lib/pricing";
 import type { ProviderId } from "@/lib/provider-catalog";
 import type { Session } from "./wallet";
 import { CopyButton } from "./shared";
+import { PlaygroundResultContent } from "./playground-result-content";
 
 export const workloadOptions = {
   responses: {
@@ -79,7 +80,15 @@ export const workloadOptions = {
 >;
 
 export type Workload = keyof typeof workloadOptions;
-type Result = { text?: string; audio?: Blob; image?: string; requestId?: string | null };
+type Result = {
+  text?: string;
+  audio?: Blob;
+  image?: string;
+  requestId?: string | null;
+  data?: unknown;
+  documents?: string[];
+};
+type Run = { id: string; model: string; provider: string; at: number; title: string; result: Result };
 
 async function realtime(file: File, signal: AbortSignal, progress: (text: string) => void): Promise<Result> {
   if (file.size <= 44 || file.size > 960_044) throw new Error("Use a WAV file under 30 seconds.");
@@ -165,7 +174,12 @@ export function PlaygroundInference({
   const fileHintId = uid + "-file-hint";
   const pending = useRef<AbortController | null>(null);
   const [selectedModel, setSelectedModel] = useState("");
-  const [result, setResult] = useState<Result>();
+  const output = useRef<HTMLElement>(null);
+  const runButton = useRef<HTMLButtonElement>(null);
+  const runHistory = useRef<HTMLDetailsElement>(null);
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [selectedRun, setSelectedRun] = useState<Run>();
+  const result = selectedRun?.result;
   const [audioUrl, setAudioUrl] = useState<string>();
   const [partial, setPartial] = useState("");
   const [error, setError] = useState("");
@@ -202,10 +216,47 @@ export function PlaygroundInference({
 
   useEffect(() => () => pending.current?.abort(), []);
 
+  useEffect(() => {
+    if (busy || selectedRun || error || notice)
+      output.current?.querySelector("header")?.scrollIntoView({ block: "nearest" });
+  }, [busy, selectedRun, error, notice]);
+
+  useEffect(() => {
+    if (!controls) output.current?.querySelector("audio")?.pause();
+  }, [controls]);
+
+  function showResult(value: Result, title: string) {
+    const completed = { id: crypto.randomUUID(), model, provider, at: Date.now(), title, result: value };
+    setRuns((previous) => [completed, ...previous].slice(0, 5));
+    setSelectedRun(completed);
+    setPartial("");
+    void refresh().catch(() => {});
+  }
+
+  function openRun(run: Run) {
+    setSelectedRun(run);
+    setPartial("");
+    if (runHistory.current) {
+      runHistory.current.open = false;
+      runHistory.current.querySelector("summary")?.focus({ preventScroll: true });
+    }
+    setError("");
+    setNotice("");
+  }
+
   async function run(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (blocked || pending.current) return;
     const fields = new FormData(event.currentTarget);
+    const input = "field" in workload ? fields.get(workload.field) : null;
+    const file = "upload" in workload ? fields.get(workload.upload) : null;
+    const title = (
+      typeof input === "string" && input.trim()
+        ? input.trim().replace(/\s+/g, " ")
+        : file instanceof File
+          ? file.name
+          : workload.label
+    ).slice(0, 100);
     const controller = new AbortController();
     pending.current = controller;
     setBusy(true);
@@ -213,12 +264,11 @@ export function PlaygroundInference({
     setNotice("");
     setError("");
     setPartial("");
-    setResult(undefined);
+    setSelectedRun(undefined);
     try {
       const signal = controller.signal;
       if (endpoint === "realtime") {
-        setResult(await realtime(fields.get("file") as File, signal, setPartial));
-        void refresh().catch(() => {});
+        showResult(await realtime(fields.get("file") as File, signal, setPartial), title);
         return;
       }
       const field = "field" in workload ? workload.field : undefined;
@@ -249,8 +299,7 @@ export function PlaygroundInference({
       });
       const requestId = response.headers.get("X-Sonnely-Request-Id");
       if (response.ok && endpoint === "audio/speech") {
-        setResult({ audio: await response.blob(), requestId });
-        void refresh().catch(() => {});
+        showResult({ audio: await response.blob(), requestId }, title);
         return;
       }
       const data = await response.json();
@@ -265,18 +314,29 @@ export function PlaygroundInference({
               .map((part: { text: string }) => part.text)
               .join("\n")
           : undefined;
-      setResult({
-        image,
-        requestId,
-        text: image
-          ? undefined
-          : outputText ||
-            data.redacted_text ||
-            data.document?.md_content ||
-            data.text ||
-            JSON.stringify(data, null, 2),
-      });
-      void refresh().catch(() => {});
+      showResult(
+        {
+          image,
+          data:
+            endpoint === "rerank"
+              ? data.results
+              : endpoint === "embeddings"
+                ? data.data
+                : endpoint === "systemone"
+                  ? data.answers
+                  : undefined,
+          documents: endpoint === "rerank" ? (body.documents as string[]) : undefined,
+          requestId,
+          text: image
+            ? undefined
+            : outputText ||
+              data.redacted_text ||
+              data.document?.md_content ||
+              data.text ||
+              JSON.stringify(data, null, 2),
+        },
+        title,
+      );
     } catch (cause) {
       if (controller.signal.aborted) setNotice("Stopped waiting. Check Usage for settlement.");
       else
@@ -291,14 +351,38 @@ export function PlaygroundInference({
       pending.current = null;
       setBusy(false);
       onRunningChange(false);
-      setPartial("");
+      if (document.activeElement === document.body && !controller.signal.aborted) runButton.current?.focus();
     }
   }
 
   return (
     <div className="playground-editor">
-      <div className="playground-editor-title">
+      <div className="playground-editor-title playground-run-title">
         <h2>{workload.label}</h2>
+        {runs.length > 0 && (
+          <details ref={runHistory} className="playground-run-history">
+            <summary className="button quiet small">
+              <History size={16} aria-hidden="true" /> Recent runs
+            </summary>
+            <div className="playground-run-list">
+              <p>Available in this session</p>
+              {runs.map((run) => (
+                <button
+                  type="button"
+                  key={run.id}
+                  disabled={busy}
+                  aria-pressed={selectedRun?.id === run.id}
+                  onClick={() => openRun(run)}
+                >
+                  <strong>{run.title}</strong>
+                  <time dateTime={new Date(run.at).toISOString()}>
+                    {new Date(run.at).toLocaleTimeString()}
+                  </time>
+                </button>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
       <section className="playground-pane" aria-label="Request">
         {controls &&
@@ -400,7 +484,13 @@ export function PlaygroundInference({
               </span>
             </div>
 
-            <button className="button accent" type="submit" disabled={Boolean(blocked)} aria-disabled={busy}>
+            <button
+              ref={runButton}
+              className="button accent"
+              type="submit"
+              disabled={Boolean(blocked)}
+              aria-disabled={busy}
+            >
               {busy ? "Running…" : "Run request"} <ArrowRight size={17} aria-hidden="true" />
             </button>
             {busy && (
@@ -413,18 +503,26 @@ export function PlaygroundInference({
         </form>
       </section>
       <section
+        ref={output}
         className="playground-output"
         aria-label="Result"
         data-idle={(!busy && !result && !error && !notice) || undefined}
       >
         {(busy || result || error || notice) && (
           <header className="playground-pane-header">
-            <h2>Result</h2>
+            <div>
+              <h2>Result</h2>
+              {selectedRun && (
+                <p className="playground-result-meta">
+                  {selectedRun.provider} · {selectedRun.model}
+                </p>
+              )}
+            </div>
             {result?.text && <CopyButton value={result.text} label="Copy result" />}
           </header>
         )}
         <div className="playground-result">
-          <p className="playground-result-status" role="status">
+          <p className={result ? "visually-hidden" : "playground-result-status"} role="status">
             {busy ? "Running request…" : result ? "Request completed." : notice}
           </p>
           {error && (
@@ -437,26 +535,13 @@ export function PlaygroundInference({
               {partial}
             </pre>
           )}
-          {result?.text && (
-            <pre tabIndex={0} aria-label="Response output">
-              {result.text}
-            </pre>
-          )}
-          {imageUrl && (
-            <>
-              <img src={imageUrl} alt="Image returned by the model" />
-              <a className="button quiet small" download="sonnely-image.png" href={imageUrl}>
-                <Download size={16} aria-hidden="true" /> Download image
-              </a>
-            </>
-          )}
-          {result?.audio && audioUrl && (
-            <>
-              <audio controls src={audioUrl} aria-label="Synthesized speech" />
-              <a className="button quiet small" download="sonnely-speech.wav" href={audioUrl}>
-                <Download size={16} aria-hidden="true" /> Download WAV
-              </a>
-            </>
+          {result && (
+            <PlaygroundResultContent
+              endpoint={endpoint}
+              {...result}
+              imageUrl={imageUrl}
+              audioUrl={result.audio ? audioUrl : undefined}
+            />
           )}
         </div>
         {result?.requestId && (
@@ -465,7 +550,7 @@ export function PlaygroundInference({
               <span>Request reference</span>
               <code>{result.requestId}</code>
             </div>
-            <Link href="/console/usage">View usage</Link>
+            <Link href="/console/usage#recent-request-references">View usage</Link>
           </footer>
         )}
       </section>

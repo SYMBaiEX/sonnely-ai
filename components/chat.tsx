@@ -142,6 +142,7 @@ export function Chat({
         { role: "assistant", content: activeSample.reply },
       ]
     : (current?.messages ?? []);
+  const latestAssistant = messages.at(-1)?.role === "assistant";
 
   useEffect(() => {
     if (!localHistory || restored.current) return;
@@ -379,42 +380,56 @@ export function Chat({
         {threads.length ? (
           threads
             .filter((thread) => thread.messages[0]?.content.toLowerCase().includes(search.toLowerCase()))
-            .map((thread) => (
-              <div className="thread-item" key={thread.id}>
-                <button
-                  type="button"
-                  className={thread.id === active ? "selected" : ""}
-                  disabled={busy}
-                  onClick={() => {
-                    if (localHistory) rememberSelection(thread.id);
-                    setActive(thread.id);
-                    setSample(null);
-                    setModel(thread.model);
-                    setProvider(thread.provider ?? "near-ai");
-                    setShowHistory(false);
-                    setError("");
-                    setEditIndex(null);
-                  }}
-                >
-                  {thread.messages[0]?.content || "Untitled chat"}
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={"Delete " + (thread.messages[0]?.content || "chat")}
-                  disabled={busy}
-                  onClick={() => {
-                    save(
-                      threads.filter((item) => item.id !== thread.id),
-                      active === thread.id ? null : active,
-                    );
-                    if (active === thread.id) start();
-                  }}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))
+            .map((thread) => {
+              const title = thread.messages[0]?.content || "Untitled chat";
+              const last = thread.messages.at(-1)?.at;
+              const date = typeof last === "number" && Number.isFinite(last) ? new Date(last) : null;
+              const validDate = date && Number.isFinite(date.getTime());
+              return (
+                <div className="thread-item" key={thread.id}>
+                  <button
+                    type="button"
+                    className={thread.id === active ? "selected" : ""}
+                    disabled={busy}
+                    aria-label={title}
+                    aria-current={thread.id === active ? "true" : undefined}
+                    onClick={() => {
+                      if (localHistory) rememberSelection(thread.id);
+                      setActive(thread.id);
+                      setSample(null);
+                      setModel(thread.model);
+                      setProvider(thread.provider ?? "near-ai");
+                      setShowHistory(false);
+                      composerRef.current?.focus();
+                      setError("");
+                      setEditIndex(null);
+                    }}
+                  >
+                    <span>{title}</span>
+                    {validDate && (
+                      <time dateTime={date.toISOString()}>
+                        {date.toLocaleDateString([], { month: "short", day: "numeric" })}
+                      </time>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={"Delete " + (thread.messages[0]?.content || "chat")}
+                    disabled={busy}
+                    onClick={() => {
+                      save(
+                        threads.filter((item) => item.id !== thread.id),
+                        active === thread.id ? null : active,
+                      );
+                      if (active === thread.id) start();
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })
         ) : (
           <p className="caption">
             Your conversations appear here.{" "}
@@ -509,7 +524,9 @@ export function Chat({
                 ) : (
                   <p>{message.content}</p>
                 )}
-                {message.role === "assistant" && <CopyButton value={message.content} label="Copy response" />}
+                {activeSample && message.role === "assistant" && (
+                  <CopyButton value={message.content} label="Copy response" />
+                )}
                 {!activeSample && (
                   <div className="message-footer">
                     <span className="message-stamp">
@@ -522,6 +539,9 @@ export function Chat({
                       {message.stopped ? (message.at ? " · " : "") + "Stopped" : ""}
                     </span>
                     <span className="message-actions">
+                      {message.role === "assistant" && !(busy && index === messages.length - 1) && (
+                        <CopyButton value={message.content} label="Copy response" />
+                      )}
                       {message.role === "user" && (
                         <button
                           type="button"
@@ -543,8 +563,8 @@ export function Chat({
               </article>
             ))}
             {busy && (
-              <p className="caption" aria-hidden="true">
-                Waiting for model response…
+              <p className="playground-stream-state" aria-hidden="true">
+                <span /> {latestAssistant ? "Streaming response…" : "Waiting for model…"}
               </p>
             )}
           </section>
