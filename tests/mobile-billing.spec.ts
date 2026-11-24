@@ -124,3 +124,46 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   );
   await expect(page.locator(".amount")).toHaveText("$0.10");
 });
+
+test("mainnet checkout offers SOL conversion beside USDC", async ({ page }) => {
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: {
+        profile: { wallet, balance: 0 },
+        enabled: true,
+        billingEnabled: true,
+        cluster: "mainnet",
+      },
+    }),
+  );
+  await page.route("**/api/sonnely/history", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/sonnely/quote", (route) => {
+    const { asset, amount, prepare } = route.request().postDataJSON();
+    expect({ asset, amount }).toEqual({ asset: "sol", amount: "0.1" });
+    return route.fulfill({
+      json: {
+        amountOut: "7000000",
+        minAmountOut: "6900000",
+        deadline: "2030-01-01T00:00:00.000Z",
+        recipient: wallet,
+        refundTo: wallet,
+        ...(prepare ? { depositAddress: reference } : {}),
+      },
+    });
+  });
+  await page.goto("/console/billing");
+  await expect(page.getByRole("heading", { name: "Buy credits" })).toBeVisible();
+  const method = page.getByRole("combobox", { name: "Payment method" });
+  test.skip(!(await method.count()), "SOL funding is disabled in this test deployment.");
+  await expect(method).toHaveValue("usdc");
+  await method.selectOption("sol");
+  await expect(page.getByRole("spinbutton", { name: "Amount in USDC" })).toBeHidden();
+  await expect(page.getByRole("textbox", { name: "Amount in SOL" })).toHaveValue("0.1");
+  await page.getByRole("button", { name: "Get quote" }).click();
+  await expect(page.getByText("$7.00 estimated · $6.90 minimum")).toBeVisible();
+  await page.getByRole("button", { name: "Get swap deposit address" }).click();
+  await expect(page.getByText(reference, { exact: true })).toBeVisible();
+  await method.selectOption("usdc");
+  await expect(page.getByRole("spinbutton", { name: "Amount in USDC" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
+});

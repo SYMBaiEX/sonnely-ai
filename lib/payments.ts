@@ -2,7 +2,7 @@ import { z } from "zod";
 import bs58 from "bs58";
 import { getAddress } from "ethers";
 import { fundingAtomic, intentFunds, type FundingQuote, type IntentFund } from "./intent-funding";
-import { configuredProviders } from "./managed-access";
+import { configuredProviders, solFundingEnabled } from "./managed-access";
 import { SonnelyError } from "./sonnely-error";
 
 export const address = z
@@ -163,7 +163,7 @@ export async function quote(
 ): Promise<FundingQuote> {
   const token = process.env.NEAR_INTENTS_API_KEY;
   const { asset, amount: quantity, prepare = false } = input;
-  if (prepare && (!token || billing().cluster !== "mainnet")) {
+  if (prepare && (billing().cluster !== "mainnet" || (!token && !(asset === "sol" && solFundingEnabled())))) {
     throw new SonnelyError("Cross-chain funding is unavailable.", 503);
   }
   const fund = intentFunds[asset];

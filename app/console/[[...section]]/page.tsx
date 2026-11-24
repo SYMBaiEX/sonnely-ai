@@ -5,7 +5,7 @@ import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans } from "@/lib/compute";
 import { models } from "@/lib/models";
 import { intentsEmbedUrl } from "@/lib/intent-funding";
-import { configuredProviders, nearIntentsFundingEnabled } from "@/lib/managed-access";
+import { configuredProviders, nearIntentsFundingEnabled, solFundingEnabled } from "@/lib/managed-access";
 import { providerRoute } from "@/lib/provider-catalog";
 
 const sections = [
@@ -60,6 +60,7 @@ export default async function ConsolePage({ params, searchParams }: Props) {
     <ConsoleScreen
       section={name as Section}
       features={features}
+      solFunding={name === "billing" && solFundingEnabled()}
       intentsFunding={
         name === "billing" && nearIntentsFundingEnabled()
           ? { widgetUrl: intentsEmbedUrl(process.env.SONNELY_INTENTS_WIDGET_URL) }

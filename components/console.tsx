@@ -369,6 +369,7 @@ export function ConsoleScreen({
   initialRun,
   availableProviders,
   intentsFunding,
+  solFunding,
 }: {
   section: Section;
   features: ComputeFeatures;
@@ -378,6 +379,7 @@ export function ConsoleScreen({
   initialRun?: string;
   availableProviders: ProviderId[];
   intentsFunding?: { widgetUrl?: string };
+  solFunding?: boolean;
 }) {
   const context = useContext(ConsoleContext);
   if (!context) throw new Error("Console screens require the console layout.");
@@ -471,6 +473,7 @@ export function ConsoleScreen({
           session={session}
           refresh={refresh}
           intentsFunding={intentsFunding}
+          solFunding={solFunding}
         />
       )}
       {section === "referrals" && <Referrals key={profile?.wallet ?? "guest"} profile={profile} />}

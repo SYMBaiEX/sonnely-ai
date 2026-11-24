@@ -4,6 +4,10 @@ export function publicInference() {
   return process.env.SONNELY_PUBLIC_INFERENCE === "true";
 }
 
+export function solFundingEnabled() {
+  return process.env.SONNELY_SOL_FUNDING === "true";
+}
+
 export function nearIntentsFundingEnabled() {
   return process.env.SONNELY_NEAR_INTENTS_FUNDING === "true";
 }

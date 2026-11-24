@@ -822,15 +822,20 @@ export function Billing({
   session,
   refresh,
   intentsFunding,
+  solFunding,
 }: {
   session: Session | null;
   refresh: () => Promise<void>;
   intentsFunding?: { widgetUrl?: string };
+  solFunding?: boolean;
 }) {
   const profile = session?.profile;
   const intentsWidgetUrl = intentsFunding?.widgetUrl;
   const { data, error, reload } = useRemote<Receipt[]>(Boolean(profile), "history");
   const [dollars, setDollars] = useState("5");
+  const [method, setMethod] = useState<"usdc" | "sol" | "other">("usdc");
+  const showSol = Boolean(solFunding && session?.cluster === "mainnet");
+  const showOther = Boolean(intentsFunding && session?.cluster === "mainnet");
   const [fund, setFund] = useState<IntentFund>("sol");
   const [fundAmount, setFundAmount] = useState("0.1");
   const [refundTo, setRefundTo] = useState("");
@@ -899,6 +904,7 @@ export function Billing({
   }
 
   async function resumePayment(reference: string) {
+    setMethod("usdc");
     openPayment(await request<Payment>("payment?reference=" + encodeURIComponent(reference)));
   }
 
@@ -950,57 +956,229 @@ export function Billing({
             <h2>Buy credits</h2>
             <span className="pill">{session?.billingEnabled ? session.cluster : "Solana Pay"}</span>
           </div>
-          <p className="caption">
-            {session?.termsRequired
-              ? "Accept the current terms above to buy credits."
-              : profile
-                ? "Enter any positive USDC amount with up to six decimal places. Credits post after your wallet transfer finalizes."
-                : "Connect your Solana wallet in the header to buy credits."}
-          </p>
-          <form
-            className="inline-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void run("deposit", async () => {
-                const amount = parseCreditAmount(dollars);
-                if (amount === null)
-                  throw new Error("Enter a positive USDC amount with up to six decimal places.");
-                if (order?.amount === amount) return;
-                const existing = data?.find(
-                  (item) => !item.signature && item.cluster === session?.cluster && item.amount === amount,
-                );
-                if (existing) await resumePayment(existing.reference);
-                else {
-                  openPayment(await request<Payment>("deposit", { dollars }));
-                  reload();
-                }
-              });
-            }}
-          >
+          {(showSol || showOther) && (
             <label>
-              Amount in USDC
-              <input
-                type="number"
-                min="0.000001"
-                step="0.000001"
-                inputMode="decimal"
-                required
-                ref={paymentAmount}
-                value={dollars}
-                onChange={(e) => {
-                  setDollars(e.target.value);
-                  if (failure?.action === "deposit" || failure?.action === "pay") setFailure(undefined);
+              Payment method
+              <select
+                value={method}
+                disabled={!!pending || submitted}
+                onChange={(event) => {
+                  const next = event.currentTarget.value as typeof method;
+                  setMethod(next);
+                  if (next === "sol") setFund("sol");
+                  setIntent(null);
+                  setFailure(undefined);
                 }}
-              />
+              >
+                <option value="usdc">USDC</option>
+                {showSol && <option value="sol">SOL via swap</option>}
+                {showOther && <option value="other">Other crypto</option>}
+              </select>
             </label>
-            <button
-              className="button accent"
-              disabled={!profile || !session?.billingEnabled || !!pending || submitted}
-            >
-              {pending === "deposit" ? "Preparing…" : "Continue to payment"}
-            </button>
-          </form>
-          {failure?.action === "deposit" && <Failure message={failure.message} />}
+          )}
+          {method === "usdc" && (
+            <>
+              <p className="caption">
+                {session?.termsRequired
+                  ? "Accept the current terms above to buy credits."
+                  : profile
+                    ? "Enter any positive USDC amount with up to six decimal places. Credits post after your wallet transfer finalizes."
+                    : "Connect your Solana wallet in the header to buy credits."}
+              </p>
+              <form
+                className="inline-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void run("deposit", async () => {
+                    const amount = parseCreditAmount(dollars);
+                    if (amount === null)
+                      throw new Error("Enter a positive USDC amount with up to six decimal places.");
+                    if (order?.amount === amount) return;
+                    const existing = data?.find(
+                      (item) =>
+                        !item.signature && item.cluster === session?.cluster && item.amount === amount,
+                    );
+                    if (existing) await resumePayment(existing.reference);
+                    else {
+                      openPayment(await request<Payment>("deposit", { dollars }));
+                      reload();
+                    }
+                  });
+                }}
+              >
+                <label>
+                  Amount in USDC
+                  <input
+                    type="number"
+                    min="0.000001"
+                    step="0.000001"
+                    inputMode="decimal"
+                    required
+                    ref={paymentAmount}
+                    value={dollars}
+                    onChange={(e) => {
+                      setDollars(e.target.value);
+                      if (failure?.action === "deposit" || failure?.action === "pay") setFailure(undefined);
+                    }}
+                  />
+                </label>
+                <button
+                  className="button accent"
+                  disabled={!profile || !session?.billingEnabled || !!pending || submitted}
+                >
+                  {pending === "deposit" ? "Preparing…" : "Continue to payment"}
+                </button>
+              </form>
+              {failure?.action === "deposit" && <Failure message={failure.message} />}
+            </>
+          )}
+          {method === "other" && showOther && intentsWidgetUrl && (
+            <IntentsCheckout
+              url={intentsWidgetUrl}
+              wallet={profile?.wallet}
+              unavailableReason={
+                session?.termsRequired
+                  ? "Accept the current terms above to use NEAR Intents."
+                  : !session?.billingEnabled
+                    ? "Swaps are temporarily unavailable."
+                    : undefined
+              }
+            />
+          )}
+          {((method === "sol" && showSol) || (method === "other" && showOther && !intentsWidgetUrl)) && (
+            <div className="stack-panel">
+              <p className="caption">
+                NEAR Intents converts your funds to USDC in your wallet. Then pay with USDC to add credits.
+              </p>
+              <form
+                className="inline-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setIntent(null);
+                  void run("quote", async () =>
+                    setIntent(
+                      await request<FundingQuote>("quote", {
+                        asset: fund,
+                        amount: fundAmount.trim(),
+                        ...(fund !== "sol" ? { refundTo: refundTo.trim() } : {}),
+                      }),
+                    ),
+                  );
+                }}
+              >
+                {method === "other" && (
+                  <label>
+                    Source asset
+                    <select
+                      value={fund}
+                      disabled={quoting}
+                      onChange={(event) => {
+                        setFund(event.target.value as IntentFund);
+                        setIntent(null);
+                      }}
+                    >
+                      {Object.entries(intentFunds).map(([id, asset]) => (
+                        <option key={id} value={id}>
+                          {asset.symbol} on {asset.network}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label>
+                  Amount in {swapAsset.symbol}
+                  <input
+                    inputMode="decimal"
+                    autoComplete="off"
+                    required
+                    maxLength={37}
+                    disabled={quoting}
+                    value={fundAmount}
+                    onChange={(event) => {
+                      setFundAmount(event.target.value);
+                      setIntent(null);
+                    }}
+                  />
+                </label>
+                {fund !== "sol" && (
+                  <label>
+                    Refund wallet on {swapAsset.network}
+                    <input
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="0x…"
+                      required
+                      maxLength={42}
+                      disabled={quoting}
+                      value={refundTo}
+                      onChange={(event) => {
+                        setRefundTo(event.target.value);
+                        setIntent(null);
+                      }}
+                    />
+                  </label>
+                )}
+                <button className="button quiet" disabled={!profile || !session?.billingEnabled || !!pending}>
+                  {pending === "quote" ? "Quoting…" : "Get quote"}
+                </button>
+              </form>
+              {fundingDetails && (
+                <section className="checkout" aria-label="Swap details">
+                  <p role="status" className="status">
+                    {creditBalance(Number(fundingDetails.amountOut))} estimated ·{" "}
+                    {creditBalance(Number(fundingDetails.minAmountOut))} minimum
+                  </p>
+                  {fundingDetails.depositAddress ? (
+                    <>
+                      <p>
+                        Send exactly{" "}
+                        <strong>
+                          {fundAmount.trim()} {swapAsset.symbol}
+                        </strong>{" "}
+                        on <strong>{swapAsset.network} mainnet</strong> to the address below before{" "}
+                        {new Date(fundingDetails.deadline).toLocaleTimeString([], { timeZoneName: "short" })}.
+                        Save the address and transaction ID.
+                      </p>
+                      <CopyButton value={fundingDetails.depositAddress} label="Copy swap deposit address" />
+                      <code style={{ overflowWrap: "anywhere" }}>{fundingDetails.depositAddress}</code>
+                      {fundingDetails.depositMemo && (
+                        <>
+                          <p>Include this memo with your transfer.</p>
+                          <CopyButton value={fundingDetails.depositMemo} label="Copy deposit memo" />
+                          <code style={{ overflowWrap: "anywhere" }}>{fundingDetails.depositMemo}</code>
+                        </>
+                      )}
+                      <p className="caption">
+                        Solana USDC goes to {shorten(fundingDetails.recipient)}. Refunds go to{" "}
+                        {shorten(fundingDetails.refundTo)} on {swapAsset.network}. Once USDC arrives in your
+                        wallet, select USDC to finish paying for credits.
+                      </p>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button accent"
+                      disabled={!!pending || !session?.billingEnabled || session.termsRequired}
+                      onClick={() =>
+                        void run("prepare-swap", async () =>
+                          setIntent(
+                            await request<FundingQuote>("quote", {
+                              asset: fund,
+                              amount: fundAmount.trim(),
+                              ...(fund !== "sol" ? { refundTo: refundTo.trim() } : {}),
+                              prepare: true,
+                            }),
+                          ),
+                        )
+                      }
+                    >
+                      {pending === "prepare-swap" ? "Preparing…" : "Get swap deposit address"}
+                    </button>
+                  )}
+                </section>
+              )}
+            </div>
+          )}
           {order && profile && (
             <section ref={review} className="checkout" aria-label="Review transfer">
               <div className="between">
@@ -1086,153 +1264,6 @@ export function Billing({
             </section>
           )}
         </section>
-        {session?.cluster === "mainnet" && intentsWidgetUrl && (
-          <IntentsCheckout
-            url={intentsWidgetUrl}
-            wallet={profile?.wallet}
-            unavailableReason={
-              session.termsRequired
-                ? "Accept the current terms above to use NEAR Intents."
-                : !session.billingEnabled
-                  ? "Swaps are temporarily unavailable."
-                  : undefined
-            }
-          />
-        )}
-        {session?.cluster === "mainnet" && intentsFunding && !intentsWidgetUrl && (
-          <section className="panel stack-panel billing-swap-fallback">
-            <div className="between">
-              <h2>Fund with other crypto</h2>
-              <span className="pill">NEAR Intents</span>
-            </div>
-            <p className="caption">Swap into Solana USDC in your connected wallet, then buy credits above.</p>
-            <form
-              className="inline-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setIntent(null);
-                void run("quote", async () =>
-                  setIntent(
-                    await request<FundingQuote>("quote", {
-                      asset: fund,
-                      amount: fundAmount.trim(),
-                      ...(fund !== "sol" ? { refundTo: refundTo.trim() } : {}),
-                    }),
-                  ),
-                );
-              }}
-            >
-              <label>
-                Source asset
-                <select
-                  value={fund}
-                  disabled={quoting}
-                  onChange={(event) => {
-                    setFund(event.target.value as IntentFund);
-                    setIntent(null);
-                  }}
-                >
-                  {Object.entries(intentFunds).map(([id, asset]) => (
-                    <option key={id} value={id}>
-                      {asset.symbol} on {asset.network}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Amount in {swapAsset.symbol}
-                <input
-                  inputMode="decimal"
-                  autoComplete="off"
-                  required
-                  maxLength={37}
-                  disabled={quoting}
-                  value={fundAmount}
-                  onChange={(event) => {
-                    setFundAmount(event.target.value);
-                    setIntent(null);
-                  }}
-                />
-              </label>
-              {fund !== "sol" && (
-                <label>
-                  Refund wallet on {swapAsset.network}
-                  <input
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder="0x…"
-                    required
-                    maxLength={42}
-                    disabled={quoting}
-                    value={refundTo}
-                    onChange={(event) => {
-                      setRefundTo(event.target.value);
-                      setIntent(null);
-                    }}
-                  />
-                </label>
-              )}
-              <button className="button quiet" disabled={!profile || !!pending}>
-                {pending === "quote" ? "Quoting…" : "Get quote"}
-              </button>
-            </form>
-            {fundingDetails && (
-              <section className="checkout" aria-label="Swap details">
-                <p role="status" className="status">
-                  {creditBalance(Number(fundingDetails.amountOut))} estimated ·{" "}
-                  {creditBalance(Number(fundingDetails.minAmountOut))} minimum
-                </p>
-                {fundingDetails.depositAddress ? (
-                  <>
-                    <p>
-                      Send exactly{" "}
-                      <strong>
-                        {fundAmount.trim()} {swapAsset.symbol}
-                      </strong>{" "}
-                      on <strong>{swapAsset.network} mainnet</strong> to the address below before{" "}
-                      {new Date(fundingDetails.deadline).toLocaleTimeString([], { timeZoneName: "short" })}.
-                      Save the address and transaction ID.
-                    </p>
-                    <CopyButton value={fundingDetails.depositAddress} label="Copy swap deposit address" />
-                    <code style={{ overflowWrap: "anywhere" }}>{fundingDetails.depositAddress}</code>
-                    {fundingDetails.depositMemo && (
-                      <>
-                        <p>Include this memo with your transfer.</p>
-                        <CopyButton value={fundingDetails.depositMemo} label="Copy deposit memo" />
-                        <code style={{ overflowWrap: "anywhere" }}>{fundingDetails.depositMemo}</code>
-                      </>
-                    )}
-                    <p className="caption">
-                      Solana USDC goes to {shorten(fundingDetails.recipient)}. Refunds go to{" "}
-                      {shorten(fundingDetails.refundTo)} on {swapAsset.network}. Once USDC arrives in your
-                      wallet, use the USDC checkout above.
-                    </p>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="button accent"
-                    disabled={!!pending || !session?.billingEnabled || session.termsRequired}
-                    onClick={() =>
-                      void run("prepare-swap", async () =>
-                        setIntent(
-                          await request<FundingQuote>("quote", {
-                            asset: fund,
-                            amount: fundAmount.trim(),
-                            ...(fund !== "sol" ? { refundTo: refundTo.trim() } : {}),
-                            prepare: true,
-                          }),
-                        ),
-                      )
-                    }
-                  >
-                    {pending === "prepare-swap" ? "Preparing…" : "Get swap deposit address"}
-                  </button>
-                )}
-              </section>
-            )}
-          </section>
-        )}
         <section className="panel breakdown billing-history">
           <h2 id="payment-history">Payment history</h2>
           {profile && data?.length ? (
