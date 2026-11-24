@@ -1,7 +1,7 @@
 import { apiBasePath } from "@/lib/api-contract";
 import { routeLabels } from "@/lib/model-privacy";
 import { providerCatalog, providerIds, providerNames } from "@/lib/provider-models";
-import { specializedModels } from "@/lib/specialized-models";
+import { realtimeModel, specializedModels } from "@/lib/specialized-models";
 
 export function ProviderInventory() {
   return (
@@ -26,11 +26,14 @@ export function ProviderInventory() {
             </summary>
             <ul>
               {providerCatalog.providers[provider].map((model) => {
-                const endpoint = Object.entries(specializedModels).find(([, routes]) =>
-                  Object.entries(routes).some(
-                    ([id, route]) => model.id === id && provider === route.provider,
-                  ),
-                )?.[0];
+                const endpoint =
+                  provider === realtimeModel.provider && model.id === realtimeModel.id
+                    ? "realtime"
+                    : Object.entries(specializedModels).find(([, routes]) =>
+                        Object.entries(routes).some(
+                          ([id, route]) => model.id === id && provider === route.provider,
+                        ),
+                      )?.[0];
                 return (
                   <li key={model.id}>
                     <strong>{model.name}</strong>{" "}

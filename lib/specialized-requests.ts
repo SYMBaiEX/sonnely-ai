@@ -29,6 +29,26 @@ const images = z.strictObject({
   response_format: z.literal("b64_json").optional(),
 });
 export const specializedRequests = {
+  "audio/translations": z.strictObject({
+    ...requestFields,
+    file: z.file().min(44).max(960_044).mime(["audio/wav", "audio/x-wav"]),
+  }),
+  "convert/file": z.strictObject({
+    ...requestFields,
+    files: z.file().min(5).max(2_000_000).mime(["application/pdf"]),
+  }),
+  redact: z.strictObject({
+    ...requestFields,
+    text: text.refine((value) => new TextEncoder().encode(value).length <= 4096),
+  }),
+  responses: z.strictObject({
+    ...requestFields,
+    input: text,
+    instructions: text.optional(),
+    max_output_tokens: z.int().min(16).max(limits.maxOutputTokens).optional(),
+    stream: z.literal(false).optional(),
+    store: z.literal(false).optional(),
+  }),
   "audio/transcriptions": z.strictObject({
     ...requestFields,
     file: z

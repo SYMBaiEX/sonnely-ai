@@ -27,6 +27,20 @@ Embeddings return float vectors. Reranking optionally accepts `top_n` and return
 
 Each endpoint accepts `max_cost_microusd` and the `Idempotency-Key` header. If provider usage is missing or the request outcome is uncertain, the reservation may be held for review. Completion receipts are available for Chat Completions.
 
+## Additional Tinfoil endpoints
+
+| Endpoint | Model ID | Input or protocol |
+| --- | --- | --- |
+| `POST /audio/translations` | `voxtral-small-24b` | Multipart `file`, up to 30 seconds of mono 16 kHz PCM16 WAV, with output in English |
+| `POST /convert/file` | `doc-upload` | Multipart `files`, one PDF up to 2 MB, extracting its text layer as Markdown |
+| `POST /redact` | `pii-filter` | JSON `text`, up to 4,096 UTF-8 bytes |
+| `POST /responses` | A mapped Tinfoil text model | JSON `input` string, optional `instructions` and `max_output_tokens` |
+| `GET /realtime?model=voxtral-mini-4b-realtime` | `voxtral-mini-4b-realtime` | WebSocket with one native PCM16 transcription turn |
+
+Responses accepts single-turn text, with streaming, persistence, attachments and tools unavailable. Redaction returns `redacted_text` and charges the request fee plus an input estimate based on UTF-8 bytes with a 256-token allowance. Review redacted output before sharing it. A detector can miss sensitive information.
+
+For realtime transcription, authenticate the WebSocket upgrade with a bearer key and wait for `session.created`. Send `input_audio_buffer.append` messages with base64-encoded mono 16 kHz PCM16 chunks up to 32 KiB each and 30 seconds total. Send `input_audio_buffer.commit` to finalize. Sonnely emits `transcription.delta` updates and `transcription.done` after settlement. A completed session costs $0.0022. Use a Node or other WebSocket client that can set the Authorization header.
+
 ## Compare prices
 
 Published prices include Sonnely’s 10% inference markup and are quoted per million tokens.

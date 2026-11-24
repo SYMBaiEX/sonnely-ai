@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
+import { providerRoute } from "./provider-catalog";
+import { models } from "./models";
 import { specializedRequests } from "./specialized-requests";
 import { receiptHeader } from "./inference-receipt";
 import { managedProviderKey, publicInference } from "./managed-access";
@@ -80,8 +82,119 @@ async function readAudioResponse(upstream: Response) {
 
 const bytes = (value: string) => Buffer.byteLength(value);
 
-function prepare(endpoint: SpecializedEndpoint, raw: unknown) {
+async function prepare(endpoint: SpecializedEndpoint, raw: unknown) {
   switch (endpoint) {
+    case "audio/translations": {
+      const { file, model, max_cost_microusd } = specializedRequests[endpoint].parse(raw);
+      const audio = Buffer.from(await file.arrayBuffer());
+      if (
+        audio.toString("ascii", 0, 4) !== "RIFF" ||
+        audio.toString("ascii", 8, 12) !== "WAVE" ||
+        audio.toString("ascii", 12, 16) !== "fmt " ||
+        audio.readUInt32LE(16) !== 16 ||
+        audio.readUInt16LE(20) !== 1 ||
+        audio.readUInt16LE(22) !== 1 ||
+        audio.readUInt32LE(24) !== 16000 ||
+        audio.readUInt16LE(34) !== 16 ||
+        audio.toString("ascii", 36, 40) !== "data" ||
+        audio.readUInt32LE(40) !== audio.length - 44 ||
+        (audio.length - 44) % 2 !== 0 ||
+        audio.length <= 44
+      )
+        throw new SonnelyError("Send a 16 kHz mono PCM16 WAV file with a standard 44-byte header.", 400);
+      return {
+        model,
+        max_cost_microusd,
+        maximumTokens: 2048,
+        maximumOutputTokens: 512,
+        upstreamPath: "/v1/chat/completions" as const,
+        payload: {
+          model,
+          max_tokens: 512,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Translate the spoken audio into English. Return only the English transcript.",
+                },
+                { type: "input_audio", input_audio: { data: audio.toString("base64"), format: "wav" } },
+              ],
+            },
+          ],
+        },
+        response: z
+          .object({
+            choices: z.array(z.object({ message: z.object({ content: z.string().min(1) }) })).length(1),
+            usage: tokenUsage.extend({ completion_tokens: z.int().nonnegative() }),
+          })
+          .transform((result) => ({ text: result.choices[0].message.content, usage: result.usage })),
+      };
+    }
+    case "convert/file": {
+      const { files, model, max_cost_microusd } = specializedRequests[endpoint].parse(raw);
+      if ((await files.slice(0, 5).text()) !== "%PDF-") throw new SonnelyError("Upload a PDF file.", 400);
+      const payload = new FormData();
+      payload.set("files", files, "input.pdf");
+      return {
+        model,
+        max_cost_microusd,
+        payload,
+        maximumTokens: 0,
+        upstreamPath: "/v1/convert/file?mode=raw" as const,
+        response: z.object({
+          document: z.object({ md_content: z.string().max(1_000_000) }),
+          status: z.literal("success"),
+        }),
+      };
+    }
+    case "redact": {
+      const { text, model, max_cost_microusd } = specializedRequests[endpoint].parse(raw);
+      return {
+        model,
+        max_cost_microusd,
+        payload: { text },
+        maximumTokens: bytes(text) + 256,
+        upstreamPath: "/redact" as const,
+        response: z.object({ redacted_text: z.string().max(120_000) }),
+      };
+    }
+    case "responses": {
+      const {
+        model,
+        input,
+        instructions,
+        max_cost_microusd,
+        max_output_tokens = 512,
+      } = specializedRequests[endpoint].parse(raw);
+      const listedModel = models.find((entry) => entry.id === model);
+      const route = listedModel && providerRoute(listedModel, "tinfoil");
+      if (!route) throw new SonnelyError("Choose a model supported by this endpoint.", 404);
+      return {
+        model,
+        max_cost_microusd,
+        maximumTokens: bytes(input) + bytes(instructions ?? "") + 256,
+        maximumOutputTokens: max_output_tokens,
+        payload: {
+          model: route.upstreamModel,
+          input,
+          instructions,
+          max_output_tokens,
+          stream: false,
+          store: false,
+        },
+        response: z.object({
+          id: z.string().min(1),
+          object: z.literal("response"),
+          created_at: z.number(),
+          status: z.enum(["completed", "incomplete"]),
+          output: z.array(z.object({ type: z.string() }).passthrough()).max(32),
+          usage: decisionUsage,
+          incomplete_details: z.object({ reason: z.string() }).nullish(),
+        }),
+      };
+    }
     case "audio/transcriptions": {
       const { file, model, max_cost_microusd } = specializedRequests[endpoint].parse(raw);
       const payload = new FormData();
@@ -212,19 +325,21 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
     if (request.headers.has(receiptHeader))
       throw new SonnelyError("Completion receipts are available on Chat Completions.", 400);
 
-    const operation = prepare(
+    const operation = await prepare(
       endpoint,
       isSpecializedMultipart(endpoint) ? await readMediaForm(request) : await readBody(request),
     );
     const route = specializedRoute(endpoint, operation.model);
     if (!route) throw new SonnelyError("Choose a model supported by this endpoint.", 404);
-    const { provider, rate, outputRate, unit } = route;
+    const { provider, rate, outputRate, requestRate, unit } = route;
     const upstreamKey = managedProviderKey(provider);
     if (!upstreamKey) throw new SonnelyError("Managed inference is awaiting provider activation.", 503);
     const fixedCharge = unit === "request" ? Math.round(rate * (100 + markupPercent) * 10_000) : null;
     const tokenCharge = (inputTokens: number, outputTokens = 0) =>
       requestCharge({ input: rate, output: outputRate ?? 0, cache: 0 }, inputTokens, 0, outputTokens);
-    const reserve = fixedCharge ?? tokenCharge(operation.maximumTokens, operation.maximumOutputTokens);
+    const requestFee = Math.round((requestRate ?? 0) * (100 + markupPercent) * 10_000);
+    const reserve =
+      fixedCharge ?? requestFee + tokenCharge(operation.maximumTokens, operation.maximumOutputTokens);
     if (operation.max_cost_microusd !== undefined && reserve > operation.max_cost_microusd)
       throw new SonnelyError("The estimated reservation exceeds max_cost_microusd.", 400);
 
@@ -260,14 +375,29 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
           Authorization: "Bearer " + upstreamKey,
           ...(isForm ? {} : { "Content-Type": "application/json" }),
         },
-        body: isForm ? (operation.payload as FormData) : JSON.stringify(operation.payload),
+        body: isForm
+          ? (operation.payload as FormData)
+          : JSON.stringify({
+              ...operation.payload,
+              ...(endpoint === "responses" || endpoint === "audio/translations"
+                ? {
+                    user_cache_secret: createHmac("sha256", secret)
+                      .update("tinfoil-cache:" + hash)
+                      .digest("hex"),
+                  }
+                : {}),
+            }),
         cache: "no-store",
         redirect: "error",
         signal: AbortSignal.timeout(45_000),
       };
       const upstream =
         provider === "tinfoil"
-          ? (await (await import("./tinfoil")).fetchTinfoil(init, `/v1/${endpoint}`)).response
+          ? (
+              await (
+                await import("./tinfoil")
+              ).fetchTinfoil(init, operation.upstreamPath ?? `/v1/${endpoint}`)
+            ).response
           : await fetch("https://cloud-api.near.ai/v1/" + endpoint, init);
       providerStatus = upstream.status;
       upstreamId = upstream.headers.get("inference-id");
@@ -297,13 +427,21 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
       if (!parsed.success)
         throw new SonnelyError("The provider returned an incomplete result or usage record.", 502);
       if ("usage" in parsed.data) {
-        if ("prompt_tokens" in parsed.data.usage) input = parsed.data.usage.prompt_tokens;
-        else {
+        if ("prompt_tokens" in parsed.data.usage) {
+          input = parsed.data.usage.prompt_tokens;
+          if (
+            "completion_tokens" in parsed.data.usage &&
+            typeof parsed.data.usage.completion_tokens === "number"
+          )
+            output = parsed.data.usage.completion_tokens;
+        } else {
           input = parsed.data.usage.input_tokens;
           output = parsed.data.usage.output_tokens;
         }
       }
-      cost = fixedCharge ?? tokenCharge(input, output);
+      // The privacy filter does not return token counts. Its published Sonnely price
+      // uses the bounded input-byte estimate plus the provider's fixed request fee.
+      cost = endpoint === "redact" ? reserve : (fixedCharge ?? requestFee + tokenCharge(input, output));
       if (cost > reserve)
         throw new SonnelyError("Provider usage exceeded the reservation. Check Usage.", 502);
       status = "complete";

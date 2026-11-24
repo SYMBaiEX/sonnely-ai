@@ -8,6 +8,10 @@ import { isSpecializedMultipart } from "@/lib/specialized-models";
 import { specializedRequests } from "@/lib/specialized-requests";
 
 const specializedDescriptions = {
+  "audio/translations": "Translate spoken audio into English text",
+  "convert/file": "Convert the text layer of one PDF to Markdown",
+  redact: "Redact detected personal information",
+  responses: "Generate a single-turn text response",
   "audio/speech": "Synthesize WAV audio from text",
   "audio/transcriptions": "Transcribe an uploaded audio file",
   "images/edits": "Edit one uploaded image",
@@ -54,6 +58,20 @@ const spec = {
     { url: apiOrigin + "/v1", description: "Compatibility base URL" },
   ],
   paths: {
+    "/realtime": {
+      get: {
+        summary: "Upgrade to one native realtime transcription WebSocket session",
+        security: [{ SonnelyKey: [] }],
+        parameters: [
+          { in: "query", name: "model", required: true, schema: { const: "voxtral-mini-4b-realtime" } },
+        ],
+        responses: {
+          101: { description: "WebSocket upgrade. Wait for session.created before sending PCM16 audio." },
+          426: { description: "WebSocket upgrade required" },
+          ...errors,
+        },
+      },
+    },
     "/provider-models": {
       get: {
         operationId: "listProviderModels",

@@ -105,3 +105,59 @@ test("audio and decision endpoints validate formats before provider requests", a
   expect(spec.paths["/audio/transcriptions"].post.requestBody.content["multipart/form-data"]).toBeDefined();
   expect(spec.paths["/audio/speech"].post.responses["200"].content["audio/wav"]).toBeDefined();
 });
+
+test("discovery endpoints advertise and enforce their supported protocols", async ({ request }) => {
+  const headers = { Authorization: "Bearer sonnely_live_" + "x".repeat(43) };
+  const endpoint = (name: string) => apiBasePath + "/" + name;
+  expect((await request.get(endpoint("realtime"))).status()).toBe(401);
+  expect((await request.get(endpoint("realtime"), { headers })).status()).toBe(426);
+  expect(
+    (
+      await request.post(endpoint("responses"), {
+        headers,
+        data: { model: "tinfoil/inkling-2-small", input: "Hello", store: true },
+      })
+    ).status(),
+  ).toBe(400);
+  expect(
+    (
+      await request.post(endpoint("redact"), {
+        headers,
+        data: { model: "pii-filter", text: "a".repeat(4097) },
+      })
+    ).status(),
+  ).toBe(400);
+  expect(
+    (
+      await request.post(endpoint("audio/translations"), {
+        headers,
+        multipart: {
+          model: "voxtral-small-24b",
+          file: {
+            name: "input.wav",
+            mimeType: "audio/wav",
+            buffer: Buffer.alloc(48),
+          },
+        },
+      })
+    ).status(),
+  ).toBe(400);
+  expect(
+    (
+      await request.post(endpoint("convert/file"), {
+        headers,
+        multipart: {
+          model: "doc-upload",
+          files: {
+            name: "input.pdf",
+            mimeType: "application/pdf",
+            buffer: Buffer.from("invalid contents"),
+          },
+        },
+      })
+    ).status(),
+  ).toBe(400);
+  const openapi = await (await request.get("/api/openapi")).json();
+  expect(openapi.paths["/realtime"].get.responses["101"]).toBeDefined();
+  expect(openapi.paths["/convert/file"].post.requestBody.content["multipart/form-data"]).toBeDefined();
+});

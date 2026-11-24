@@ -1,7 +1,12 @@
 import { providerCatalog } from "@/lib/provider-models";
-import { specializedModels } from "@/lib/specialized-models";
+import { realtimeModel, specializedModels } from "@/lib/specialized-models";
 import { configuredProviders } from "@/lib/managed-access";
 
 export function GET() {
-  return Response.json({ ...providerCatalog, specializedModels, active_providers: configuredProviders() });
+  return Response.json({
+    ...providerCatalog,
+    specializedModels,
+    realtimeModel,
+    active_providers: configuredProviders(),
+  });
 }
