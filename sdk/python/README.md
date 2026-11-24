@@ -1,6 +1,6 @@
 # Sonnely SDK for Python
 
-Run text inference on Sonnely from Python 3.10 or newer. Create a funded [Sonnely API key](https://sonnely.com/console/keys) and store it server-side as `SONNELY_API_KEY`.
+Run text inference on Sonnely from Python 3.11 or newer. Create a funded [Sonnely API key](https://sonnely.com/console/keys) and store it server-side as `SONNELY_API_KEY`.
 
 ```python
 import os

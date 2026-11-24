@@ -1,6 +1,6 @@
 # Sonnely SDK for TypeScript
 
-Run text inference on Sonnely from Node.js 22 or newer. Create a funded [Sonnely API key](https://sonnely.com/console/keys) and store it server-side as `SONNELY_API_KEY`.
+Run text inference on Sonnely from Node.js 22.12 or newer. Create a funded [Sonnely API key](https://sonnely.com/console/keys) and store it server-side as `SONNELY_API_KEY`.
 
 ```ts
 import { Sonnely } from "@sonnely/sdk";
