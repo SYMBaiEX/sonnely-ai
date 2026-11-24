@@ -397,6 +397,10 @@ export async function adminAction(
     .object({ reference: address, version: paymentTransactionVersion.optional() })
     .parse(raw);
   const order = await db.query(api.finance.payoutDetails, { ...auth, reference });
+  if (order.signature) {
+    if (task === "admin-confirm-payout") return json({ ok: true });
+    throw new SonnelyError("This payout has already finalized.", 409);
+  }
   const { rpc, cluster, recipient } = billing();
   if (!rpc || cluster !== "mainnet" || order.treasury !== recipient || order.mint !== mainnetMint)
     throw new SonnelyError("Mainnet payout configuration is unavailable.", 503);

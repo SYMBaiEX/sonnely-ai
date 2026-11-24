@@ -9,7 +9,7 @@ const url = process.env.SONNELY_TEST_LOCAL_CONVEX;
 const secret = process.env.SONNELY_TEST_CONVEX_SECRET;
 const fixtureAddress = () => getBase58Decoder().decode(randomBytes(32));
 
-test("checkout retries reuse one live envelope and replace it only after expiry", async () => {
+test("checkout reuses live drafts and credits a late settlement once after archiving", async () => {
   test.skip(!url || !secret, "Requires the isolated local Convex deployment.");
   if (!url || !secret || new URL(url).hostname !== "127.0.0.1")
     throw new Error("The checkout retry test must use a loopback Convex deployment.");
@@ -28,7 +28,7 @@ test("checkout retries reuse one live envelope and replace it only after expiry"
     reference,
     recipient: fixtureAddress(),
     mint: mainnetMint,
-    cluster: "devnet",
+    cluster: "mainnet",
     amount: 5_000_000,
   });
   const args = { ...auth, reference };
@@ -54,4 +54,15 @@ test("checkout retries reuse one live envelope and replace it only after expiry"
     observedHeight: 32,
     lastValidBlockHeight: 40,
   })).rejects.toThrow("Sign in with a Solana wallet");
+  await client.mutation(api.sonnely.cancelDeposit, args);
+  const archivedAt = (await client.query(api.sonnely.depositDetails, args)).archivedAt;
+  expect(archivedAt).toBeGreaterThan(0);
+  await client.mutation(api.sonnely.cancelDeposit, args);
+  expect(await client.query(api.sonnely.history, auth)).toMatchObject([{ reference, archivedAt }]);
+  await expect(save("archived", 32, 40)).rejects.toThrow("This payment request is archived");
+  const signature = getBase58Decoder().decode(randomBytes(64));
+  await client.mutation(api.sonnely.confirmDeposit, { ...args, signature });
+  await client.mutation(api.sonnely.confirmDeposit, { ...args, signature });
+  expect((await client.query(api.sonnely.profile, auth))?.balance).toBe(5_000_000);
+  expect(await client.query(api.sonnely.history, auth)).toMatchObject([{ reference, signature, archivedAt }]);
 });

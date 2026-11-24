@@ -54,7 +54,10 @@ async function paymentDraft(order: {
   amount: number;
   cluster: string;
   sol?: SolPayment;
+  archivedAt?: number;
 }) {
+  const { reference, cluster, amount, sol, archivedAt } = order;
+  if (archivedAt !== undefined) return { reference, cluster, amount, sol, archivedAt, uri: "", qr: "" };
   const payment = new URLSearchParams({
     amount: order.sol ? solDecimal(order.sol.lamports) : creditDecimal(order.amount),
     ...(order.sol ? {} : { "spl-token": order.mint }),
@@ -430,6 +433,7 @@ export async function POST(request: NextRequest, context: Context) {
       await verifyCluster(rpc, cluster);
       if (task === "payment-transaction") {
         if (!billingEnabled) throw new SonnelyError("Checkout is unavailable.", 503);
+        if (order.archivedAt !== undefined) throw new SonnelyError("This payment request is archived.", 409);
         if (version === undefined) throw new SonnelyError("Choose a supported wallet transaction version.");
         if (order.sol && order.sol.expiresAt <= Date.now())
           throw new SonnelyError("This SOL quote expired. Start a new payment.", 409);

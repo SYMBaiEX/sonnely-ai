@@ -1,6 +1,7 @@
 import { localFixtureWallets } from "./fixtures/wallets";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import bs58 from "bs58";
 import { termsVersion } from "../lib/policy";
 import { models } from "../lib/models";
 import { markedUpRates, requestCharge } from "../lib/pricing";
@@ -22,8 +23,9 @@ test("wallet roles, tenant isolation and payout reconciliation are enforced in C
   baseURL,
 }) => {
   test.skip(!baseURL || new URL(baseURL).hostname !== "127.0.0.1", "Local Convex fixture");
-  process.loadEnvFile(".env.local");
+  if (!process.env.CONVEX_URL) process.loadEnvFile(".env.local");
   const { admin: adminWallet, treasury, profit: recipient } = localFixtureWallets();
+  const { adminAction } = await import("../lib/admin-api");
   const { backend, hash } = await import("../lib/server");
   const { api } = await import("../convex/_generated/api");
   if (!process.env.CONVEX_URL?.startsWith("http://127.0.0.1:")) throw new Error("Local Convex required");
@@ -170,7 +172,7 @@ test("wallet roles, tenant isolation and payout reconciliation are enforced in C
   ).resolves.toBe(0);
   const reference = await db.mutation(api.finance.openPayout, {
     ...admin,
-    reference: randomUUID(),
+    reference: bs58.encode(randomBytes(32)),
     mint: checkout.mint,
   });
   const order = await db.query(api.finance.payoutDetails, { ...admin, reference });
@@ -190,6 +192,21 @@ test("wallet roles, tenant isolation and payout reconciliation are enforced in C
   await expect(
     db.mutation(api.finance.confirmPayout, { ...admin, reference, signature }),
   ).resolves.toBeNull();
+  const paid = (await db.query(api.finance.overview, { ...admin, since: 0 })).finance.paidMicros;
+  await expect(db.query(api.finance.payoutDetails, { ...admin, reference })).resolves.toMatchObject({
+    reference,
+    signature,
+  });
+  const retry = await adminAction("admin-confirm-payout", { reference }, admin, db);
+  expect(retry.ok).toBe(true);
+  await expect(retry.json()).resolves.toEqual({ ok: true });
+  await expect(
+    adminAction("admin-payout-transaction", { reference, version: 1 }, treasuryAdmin, db),
+  ).rejects.toMatchObject({ status: 409 });
+  await expect(adminAction("admin-confirm-payout", { reference }, member, db)).rejects.toThrow(
+    "Administrator access required",
+  );
+  expect((await db.query(api.finance.overview, { ...admin, since: 0 })).finance.paidMicros).toBe(paid);
   const phalaReference = "phala:rcpt-" + randomUUID();
   const phala = await db.mutation(api.sonnely.reserve, {
     ...member,
