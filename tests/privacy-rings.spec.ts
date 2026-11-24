@@ -126,6 +126,7 @@ test("treasury registration returns only the exact simulated unsigned v1 or v0 d
     await expect(treasuryPrivacyRingsStatus()).resolves.toMatchObject({
       registered: true,
       canPrepare: false,
+      registryAddress: pda,
     });
     await expect(prepareTreasuryPrivacyRingsRegistration(args)).rejects.toMatchObject({ status: 409 });
   } finally {

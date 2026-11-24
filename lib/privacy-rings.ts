@@ -83,12 +83,21 @@ function registrationClient(rpc: TreasuryRpc, commitment: "finalized" | "confirm
 export async function treasuryPrivacyRingsStatus() {
   const { rpc, treasury } = await mainnetTreasury();
   try {
-    const { isWalletRegistered } = await import("@heliuslabs/spr/wallet");
+    const [{ isWalletRegistered }, { getUserRecordAddress }] = await Promise.all([
+      import("@heliuslabs/spr/wallet"),
+      import("@heliuslabs/spr/addresses"),
+    ]);
     const registered = await isWalletRegistered({
       rpc: registrationClient(rpc, "finalized"),
       owner: treasury,
     });
-    return { cluster, treasury, registered, canPrepare: !registered };
+    return {
+      cluster,
+      treasury,
+      registered,
+      canPrepare: !registered,
+      ...(registered ? { registryAddress: await getUserRecordAddress(treasury) } : {}),
+    };
   } catch {
     throw new SonnelyError("The Privacy Rings treasury registry could not be verified.", 503);
   }

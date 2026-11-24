@@ -28,6 +28,8 @@ import { request } from "./wallet";
 
 const route = "admin-privacy-rings";
 const chain = "solana:mainnet";
+const maxRegistrationFee = 10_000;
+const maxRegistrationRent = 1_990_000;
 const client = createClient().use(
   walletSigner({
     chain,
@@ -42,6 +44,7 @@ const statusSchema = z.object({
   treasury: z.string().refine(isAddress),
   registered: z.boolean(),
   canPrepare: z.boolean(),
+  registryAddress: z.string().refine(isAddress).optional(),
 });
 const lamports = z.string().regex(/^\d{1,15}$/);
 const preparationSchema = statusSchema.pick({ cluster: true, treasury: true }).extend({
@@ -79,11 +82,11 @@ function requireTreasuryWallet(treasury: string) {
       "Connect the treasury account with a wallet that supports mainnet message signing and v0 or v1 transactions.",
     );
   }
-  return { account: connected.account, signer: connected.signer, version };
+  return { account: connected.account, signer: connected.signer, version, walletName: connected.wallet.name };
 }
 
 async function prepareRegistration(treasury: string): Promise<Registration> {
-  const { account, version } = requireTreasuryWallet(treasury);
+  const { account, version, walletName } = requireTreasuryWallet(treasury);
   const [
     { bytes32, ed25519DerivationMessage, initializePoseidon },
     { LocalShieldedKeys },
@@ -97,9 +100,19 @@ async function prepareRegistration(treasury: string): Promise<Registration> {
   if (requireTreasuryWallet(treasury).account !== account)
     throw new Error("The connected treasury wallet changed.");
 
-  const signed = await client.wallet.signMessage(
-    ed25519DerivationMessage(bytes32(Uint8Array.from(account.publicKey))),
-  );
+  const signingMessage = ed25519DerivationMessage(bytes32(Uint8Array.from(account.publicKey)));
+  const signed = await client.wallet.signMessage(signingMessage).catch((error: unknown) => {
+    if (
+      /^Phantom\b/i.test(walletName) &&
+      error instanceof Error &&
+      /cannot sign.*transaction.*sign.?message/i.test(error.message)
+    ) {
+      throw new Error(
+        "Phantom blocked the Privacy Rings setup message. Reconnect the same treasury account in a wallet that supports signing the exact Solana off-chain v0 message.",
+      );
+    }
+    throw error;
+  });
   const seed = Uint8Array.from(signed);
   if (signed instanceof Uint8Array) signed.fill(0);
   const owner = address(treasury);
@@ -132,6 +145,9 @@ async function prepareRegistration(treasury: string): Promise<Registration> {
       viewingPublicKey: base64.decode(publicKeys.viewingPublicKey),
     }),
   );
+  if (Number(result.feeLamports) > maxRegistrationFee || Number(result.rentLamports) > maxRegistrationRent) {
+    throw new Error("The simulated registration exceeds the approved fee or rent limit. Try again later.");
+  }
   const wire = getBase64Encoder().encode(result.transaction);
   const transaction = getTransactionDecoder().decode(wire);
   const compiled = getCompiledTransactionMessageDecoder().decode(transaction.messageBytes);
@@ -172,11 +188,12 @@ export function AdminPrivacyRings() {
   const connected = useConnectedWallet(client);
   const [status, setStatus] = useState<RegistryStatus>();
   const [revision, setRevision] = useState(0);
-  const [draft, setDraft] = useState<Registration>();
+  const [choosingWallet, setChoosingWallet] = useState(false);
+  const [cost, setCost] = useState<Pick<Registration, "feeLamports" | "rentLamports">>();
   const [signature, setSignature] = useState("");
-  const [pending, setPending] = useState<"connect" | "prepare" | "approve">();
+  const [pending, setPending] = useState<"connect" | "setup" | "approve">();
   const [error, setError] = useState("");
-  const review = useRef<HTMLHeadingElement>(null);
+  const mounted = useRef(false);
   const treasuryConnected = Boolean(
     status && connected?.account.address === status.treasury && connected.account.chains.includes(chain),
   );
@@ -210,8 +227,11 @@ export function AdminPrivacyRings() {
   }, [revision, signature]);
 
   useEffect(() => {
-    if (draft) review.current?.focus();
-  }, [draft]);
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   async function run(action: NonNullable<typeof pending>, task: () => Promise<void>) {
     setError("");
@@ -226,7 +246,6 @@ export function AdminPrivacyRings() {
   }
 
   async function connectTreasury(wallet: WalletOption, treasury: string) {
-    setDraft(undefined);
     const accounts = await client.wallet.connect(wallet);
     const account = accounts.find(
       (candidate) => candidate.address === treasury && candidate.chains.includes(chain),
@@ -234,27 +253,33 @@ export function AdminPrivacyRings() {
     if (!account) throw new Error("Select the configured treasury account in your wallet.");
     client.wallet.selectAccount(account);
     requireTreasuryWallet(treasury);
+    setChoosingWallet(false);
   }
 
-  async function approveRegistration(registration: Registration) {
-    const { signer, version } = requireTreasuryWallet(registration.treasury);
+  async function registerTreasury(treasury: string) {
+    setCost(undefined);
+    const { signer, version } = requireTreasuryWallet(treasury);
+    const registration = await prepareRegistration(treasury);
+    if (!mounted.current) return;
     const latest = await readRegistrationStatus();
+    if (!mounted.current) return;
     setStatus(latest);
-    if (latest.registered) return;
     if (
-      !latest.canPrepare ||
-      latest.treasury !== registration.treasury ||
+      latest.treasury !== treasury ||
       version !== registration.version ||
-      requireTreasuryWallet(registration.treasury).signer !== signer
+      requireTreasuryWallet(treasury).signer !== signer
     )
-      throw new Error("The treasury or registration status changed. Refresh and prepare a new registration.");
+      throw new Error("The configured treasury or connected account changed. Refresh and try again.");
+    if (latest.registered) return;
+    if (!latest.canPrepare) throw new Error("Treasury registration is unavailable.");
+    setCost({ feeLamports: registration.feeLamports, rentLamports: registration.rentLamports });
+    setPending("approve");
     const [output] = await signer.signAndSendTransactions([registration.transaction]);
     if (output?.length !== 64)
       throw new Error(
         "The wallet returned no transaction signature. Check registration status before trying again.",
       );
     setSignature(getBase58Decoder().decode(output));
-    setDraft(undefined);
   }
 
   return (
@@ -299,6 +324,16 @@ export function AdminPrivacyRings() {
             <code style={{ overflowWrap: "anywhere" }}>{status.treasury}</code>
             <CopyButton label="Copy treasury address" value={status.treasury} />
           </div>
+          {status.registered && status.registryAddress && (
+            <a
+              className="text-link"
+              href={`https://explorer.solana.com/address/${status.registryAddress}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View finalized registry on Solana Explorer ↗
+            </a>
+          )}
           {signature && (
             <p className="status" role="status">
               {status.registered
@@ -316,11 +351,23 @@ export function AdminPrivacyRings() {
           )}
           {status.canPrepare && !status.registered && !signature && (
             <div className="stack-panel">
-              {treasuryConnected ? (
-                <p className="status" role="status">
-                  Treasury wallet connected.
-                </p>
-              ) : (
+              {treasuryConnected && (
+                <div className="between">
+                  <p className="status" role="status">
+                    Treasury wallet connected.
+                  </p>
+                  <button
+                    className="button quiet small"
+                    type="button"
+                    disabled={Boolean(pending)}
+                    aria-expanded={choosingWallet}
+                    onClick={() => setChoosingWallet((current) => !current)}
+                  >
+                    Change treasury wallet
+                  </button>
+                </div>
+              )}
+              {(!treasuryConnected || choosingWallet) && (
                 <>
                   <h3>Connect treasury wallet</h3>
                   <p className="caption">
@@ -347,67 +394,51 @@ export function AdminPrivacyRings() {
                   )}
                 </>
               )}
-              {canSign && !draft && (
+              {canSign && !choosingWallet && (
                 <>
                   <p className="caption">
-                    Approve the setup message only on your Sonnely Admin site. Your browser uses the signature
-                    locally to derive public registration keys. The transaction and fees are reviewed
-                    separately.
+                    Approve the setup message only on your Sonnely Admin site. Your browser derives the public
+                    registration keys locally, then your wallet asks you to confirm the transaction.
+                  </p>
+                  <p className="caption">
+                    Maximum simulated cost of {solDecimal(maxRegistrationFee + maxRegistrationRent)} SOL,
+                    including network fee and account rent. The treasury pays.
                   </p>
                   <div className="actions">
                     <button
                       className="button accent"
                       type="button"
                       disabled={Boolean(pending)}
-                      onClick={() =>
-                        void run("prepare", async () => setDraft(await prepareRegistration(status.treasury)))
-                      }
+                      onClick={() => void run("setup", () => registerTreasury(status.treasury))}
                     >
-                      {pending === "prepare" ? "Preparing registration…" : "Prepare registration"}
+                      Register
                     </button>
                   </div>
                 </>
               )}
-              {canSign && draft && draft.treasury === status.treasury && (
-                <section className="checkout" aria-labelledby="registration-review-heading">
-                  <h3 id="registration-review-heading" ref={review} tabIndex={-1}>
-                    Review registration
-                  </h3>
-                  <p className="caption">
-                    Create the Privacy Rings registry record with the treasury as the fee payer on Solana
-                    mainnet.
-                  </p>
-                  <dl className="admin-metrics">
-                    <div>
-                      <dt>Network fee</dt>
-                      <dd>{solDecimal(Number(draft.feeLamports))} SOL</dd>
-                    </div>
-                    <div>
-                      <dt>Account rent</dt>
-                      <dd>{solDecimal(Number(draft.rentLamports))} SOL</dd>
-                    </div>
-                  </dl>
-                  <div className="actions">
-                    <button
-                      className="button accent"
-                      type="button"
-                      disabled={Boolean(pending)}
-                      onClick={() => void run("approve", () => approveRegistration(draft))}
-                    >
-                      {pending === "approve" ? "Waiting for wallet…" : "Approve registration in wallet"}
-                    </button>
-                    <button
-                      className="button quiet"
-                      type="button"
-                      disabled={Boolean(pending)}
-                      onClick={() => setDraft(undefined)}
-                    >
-                      Discard preparation
-                    </button>
-                  </div>
-                </section>
+              {pending === "setup" && (
+                <p className="status" role="status">
+                  Waiting for the wallet setup message and registration simulation…
+                </p>
+              )}
+              {pending === "approve" && (
+                <p className="status" role="status">
+                  Confirm the registration transaction in your wallet.
+                </p>
               )}
             </div>
+          )}
+          {cost && (pending === "approve" || signature) && (
+            <dl className="admin-metrics">
+              <div>
+                <dt>Network fee</dt>
+                <dd>{solDecimal(Number(cost.feeLamports))} SOL</dd>
+              </div>
+              <div>
+                <dt>Account rent</dt>
+                <dd>{solDecimal(Number(cost.rentLamports))} SOL</dd>
+              </div>
+            </dl>
           )}
         </>
       )}
