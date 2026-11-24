@@ -1,15 +1,17 @@
 import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { limits } from "./api-contract";
 import { nearResponseEvidence, receiptVersion, sha256 } from "./inference-receipt";
 import { inferenceStream, providerUsage, publicUsage, type ProviderUsage } from "./inference-stream";
-import { managedProviderKey, publicInference } from "./managed-access";
+import { publicInference } from "./managed-access";
 import { phalaOrigin, phalaReceiptId, phalaResponseEvidence } from "./phala";
 import { requestCharge } from "./pricing";
 import { providerRequestId } from "./provider-billing";
 import { completionMessage, functionTool, responseFormat, toolCall, toolChoice } from "./inference-tools";
-import { agentCapabilities, providerIds, providerRoute } from "./provider-catalog";
+import { completionRoutes, providerAtCapacity, providerPolicy } from "./private-routing";
+import { InferenceRequestError } from "./sonnely-error";
 import { models } from "./models";
 import { backend, SonnelyError } from "./server";
 import type { GatewayReceipt } from "./usagemax-gateway";
@@ -19,7 +21,7 @@ const completion = z
     model: z.string().min(1).max(100),
     messages: z.array(completionMessage).min(1).max(limits.messages),
     max_tokens: z.number().int().min(1).max(limits.maxOutputTokens).optional(),
-    provider: z.strictObject({ only: z.tuple([z.enum(providerIds)]) }).optional(),
+    provider: providerPolicy.optional(),
     max_cost_microusd: z.int().positive().optional(),
     stream: z.boolean().optional(),
     tools: z.array(functionTool).min(1).max(16).optional(),
@@ -63,24 +65,14 @@ export async function infer(
     throw new SonnelyError("stream_options requires stream: true.", 400);
   const model = models.find((item) => item.id === input.model);
   if (!model) throw new SonnelyError("Choose a model from the catalog.", 404);
-  const provider = input.provider?.only[0] ?? model.provider;
-  const route = providerRoute(model, provider);
-  if (!route) throw new SonnelyError("The requested model is unavailable on this provider.", 404);
-  const capabilities = agentCapabilities(model, provider, process.env.SONNELY_AGENT_CAPABILITIES === "true");
-  const usesTools =
+  const usesTools = Boolean(
     input.tools ||
     input.tool_choice !== undefined ||
-    input.messages.some((item) => item.role === "tool" || (item.role === "assistant" && item.tool_calls));
-  if (usesTools && !capabilities.tools)
-    throw new SonnelyError("Tool calling is unavailable on this route. Check /v1/models.", 400);
-  if (input.response_format && input.response_format.type !== "text" && !capabilities.structured_outputs)
-    throw new SonnelyError("Structured outputs are unavailable on this route. Check /v1/models.", 400);
+    input.messages.some((item) => item.role === "tool" || (item.role === "assistant" && item.tool_calls)),
+  );
   if (input.tool_choice && !input.tools) throw new SonnelyError("tool_choice requires tools.", 400);
   if (input.messages.some((item) => item.role === "assistant" && !item.content && !item.tool_calls))
     throw new SonnelyError("Assistant messages require content or tool calls.", 400);
-  const upstreamKey = managedProviderKey(provider);
-  if (!upstreamKey) throw new SonnelyError("Managed inference is awaiting provider activation.", 503);
-
   const maxTokens = input.max_tokens ?? limits.defaultOutputTokens;
   const shape = {
     ...(input.tools ? { tools: input.tools } : {}),
@@ -92,49 +84,75 @@ export async function infer(
     (input.tools || input.tool_choice || input.response_format
       ? Buffer.byteLength(JSON.stringify(shape))
       : 0);
-  const reserve = requestCharge(route, bytes + 256, 0, maxTokens);
-  if (input.max_cost_microusd !== undefined && reserve > input.max_cost_microusd)
-    throw new SonnelyError("The estimated reservation exceeds max_cost_microusd.", 400);
-  const isPhala = provider === "phala";
-  const isTinfoil = provider === "tinfoil";
+  const candidates = completionRoutes(model, input.provider, {
+    tools: usesTools,
+    structured: Boolean(input.response_format && input.response_format.type !== "text"),
+    bytes,
+    maxTokens,
+    maxCost: input.max_cost_microusd,
+  });
+  type Candidate = (typeof candidates)[number];
+  const fallback = input.provider?.allow_fallbacks === true;
+  const reserve = Math.max(...candidates.map((candidate) => candidate.estimate));
   const { db, secret } = backend();
-  const requestBody = JSON.stringify({
-    model: route.upstreamModel,
-    messages: input.messages,
-    ...shape,
-    max_tokens: maxTokens,
-    ...(input.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
-    ...(isPhala
-      ? {
-          provider: { only: ["phala"], allow_fallbacks: false, aci_verified: true },
-          ...(route.reasoningRequired ? {} : { reasoning: { enabled: false } }),
-        }
-      : {}),
-    ...(isTinfoil
-      ? {
-          user_cache_secret: createHmac("sha256", secret)
-            .update("tinfoil-cache:" + (auth.hash ?? auth.session))
-            .digest("hex"),
-        }
-      : {}),
-  });
+  const retryKey = idempotencyKey
+    ? createHmac("sha256", secret)
+        .update("completion-idempotency:" + idempotencyKey)
+        .digest("hex")
+    : undefined;
   const reservationAt = Date.now();
-  const id = await db.mutation(api.sonnely.reserve, {
-    secret,
-    ...auth,
-    model: input.model,
-    endpoint: "chat/completions",
-    ...(provider !== "near-ai" ? { provider } : {}),
-    cost: reserve,
-    ...(idempotencyKey
-      ? {
-          retryKey: createHmac("sha256", secret)
-            .update("completion-idempotency:" + idempotencyKey)
-            .digest("hex"),
-        }
-      : {}),
-    ...(publicInference() ? { requireTerms: true } : {}),
-  });
+
+  async function reserveRequest(): Promise<{ id: Id<"usage">; index: number }> {
+    for (const [index, candidate] of candidates.entries()) {
+      try {
+        const id = await db.mutation(api.sonnely.reserve, {
+          secret,
+          ...auth,
+          model: input.model,
+          endpoint: "chat/completions",
+          ...(candidate.provider !== "near-ai" ? { provider: candidate.provider } : {}),
+          cost: reserve,
+          ...(fallback ? { providerCost: candidate.estimate } : {}),
+          ...(retryKey ? { retryKey } : {}),
+          ...(publicInference() ? { requireTerms: true } : {}),
+        });
+        return { id, index };
+      } catch (cause) {
+        if (index === candidates.length - 1 || !providerAtCapacity(cause)) throw cause;
+      }
+    }
+    throw new SonnelyError("No eligible private routes are currently available.", 503);
+  }
+
+  const initial = await reserveRequest();
+  const id = initial.id;
+  let selectedIndex = initial.index;
+  let active = candidates[selectedIndex];
+
+  function upstreamBody({ provider, route }: Candidate) {
+    return JSON.stringify({
+      model: route.upstreamModel,
+      messages: input.messages,
+      ...shape,
+      max_tokens: maxTokens,
+      ...(input.stream ? { stream: true, stream_options: { include_usage: true } } : {}),
+      ...(provider === "phala"
+        ? {
+            provider: { only: ["phala"], allow_fallbacks: false, aci_verified: true },
+            ...(route.reasoningRequired ? {} : { reasoning: { enabled: false } }),
+          }
+        : {}),
+      ...(provider === "tinfoil"
+        ? {
+            user_cache_secret: createHmac("sha256", secret)
+              .update("tinfoil-cache:" + (auth.hash ?? auth.session))
+              .digest("hex"),
+          }
+        : {}),
+    });
+  }
+
+  let requestBody = upstreamBody(active);
   let status: "complete" | "failed" | "unreported" = "unreported";
   let tokensIn = 0;
   let tokensOut = 0;
@@ -170,7 +188,7 @@ export async function infer(
       outcome,
       usageMaxDetails: {
         stream: input.stream === true,
-        attemptModel: route.upstreamModel,
+        attemptModel: active.route.upstreamModel,
         timing: {
           requestAt,
           reservationAt,
@@ -186,8 +204,8 @@ export async function infer(
     });
 
   function rememberId(completionId: string) {
-    if (provider === "near-ai") providerRequest = providerRequestId(upstreamId, completionId);
-    if (isTinfoil) providerRequest = "tinfoil:" + completionId;
+    if (active.provider === "near-ai") providerRequest = providerRequestId(upstreamId, completionId);
+    if (active.provider === "tinfoil") providerRequest = "tinfoil:" + completionId;
   }
 
   async function recordUsage(
@@ -215,15 +233,15 @@ export async function infer(
       ...(usage.total_tokens === undefined ? {} : { reportedTotalTokens: usage.total_tokens }),
     };
     gatewayResolvedModel = reportedModel;
-    if (provider !== "near-ai" && usage.cost !== undefined)
+    if (active.provider !== "near-ai" && usage.cost !== undefined)
       providerReportedCostNano = Math.round(usage.cost * 1e9);
-    if (isPhala) {
+    if (active.provider === "phala") {
       verificationAt = Date.now();
       phalaEvidence = await phalaResponseEvidence(
-        upstreamKey!,
+        active.key,
         providerReceipt,
         completionId,
-        route!.upstreamModel,
+        active.route.upstreamModel,
         sha256(requestBody),
         responseHash!,
       );
@@ -236,7 +254,7 @@ export async function infer(
         );
       }
     }
-    cost = requestCharge(route!, tokensIn, cached, tokensOut);
+    cost = requestCharge(active.route, tokensIn, cached, tokensOut);
     status = "complete";
     outcome = "complete";
   }
@@ -245,7 +263,7 @@ export async function infer(
     const requestHash = sha256(requestBody);
     return {
       version: receiptVersion,
-      provider,
+      provider: active.provider,
       requested_model: input.model,
       ...(reportedModel ? { reported_model: reportedModel } : {}),
       provider_completion_id: completionId,
@@ -258,47 +276,109 @@ export async function infer(
         phalaEvidence ??
         tinfoilEvidence ??
         (await nearResponseEvidence(
-          upstreamKey!,
+          active.key,
           completionId,
-          route!.upstreamModel,
+          active.route.upstreamModel,
           requestHash,
           responseHash,
         )),
     };
   }
 
+  async function nextPrivateRoute(startedAt: number, endedAt: number) {
+    const rejected = {
+      provider: active.provider,
+      model: active.route.upstreamModel,
+      startedAt,
+      endedAt,
+      httpStatus: 429 as const,
+    };
+    for (let index = selectedIndex + 1; index < candidates.length; index++) {
+      const candidate = candidates[index];
+      try {
+        await db.mutation(api.sonnely.advancePrivateRoute, {
+          secret,
+          id,
+          rejected,
+          next: candidate.provider,
+          providerCost: candidate.estimate,
+        });
+        selectedIndex = index;
+        active = candidate;
+        requestBody = upstreamBody(active);
+        return true;
+      } catch (cause) {
+        if (!providerAtCapacity(cause)) throw cause;
+      }
+    }
+    return false;
+  }
+
   let data: z.infer<typeof result>;
   let responseHash: string | undefined;
   try {
     let response: Response;
-    try {
-      const init: RequestInit = {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + upstreamKey,
-          ...(withReceipt && provider === "near-ai" ? { "x-no-aliasing": "true" } : {}),
-        },
-        body: requestBody,
-        cache: "no-store",
-        redirect: "error",
-        signal: AbortSignal.timeout(45_000),
-      };
-      providerAt = Date.now();
-      if (isTinfoil) {
-        const { fetchTinfoil } = await import("./tinfoil");
-        const upstream = await fetchTinfoil(init);
-        response = upstream.response;
-        tinfoilEvidence = upstream.evidence;
-      } else {
-        response = await fetch(
-          (isPhala ? phalaOrigin : "https://cloud-api.near.ai") + "/v1/chat/completions",
-          init,
+    const deadline = AbortSignal.timeout(45_000);
+    for (;;) {
+      if (deadline.aborted) {
+        status = "failed";
+        outcome = "route_deadline";
+        throw new SonnelyError("The private routing deadline expired before another request was sent.", 502);
+      }
+      const { provider, key } = active;
+      try {
+        const init: RequestInit = {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + key,
+            ...((withReceipt || fallback) && provider === "near-ai" ? { "x-no-aliasing": "true" } : {}),
+          },
+          body: requestBody,
+          cache: "no-store",
+          redirect: "error",
+          signal: deadline,
+        };
+        providerAt = Date.now();
+        if (provider === "tinfoil") {
+          const { fetchTinfoil } = await import("./tinfoil");
+          const upstream = await fetchTinfoil(init);
+          response = upstream.response;
+          tinfoilEvidence = upstream.evidence;
+        } else {
+          response = await fetch(
+            (provider === "phala" ? phalaOrigin : "https://cloud-api.near.ai") + "/v1/chat/completions",
+            init,
+          );
+        }
+      } catch {
+        throw new SonnelyError(
+          "The provider did not respond. The reservation is pending reconciliation.",
+          502,
         );
       }
-    } catch {
-      throw new SonnelyError("The provider did not respond. The reservation is pending reconciliation.", 502);
+      if (
+        !fallback ||
+        response.status !== 429 ||
+        selectedIndex >= candidates.length - 1 ||
+        response.headers.has("inference-id") ||
+        response.headers.has("x-receipt-id") ||
+        deadline.aborted
+      )
+        break;
+
+      const rejectedAt = Date.now();
+      void response.body?.cancel().catch(() => null);
+      status = "failed";
+      outcome = "upstream_http";
+      if (!(await nextPrivateRoute(providerAt, rejectedAt))) break;
+      status = "unreported";
+      outcome = "upstream_transport";
+      tinfoilEvidence = undefined;
     }
+
+    const provider = active.provider;
+    const isPhala = provider === "phala";
     providerStatus = response.status;
     if (isPhala) {
       providerReceipt = phalaReceiptId(response.headers);
@@ -313,7 +393,15 @@ export async function infer(
       providerRequest = upstreamId;
     if (!response.ok) {
       outcome = "upstream_http";
-      if (response.status < 500) status = "failed";
+      if (
+        response.status < 500 &&
+        !(
+          fallback &&
+          response.status === 429 &&
+          (response.headers.has("inference-id") || response.headers.has("x-receipt-id"))
+        )
+      )
+        status = "failed";
       void response.body?.cancel().catch(() => null);
       throw new SonnelyError("The provider could not complete this request.", 502);
     }
@@ -349,6 +437,7 @@ export async function infer(
       streamOwnsSettlement = true;
       keepAlive?.(stream.finished);
       stream.response.headers.set("X-Sonnely-Request-Id", id);
+      stream.response.headers.set("X-Sonnely-Provider", provider);
       return stream.response;
     }
     outcome = "invalid_usage";
@@ -368,11 +457,20 @@ export async function infer(
     if (!parsed.success) throw new SonnelyError("The provider returned incomplete usage information.", 502);
     data = parsed.data;
     await recordUsage(data.id, data.usage, responseHash, data.model);
+  } catch (cause) {
+    if (cause instanceof SonnelyError) throw new InferenceRequestError(cause, id);
+    throw cause;
   } finally {
     if (!streamOwnsSettlement) await settle();
   }
 
-  const reply = { ...data, model: input.model, usage: publicUsage(data.usage), sonnely_request_id: id };
+  const reply = {
+    ...data,
+    model: input.model,
+    usage: publicUsage(data.usage),
+    sonnely_request_id: id,
+    sonnely_provider: active.provider,
+  };
   if (!withReceipt || !responseHash) return reply;
   return {
     ...reply,

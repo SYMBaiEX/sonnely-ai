@@ -15,6 +15,9 @@ export async function fetchTinfoil(
 ) {
   const verifiedClient = path === "/redact" ? piiClient : client;
   await verifiedClient.ready();
+  const before = verifiedClient.getVerificationDocument();
+  if (!before.securityVerified || !before.releaseDigest)
+    throw new Error("Tinfoil router verification is unavailable.");
   init.signal?.throwIfAborted();
   const response = await verifiedClient.fetch(path, init);
   const verification = verifiedClient.getVerificationDocument();

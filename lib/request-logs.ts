@@ -19,6 +19,13 @@ export type RequestLogRow = {
   keyName: string;
   model: string;
   provider: ProviderId;
+  providerRejections?: {
+    provider: ProviderId;
+    model: string;
+    startedAt: number;
+    endedAt: number;
+    httpStatus: 429;
+  }[];
   input: number;
   output: number;
   cost: number;

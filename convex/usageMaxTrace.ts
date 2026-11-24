@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { providerRejection } from "./requestLogContract";
 
 export const gatewaySpan = v.object({
   spanId: v.string(),
@@ -71,6 +72,7 @@ export function traceFromSettlement(
   model: string,
   outcome?: string,
   httpStatus?: number,
+  rejected: readonly (typeof providerRejection.type)[] = [],
 ): GatewayTrace | undefined {
   if (!Object.values(timing).every((stamp) => Number.isSafeInteger(stamp) && stamp >= 1_577_836_800_000))
     return;
@@ -78,6 +80,7 @@ export function traceFromSettlement(
   const within = (stamp: number, minimum: number) => Math.min(recordedAt, Math.max(stamp, minimum));
   const reservationAt = within(timing.reservationAt, startedAt);
   const providerAt = within(timing.providerAt, reservationAt);
+  const firstProviderAt = within(rejected[0]?.startedAt ?? providerAt, reservationAt);
   const providerDoneAt = within(timing.providerDoneAt, providerAt);
   const settlementAt = within(timing.settlementAt, providerDoneAt);
   const success = status === "complete";
@@ -101,7 +104,17 @@ export function traceFromSettlement(
     billingStatus: status === "unreported" ? "pending" : "final",
     spans: [
       span("01", "request", startedAt, recordedAt, success),
-      span("02", "reservation", reservationAt, providerAt),
+      span("02", "reservation", reservationAt, firstProviderAt),
+      ...rejected.map((attempt, index) => {
+        const from = within(attempt.startedAt, reservationAt);
+        return {
+          ...span(String(index + 7).padStart(2, "0"), "provider", from, within(attempt.endedAt, from), false),
+          provider: attempt.provider,
+          model: attempt.model,
+          outcome: "http_error" as const,
+          httpStatus: attempt.httpStatus,
+        };
+      }),
       {
         ...span(
           "03",

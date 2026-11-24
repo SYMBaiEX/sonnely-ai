@@ -94,3 +94,51 @@ test("the Playground applies the selected provider and keeps unavailable routes 
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
 });
+
+test("the Playground sends explicit fallback order and shows the serving provider", async ({
+  page,
+  request,
+}) => {
+  const catalog = (await (await request.get(apiBasePath + "/models")).json()) as { data: CatalogModel[] };
+  const routes = catalog.data.find((entry) => entry.id === deepseek)!.routes.map((route) => route.provider);
+  test.skip(
+    !["near-ai", "phala", "tinfoil"].every((id) => routes.includes(id)),
+    "Three enabled providers are required.",
+  );
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: {
+        profile: { wallet: fixtureWallet, name: "Failover fixture", balance: 1_000_000 },
+        inferenceEnabled: true,
+      },
+    }),
+  );
+  await page.route("**/api/sonnely/live", (route) => route.fulfill({ status: 204 }));
+  let posted: unknown;
+  await page.route("**/api/sonnely/chat", async (route) => {
+    posted = route.request().postDataJSON();
+    await route.fulfill({
+      contentType: "text/event-stream",
+      headers: { "X-Sonnely-Provider": "phala" },
+      body: 'data: {"choices":[{"delta":{"content":"Backup response"}}]}\n\ndata: [DONE]\n\n',
+    });
+  });
+  await page.goto("/console?model=" + encodeURIComponent(deepseek));
+  const trigger = page.locator(".playground-route-trigger");
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Choose a model" });
+  await dialog.getByLabel("First fallback").selectOption("phala");
+  await dialog.getByLabel("Second fallback").selectOption("tinfoil");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  await dialog.getByRole("button", { name: "Use model" }).click();
+  await expect(trigger).toHaveText(/Failover enabled/);
+  await page.getByRole("textbox", { name: "Message", exact: true }).fill("Test ordered failover");
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText("Backup response")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Messages" })).toContainText("Phala");
+  expect(posted).toMatchObject({
+    model: deepseek,
+    provider: { only: ["near-ai", "phala", "tinfoil"], allow_fallbacks: true },
+  });
+});

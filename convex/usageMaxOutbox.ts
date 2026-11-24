@@ -46,7 +46,7 @@ type Settlement = Pick<
 >;
 
 export function settlementReceipt(
-  row: Pick<Doc<"usage">, "_creationTime" | "model" | "provider">,
+  row: Pick<Doc<"usage">, "_creationTime" | "model" | "provider" | "providerRejections">,
   settlement: Settlement,
   requestId: string,
   previous?: Receipt,
@@ -82,6 +82,7 @@ export function settlementReceipt(
         attemptModel.success ? attemptModel.data : row.model,
         settlement.outcome,
         settlement.providerStatus,
+        row.providerRejections,
       );
   if (settlement.status === "unreported" && !trace) return null;
   const historyAt = previous?.settledAt ?? settlement.settledAt;

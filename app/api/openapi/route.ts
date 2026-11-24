@@ -182,6 +182,10 @@ const spec = {
                 schema: { type: "string" },
                 description: "Reference in workspace Usage.",
               },
+              "X-Sonnely-Provider": {
+                description: "Sonnely provider that served the response.",
+                schema: { enum: providerIds },
+              },
             },
             content: {
               ...jsonSchema("Completion"),
@@ -257,6 +261,7 @@ const spec = {
           provider: { enum: providerIds },
           provider_name: { type: "string" },
           upstream_model: { type: "string" },
+          private_failover: { type: "boolean", description: "Eligible for the Private TEE routing policy." },
           capabilities: {
             type: "object",
             properties: { tools: { type: "boolean" }, structured_outputs: { type: "boolean" } },
@@ -318,12 +323,17 @@ const spec = {
               only: {
                 type: "array",
                 minItems: 1,
-                maxItems: 1,
+                maxItems: 3,
+                uniqueItems: true,
                 items: { enum: providerIds },
               },
+              allow_fallbacks: { type: "boolean", default: false },
             },
+            if: { required: ["allow_fallbacks"], properties: { allow_fallbacks: { const: true } } },
+            then: { properties: { only: { minItems: 2 } } },
+            else: { properties: { only: { maxItems: 1 } } },
             description:
-              "Pin the request to one advertised route. Routing is automatic by default. There is no fallback.",
+              "Pin one provider or opt in to an ordered allowlist of Private TEE providers with allow_fallbacks.",
           },
           max_cost_microusd: {
             type: "integer",
@@ -343,6 +353,7 @@ const spec = {
           created: { type: "number" },
           model: { type: "string" },
           sonnely_request_id: { type: "string" },
+          sonnely_provider: { enum: providerIds },
           sonnely_receipt: { $ref: "#/components/schemas/InferenceReceipt" },
           choices: {
             type: "array",
