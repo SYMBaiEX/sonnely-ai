@@ -214,7 +214,7 @@ export const listKeys = query({
     const account = await requireAccount(ctx, args.session);
     const keys = await ctx.db
       .query("keys")
-      .withIndex("by_account", (q) => q.eq("account", account._id))
+      .withIndex("by_account_and_project", (q) => q.eq("account", account._id).eq("project", undefined))
       .order("desc")
       .take(100);
     const today = new Date().toISOString().slice(0, 10);
@@ -278,7 +278,7 @@ export const revokeKey = mutation({
     service(args.secret);
     const account = await requireAccount(ctx, args.session);
     const key = await ctx.db.get(args.id);
-    if (!key || key.account !== account._id) throw new ConvexError("Key unavailable.");
+    if (!key || key.account !== account._id || key.project) throw new ConvexError("Key unavailable.");
     await ctx.db.patch(key._id, { revoked: true });
     await recordEvent(ctx, {
       account: account._id,
@@ -389,8 +389,9 @@ export const reserve = mutation({
       .withIndex("by_account_flag", (q) => q.eq("account", account._id).eq("flag", "suspended"))
       .unique();
     if (suspended) throw new ConvexError("Inference is suspended on this account. Contact support.");
-    if (args.retryKey) {
-      const retryKey = args.retryKey;
+    // Keys issued within a project cannot retrieve another credential's request reference.
+    const retryKey = args.retryKey && key?.project ? key._id + ":" + args.retryKey : args.retryKey;
+    if (retryKey) {
       const previous = await ctx.db
         .query("usage")
         .withIndex("by_account_retryKey", (q) => q.eq("account", account._id).eq("retryKey", retryKey))
@@ -414,6 +415,13 @@ export const reserve = mutation({
     if (recent.length >= 15) throw new ConvexError("Request limit reached. Try again in one minute.");
     await guardProvider(ctx, args.provider, providerCost, now);
     const day = new Date(now).toISOString().slice(0, 10);
+    const project = key?.project && (await ctx.db.get("teamProjects", key.project));
+    if (project) {
+      const spent = project.spent + args.cost;
+      if (!Number.isSafeInteger(spent) || spent > project.budget)
+        throw new ConvexError("The project budget would be exceeded.");
+      await ctx.db.patch("teamProjects", project._id, { spent });
+    }
     if (key) {
       const usage = await ctx.db
         .query("keyDays")
@@ -432,9 +440,10 @@ export const reserve = mutation({
     await ctx.db.patch(account._id, { balance: account.balance - args.cost });
     return await ctx.db.insert("usage", {
       account: account._id,
+      project: key?.project,
       key: key?._id,
       keyName: key?.name ?? "Console",
-      retryKey: args.retryKey,
+      retryKey,
       keyDay: key ? day : undefined,
       model: args.model,
       endpoint: args.endpoint,
@@ -742,7 +751,8 @@ export const updateKey = mutation({
     service(args.secret);
     const account = await requireAccount(ctx, args.session);
     const key = await ctx.db.get(args.id);
-    if (!key || key.account !== account._id || key.revoked) throw new ConvexError("Key unavailable.");
+    if (!key || key.account !== account._id || key.project || key.revoked)
+      throw new ConvexError("Key unavailable.");
     const name = args.name.trim();
     if (!name || name.length > 60) throw new ConvexError("Name must be 1-60 characters.");
     for (const cap of [args.cap, args.dailyCap])

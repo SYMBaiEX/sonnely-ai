@@ -43,6 +43,8 @@ import type * as requestLogs from "../requestLogs.js";
 import type * as sonnely from "../sonnely.js";
 import type * as statementFeed from "../statementFeed.js";
 import type * as support from "../support.js";
+import type * as teamAccess from "../teamAccess.js";
+import type * as teams from "../teams.js";
 import type * as ticketBulk from "../ticketBulk.js";
 import type * as usageExport from "../usageExport.js";
 import type * as usageMaxOutbox from "../usageMaxOutbox.js";
@@ -91,6 +93,8 @@ declare const fullApi: ApiFromModules<{
   sonnely: typeof sonnely;
   statementFeed: typeof statementFeed;
   support: typeof support;
+  teamAccess: typeof teamAccess;
+  teams: typeof teams;
   ticketBulk: typeof ticketBulk;
   usageExport: typeof usageExport;
   usageMaxOutbox: typeof usageMaxOutbox;
