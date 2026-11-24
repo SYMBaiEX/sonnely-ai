@@ -6,6 +6,7 @@ import {
   ListTree,
   ScrollText,
   ServerCog,
+  Shield,
   UserCog,
   Users,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { AdminCrm } from "./admin-crm";
 import { AdminGateway } from "./admin-gateway";
 import { AdminLogs } from "./admin-logs";
 import { AdminOperators } from "./admin-operators";
+import { AdminPrivacyRings } from "./admin-privacy-rings";
 
 export type AdminTab = {
   id: AdminArea;
@@ -61,6 +63,13 @@ export const adminTabs: AdminTab[] = [
     group: "Operations",
     Icon: UserCog,
     render: (wallet) => <AdminOperators key={wallet} />,
+  },
+  {
+    id: "privacy-rings",
+    label: "Privacy Rings",
+    group: "Operations",
+    Icon: Shield,
+    render: (wallet) => <AdminPrivacyRings key={wallet} />,
   },
   {
     id: "analytics",
