@@ -12,9 +12,6 @@ import {
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
 } from "@solana/kit";
-import { getRegisterInstructionAsync } from "@heliuslabs/spr/instructions";
-import { bytes32, ed25519DerivationMessage, initializePoseidon } from "@heliuslabs/spr/keypair";
-import { LocalShieldedKeys } from "@heliuslabs/spr/transaction";
 import { expect, test } from "@playwright/test";
 import { fixtureWallet } from "./fixtures/wallets";
 
@@ -23,6 +20,15 @@ for (const version of [1, 0] as const) {
     page,
   }) => {
     const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const [
+      { getRegisterInstructionAsync },
+      { bytes32, ed25519DerivationMessage, initializePoseidon },
+      { LocalShieldedKeys },
+    ] = await Promise.all([
+      import("@heliuslabs/spr/instructions"),
+      import("@heliuslabs/spr/keypair"),
+      import("@heliuslabs/spr/transaction"),
+    ]);
     const publicBytes = Uint8Array.from(publicKey.export({ format: "der", type: "spki" }).subarray(-32));
     const treasury = address(getBase58Decoder().decode(publicBytes));
     const derivationMessage = ed25519DerivationMessage(bytes32(publicBytes));
