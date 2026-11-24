@@ -84,7 +84,7 @@ export function inferenceErrorResponse(error: unknown) {
     typeof error.data.reference === "string"
   ) {
     const response = errorResponse(
-      new SonnelyError("This Idempotency-Key already started a request. See Usage for its status.", 409),
+      new SonnelyError("This Idempotency-Key already started a request. Look up the reference in Request logs.", 409),
       true,
     );
     response.headers.set("X-Sonnely-Request-Id", error.data.reference);

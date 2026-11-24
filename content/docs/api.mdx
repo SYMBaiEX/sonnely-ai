@@ -73,7 +73,7 @@ Use the fields listed above and the features advertised on the selected provider
 
 ## Request references and retries
 
-For programmatic retries, send an `Idempotency-Key` header unique to the operation. Use the same value if the connection drops. A repeat returns HTTP 409 with the original `X-Sonnely-Request-Id` and does not reserve credits again. Open [Usage](/console/usage) to check that reference for settlement. Completion bodies are not stored for replay.
+For programmatic retries, send an `Idempotency-Key` header unique to the operation. Use the same value if the connection drops. A repeat returns HTTP 409 with the original `X-Sonnely-Request-Id` and does not reserve credits again. Paste that reference into [Request logs](/console/logs) to check settlement. Completion bodies are not stored for replay.
 
 ## Tool calling and structured output
 
