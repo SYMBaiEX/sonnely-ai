@@ -86,3 +86,29 @@ test("support acknowledges a submitted request through an established status reg
   await form.getByRole("button", { name: "Submit request" }).press("Enter");
   await expect(status).toHaveText("Request sent. Replies appear in your request list.");
 });
+
+test("the playground runs specialized inference with wallet session and restores dialog focus", async ({ page }) => {
+  await mockWorkspace(page);
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.route("**/api/sonnely/playground/redact", async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({ model: "pii-filter" });
+    expect(route.request().headers()["authorization"]).toBeUndefined();
+    await route.fulfill({
+      json: { redacted_text: "Contact [EMAIL]." },
+      headers: { "X-Sonnely-Request-Id": "fixture-reference" },
+    });
+  });
+  await page.goto("/console");
+  const trigger = page.getByRole("button", { name: "More endpoints" });
+  await trigger.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Try an endpoint" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("combobox", { name: "Endpoint", exact: true }).selectOption("redact");
+  await dialog.getByRole("button", { name: "Run endpoint" }).press("Enter");
+  await expect(dialog.getByRole("status")).toHaveText("Request completed.");
+  await expect(dialog).toContainText("Contact [EMAIL].");
+  await expect(dialog).toContainText("fixture-reference");
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+});

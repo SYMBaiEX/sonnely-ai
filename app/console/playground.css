@@ -427,3 +427,58 @@
     min-height: 44px;
   }
 }
+
+.playground-inference-dialog {
+  inline-size: min(36rem, calc(100% - 2rem));
+  max-block-size: min(90dvh, 52rem);
+  overflow-y: auto;
+  padding: clamp(1rem, 4vw, 1.75rem);
+}
+
+.playground-inference-dialog::backdrop {
+  background: rgb(0 0 0 / 58%);
+}
+
+.playground-inference-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-block-end: 1rem;
+}
+
+.playground-inference-dialog form,
+.playground-inference-dialog label {
+  display: grid;
+  gap: .5rem;
+}
+
+.playground-inference-dialog form {
+  margin-block-start: .75rem;
+  gap: .875rem;
+}
+
+.playground-inference-dialog select,
+.playground-inference-dialog textarea,
+.playground-inference-dialog input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 2.75rem;
+  font: inherit;
+}
+
+.playground-inference-dialog pre {
+  max-block-size: 18rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.playground-inference-dialog img,
+.playground-inference-dialog audio {
+  max-inline-size: 100%;
+}
+
+.playground-header .chat-tools {
+  flex-wrap: wrap;
+}

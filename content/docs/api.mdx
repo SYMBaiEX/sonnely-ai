@@ -23,7 +23,7 @@ curl https://sonnely.com/api/sonnely/v1/models
 
 ## Specialized inference
 
-`POST /embeddings`, `POST /rerank`, image generation and edits, System One, redaction, document conversion, Responses, and the audio endpoints use the same Sonnely API key and credit controls as Chat Completions. [Realtime and additional Tinfoil endpoints](/docs/providers#additional-tinfoil-endpoints) describe their request formats. See [model IDs and accepted request fields](/docs/providers#embeddings-decisions-images-and-audio).
+`POST /embeddings`, `POST /rerank`, image generation and edits, System One, redaction, document conversion, Responses, and the audio endpoints use the same Sonnely API key and credit controls as Chat Completions. [Realtime and additional Tinfoil endpoints](/docs/providers#additional-tinfoil-endpoints) describe their request formats. Open **More endpoints** in the [Playground](/console) to try these operations with your signed-in workspace credits. See [model IDs and accepted request fields](/docs/providers#embeddings-decisions-images-and-audio).
 
 ## Create a completion
 
@@ -54,11 +54,11 @@ curl https://sonnely.com/api/sonnely/v1/chat/completions \
 
 Send `Content-Type: application/json`. Add `X-Sonnely-Receipt: v1` to receive the [completion receipt](/docs/attestation#completion-receipts).
 
-## Request limits
+## Chat Completions limits
 
 The gateway accepts up to 36,000 bytes of JSON, up to 32 messages with roles `system`, `user`, or `assistant`, and up to 12,000 characters per message. `max_tokens` accepts integers from 1 to 2,048.
 
-Use the Chat Completions interface. The gateway accepts text and the fields listed above, plus the features advertised on individual provider routes. The Responses API, embeddings, multimodal inputs, and arbitrary OpenAI parameters are outside this contract. See [errors and recovery](/docs/troubleshooting) for HTTP and stream failures.
+Use the fields listed above and the features advertised on the selected provider route. For audio, documents, embeddings, and the Responses API, use the [specialized endpoints](#specialized-inference). See [errors and recovery](/docs/troubleshooting) for HTTP and stream failures.
 
 ## Request references and retries
 

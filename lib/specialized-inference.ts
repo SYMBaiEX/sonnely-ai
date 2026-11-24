@@ -347,9 +347,9 @@ async function prepare(endpoint: SpecializedEndpoint, raw: unknown) {
   }
 }
 
-export async function runSpecialized(request: NextRequest, endpoint: SpecializedEndpoint) {
+export async function runSpecialized(request: NextRequest, endpoint: SpecializedEndpoint, session?: string) {
   try {
-    const { hash, retryKey } = inferenceCredentials(request);
+    const { hash, retryKey } = session ? { hash: undefined, retryKey: undefined } : inferenceCredentials(request);
     if (request.headers.has(receiptHeader))
       throw new SonnelyError("Completion receipts are available on Chat Completions.", 400);
 
@@ -374,7 +374,7 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
     const { db, secret } = backend();
     const id = await db.mutation(api.sonnely.reserve, {
       secret,
-      hash,
+      ...(session ? { session } : { hash }),
       model: operation.model,
       cost: reserve,
       ...(provider === "tinfoil" ? { provider } : {}),
@@ -398,7 +398,7 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
     try {
       const isForm = operation.payload instanceof FormData;
       const authorization = "Bearer " + upstreamKey;
-      const cacheSecret = createHmac("sha256", secret).update("tinfoil-cache:" + hash).digest("hex");
+      const cacheSecret = createHmac("sha256", secret).update("tinfoil-cache:" + (session ?? hash)).digest("hex");
       const signal = AbortSignal.timeout(45_000);
       const init: RequestInit = {
         method: "POST",

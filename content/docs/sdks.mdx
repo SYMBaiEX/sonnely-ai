@@ -9,13 +9,13 @@ Use a key from a workspace with credits. Follow [Quickstart](/docs/quickstart#se
 
 ## TypeScript or JavaScript
 
-Install the first-party server-side package from [npm](https://www.npmjs.com/package/@sonnely/sdk) with Node.js 22 or newer.
+Install the current first-party server-side package with Node.js 22 or newer. Registry releases are available on [npm](https://www.npmjs.com/package/@sonnely/sdk).
 
 ```bash title="Terminal · Install the TypeScript SDK"
-npm install @sonnely/sdk
+npm install https://sonnely.com/sdk/sonnely-typescript-0.1.3.tgz
 ```
 
-A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.2.tgz) is also available from Sonnely. Save the example in the folder where you installed the package. Run `node complete.mjs` or `node stream.mjs`.
+A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.3.tgz) is also available from Sonnely. Save the example in the folder where you installed the package. Run `node complete.mjs` or `node stream.mjs`.
 
 <Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
 <Tab value="Completion">
@@ -66,10 +66,10 @@ On macOS or Linux, run these commands from your project folder. If you already h
 ```bash title="Terminal · Install the Python SDK"
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install sonnely-sdk
+python -m pip install https://sonnely.com/sdk/sonnely_sdk-0.1.3-py3-none-any.whl
 ```
 
-Follow [Quickstart](/docs/quickstart#set-up-your-workspace) to set `SONNELY_API_KEY` in the same terminal. Save the snippet as `complete.py` or `stream.py`, then run `python complete.py` or `python stream.py` with the environment still active. A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.2-py3-none-any.whl) is also available.
+Follow [Quickstart](/docs/quickstart#set-up-your-workspace) to set `SONNELY_API_KEY` in the same terminal. Save the snippet as `complete.py` or `stream.py`, then run `python complete.py` or `python stream.py` with the environment still active. A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.3-py3-none-any.whl) is also available.
 
 > **If the example stops before sending a request**, `ModuleNotFoundError: No module named 'sonnely'` means the Python running the script cannot find the package. Activate the environment and rerun the install command. For `KeyError: 'SONNELY_API_KEY'`, set the key in that terminal.
 
@@ -175,3 +175,47 @@ print(completion.choices[0].message.content)
 </Tabs>
 
 Use the [OpenAPI spec](/api/openapi) or the [cURL quickstart](/docs/quickstart) for other runtimes.
+
+## Specialized inference
+
+SDK 0.1.3 adds `infer` for Responses, redaction, document conversion, audio, embeddings, reranking, images, and System One. Choose a model and fields from [Models and rates](/docs/providers#embeddings-decisions-images-and-audio). Responses include the [usage reference](/docs/observability) alongside the result. Call `providerModels()` in TypeScript or `provider_models()` in Python for the full provider inventories.
+
+```typescript
+const { data, requestId } = await sonnely.infer<{ redacted_text: string }>("redact", {
+  model: "pii-filter",
+  text: "Contact the sample customer at alice@example.com.",
+  max_cost_microusd: 2000,
+});
+console.log(data.redacted_text, requestId);
+```
+
+```python
+output, request_id = sonnely.infer(
+    "convert/file",
+    {"model": "doc-upload", "max_cost_microusd": 55000},
+    file="sample.pdf",
+)
+print(output["document"]["md_content"], request_id)
+```
+
+Use a `FormData` body in TypeScript for file endpoints. Send `model` and the documented file field, for example `files` for PDF conversion or `file` for audio. Python sets the field from the endpoint. Speech synthesis returns an `ArrayBuffer` in TypeScript and `bytes` in Python. For request retries, pass `idempotencyKey` in the TypeScript options or `idempotency_key` as a Python keyword argument.
+
+## Realtime transcription
+
+The SDKs return the URL and bearer headers for a server-side WebSocket client. Wait for `session.created` before sending audio, and wait for `transcription.done` before treating it as settled. Follow the [realtime protocol](/docs/providers#additional-tinfoil-endpoints) for audio limits and events.
+
+```typescript
+import WebSocket from "ws";
+
+const { url, headers } = sonnely.realtimeConnection();
+const socket = new WebSocket(url, { headers, followRedirects: false });
+```
+
+```python
+from websockets.sync.client import connect
+
+url, headers = sonnely.realtime_connection()
+with connect(url, additional_headers=headers) as socket:
+    print(socket.recv())
+    # Stream PCM16 chunks while the connection is open.
+```

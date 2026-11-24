@@ -40,8 +40,8 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   await page.goto("/docs/sdks");
   await expect(page.getByRole("heading", { name: "SDKs", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-  await expect(page.getByText("npm install @sonnely/sdk", { exact: true })).toBeVisible();
-  await expect(page.getByText("python -m pip install sonnely-sdk", { exact: true })).toBeVisible();
+  await expect(page.getByText("npm install https://sonnely.com/sdk/sonnely-typescript-0.1.3.tgz", { exact: true })).toBeVisible();
+  await expect(page.getByText("python -m pip install https://sonnely.com/sdk/sonnely_sdk-0.1.3-py3-none-any.whl", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open Search", exact: true }).click();
   const searchInput = page.getByRole("dialog").getByRole("combobox");
   await expect(searchInput).toBeFocused();
@@ -54,7 +54,7 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   expect(search.ok()).toBe(true);
   expect(await search.text()).not.toContain("/docs/blackboxes");
 
-  for (const archive of ["sonnely-typescript-0.1.2.tgz", "sonnely_sdk-0.1.2-py3-none-any.whl"]) {
+  for (const archive of ["sonnely-typescript-0.1.3.tgz", "sonnely_sdk-0.1.3-py3-none-any.whl"]) {
     const asset = await request.get("/sdk/" + archive);
     expect(asset.ok()).toBe(true);
     expect((await asset.body()).length).toBeGreaterThan(1000);
@@ -189,6 +189,8 @@ test("the API reference links endpoints and copies the canonical base URL", asyn
   await page.goto("/docs/api");
   const endpoints = page.getByRole("navigation", { name: "API endpoints" });
   await expect(endpoints.getByRole("link", { name: /GET \/models/ })).toHaveAttribute("href", "#list-models");
+  await expect(endpoints.getByRole("link", { name: /GET \/realtime/ })).toBeVisible();
+  await expect(endpoints.getByRole("link", { name: /POST \/audio\/translations/ })).toBeVisible();
   await page.getByRole("button", { name: "Copy base URL" }).click();
   await expect
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))

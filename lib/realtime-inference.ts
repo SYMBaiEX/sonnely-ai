@@ -9,6 +9,7 @@ import { realtimeModel } from "./specialized-models";
 import { openTinfoilRealtime } from "./tinfoil";
 
 type Socket = Parameters<Parameters<typeof upgradeWebSocket>[0]>[0];
+type Credentials = { hash: string; retryKey?: string } | { session: string; retryKey?: never };
 type Status = "complete" | "failed" | "unreported";
 const chargeMicrousd = Math.round(realtimeModel.rate * (100 + markupPercent) * 10_000);
 const audioLimit = 960_000; // 30 seconds of 16 kHz mono PCM16.
@@ -27,7 +28,7 @@ function send(socket: Socket, value: unknown) {
   if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(value));
 }
 
-export function upgradeRealtime(credentials: { hash: string; retryKey?: string }, upstreamKey: string) {
+export function upgradeRealtime(credentials: Credentials, upstreamKey: string) {
   return upgradeWebSocket(
     (socket) => {
       waitUntil(bridge(socket, credentials, upstreamKey));
@@ -36,7 +37,7 @@ export function upgradeRealtime(credentials: { hash: string; retryKey?: string }
   );
 }
 
-async function bridge(socket: Socket, credentials: { hash: string; retryKey?: string }, upstreamKey: string) {
+async function bridge(socket: Socket, credentials: Credentials, upstreamKey: string) {
   let upstream: Awaited<ReturnType<typeof openTinfoilRealtime>> | undefined;
   let bytes = 0;
   let committed = false;
@@ -84,7 +85,7 @@ async function bridge(socket: Socket, credentials: { hash: string; retryKey?: st
     const { db, secret } = backend();
     const id = await db.mutation(api.sonnely.reserve, {
       secret,
-      hash: credentials.hash,
+      ...("hash" in credentials ? { hash: credentials.hash } : { session: credentials.session }),
       model: realtimeModel.id,
       provider: realtimeModel.provider,
       cost: chargeMicrousd,

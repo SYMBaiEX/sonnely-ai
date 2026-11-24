@@ -19,3 +19,5 @@ console.log(result.choices[0]?.message.content, result.usage);
 Call `models()` for live routes and rates. Use `stream(request, { receipt: true })` for an async iterator that yields text deltas and final usage. The iterator requires the gateway's settlement marker to complete normally. Each completion or stream is billed separately.
 
 [SDK guide](https://docs.sonnely.com/docs/sdks) · [API reference](https://docs.sonnely.com/docs/api) · [Usage](https://sonnely.com/console/usage)
+
+Use `infer(endpoint, body)` for Responses, text or file workloads, and WAV speech output. The result includes `data` and `requestId`. Pass a `FormData` body for PDF, audio, and image uploads. Use `providerModels()` for full catalog discovery and `realtimeConnection()` for the URL and bearer headers accepted by a server-side WebSocket client. See the [SDK guide](https://docs.sonnely.com/docs/sdks#specialized-inference).

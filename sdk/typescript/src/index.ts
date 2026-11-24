@@ -121,6 +121,52 @@ export class Sonnely {
     });
   }
 
+  async providerModels<T = Record<string, unknown>>(signal?: AbortSignal): Promise<T> {
+    return (await this.send("/provider-models", { signal })).json() as Promise<T>;
+  }
+
+  async infer<T = Record<string, unknown>>(
+    endpoint: Exclude<SpecializedEndpoint, "audio/speech">,
+    body: Record<string, unknown> | FormData,
+    options?: InferenceOptions,
+  ): Promise<InferenceResult<T>>;
+  async infer(
+    endpoint: "audio/speech",
+    body: Record<string, unknown>,
+    options?: InferenceOptions,
+  ): Promise<InferenceResult<ArrayBuffer>>;
+  async infer<T>(
+    endpoint: SpecializedEndpoint,
+    body: Record<string, unknown> | FormData,
+    options: InferenceOptions = {},
+  ): Promise<InferenceResult<T | ArrayBuffer>> {
+    if (!this.apiKey) throw new SonnelyError("A Sonnely API key is required for inference.", 401);
+    const multipart = body instanceof FormData;
+    const response = await this.send("/" + endpoint, {
+      method: "POST",
+      signal: options.signal,
+      headers: {
+        Authorization: "Bearer " + this.apiKey,
+        ...(multipart ? {} : { "Content-Type": "application/json" }),
+        ...(options.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
+      },
+      body: multipart ? body : JSON.stringify(body),
+    });
+    return {
+      data: endpoint === "audio/speech" ? await response.arrayBuffer() : await response.json() as T,
+      requestId: response.headers.get("X-Sonnely-Request-Id"),
+    };
+  }
+
+  realtimeConnection(): { url: string; headers: Record<string, string> } {
+    if (!this.apiKey) throw new SonnelyError("A Sonnely API key is required for inference.", 401);
+    const url = new URL(this.baseURL + "/realtime");
+    if (!["https:", "http:"].includes(url.protocol)) throw new TypeError("Use an HTTP(S) base URL.");
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.searchParams.set("model", "voxtral-mini-4b-realtime");
+    return { url: url.toString(), headers: { Authorization: "Bearer " + this.apiKey } };
+  }
+
   async models(signal?: AbortSignal): Promise<ModelList> {
     return (await this.send("/models", { signal })).json() as Promise<ModelList>;
   }
@@ -166,3 +212,11 @@ export class Sonnely {
     }
   }
 }
+
+export type SpecializedEndpoint =
+  | "responses" | "redact" | "embeddings" | "rerank" | "systemone"
+  | "images/generations" | "images/edits" | "convert/file"
+  | "audio/transcriptions" | "audio/translations" | "audio/speech";
+
+export type InferenceResult<T> = { data: T; requestId: string | null };
+export type InferenceOptions = { signal?: AbortSignal; idempotencyKey?: string };

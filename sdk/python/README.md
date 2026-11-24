@@ -20,3 +20,5 @@ print(result["choices"][0]["message"]["content"], result["usage"])
 Call `models()` for live routes and rates. Use `stream(request, receipt=True)` for an iterator that yields text deltas and final usage. The iterator requires the gateway's settlement marker to complete normally. Each completion or stream is billed separately.
 
 [SDK guide](https://docs.sonnely.com/docs/sdks) · [API reference](https://docs.sonnely.com/docs/api) · [Usage](https://sonnely.com/console/usage)
+
+Use `infer(endpoint, request, file=path)` for specialized workloads. It returns the response and the Sonnely request reference. Omit `file` for JSON inputs. Speech output returns WAV bytes. Use `provider_models()` for full catalog discovery and `realtime_connection()` for the URL and bearer headers accepted by a server-side WebSocket client. See the [SDK guide](https://docs.sonnely.com/docs/sdks#specialized-inference).

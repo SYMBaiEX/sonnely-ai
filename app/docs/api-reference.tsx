@@ -13,6 +13,11 @@ const endpoints = [
   ["POST", "/systemone", "#specialized-inference", "Evaluate text decisions"],
   ["POST", "/audio/transcriptions", "#specialized-inference", "Transcribe audio"],
   ["POST", "/audio/speech", "#specialized-inference", "Synthesize speech"],
+  ["POST", "/audio/translations", "/docs/providers#additional-tinfoil-endpoints", "Translate a WAV recording into English"],
+  ["POST", "/convert/file", "/docs/providers#additional-tinfoil-endpoints", "Convert a PDF to Markdown"],
+  ["POST", "/redact", "/docs/providers#additional-tinfoil-endpoints", "Redact detected personal information"],
+  ["POST", "/responses", "/docs/providers#additional-tinfoil-endpoints", "Generate a single-turn text response"],
+  ["GET", "/realtime", "/docs/providers#additional-tinfoil-endpoints", "Transcribe PCM16 audio over WebSocket"],
 ] as const;
 
 export function ApiReferenceEntry() {
