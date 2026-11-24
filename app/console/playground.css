@@ -410,9 +410,6 @@
 
 .playground-canvas {
   min-inline-size: 0;
-  border: 1px solid var(--line);
-  border-radius: 1rem;
-  background: var(--card);
 }
 
 .playground-request-toolbar {
@@ -421,9 +418,6 @@
   align-items: center;
   gap: .5rem 1rem;
   padding: .75rem clamp(.875rem, 2vw, 1.375rem);
-  background: color-mix(in srgb, var(--card) 65%, var(--surface));
-  border-start-start-radius: inherit;
-  border-start-end-radius: inherit;
   border-block-end: 1px solid var(--line);
 }
 
@@ -640,10 +634,6 @@
 }
 
 /* One command bar and a focused writing surface across Playground modes. */
-.playground-canvas {
-  background: color-mix(in srgb, var(--card) 74%, var(--surface));
-}
-
 .playground-request-toolbar {
   gap: .625rem;
   padding: .625rem clamp(.75rem, 2vw, 1.25rem);
@@ -663,7 +653,7 @@
 }
 
 .playground-request-toolbar .playground-endpoint-picker select {
-  inline-size: min(14.5rem, 100%);
+  inline-size: min(19.5rem, 100%);
   padding-inline-start: 2.25rem;
 }
 
@@ -840,7 +830,24 @@
 }
 
 .playground-editor .playground-request {
-  padding: 1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.playground-editor .playground-request:has(textarea:focus-visible) {
+  outline: none;
+}
+
+.playground-editor .playground-request textarea {
+  border-radius: .625rem;
+}
+
+.playground-editor .playground-request textarea:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .playground-editor .playground-request textarea {
@@ -921,4 +928,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.console-stage:has(> .console-chat) {
+  background: var(--surface);
 }
