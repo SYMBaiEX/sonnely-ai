@@ -13,6 +13,7 @@ const sections = [
   "models",
   "keys",
   "usage",
+  "logs",
   "blackboxes",
   "dry-docks",
   "billing",

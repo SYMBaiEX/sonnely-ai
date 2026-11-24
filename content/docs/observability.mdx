@@ -15,7 +15,9 @@ Open Usage and choose a UTC date range. In **Request breakdown**, choose **By mo
 
 </div>
 
-For the exact charge for one request, open **Recent requests** and find its row. **Copy request reference** lets you match that row to the `X-Sonnely-Request-Id` response header. Recent requests shows the exact amount, including fractions of a cent.
+Open **Request logs** to search for the `X-Sonnely-Request-Id` response header or filter your workspace history by UTC date range, provider, status, model ID, and key name. Open a row to see its billing state, token counts, route, and recorded timings. You can copy a link to a request for use in the same workspace.
+
+**Export loaded CSV** downloads the matching rows already loaded in the table. Select **Load older requests** to include more history. Logs record request metadata. Prompt and response content do not appear in request logs.
 
 - **Charged.** The request settled and the amount is final.
 - **Reserved or Under review.** Credits are still held. Check the same reference before retrying.
@@ -39,6 +41,7 @@ Alerts can be delivered through the configured operations inbox. Admin reports d
 <nav className="docs-guide-next" aria-label="Related guides and resources">
 
 - [Open Usage](/console/usage)
+- [Open Request logs](/console/logs)
 - [Review a stream interruption](/docs/streaming#handle-interruptions)
 - [Explore observability](/observability)
 

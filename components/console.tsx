@@ -13,6 +13,7 @@ import {
   Cpu,
   KeyRound,
   LifeBuoy,
+  List,
   Menu,
   MessageSquare,
   Search,
@@ -41,6 +42,7 @@ import { ModelCatalog } from "./model-catalog";
 import type { ProviderId } from "@/lib/provider-catalog";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
 import { Onboarding } from "./onboarding";
+import { RequestLogs } from "./request-logs";
 import { SupportPanel } from "./support";
 import { TermsAcceptance } from "./terms-acceptance";
 import { useSession, WalletControl } from "./wallet";
@@ -51,6 +53,7 @@ const nav = [
   { id: "models", title: "Models", path: "/console/models", Icon: Cpu },
   { id: "keys", title: "API keys", path: "/console/keys", Icon: KeyRound },
   { id: "usage", title: "Usage", path: "/console/usage", Icon: Activity },
+  { id: "logs", title: "Request logs", path: "/console/logs", Icon: List },
   { id: "blackboxes", title: "Blackboxes", path: "/console/blackboxes", Icon: Box },
   { id: "dry-docks", title: "Dry Docks", path: "/console/dry-docks", Icon: Container },
   { id: "billing", title: "Billing", path: "/console/billing", Icon: Wallet },
@@ -196,7 +199,7 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
         </Link>
         <nav aria-label="Workspace navigation" className="rail-nav">
           <p className="mono">Inference</p>
-          {sidebar(visibleNav.slice(0, 4))}
+          {sidebar(visibleNav.slice(0, 5))}
           {computeNav.length > 0 && (
             <>
               <p className="mono">Compute</p>
@@ -204,7 +207,7 @@ export function ConsoleShell({ children, features }: { children: ReactNode; feat
             </>
           )}
           <p className="mono">Workspace</p>
-          {sidebar(visibleNav.slice(4).filter(({ id }) => !isComputeProduct(id)))}
+          {sidebar(visibleNav.slice(5).filter(({ id }) => !isComputeProduct(id)))}
         </nav>
         <div className="rail-bottom">
           <span className="rail-theme">
@@ -446,6 +449,7 @@ export function ConsoleScreen({
       )}
       {section === "admin" && <Admin session={session} features={features} />}
       {section === "keys" && <Keys signedIn={signedIn} />}
+      {section === "logs" && <RequestLogs key={profile?.wallet ?? "guest"} wallet={profile?.wallet} />}
       {section === "usage" && (
         <>
           <Usage

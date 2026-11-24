@@ -376,6 +376,7 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
       secret,
       ...(session ? { session } : { hash }),
       model: operation.model,
+      endpoint,
       cost: reserve,
       ...(provider === "tinfoil" ? { provider } : {}),
       ...(publicInference() ? { requireTerms: true } : {}),

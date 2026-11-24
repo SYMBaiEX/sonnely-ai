@@ -37,6 +37,8 @@ import type * as providerInvoices from "../providerInvoices.js";
 import type * as recoveryData from "../recoveryData.js";
 import type * as referralPipeline from "../referralPipeline.js";
 import type * as relay from "../relay.js";
+import type * as requestLogContract from "../requestLogContract.js";
+import type * as requestLogs from "../requestLogs.js";
 import type * as sonnely from "../sonnely.js";
 import type * as statementFeed from "../statementFeed.js";
 import type * as support from "../support.js";
@@ -82,6 +84,8 @@ declare const fullApi: ApiFromModules<{
   recoveryData: typeof recoveryData;
   referralPipeline: typeof referralPipeline;
   relay: typeof relay;
+  requestLogContract: typeof requestLogContract;
+  requestLogs: typeof requestLogs;
   sonnely: typeof sonnely;
   statementFeed: typeof statementFeed;
   support: typeof support;

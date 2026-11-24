@@ -2,5 +2,9 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+packageExtensions:
+  '@lightprotocol/hasher.rs@0.2.1':
+    dependencies:
+      bn.js: 5.2.5
 patchedDependencies:
   '@lightprotocol/hasher.rs@0.2.1': patches/@lightprotocol__hasher.rs@0.2.1.patch
