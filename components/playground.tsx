@@ -2,20 +2,17 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowUpRight, AudioLines, Braces, FileText, Image, MessagesSquare } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import type { ProviderId } from "@/lib/provider-catalog";
-import { PlaygroundInference, type Workload } from "./playground-inference";
+import { PlaygroundInference, workloadOptions, type Workload } from "./playground-inference";
 import type { Session } from "./wallet";
 
-const sections = {
-  chat: { label: "Chat", icon: MessagesSquare, endpoints: [] },
-  text: { label: "Text", icon: Braces, endpoints: ["responses", "embeddings", "rerank", "systemone"] },
-  audio: { label: "Audio", icon: AudioLines, endpoints: ["audio/transcriptions", "realtime", "audio/translations", "audio/speech"] },
-  documents: { label: "Documents", icon: FileText, endpoints: ["convert/file", "redact"] },
-  images: { label: "Images", icon: Image, endpoints: ["images/generations", "images/edits"] },
-} satisfies Record<string, { label: string; icon: typeof MessagesSquare; endpoints: Workload[] }>;
-
-type Section = keyof typeof sections;
+const groups = {
+  Text: ["responses", "embeddings", "rerank", "systemone"],
+  Audio: ["audio/transcriptions", "realtime", "audio/translations", "audio/speech"],
+  Documents: ["convert/file", "redact"],
+  Images: ["images/generations", "images/edits"],
+} satisfies Record<string, Workload[]>;
 
 export function Playground({ children, session, providers, refresh }: {
   children: ReactNode;
@@ -23,38 +20,39 @@ export function Playground({ children, session, providers, refresh }: {
   providers: ProviderId[];
   refresh: () => Promise<void>;
 }) {
-  const [section, setSection] = useState<Section>("chat");
+  const [endpoint, setEndpoint] = useState<Workload | "chat">("chat");
   const [running, setRunning] = useState(false);
+  const route = endpoint === "chat" ? "POST /chat/completions"
+    : endpoint === "realtime" ? "WS /realtime" : "POST /" + endpoint;
 
   return (
     <div className="playground-workspace">
       <header className="playground-workspace-heading">
-        <div>
-          <h1>Playground</h1>
-          <p>Run inference with your workspace credits and inspect what comes back.</p>
-        </div>
+        <h1>Playground</h1>
         <Link className="button quiet small" href="/docs/api">
           API reference <ArrowUpRight size={15} aria-hidden="true" />
         </Link>
       </header>
-      <nav className="playground-switcher" aria-label="Inference workloads">
-        {(Object.keys(sections) as Section[]).map((id) => {
-          const { icon: Icon, label } = sections[id];
-          return (
-            <button key={id} type="button" aria-current={id === section ? "true" : undefined}
-              aria-controls="playground-workload"
-              disabled={running && id !== section}
-              onClick={() => setSection(id)}>
-              <Icon size={18} aria-hidden="true" />
-              {label}
-            </button>
-          );
-        })}
-      </nav>
-      <div id="playground-workload">
-        <div hidden={section !== "chat"}>{children}</div>
-        {section !== "chat" && (
-          <PlaygroundInference key={section} endpoints={sections[section].endpoints}
+      <div className="playground-canvas">
+        <div className="playground-request-toolbar">
+          <label>
+            Endpoint
+            <select value={endpoint} disabled={running} onChange={(event) => {
+              setEndpoint(event.currentTarget.value as Workload | "chat");
+            }}>
+              <option value="chat">Chat Completions</option>
+              {Object.entries(groups).map(([label, endpoints]) => (
+                <optgroup key={label} label={label}>
+                  {endpoints.map((id) => <option key={id} value={id}>{workloadOptions[id].label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <code>{route}</code>
+        </div>
+        <div hidden={endpoint !== "chat"}>{children}</div>
+        {endpoint !== "chat" && (
+          <PlaygroundInference key={endpoint} endpoint={endpoint}
             session={session} providers={providers} refresh={refresh} onRunningChange={setRunning} />
         )}
       </div>

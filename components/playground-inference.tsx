@@ -9,7 +9,7 @@ import type { ProviderId } from "@/lib/provider-catalog";
 import type { Session } from "./wallet";
 import { CopyButton } from "./shared";
 
-const workloads = {
+export const workloadOptions = {
   responses: { label: "Text response", field: "input", example: "Explain what a Solana transaction fee covers." },
   redact: { label: "PII redaction", field: "text", example: "Contact the sample customer at alice@example.com." },
   embeddings: { label: "Text embeddings", field: "input", example: "Solana transaction" },
@@ -31,7 +31,7 @@ const workloads = {
   hint?: string;
 }>;
 
-export type Workload = keyof typeof workloads;
+export type Workload = keyof typeof workloadOptions;
 type Result = { text?: string; audio?: Blob; image?: string; requestId?: string | null };
 
 async function realtime(file: File, signal: AbortSignal, progress: (text: string) => void): Promise<Result> {
@@ -87,15 +87,14 @@ async function realtime(file: File, signal: AbortSignal, progress: (text: string
   });
 }
 
-export function PlaygroundInference({ endpoints, session, providers, refresh, onRunningChange }: {
-  endpoints: Workload[];
+export function PlaygroundInference({ endpoint, session, providers, refresh, onRunningChange }: {
+  endpoint: Workload;
   session: Session | null;
   providers: ProviderId[];
   refresh: () => Promise<void>;
   onRunningChange: (value: boolean) => void;
 }) {
   const pending = useRef<AbortController | null>(null);
-  const [endpoint, setEndpoint] = useState<Workload>(endpoints[0]);
   const [selectedModel, setSelectedModel] = useState("");
   const [result, setResult] = useState<Result>();
   const [audioUrl, setAudioUrl] = useState<string>();
@@ -104,7 +103,7 @@ export function PlaygroundInference({ endpoints, session, providers, refresh, on
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [fileName, setFileName] = useState("");
-  const workload = workloads[endpoint];
+  const workload = workloadOptions[endpoint];
   const modelIds = endpoint === "realtime" ? [realtimeModel.id] : Object.keys(specializedModels[endpoint]);
 
   const model = modelIds.includes(selectedModel) ? selectedModel : modelIds[0];
@@ -118,16 +117,6 @@ export function PlaygroundInference({ endpoints, session, providers, refresh, on
     : !session.inferenceEnabled || !available ? "This route is currently unavailable."
     : "";
   const imageUrl = result?.image ? `data:image/png;base64,${result.image}` : undefined;
-
-  function selectEndpoint(next: Workload) {
-    if (next === endpoint) return;
-    setEndpoint(next);
-    setSelectedModel("");
-    setFileName("");
-    setResult(undefined);
-    setError("");
-    setNotice("");
-  }
 
   useEffect(() => {
     if (!result?.audio) {
@@ -213,124 +202,112 @@ export function PlaygroundInference({ endpoints, session, providers, refresh, on
   }
 
   return (
-    <div className="playground-studio">
-      <nav className="playground-endpoints" aria-label="Endpoints">
-        {endpoints.map((id) => (
-          <button type="button" key={id} disabled={busy && id !== endpoint}
-            aria-current={id === endpoint ? "true" : undefined} onClick={() => selectEndpoint(id)}>
-            <strong>{workloads[id].label}</strong>
-            <code>{id === "realtime" ? "WS" : "POST"} /{id}</code>
-          </button>
-        ))}
-      </nav>
-      <div className="playground-run-grid">
-        <section className="playground-pane" aria-labelledby="playground-request-title">
-          <header className="playground-pane-header">
-            <h2 id="playground-request-title">{workload.label}</h2>
-            <span>Request</span>
-          </header>
-          <form key={endpoint} className="playground-request" onSubmit={run}>
-            <label>
-              Model
-              <select name="model" value={model} disabled={busy}
-                onChange={(event) => setSelectedModel(event.currentTarget.value)}>
-                {modelIds.map((id) => <option key={id}>{id}</option>)}
-              </select>
-            </label>
-            <div className="playground-route-summary">
-              <strong>{provider}</strong>
-              <span>{requestPrice === null ? <Link href="/docs/providers">Usage-based pricing</Link> :
-                new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 6 })
-                  .format(requestPrice) + " per completed request"}</span>
-            </div>
-            {"field" in workload && (
-              <label>
-                {workload.field === "query" ? "Search query" : workload.field === "state" ? "State"
-                  : workload.field === "prompt" ? "Image prompt" : "Input text"}
-                <textarea name={workload.field} rows={endpoint === "rerank" || endpoint === "systemone" ? 2 : 6}
-                  required disabled={busy} defaultValue={workload.example} />
-              </label>
-            )}
-            {endpoint === "rerank" && (
-              <label>Documents, one per line
-                <textarea name="documents" rows={4} required disabled={busy}
-                  defaultValue={"A guide to transaction fees\nHow to resize an image"} />
-              </label>
-            )}
-            {endpoint === "systemone" && (
-              <label>Decision question
-                <textarea name="question" rows={3} required disabled={busy}
-                  defaultValue="Does this request concern billing?" />
-              </label>
-            )}
-            {"upload" in workload && (
-              <div className="playground-file">
-                <label>
-                  <span><FileUp size={18} aria-hidden="true" /> Upload file</span>
-                  <input type="file" name={workload.upload} accept={workload.accept} required disabled={busy}
-                    aria-describedby="playground-file-hint"
-                    onChange={(event) => setFileName(event.currentTarget.files?.[0]?.name ?? "")} />
-                </label>
-                <p id="playground-file-hint">{"hint" in workload ? workload.hint : "Maximum file size 2 MB."}</p>
-                {fileName && <p className="playground-file-name">{fileName}</p>}
-              </div>
-            )}
-            <div className="playground-run-actions">
-              <button className="button accent" type="submit" disabled={Boolean(blocked)} aria-disabled={busy}>
-                {busy ? "Running…" : "Run request"} <ArrowRight size={17} aria-hidden="true" />
-              </button>
-              {busy && (
-                <button type="button" className="button quiet" onClick={() => pending.current?.abort()}>
-                  Stop waiting
-                </button>
-              )}
-              {blocked && <p>{blocked}</p>}
-            </div>
-          </form>
-        </section>
-        <section className="playground-pane" aria-labelledby="playground-result-title">
-          <header className="playground-pane-header">
-            <h2 id="playground-result-title">Result</h2>
-            {result?.text && <CopyButton value={result.text} label="Copy result" />}
-          </header>
-          <div className="playground-result">
-            <p className="playground-result-status" role="status">
-              {busy ? "Running request…" : result ? "Request completed." : notice}
-            </p>
-            {error && <p className="playground-request-error" role="alert">{error}</p>}
-            {!busy && !result && !error && !notice && (
-              <div className="playground-result-empty">
-                <Terminal size={28} aria-hidden="true" />
-                <p>Run a request to see its result here.</p>
-              </div>
-            )}
-            {partial && <pre tabIndex={0} aria-label="Partial transcript">{partial}</pre>}
-            {result?.text && <pre tabIndex={0} aria-label="Response output">{result.text}</pre>}
-            {imageUrl && (
-              <>
-                <img src={imageUrl} alt="Image returned by the model" />
-                <a className="button quiet small" download="sonnely-image.png" href={imageUrl}>
-                  <Download size={16} aria-hidden="true" /> Download image
-                </a>
-              </>
-            )}
-            {result?.audio && audioUrl && (
-              <>
-                <audio controls src={audioUrl} aria-label="Synthesized speech" />
-                <a className="button quiet small" download="sonnely-speech.wav" href={audioUrl}>
-                  <Download size={16} aria-hidden="true" /> Download WAV
-                </a>
-              </>
-            )}
+    <div className="playground-run-grid">
+      <section className="playground-pane" aria-labelledby="playground-request-title">
+        <header className="playground-pane-header">
+          <h2 id="playground-request-title">Request</h2>
+        </header>
+        <form className="playground-request" onSubmit={run}>
+          <label>
+            Model
+            <select name="model" value={model} disabled={busy}
+              onChange={(event) => setSelectedModel(event.currentTarget.value)}>
+              {modelIds.map((id) => <option key={id}>{id}</option>)}
+            </select>
+          </label>
+          <div className="playground-route-summary">
+            <strong>{provider}</strong>
+            <span>{requestPrice === null ? <Link href="/docs/providers">Usage-based pricing</Link> :
+              new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 6 })
+                .format(requestPrice) + " per completed request"}</span>
           </div>
-          {result?.requestId && (
-            <footer className="playground-result-footer">
-              <div><span>Request reference</span><code>{result.requestId}</code></div>
-              <Link href="/console/usage">View usage</Link>
-            </footer>
+          {"field" in workload && (
+            <label>
+              {workload.field === "query" ? "Search query" : workload.field === "state" ? "State"
+                : workload.field === "prompt" ? "Image prompt" : "Input text"}
+              <textarea name={workload.field} rows={endpoint === "rerank" || endpoint === "systemone" ? 2 : 6}
+                required disabled={busy} defaultValue={workload.example} />
+            </label>
           )}
-        </section>
-      </div>
+          {endpoint === "rerank" && (
+            <label>Documents, one per line
+              <textarea name="documents" rows={4} required disabled={busy}
+                defaultValue={"A guide to transaction fees\nHow to resize an image"} />
+            </label>
+          )}
+          {endpoint === "systemone" && (
+            <label>Decision question
+              <textarea name="question" rows={3} required disabled={busy}
+                defaultValue="Does this request concern billing?" />
+            </label>
+          )}
+          {"upload" in workload && (
+            <div className="playground-file">
+              <label>
+                <span><FileUp size={18} aria-hidden="true" /> Upload file</span>
+                <input type="file" name={workload.upload} accept={workload.accept} required disabled={busy}
+                  aria-describedby="playground-file-hint"
+                  onChange={(event) => setFileName(event.currentTarget.files?.[0]?.name ?? "")} />
+              </label>
+              <p id="playground-file-hint">{"hint" in workload ? workload.hint : "Maximum file size 2 MB."}</p>
+              {fileName && <p className="playground-file-name">{fileName}</p>}
+            </div>
+          )}
+          <div className="playground-run-actions">
+            <button className="button accent" type="submit" disabled={Boolean(blocked)} aria-disabled={busy}>
+              {busy ? "Running…" : "Run request"} <ArrowRight size={17} aria-hidden="true" />
+            </button>
+            {busy && (
+              <button type="button" className="button quiet" onClick={() => pending.current?.abort()}>
+                Stop waiting
+              </button>
+            )}
+            {blocked && <p>{blocked}</p>}
+          </div>
+        </form>
+      </section>
+      <section className="playground-pane" aria-labelledby="playground-result-title">
+        <header className="playground-pane-header">
+          <h2 id="playground-result-title">Result</h2>
+          {result?.text && <CopyButton value={result.text} label="Copy result" />}
+        </header>
+        <div className="playground-result">
+          <p className="playground-result-status" role="status">
+            {busy ? "Running request…" : result ? "Request completed." : notice}
+          </p>
+          {error && <p className="playground-request-error" role="alert">{error}</p>}
+          {!busy && !result && !error && !notice && (
+            <div className="playground-result-empty">
+              <Terminal size={28} aria-hidden="true" />
+              <p>Run a request to see its result here.</p>
+            </div>
+          )}
+          {partial && <pre tabIndex={0} aria-label="Partial transcript">{partial}</pre>}
+          {result?.text && <pre tabIndex={0} aria-label="Response output">{result.text}</pre>}
+          {imageUrl && (
+            <>
+              <img src={imageUrl} alt="Image returned by the model" />
+              <a className="button quiet small" download="sonnely-image.png" href={imageUrl}>
+                <Download size={16} aria-hidden="true" /> Download image
+              </a>
+            </>
+          )}
+          {result?.audio && audioUrl && (
+            <>
+              <audio controls src={audioUrl} aria-label="Synthesized speech" />
+              <a className="button quiet small" download="sonnely-speech.wav" href={audioUrl}>
+                <Download size={16} aria-hidden="true" /> Download WAV
+              </a>
+            </>
+          )}
+        </div>
+        {result?.requestId && (
+          <footer className="playground-result-footer">
+            <div><span>Request reference</span><code>{result.requestId}</code></div>
+            <Link href="/console/usage">View usage</Link>
+          </footer>
+        )}
+      </section>
     </div>
   );
 }

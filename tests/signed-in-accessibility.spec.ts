@@ -88,7 +88,7 @@ test("support acknowledges a submitted request through an established status reg
   await expect(status).toHaveText("Request sent. Replies appear in your request list.");
 });
 
-test("the playground exposes workloads and runs specialized inference with a wallet session", async ({ page }) => {
+test("the playground switches endpoints in one workspace and preserves the chat draft", async ({ page }) => {
   await mockWorkspace(page);
   await page.setViewportSize({ width: 320, height: 800 });
   await page.route("**/api/sonnely/playground/redact", async (route) => {
@@ -100,13 +100,15 @@ test("the playground exposes workloads and runs specialized inference with a wal
     });
   });
   await page.goto("/console");
-  const workloads = page.getByRole("navigation", { name: "Inference workloads" });
-  await workloads.getByRole("button", { name: "Audio" }).press("Enter");
-  const endpoints = page.getByRole("navigation", { name: "Endpoints" });
-  await expect(endpoints.getByRole("button", { name: /Realtime transcription/ })).toBeVisible();
-  await workloads.getByRole("button", { name: "Documents" }).press("Enter");
-  await endpoints.getByRole("button", { name: /PII redaction/ }).press("Enter");
-  await expect(endpoints.getByRole("button", { name: /PII redaction/ })).toHaveAttribute("aria-current", "true");
+  const endpoint = page.getByRole("combobox", { name: "Endpoint", exact: true });
+  await expect(endpoint).toHaveValue("chat");
+  const message = page.getByRole("textbox", { name: "Message", exact: true });
+  await message.fill("Draft conversation");
+  await endpoint.selectOption("realtime");
+  await expect(page.getByText("WS /realtime", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Upload file")).toBeVisible();
+  await endpoint.selectOption("redact");
+  await expect(page.getByText("POST /redact", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
   const run = page.getByRole("button", { name: "Run request" });
   if (await run.isDisabled()) {
@@ -118,6 +120,6 @@ test("the playground exposes workloads and runs specialized inference with a wal
     await expect(result).toContainText("Contact [EMAIL].");
     await expect(result).toContainText("fixture-reference");
   }
-  await workloads.getByRole("button", { name: "Chat" }).press("Enter");
-  await expect(page.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
+  await endpoint.selectOption("chat");
+  await expect(message).toHaveValue("Draft conversation");
 });
