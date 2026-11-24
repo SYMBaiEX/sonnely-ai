@@ -7,6 +7,7 @@ import { guardProvider } from "./launchGuard";
 import { assertDepositReferenceUnused, creditDeposit, settleUsage } from "./ledger";
 import { recordEvent } from "./events";
 import { gatewayDetails } from "./usageMaxOutboxValidators";
+import { requestEndpoint } from "./requestLogContract";
 import { termsVersion } from "../lib/policy";
 import { creditDecimal } from "../lib/credit-amount";
 import {
@@ -348,6 +349,7 @@ export const reserve = mutation({
     hash: v.optional(v.string()),
     requireTerms: v.optional(v.boolean()),
     model: v.string(),
+    endpoint: v.optional(requestEndpoint),
     provider: v.optional(v.union(v.literal("phala"), v.literal("tinfoil"))),
     cost: v.number(),
     retryKey: v.optional(v.string()),
@@ -414,6 +416,7 @@ export const reserve = mutation({
       retryKey: args.retryKey,
       keyDay: key ? day : undefined,
       model: args.model,
+      endpoint: args.endpoint,
       ...(args.provider ? { provider: args.provider } : {}),
       input: 0,
       output: 0,

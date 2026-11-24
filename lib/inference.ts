@@ -123,6 +123,7 @@ export async function infer(
     secret,
     ...auth,
     model: input.model,
+    endpoint: "chat/completions",
     ...(provider !== "near-ai" ? { provider } : {}),
     cost: reserve,
     ...(idempotencyKey

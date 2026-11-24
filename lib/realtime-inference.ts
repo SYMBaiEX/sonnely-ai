@@ -87,6 +87,7 @@ async function bridge(socket: Socket, credentials: Credentials, upstreamKey: str
       secret,
       ...("hash" in credentials ? { hash: credentials.hash } : { session: credentials.session }),
       model: realtimeModel.id,
+      endpoint: "realtime",
       provider: realtimeModel.provider,
       cost: chargeMicrousd,
       ...(publicInference() ? { requireTerms: true } : {}),

@@ -779,7 +779,12 @@ export function Usage({
       </section>
       {rows.length > 0 && (
         <section className="panel breakdown">
-          <h2 id="recent-request-references">Recent requests</h2>
+          <div className="between controls">
+            <h2 id="recent-request-references">Recent requests</h2>
+            <Link className="text-link" href="/console/logs">
+              Open request logs <ArrowUpRight size={15} aria-hidden="true" />
+            </Link>
+          </div>
           <div
             className="table-wrap workspace-data-table"
             role="region"
@@ -802,6 +807,9 @@ export function Usage({
                       <div className="caption">
                         {date(row.time)} · <CopyButton value={row.id} label="Copy request reference" />
                       </div>
+                      <Link className="text-link" href={"/console/logs?request=" + encodeURIComponent(row.id)}>
+                        View request details
+                      </Link>
                     </th>
                     <td>{(row.input + row.output).toLocaleString()}</td>
                     <td>

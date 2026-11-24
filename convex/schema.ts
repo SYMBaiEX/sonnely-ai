@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { computeProgress, kind, spec } from "./computeValidators";
 import { invoiceProvider, invoiceLineView } from "./providerInvoiceContract";
 import { alertDelivery, operationState } from "./operationsContract";
+import { requestEndpoint, requestStatus } from "./requestLogContract";
 import { gatewayDetails, gatewayReceipt } from "./usageMaxOutboxValidators";
 
 export default defineSchema({
@@ -85,6 +86,7 @@ export default defineSchema({
     keyName: v.string(),
     keyDay: v.optional(v.string()),
     model: v.string(),
+    endpoint: v.optional(requestEndpoint),
     input: v.number(),
     output: v.number(),
     cost: v.number(),
@@ -99,14 +101,12 @@ export default defineSchema({
     usageMaxDetails: v.optional(gatewayDetails),
     reconcileAfter: v.optional(v.number()),
     reconciliation: v.optional(v.union(v.literal("pending"), v.literal("reconciled"))),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("complete"),
-      v.literal("failed"),
-      v.literal("unreported"),
-    ),
+    status: requestStatus,
   })
     .index("by_account", ["account"])
+    .index("by_account_keyName", ["account", "keyName"])
+    .index("by_account_model", ["account", "model"])
+    .index("by_account_provider", ["account", "provider"])
     .index("by_account_retryKey", ["account", "retryKey"])
     .index("by_provider_status", ["provider", "status"])
     .index("by_account_status_cost", ["account", "status", "cost"])
