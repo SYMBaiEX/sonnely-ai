@@ -109,6 +109,12 @@ export async function GET(request: NextRequest, context: Context) {
     if (task === "keys") return json(await db.query(api.sonnely.listKeys, auth));
     if (task === "admin") return await adminOverview(auth, db, usageSince("30"));
     if (task === "admin-invoices") return json(await db.query(api.providerInvoices.history, auth));
+    if (task === "admin-privacy-rings") {
+      const profile = await db.query(api.sonnely.profile, auth);
+      if (profile?.role !== "admin") throw new SonnelyError("Administrator access required.", 403);
+      const { treasuryPrivacyRingsStatus } = await import("@/lib/privacy-rings");
+      return json(await treasuryPrivacyRingsStatus());
+    }
     if (task === "admin-gateway") return await adminGateway(request.nextUrl.searchParams, auth, db);
     if (task === "admin-crm") return await adminCrm(request.nextUrl.searchParams, auth, db);
     if (task === "referrals") return json(await db.query(api.sonnely.referrals, auth));
@@ -345,6 +351,10 @@ export async function POST(request: NextRequest, context: Context) {
         (profile.role === "finance" && (task === "admin-invoice-preview" || task === "admin-invoice-record"));
       if (profile.role !== "admin" && !delegated)
         throw new SonnelyError("Administrator access required.", 403);
+      if (task === "admin-privacy-rings") {
+        const { prepareTreasuryPrivacyRingsRegistration } = await import("@/lib/privacy-rings");
+        return json(await prepareTreasuryPrivacyRingsRegistration(raw));
+      }
       return await adminAction(task, raw, auth, db);
     }
     if (task === "quote") {
