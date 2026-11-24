@@ -1,0 +1,178 @@
+.detail {
+  min-width: 0;
+}
+
+.detail h1 {
+  overflow-wrap: anywhere;
+}
+
+.privacy,
+.endpoint {
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 1.75rem);
+}
+
+.privacy {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-block-end: 1rem;
+}
+
+.privacy h2,
+.alternates h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.privacy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.85rem;
+}
+
+.links :is(a, button),
+.endpointInfo a,
+.apiLead a {
+  min-height: 2.75rem;
+}
+
+.alternates {
+  padding: 0.25rem 0;
+  margin-block: 0.75rem 1rem;
+}
+
+.apiLead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-block: 1.5rem 0.5rem;
+}
+
+.apiLead p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.endpoint {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(1rem, 3vw, 2.25rem);
+  margin-block-end: 1rem;
+  scroll-margin-block-start: 6.5rem;
+}
+
+.endpointInfo,
+.example {
+  min-width: 0;
+}
+
+.endpoint h2 {
+  margin: 0;
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
+}
+
+.endpointPath {
+  color: var(--muted);
+  margin: 0.6rem 0 1rem;
+}
+
+.endpointPath span {
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.endpointPath code {
+  overflow-wrap: anywhere;
+}
+
+.rateList {
+  margin: 0.75rem 0;
+}
+
+.rateList div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  padding-block: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.rateList dt {
+  color: var(--muted);
+}
+
+.rateList dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0;
+  list-style: none;
+}
+
+.capabilities li {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.example {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: var(--glass-solid);
+}
+
+.exampleHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.exampleHead h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.exampleHead button {
+  min-height: 2.75rem;
+}
+
+.example pre {
+  margin: 0.65rem 0 0;
+  padding-block: 0.6rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 45rem) {
+  .endpoint {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
