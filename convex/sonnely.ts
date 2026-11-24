@@ -4,7 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 
 import { guardProvider } from "./launchGuard";
-import { creditDeposit, settleUsage } from "./ledger";
+import { assertDepositReferenceUnused, creditDeposit, settleUsage } from "./ledger";
 import { recordEvent } from "./events";
 import { gatewayDetails } from "./usageMaxOutboxValidators";
 import { termsVersion } from "../lib/policy";
@@ -520,6 +520,7 @@ export const createDeposit = mutation({
         fields.sol.expiresAt <= Date.now())
     )
       throw new ConvexError("Invalid SOL payment quote.");
+    await assertDepositReferenceUnused(ctx, fields.reference);
     await ctx.db.insert("deposits", { account: account._id, ...fields });
     await recordEvent(ctx, {
       account: account._id,

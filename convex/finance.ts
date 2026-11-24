@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { auth, requireAdmin, requireRecentAdmin } from "./access";
 import { recordAudit } from "./events";
+import { creditedConfidentialDeposits } from "./ledger";
 import { amendGatewayCost } from "./usageMaxOutbox";
 
 const payoutOrder = {
@@ -66,7 +67,7 @@ export const overview = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
     const limit = 1_000;
-    const [usage, deposits, tickets, finance, payouts, pendingCost] = await Promise.all([
+    const [usage, deposits, confidential, tickets, finance, payouts, pendingCost] = await Promise.all([
       ctx.db
         .query("usage")
         .withIndex("by_creation_time", (q) => q.gte("_creationTime", args.since))
@@ -77,6 +78,7 @@ export const overview = query({
         .withIndex("by_creation_time", (q) => q.gte("_creationTime", args.since))
         .order("desc")
         .take(limit + 1),
+      creditedConfidentialDeposits(ctx, args.since, limit + 1),
       ctx.db
         .query("tickets")
         .withIndex("by_creation_time", (q) => q.gte("_creationTime", args.since))
@@ -114,7 +116,10 @@ export const overview = query({
         else metric.held++;
       }
     }
-    const finalized = deposits.slice(0, limit).filter((row) => row.cluster === "mainnet" && row.signature);
+    const finalized = [
+      ...deposits.slice(0, limit).filter((row) => row.cluster === "mainnet" && row.signature),
+      ...confidential.slice(0, limit),
+    ];
     const ledger = finance ?? emptyFinance;
     const open = finance?.pendingPayout ? await ctx.db.get(finance.pendingPayout) : null;
     return {
@@ -124,7 +129,7 @@ export const overview = query({
       deposits: finalized.length,
       depositMicros: finalized.reduce((sum, row) => sum + row.amount, 0),
       tickets: Math.min(tickets.length, limit),
-      truncated: [usage, deposits, tickets].some((list) => list.length > limit),
+      truncated: [usage, deposits, confidential, tickets].some((list) => list.length > limit),
       finance: {
         reconciled: ledger.reconciled,
         customerMicros: ledger.customerMicros,

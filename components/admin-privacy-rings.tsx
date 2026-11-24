@@ -22,6 +22,7 @@ import type { Bytes32, Bytes33 } from "@heliuslabs/spr/keypair";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { solDecimal } from "@/lib/sol-quote";
+import { AdminConfidentialPayments } from "./admin/confidential-payments";
 import { Pill, Skeleton } from "./admin/ui";
 import { CopyButton } from "./shared";
 import { request } from "./wallet";
@@ -184,6 +185,15 @@ async function prepareRegistration(treasury: string): Promise<Registration> {
 }
 
 export function AdminPrivacyRings() {
+  return (
+    <>
+      <TreasuryRegistration />
+      <AdminConfidentialPayments />
+    </>
+  );
+}
+
+function TreasuryRegistration() {
   const wallets = useWallets(client);
   const connected = useConnectedWallet(client);
   const [status, setStatus] = useState<RegistryStatus>();
