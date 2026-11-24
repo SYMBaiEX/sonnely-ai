@@ -4,6 +4,18 @@ import { apiBasePath, apiOrigin, limits } from "@/lib/api-contract";
 import { receiptHeader, receiptVersion } from "@/lib/inference-receipt";
 import { models } from "@/lib/models";
 import { providerIds } from "@/lib/provider-catalog";
+import { isSpecializedMultipart } from "@/lib/specialized-models";
+import { specializedRequests } from "@/lib/specialized-requests";
+
+const specializedDescriptions = {
+  "audio/speech": "Synthesize WAV audio from text",
+  "audio/transcriptions": "Transcribe an uploaded audio file",
+  "images/edits": "Edit one uploaded image",
+  systemone: "Return probabilities for typed text questions",
+  embeddings: "Generate embeddings for text",
+  rerank: "Rank documents against a text query",
+  "images/generations": "Generate one 512×512 image",
+};
 
 const jsonSchema = (schema: string) => ({
   "application/json": { schema: { $ref: "#/components/schemas/" + schema } },
@@ -42,6 +54,53 @@ const spec = {
     { url: apiOrigin + "/v1", description: "Compatibility base URL" },
   ],
   paths: {
+    "/provider-models": {
+      get: {
+        operationId: "listProviderModels",
+        summary: "List complete upstream model inventories and Sonnely endpoint mappings",
+        responses: { 200: { description: "Provider inventories and configured providers" } },
+      },
+    },
+    ...Object.fromEntries(
+      Object.entries(specializedRequests).map(([endpoint, schema]) => [
+        "/" + endpoint,
+        {
+          post: {
+            summary: specializedDescriptions[endpoint as keyof typeof specializedDescriptions],
+            security: [{ SonnelyKey: [] }],
+            parameters: [
+              {
+                in: "header",
+                name: "Idempotency-Key",
+                required: false,
+                schema: { type: "string", pattern: "^[A-Za-z0-9_.:-]{8,128}$" },
+              },
+            ],
+            requestBody: {
+              required: true,
+              content: {
+                [isSpecializedMultipart(endpoint) ? "multipart/form-data" : "application/json"]: {
+                  schema: z.toJSONSchema(schema, {
+                    target: "draft-2020-12",
+                    io: "input",
+                    unrepresentable: "any",
+                  }),
+                },
+              },
+            },
+            responses: {
+              200: {
+                description: "Settled inference result and X-Sonnely-Request-Id reference",
+                ...(endpoint === "audio/speech"
+                  ? { content: { "audio/wav": { schema: { type: "string", format: "binary" } } } }
+                  : {}),
+              },
+              ...errors,
+            },
+          },
+        },
+      ]),
+    ),
     "/models": {
       get: {
         operationId: "listModels",

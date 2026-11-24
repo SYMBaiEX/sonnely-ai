@@ -1,6 +1,6 @@
 # Inference providers
 
-Sonnely uses NEAR AI by default. DeepSeek V4.1 Flash 1017 also has explicit Phala and Tinfoil routes. The API catalog advertises additional routes when their inference keys are configured. Each request stays on its selected route.
+Sonnely defaults to the provider assigned to each chat model. DeepSeek V4.1 Flash 1017 supports NEAR AI, Phala, and Tinfoil, and Qwen 3.8 27B supports NEAR AI and Phala. The API catalog advertises routes when their inference keys are configured. Each request stays on its selected route. The provider inventory endpoint includes workloads beyond Sonnely’s active routes.
 
 ## Try Phala from Sonnely
 

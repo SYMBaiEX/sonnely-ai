@@ -17,6 +17,14 @@ The [OpenAPI 3.1 specification](/api/openapi) describes the request and response
 curl https://sonnely.com/api/sonnely/v1/models
 ```
 
+## Provider catalogs
+
+[GET /provider-models](/api/sonnely/v1/provider-models) returns full upstream inventories, including entries that Sonnely lists for discovery. Use the configured provider list and endpoint mappings to check whether Sonnely can run a model.
+
+## Specialized inference
+
+`POST /embeddings`, `POST /rerank`, image generation and edits, System One, and the audio endpoints use the same Sonnely API key and credit controls as Chat Completions. See [model IDs and accepted request fields](/docs/providers#embeddings-decisions-images-and-audio).
+
 ## Create a completion
 
 `POST /chat/completions` returns a Chat Completion or a server-sent event stream. Create a key in the [console](/console/keys) and export it as `SONNELY_API_KEY` before running the example.

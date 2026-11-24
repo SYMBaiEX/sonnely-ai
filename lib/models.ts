@@ -1,4 +1,6 @@
-export const models = [
+import { chatRoutes } from "./provider-models";
+
+export const featuredModels = [
   {
     id: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
     name: "DeepSeek V4.1 Flash",
@@ -75,6 +77,26 @@ export const models = [
     summary: "Instruction following and document analysis through Sonnely’s text endpoint.",
   },
 ] as const;
+const listed = new Set<string>(featuredModels.map(({ id }) => id));
+const extraModels = chatRoutes.flatMap((route) => {
+  if (listed.has(route.id)) return [];
+  listed.add(route.id);
+  return [
+    {
+      ...route,
+      tier: "confidential",
+      type: "General" as const,
+      context: route.context
+        ? Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(route.context)
+        : "—",
+      mark: route.name.match(/[a-z0-9]/i)?.[0].toUpperCase() ?? "•",
+      color: "smoke",
+      summary: "",
+    },
+  ];
+});
+
+export const models = [...featuredModels, ...extraModels];
 export const usd = (micros: number) =>
   "$" + (micros / 1_000_000).toFixed(micros > 0 && micros < 10_000 ? 6 : 2);
 export const shorten = (wallet: string) => wallet.slice(0, 4) + "…" + wallet.slice(-4);

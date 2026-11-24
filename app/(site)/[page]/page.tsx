@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowDown, ArrowRight, ArrowUpRight, Boxes, Fingerprint, KeyRound, Wallet } from "lucide-react";
+import { ProviderInventory } from "@/components/provider-inventory";
 import { ModelGuide } from "@/components/model-guide";
 import { CostExample } from "@/components/cost-example";
 import { configuredProviders, nearIntentsFundingEnabled } from "@/lib/managed-access";
@@ -216,6 +217,7 @@ export default async function Subpage({ params }: Props) {
               How routing works <ArrowUpRight size={15} aria-hidden="true" />
             </Link>
           </section>
+          <ProviderInventory />
           <ModelGuide />
         </>
       )}

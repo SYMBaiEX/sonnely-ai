@@ -5,9 +5,27 @@ description: Discover available models and estimate token costs.
 
 ## Read the live catalog
 
-[GET /models](/api/sonnely/v1/models) lists the model IDs available on the current deployment with their rates and context windows. The [model catalog](/models) shows the same list with published pricing.
+[GET /models](/api/sonnely/v1/models) lists Sonnely Chat Completions model IDs and configured routes. [GET /provider-models](/api/sonnely/v1/provider-models) returns the full NEAR AI, Phala, and Tinfoil catalogs, including provider privacy classifications and workload types. The [model catalog](/models) distinguishes entries that Sonnely can run from entries listed for discovery.
 
-Routing is automatic. Sonnely selects a confidential execution environment for each request and meters the usage it reports back.
+Chat uses the model’s default provider unless you select an available route. Check configured routes before sending a request.
+
+## Embeddings, decisions, images, and audio
+
+Use a Sonnely API key. Send JSON for text requests and multipart form data for file uploads. Each successful response includes an `X-Sonnely-Request-Id` for workspace Usage.
+
+| Endpoint | Model ID | Required fields after `model` |
+| --- | --- | --- |
+| `POST /embeddings` | `Qwen/Qwen3-Embedding-0.6B` or `nomic-embed-text` | `input` as one string or an array of up to 16 strings |
+| `POST /rerank` | `Qwen/Qwen3-Reranker-0.6B` | `query` and `documents` as an array of up to 16 strings |
+| `POST /images/generations` | `black-forest-labs/FLUX.2-klein-4B` | `prompt` as a string |
+| `POST /images/edits` | `black-forest-labs/FLUX.2-klein-4B` | Multipart `image` and `prompt` |
+| `POST /systemone` | `levanto/sage-2` | Text `state` and one to eight named `noul` questions |
+| `POST /audio/transcriptions` | `whisper-large-v3-turbo` | Multipart `file` in WAV, MP3, MP4, WebM, Ogg, or FLAC |
+| `POST /audio/speech` | `voxtral-tts` | Text `input`, up to 1,000 characters |
+
+Embeddings return float vectors. Reranking optionally accepts `top_n` and returns document indexes and scores. Image generation and editing return one 512 × 512 base64 image at $0.0132 per successful request. Image and audio uploads are limited to 2 MB. Tinfoil transcription returns JSON at $0.011 per request. Speech synthesis returns binary WAV at $0.0022 per request and uses the `neutral_female` voice. Embeddings, reranking, and System One settle against reported token usage.
+
+Each endpoint accepts `max_cost_microusd` and the `Idempotency-Key` header. If provider usage is missing or the request outcome is uncertain, the reservation may be held for review. Completion receipts are available for Chat Completions.
 
 ## Compare prices
 

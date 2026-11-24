@@ -58,6 +58,36 @@ export function errorResponse(error: unknown, openai = false) {
   return response;
 }
 
+export function inferenceCredentials(request: NextRequest) {
+  const key = request.headers
+    .get("authorization")
+    ?.match(/^Bearer ((?:sonnely_live_|fr_live_)[a-zA-Z0-9_-]{43})$/i)?.[1];
+  if (!key) throw new SonnelyError("Provide a Sonnely API key.", 401);
+  const retryKey = request.headers.get("idempotency-key");
+  if (retryKey !== null && !/^[a-zA-Z0-9_.:-]{8,128}$/.test(retryKey))
+    throw new SonnelyError(
+      "Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.",
+      400,
+    );
+  return { hash: hash(key), retryKey: retryKey ?? undefined };
+}
+
+export function inferenceErrorResponse(error: unknown) {
+  if (
+    error instanceof ConvexError &&
+    error.data?.code === "duplicate_request" &&
+    typeof error.data.reference === "string"
+  ) {
+    const response = errorResponse(
+      new SonnelyError("This Idempotency-Key already started a request. See Usage for its status.", 409),
+      true,
+    );
+    response.headers.set("X-Sonnely-Request-Id", error.data.reference);
+    return response;
+  }
+  return errorResponse(error, true);
+}
+
 export async function readBody(request: NextRequest, limit: number = limits.bodyBytes): Promise<unknown> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
     throw new SonnelyError("Send JSON with Content-Type application/json.", 415);

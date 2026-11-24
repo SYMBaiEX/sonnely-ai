@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { routeLabels } from "@/lib/model-privacy";
-import { models } from "@/lib/models";
+import { featuredModels } from "@/lib/models";
 import { formatRate, markedUpRates } from "@/lib/pricing";
 
 export function HomeModelList() {
@@ -21,7 +21,7 @@ export function HomeModelList() {
           <span>Input / output per 1M tokens</span>
         </div>
         <ul className="home-model-list" role="list">
-          {models.map((model) => {
+          {featuredModels.map((model) => {
             const rates = markedUpRates(model);
             return (
               <li key={model.id}>

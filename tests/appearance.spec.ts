@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { models } from "../lib/models";
+import { featuredModels, models } from "../lib/models";
 import { apiBasePath, apiOrigin } from "../lib/api-contract";
 
 test("the theme follows the user across the site and all console pages", async ({ page }) => {
@@ -183,7 +183,11 @@ test("switching trace steps keeps the homepage content in place on narrow screen
     const map = page.getByRole("region", { name: "Follow the request" });
     const position = () => quickstart.evaluate((element) => (element as HTMLElement).offsetTop);
     const top = await position();
-    for (const name of ["Gateway: Sonnely gateway", "Private TEE: Confidential enclave", "Client: Your client"]) {
+    for (const name of [
+      "Gateway: Sonnely gateway",
+      "Private TEE: Confidential enclave",
+      "Client: Your client",
+    ]) {
       const step = map.getByRole("button", { name, exact: true });
       await step.click();
       await expect(step).toHaveAttribute("aria-pressed", "true");
@@ -334,7 +338,7 @@ test("the homepage offers a copyable request and links to the selected model", a
   });
   const catalog = page.getByRole("region", { name: "Choose your model." });
   const list = catalog.getByRole("list");
-  await expect(list.getByRole("listitem")).toHaveCount(models.length);
+  await expect(list.getByRole("listitem")).toHaveCount(featuredModels.length);
   await expect(list.getByRole("link", { name: /DeepSeek V4.1 Flash/ })).toContainText("$0.33 / $1.32");
   await expect(catalog.getByRole("link", { name: "Compare models and pricing" })).toHaveAttribute(
     "href",
@@ -426,7 +430,10 @@ test("journal filtering, contact topics and mobile navigation remain usable", as
   await page.getByRole("button", { name: /Billing USDC/ }).click();
   await expect(page.getByRole("combobox", { name: "Topic" })).toHaveValue("Billing");
   await page.goto("/models");
-  await expect(page.getByRole("table").getByText("$0.0066", { exact: true })).toBeVisible();
+  const deepSeek = page
+    .getByRole("row")
+    .filter({ has: page.getByRole("heading", { name: "DeepSeek V4.1 Flash", exact: true }) });
+  await expect(deepSeek.getByText("$0.0066", { exact: true })).toBeVisible();
   for (const path of [
     "/",
     "/docs",

@@ -1,38 +1,13 @@
 import { models } from "./models";
 import { markedUpRates } from "./pricing";
 
-export const providerIds = ["near-ai", "phala", "tinfoil"] as const;
-export type ProviderId = (typeof providerIds)[number];
-export const providerNames: Record<ProviderId, string> = {
-  "near-ai": "NEAR AI",
-  phala: "Phala",
-  tinfoil: "Tinfoil",
-};
+import { chatRoutes, providerNames, type ProviderId } from "./provider-models";
 
+export { providerIds, providerNames, type ProviderId } from "./provider-models";
 export type Model = (typeof models)[number];
-type Route = { upstreamModel: string; input: number; cache: number; output: number };
-
-const phalaRoutes: Partial<Record<Model["id"], Route>> = {
-  "deepseek-ai/DeepSeek-V4.1-Flash-1017": {
-    upstreamModel: "deepseek/deepseek-v4.1-flash-1017",
-    input: 0.3,
-    cache: 0.006,
-    output: 1.2,
-  },
-};
-const tinfoilRoutes: Partial<Record<Model["id"], Route>> = {
-  "deepseek-ai/DeepSeek-V4.1-Flash-1017": {
-    upstreamModel: "deepseek-v4-1-flash",
-    input: 0.6,
-    cache: 0.01,
-    output: 1.45,
-  },
-};
 
 export function providerRoute(model: Model, provider: ProviderId) {
-  if (provider === "phala") return phalaRoutes[model.id];
-  if (provider === "tinfoil") return tinfoilRoutes[model.id];
-  return { ...model, upstreamModel: model.id };
+  return chatRoutes.find((route) => route.id === model.id && route.provider === provider);
 }
 
 export function agentCapabilities(model: Model, provider: ProviderId, enabled: boolean) {

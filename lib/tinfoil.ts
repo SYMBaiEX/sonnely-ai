@@ -6,7 +6,7 @@ const client = new SecureClient({ userCacheSecret: "sonnely-explicit-scope" });
 
 export async function fetchTinfoil(
   init: RequestInit,
-  path: "/v1/chat/completions" | "/v1/models" = "/v1/chat/completions",
+  path: `/v1/${string}` = "/v1/chat/completions",
 ) {
   await client.ready();
   init.signal?.throwIfAborted();

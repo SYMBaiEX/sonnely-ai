@@ -107,7 +107,7 @@ export async function infer(
     ...(isPhala
       ? {
           provider: { only: ["phala"], allow_fallbacks: false, aci_verified: true },
-          reasoning: { enabled: false },
+          ...(route.reasoningRequired ? {} : { reasoning: { enabled: false } }),
         }
       : {}),
     ...(isTinfoil

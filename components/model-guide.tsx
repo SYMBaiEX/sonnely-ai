@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { limits } from "@/lib/api-contract";
-import { models } from "@/lib/models";
+import { featuredModels } from "@/lib/models";
 
 const workload = {
   General: "Summarize notes or synthesize findings across several short excerpts.",
@@ -19,7 +19,7 @@ export function ModelGuide() {
         the output before committing a budget.
       </p>
       <dl className="reference-list">
-        {models.map((model) => (
+        {featuredModels.map((model) => (
           <div key={model.id}>
             <dt>{model.name}</dt>
             <dd>{workload[model.type]}</dd>

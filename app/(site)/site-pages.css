@@ -627,6 +627,15 @@
   color: var(--muted);
 }
 
+.provider-inventory summary {
+  cursor: pointer;
+  padding-block: 0.5rem;
+}
+.provider-inventory li {
+  margin-block: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
 .model-comparison .model-explainer {
   min-height: 44px;
   justify-self: start;

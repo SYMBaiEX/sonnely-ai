@@ -7,7 +7,7 @@ import { apiBasePath } from "@/lib/api-contract";
 import { formatRate, markedUpRates } from "@/lib/pricing";
 import { routeLabels } from "@/lib/model-privacy";
 import { models } from "@/lib/models";
-import { providerRoute, type ProviderId } from "@/lib/provider-catalog";
+import { providerNames, providerRoute, type ProviderId } from "@/lib/provider-catalog";
 
 export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
   const [status, setStatus] = useState("");
@@ -35,7 +35,7 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState("featured");
   const displayed = models.filter((model) =>
-    (model.name + " " + model.type + " " + model.id + " " + model.summary)
+    (model.name + " " + model.type + " " + model.id + " " + model.summary + " " + providerNames[model.provider])
       .toLowerCase()
       .includes(filter.toLowerCase().trim()),
   );
@@ -100,8 +100,8 @@ export function ModelCatalog({ availableProviders }: { availableProviders: Provi
                         </span>
                         <div>
                           <h3>{model.name}</h3>
-                          <p>{model.summary}</p>
-                          <span className="model-tier">{routeLabels[model.privacyRoute]} · Confidential</span>
+                          {model.summary && <p>{model.summary}</p>}
+                          <span className="model-tier">{routeLabels[model.privacyRoute]} · {providerNames[model.provider]}</span>
                         </div>
                       </div>
                     </th>
