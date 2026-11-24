@@ -62,7 +62,7 @@ For request-level evidence, send `X-Sonnely-Receipt: v1`. The optional receipt r
 
 ## Run locally
 
-Use Node.js 22.23.4 or later in the 22.x line and pnpm.
+Use Node.js 26 LTS and pnpm.
 
 ```bash
 git clone https://github.com/Sonnely-AI/sonnely.git
@@ -102,7 +102,7 @@ npm pack ./sdk/typescript --ignore-scripts --pack-destination public/sdk
 uv build --wheel --out-dir public/sdk sdk/python
 ```
 
-Commit the new versioned package files in `public/sdk` and retain older downloads for reproducible installs.
+Rename the npm archive to `sonnely-typescript-VERSION.tgz` to match the SDK guide. Force-add the two new versioned files in `public/sdk` and retain older downloads for reproducible installs.
 
 </details>
 
