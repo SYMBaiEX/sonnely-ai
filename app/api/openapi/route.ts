@@ -8,7 +8,7 @@ import { isSpecializedMultipart } from "@/lib/specialized-models";
 import { specializedRequests } from "@/lib/specialized-requests";
 
 const specializedDescriptions = {
-  "audio/translations": "Translate spoken audio into English text",
+  "audio/translations": "Translate a WAV recording into English text",
   "convert/file": "Convert one PDF to Markdown",
   redact: "Redact detected personal information",
   responses: "Generate a single-turn text response",

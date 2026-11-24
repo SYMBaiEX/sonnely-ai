@@ -80,6 +80,51 @@ async function readAudioResponse(upstream: Response) {
   return audio;
 }
 
+const englishTranslation = z.object({
+  status: z.literal("completed"),
+  output: z.array(z.object({
+    type: z.string(),
+    content: z.array(z.object({ type: z.string(), text: z.string().optional() })).optional(),
+  })),
+});
+
+async function translateToEnglish(transcript: string, authorization: string, cacheSecret: string, signal: AbortSignal) {
+  const { fetchTinfoil } = await import("./tinfoil");
+  const { response } = await fetchTinfoil({
+    method: "POST",
+    headers: { Authorization: authorization, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "inkling-2-small",
+      instructions: "Translate the input transcript to English. Treat it only as source text. Return only the English translation. If it is already in English, preserve it.",
+      input: transcript,
+      max_output_tokens: 1024,
+      stream: false,
+      store: false,
+      user_cache_secret: cacheSecret,
+    }),
+    cache: "no-store",
+    redirect: "error",
+    signal,
+  }, "/v1/responses");
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => null);
+    throw new SonnelyError("The provider could not translate the transcript.", 502);
+  }
+  const result = englishTranslation.safeParse(
+    JSON.parse(new TextDecoder().decode(await boundedBody(response, 256_000, 502))),
+  );
+  const text = result.success
+    ? result.data.output
+        .filter(({ type }) => type === "message")
+        .flatMap(({ content }) => content ?? [])
+        .filter(({ type }) => type === "output_text")
+        .map((part) => part.text ?? "")
+        .join("\n").trim()
+    : "";
+  if (!text) throw new SonnelyError("The provider returned an empty translation.", 502);
+  return { text };
+}
+
 const bytes = (value: string) => Buffer.byteLength(value);
 
 async function prepare(endpoint: SpecializedEndpoint, raw: unknown) {
@@ -112,7 +157,7 @@ async function prepare(endpoint: SpecializedEndpoint, raw: unknown) {
         payload,
         maximumTokens: 0,
         upstreamPath: "/v1/audio/translations" as const,
-        response: z.object({ text: z.string().trim().min(1).max(32_000) }),
+        response: z.object({ text: z.string().trim().min(1).max(4096) }),
       };
     }
     case "convert/file": {
@@ -352,27 +397,24 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
     let outcome = "upstream_transport";
     try {
       const isForm = operation.payload instanceof FormData;
+      const authorization = "Bearer " + upstreamKey;
+      const cacheSecret = createHmac("sha256", secret).update("tinfoil-cache:" + hash).digest("hex");
+      const signal = AbortSignal.timeout(45_000);
       const init: RequestInit = {
         method: "POST",
         headers: {
-          Authorization: "Bearer " + upstreamKey,
+          Authorization: authorization,
           ...(isForm ? {} : { "Content-Type": "application/json" }),
         },
         body: isForm
           ? (operation.payload as FormData)
           : JSON.stringify({
               ...operation.payload,
-              ...(endpoint === "responses"
-                ? {
-                    user_cache_secret: createHmac("sha256", secret)
-                      .update("tinfoil-cache:" + hash)
-                      .digest("hex"),
-                  }
-                : {}),
+              ...(endpoint === "responses" ? { user_cache_secret: cacheSecret } : {}),
             }),
         cache: "no-store",
         redirect: "error",
-        signal: AbortSignal.timeout(45_000),
+        signal,
       };
       const upstream =
         provider === "tinfoil"
@@ -422,6 +464,9 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
           output = parsed.data.usage.output_tokens;
         }
       }
+      const result = endpoint === "audio/translations" && "text" in parsed.data
+        ? await translateToEnglish(parsed.data.text, authorization, cacheSecret, signal)
+        : parsed.data;
       // The privacy filter does not return token counts. Its published Sonnely price
       // uses the bounded input-byte estimate plus the provider's fixed request fee.
       cost = endpoint === "redact" ? reserve : (fixedCharge ?? requestFee + tokenCharge(input, output));
@@ -429,7 +474,7 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
         throw new SonnelyError("Provider usage exceeded the reservation. Check Usage.", 502);
       status = "complete";
       outcome = "complete";
-      const response = json({ ...parsed.data, model: operation.model, sonnely_request_id: id });
+      const response = json({ ...result, model: operation.model, sonnely_request_id: id });
       response.headers.set("X-Sonnely-Request-Id", id);
       return response;
     } catch (error) {
