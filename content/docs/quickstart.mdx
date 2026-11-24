@@ -63,7 +63,7 @@ curl -sS --fail-with-body https://sonnely.com/api/sonnely/v1/chat/completions \
 
 - **Answer** is in `choices[0].message.content`.
 - **Token counts** are in `usage`, including `prompt_tokens`, `completion_tokens`, and `total_tokens`.
-- **Final charge and request status** appear under **Recent requests** in [Usage](/console/usage). Look for the model and time of your request and a **Charged** amount. Group the usage breakdown by **Key** to identify spend for your test key.
+- **Final charge and request status** appear in [Request logs](/console/logs). Use the reference from the response headers or browse by model and time. Group the breakdown by **Key** in [Usage](/console/usage) to see total spend for your test key.
 
 When you finish testing, revoke the temporary key in [API keys](/console/keys) and run `unset SONNELY_API_KEY` in your terminal.
 

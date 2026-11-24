@@ -44,7 +44,7 @@ data: [DONE]
 
 ## Handle interruptions
 
-> **Check Usage before retrying.** A disconnected client can still incur a charge if the upstream request finishes. If final upstream usage is missing, the reservation can stay open for review.
+> **Check [Request logs](/console/logs) before retrying.** A disconnected client can still incur a charge if the upstream request finishes. If final upstream usage is missing, the reservation can stay open for review.
 
 An `error` JSON event can arrive after HTTP 200. Surface it to the caller and treat a stream that ends without `[DONE]` as incomplete. The [Sonnely SDKs](/docs/sdks) handle these checks and leave retry decisions to you. For manual retries, see [request references and retries](/docs/api#request-references-and-retries).
 

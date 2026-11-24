@@ -120,7 +120,7 @@ The streaming example prints text as it arrives, then prints the final usage cou
 
 > **Streaming confirms settlement.** Both clients request final usage by default, surface stream errors, and require `[DONE]` before ending normally.
 
-Find the final charge under **Recent requests** in [Usage](/console/usage). The token counts printed by the examples are separate from the dollar amount charged there.
+Find the final charge in [Request logs](/console/logs) using the request reference. The detail panel shows both token counts and the settled dollar charge.
 
 Both clients also provide public `models()`, per-request ceilings through `max_cost_microusd`, and optional [completion receipts](/docs/attestation#completion-receipts).
 
@@ -128,7 +128,7 @@ Both clients also provide public `models()`, per-request ceilings through `max_c
 
 SDK 0.1.5 accepts an idempotency key on both completion methods. Use one key per logical operation, and reuse it when retrying that operation. Each SDK call sends a single request and leaves retry decisions to your code.
 
-The gateway returns HTTP 409 if the key already started a request. Read the original request ID from the error and look it up in [Usage](/console/usage#recent-request-references). HTTP and stream errors expose the request ID and any `Retry-After` header returned by the gateway.
+The gateway returns HTTP 409 if the key already started a request. Read the original request ID from the error and look it up in [Request logs](/console/logs). HTTP and stream errors expose the request ID and any `Retry-After` header returned by the gateway.
 
 | SDK | Idempotency option | Error fields | Response callback |
 | --- | --- | --- | --- |
