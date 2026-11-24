@@ -45,6 +45,13 @@ const errors = Object.fromEntries(
   ].map(([code, description]) => [code, { description, content: jsonSchema("Error") }]),
 );
 
+const keyBudgetProperties = {
+  cap_microusd: { type: ["integer", "null"], minimum: 0 },
+  used_microusd: { type: "integer", minimum: 0 },
+  remaining_microusd: { type: ["integer", "null"], minimum: 0 },
+};
+const keyBudgetFields = Object.keys(keyBudgetProperties);
+
 const spec = {
   openapi: "3.1.0",
   info: {
@@ -69,6 +76,20 @@ const spec = {
           101: { description: "WebSocket upgrade. Wait for session.created before sending PCM16 audio." },
           426: { description: "WebSocket upgrade required" },
           ...errors,
+        },
+      },
+    },
+    "/key": {
+      get: {
+        operationId: "getCurrentApiKey",
+        summary: "Check the authenticated API key’s budget and expiry",
+        description: "Budget usage includes settled charges and active reservations.",
+        security: [{ SonnelyKey: [] }],
+        responses: {
+          200: { description: "Current key budget and expiry", content: jsonSchema("CurrentApiKey") },
+          401: errors[401],
+          500: errors[500],
+          503: { description: "Account service unavailable", content: jsonSchema("Error") },
         },
       },
     },
@@ -179,6 +200,33 @@ const spec = {
   components: {
     securitySchemes: { SonnelyKey: { type: "http", scheme: "bearer", bearerFormat: "Sonnely API key" } },
     schemas: {
+      CurrentApiKey: {
+        type: "object",
+        required: ["data"],
+        properties: {
+          data: {
+            type: "object",
+            required: ["name", "expires_at_ms", "daily", "lifetime"],
+            properties: {
+              name: { type: "string" },
+              expires_at_ms: { type: ["integer", "null"], minimum: 0 },
+              daily: {
+                type: "object",
+                required: [...keyBudgetFields, "resets_at"],
+                properties: {
+                  ...keyBudgetProperties,
+                  resets_at: { type: "string", format: "date-time" },
+                },
+              },
+              lifetime: {
+                type: "object",
+                required: keyBudgetFields,
+                properties: keyBudgetProperties,
+              },
+            },
+          },
+        },
+      },
       ModelList: {
         type: "object",
         required: ["object", "data"],

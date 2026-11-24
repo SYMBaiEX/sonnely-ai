@@ -15,6 +15,7 @@ import {
   accountRole,
   auth,
   requireAccount,
+  requireActiveKey,
   secret,
   service,
   sessionLife,
@@ -377,15 +378,7 @@ export const reserve = mutation({
   handler: async (ctx, args) => {
     service(args.secret);
     const now = Date.now();
-    const hash = args.hash;
-    const key = hash
-      ? await ctx.db
-          .query("keys")
-          .withIndex("by_hash", (q) => q.eq("hash", hash))
-          .unique()
-      : null;
-    if (hash && (!key || key.revoked || (key.expires !== null && key.expires <= now)))
-      throw new ConvexError("Invalid or expired API key.");
+    const key = args.hash ? await requireActiveKey(ctx, args.hash, now) : null;
     const account = key ? await ctx.db.get(key.account) : await requireAccount(ctx, args.session ?? "");
     if (args.requireTerms && account?.termsVersion !== termsVersion)
       throw new ConvexError("Accept the current Sonnely terms in the console.");

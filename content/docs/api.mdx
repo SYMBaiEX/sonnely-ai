@@ -17,6 +17,17 @@ The [OpenAPI 3.1 specification](/api/openapi) describes the request and response
 curl https://sonnely.com/api/sonnely/v1/models
 ```
 
+## Check the current API key
+
+`GET /key` reports the authenticated key’s name, expiry, daily budget, and lifetime budget. Authenticate with the same bearer key your application uses for inference.
+
+```bash title="Check the current API key"
+curl https://sonnely.com/api/sonnely/v1/key \
+  -H "Authorization: Bearer $SONNELY_API_KEY"
+```
+
+Budget values are integer micro-USD. Each budget includes `cap_microusd`, `used_microusd`, and `remaining_microusd`. An unlimited cap and its remaining amount are `null`. The daily budget includes `resets_at` at the next midnight UTC. `expires_at_ms` is a Unix timestamp in milliseconds or `null` for keys without expiry. Usage includes settled charges and active reservations.
+
 ## Provider catalogs
 
 [GET /provider-models](/api/sonnely/v1/provider-models) returns full upstream inventories, including entries that Sonnely lists for discovery. Use the configured provider list and endpoint mappings to check whether Sonnely can run a model.
