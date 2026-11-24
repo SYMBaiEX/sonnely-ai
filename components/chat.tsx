@@ -25,6 +25,12 @@ import { Streamdown } from "streamdown";
 import { PlaygroundControls } from "./playground";
 import { models } from "@/lib/models";
 import {
+  readReceiptEnvelope,
+  receiptHeader,
+  receiptVersion,
+  type ReceiptEnvelope,
+} from "@/lib/completion-receipt";
+import {
   privateFailoverProviders,
   providerIds,
   providerNames,
@@ -35,6 +41,7 @@ import { readPlaygroundReply } from "@/lib/playground-stream";
 import { CopyButton } from "./shared";
 import { PlaygroundRoute } from "./playground-route";
 import { type Session } from "./wallet";
+import receiptStyles from "./chat-receipt.module.css";
 
 type Message = {
   role: "user" | "assistant";
@@ -137,6 +144,8 @@ export function Chat({
   const [busy, setBusy] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [error, setError] = useState("");
+  const [includeReceipt, setIncludeReceipt] = useState(false);
+  const [lastReceipt, setLastReceipt] = useState<{ thread: string; at: number; envelope: ReceiptEnvelope }>();
   const controls = useContext(PlaygroundControls);
   const historyButton = useRef<HTMLButtonElement>(null);
   const historySearch = useRef<HTMLInputElement>(null);
@@ -294,7 +303,10 @@ export function Chat({
     try {
       const response = await fetch("/api/sonnely/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(includeReceipt ? { [receiptHeader]: receiptVersion } : {}),
+        },
         cache: "no-store",
         signal: controller.signal,
         body: JSON.stringify(input),
@@ -308,10 +320,20 @@ export function Chat({
         throw new Error(payload?.error ?? "The request did not return a stream.");
       }
       servingProvider = providerIds.find((id) => id === response.headers.get("X-Sonnely-Provider"));
-      for await (const text of readPlaygroundReply(response.body)) {
+      let envelope: ReceiptEnvelope | undefined;
+      const captureReceipt = includeReceipt
+        ? (receipt: unknown) => {
+            envelope = readReceiptEnvelope({
+              sonnely_receipt: receipt,
+              sonnely_request_id: response.headers.get("X-Sonnely-Request-Id"),
+            });
+          }
+        : undefined;
+      for await (const text of readPlaygroundReply(response.body, captureReceipt)) {
         content = text;
         setThreads(reply(content));
       }
+      if (envelope) setLastReceipt({ thread: id, at: replyAt, envelope });
       save(reply(content || "The model returned no text."), id);
       setAnnouncement("Model response ready in Messages.");
       await refresh();
@@ -377,6 +399,21 @@ export function Chat({
     const link = document.createElement("a");
     link.href = url;
     link.download = "sonnely-chat-" + current.id.slice(0, 8) + ".md";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadReceipt(envelope: ReceiptEnvelope) {
+    const data = {
+      sonnely_receipt: envelope.receipt,
+      ...(envelope.requestId ? { sonnely_request_id: envelope.requestId } : {}),
+    };
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(data, null, 2) + "\n"], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "sonnely-receipt.json";
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -578,6 +615,23 @@ export function Chat({
                       {message.role === "assistant" && !(busy && index === messages.length - 1) && (
                         <CopyButton value={message.content} label="Copy response" />
                       )}
+                      {message.role === "assistant" &&
+                        lastReceipt &&
+                        lastReceipt.thread === active &&
+                        message.at === lastReceipt.at && (
+                          <>
+                            <button
+                              className="button quiet small"
+                              type="button"
+                              onClick={() => downloadReceipt(lastReceipt.envelope)}
+                            >
+                              <Download size={14} aria-hidden="true" /> Download receipt
+                            </button>
+                            <Link className="button quiet small" href="/verify">
+                              Inspect receipt <ArrowUpRight size={13} aria-hidden="true" />
+                            </Link>
+                          </>
+                        )}
                       {message.role === "user" && (
                         <button
                           type="button"
@@ -703,6 +757,17 @@ export function Chat({
             </button>
           )}
         </p>
+        {ready && (
+          <label className={receiptStyles.optIn}>
+            <input
+              type="checkbox"
+              checked={includeReceipt}
+              disabled={busy}
+              onChange={(event) => setIncludeReceipt(event.target.checked)}
+            />
+            Include verification receipt
+          </label>
+        )}
         {!messages.length && ready && (
           <div className="playground-workload-shortcuts" aria-label="Other inference tasks" role="group">
             <button

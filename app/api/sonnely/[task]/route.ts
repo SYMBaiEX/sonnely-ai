@@ -23,6 +23,7 @@ import {
 } from "@/lib/managed-access";
 import { termsVersion } from "@/lib/policy";
 import { infer } from "@/lib/inference";
+import { receiptHeader, receiptVersion } from "@/lib/completion-receipt";
 import {
   backend,
   cookie,
@@ -258,7 +259,10 @@ export async function POST(request: NextRequest, context: Context) {
       return json({ ok: accepted });
     }
     if (task === "chat") {
-      const result = await infer(raw, { session }, false, (finished) => after(() => finished));
+      const receipt = request.headers.get(receiptHeader);
+      if (receipt !== null && receipt !== receiptVersion)
+        throw new SonnelyError("Unsupported evidence receipt version. Use " + receiptHeader + ": v1.", 400);
+      const result = await infer(raw, { session }, receipt === receiptVersion, (finished) => after(() => finished));
       return result instanceof Response ? result : json(result);
     }
     if (task === "finish-onboarding") {

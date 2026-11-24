@@ -13,22 +13,25 @@ Sonnely’s ledger records account, model, token, status and charge metadata. Op
 
 ## Evidence
 
-Every route executes inside a trusted execution environment and supplies evidence describing that environment. The optional completion receipt records which checks passed for a given request so you can verify the attestation before relying on a specific hardware or software claim.
+The evidence in an optional completion receipt depends on the provider and the endpoint. It records the checks available for that request and their scope.
+
+| Provider | Completion evidence | Independent verification |
+| --- | --- | --- |
+| NEAR AI | A gateway or model signature may bind the upstream hashes to a declared ECDSA signer. | Match the signature’s signer and algorithm to verified, nonce-bound evidence retained before inference. [NEAR response signatures](https://docs.near.ai/cloud/verification/cloud-api/response-signatures) |
+| Phala | Sonnely matches the ACI evidence retrieved over authenticated HTTPS to the upstream hashes, verified route and session. | Use Phala’s verified client flow and provider artifacts to audit the receipt signature and attestations. [Phala verification](https://phala.com/confidential-ai-models/verification) |
+| Tinfoil | Sonnely’s Tinfoil client verifies the router and the receipt records its release digest and repository. | Verify the enclave for the workload whose execution you want to attest. [Tinfoil verification](https://docs.tinfoil.sh/guides/verification-center) |
 
 ## Completion receipts
 
-Send `X-Sonnely-Receipt: v1` to include `sonnely_receipt` in the response. A receipt records the route, requested model, completion ID, billing reference, charge in millionths of a dollar, and SHA-256 hashes of the request and response exchanged upstream.
+Send `X-Sonnely-Receipt: v1` with a Chat Completions request to include `sonnely_receipt` in the JSON response or terminal stream event. In Playground, enable **Include verification receipt** before sending and download the receipt from the completed message.
 
-> **Keep receipts private.** The hashes can confirm guesses about their contents.
+The receipt records the route, requested model, provider completion ID, charge in millionths of a dollar, and SHA-256 hashes of the request and response exchanged upstream. Keep these hashes private when they cover sensitive content.
 
-- `signature_matched` identifies a match between the upstream payload and its declared signing address.
-- `aci_payload_matched` identifies a matched attestation payload and route.
-- `attested_router` identifies a verified router release.
-
-Use the receipt schema for field definitions and other statuses. The evidence fields present depend on the route that carried the request. [Contact us](/contact) if you need verification guidance for a specific route.
+Use the [receipt inspector](/verify) to parse the receipt in your browser, check the signed NEAR payload and recover its declared signer when available, and compare your own files to the recorded digests. Compare the exact bytes exchanged between Sonnely and the upstream provider, including the original stream framing. Sonnely’s public JSON and streamed output are transformed before delivery, so use an upstream capture for this check.
 
 <nav className="docs-guide-next" aria-label="Related guides and resources">
 
+- [Inspect a receipt](/verify)
 - [Open receipt schema](/api/openapi)
 - [Review data handling](/privacy)
 
