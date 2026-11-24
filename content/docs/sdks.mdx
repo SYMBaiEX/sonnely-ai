@@ -12,10 +12,10 @@ Use a key from a workspace with credits. Follow [Quickstart](/docs/quickstart#se
 Install the first-party server-side package with Node.js 22.12 or newer. Registry releases are available on [npm](https://www.npmjs.com/package/@sonnely/sdk).
 
 ```bash title="Terminal · Install the TypeScript SDK"
-npm install https://sonnely.com/sdk/sonnely-typescript-0.1.5.tgz
+npm install https://sonnely.com/sdk/sonnely-typescript-0.1.6.tgz
 ```
 
-A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.5.tgz) is also available from Sonnely. Save the example in the folder where you installed the package. Run `node complete.mjs` or `node stream.mjs`.
+A [versioned npm archive](https://sonnely.com/sdk/sonnely-typescript-0.1.6.tgz) is also available from Sonnely. Save the example in the folder where you installed the package. Run `node complete.mjs` or `node stream.mjs`.
 
 <Tabs className="docs-example-tabs" items={["Completion", "Streaming"]}>
 <Tab value="Completion">
@@ -66,10 +66,10 @@ On macOS or Linux, run these commands from your project folder. If you already h
 ```bash title="Terminal · Install the Python SDK"
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install https://sonnely.com/sdk/sonnely_sdk-0.1.5-py3-none-any.whl
+python -m pip install https://sonnely.com/sdk/sonnely_sdk-0.1.6-py3-none-any.whl
 ```
 
-Follow [Quickstart](/docs/quickstart#set-up-your-workspace) to set `SONNELY_API_KEY` in the same terminal. Save the snippet as `complete.py` or `stream.py`, then run `python complete.py` or `python stream.py` with the environment still active. A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.5-py3-none-any.whl) is also available.
+Follow [Quickstart](/docs/quickstart#set-up-your-workspace) to set `SONNELY_API_KEY` in the same terminal. Save the snippet as `complete.py` or `stream.py`, then run `python complete.py` or `python stream.py` with the environment still active. A [versioned wheel](https://sonnely.com/sdk/sonnely_sdk-0.1.6-py3-none-any.whl) is also available.
 
 > **If the example stops before sending a request**, `ModuleNotFoundError: No module named 'sonnely'` means the Python running the script cannot find the package. Activate the environment and rerun the install command. For `KeyError: 'SONNELY_API_KEY'`, set the key in that terminal.
 
@@ -136,6 +136,34 @@ The gateway returns HTTP 409 if the key already started a request. Read the orig
 | Python | `idempotency_key` | `status`, `request_id`, `retry_after` | `on_response(metadata)` with `metadata.request_id` and `metadata.retry_after` |
 
 Responses from `complete` include the gateway’s `sonnely_request_id` field. Pass the response callback to capture the reference when a stream opens. The completion’s `id` remains the provider’s completion ID.
+
+## Private routing and failover
+
+Set `provider.only` to a single provider ID to pin a route. To allow the gateway to fail over, list two or three different provider IDs in order and set `allow_fallbacks` to `true`. Use `models()` to check `routes[].private_failover` and `routes[].capabilities` for your exact model. The gateway applies the request’s capabilities and cost ceiling before choosing a route. See [Private routing and failover](/docs/api#private-routing-and-failover) for retry behavior.
+
+```typescript
+const result = await sonnely.complete({
+  model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+  messages: [{ role: "user", content: "Write one line about a forest." }],
+  provider: { only: ["near-ai", "phala", "tinfoil"], allow_fallbacks: true },
+  max_cost_microusd: 4000,
+}, {
+  onResponse: ({ provider, requestId }) => console.log(provider, requestId),
+});
+console.log(result.sonnely_provider);
+```
+
+```python
+result = sonnely.complete({
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "messages": [{"role": "user", "content": "Write one line about a forest."}],
+    "provider": {"only": ["near-ai", "phala", "tinfoil"], "allow_fallbacks": True},
+    "max_cost_microusd": 4000,
+}, on_response=lambda metadata: print(metadata.provider, metadata.request_id))
+print(result.get("sonnely_provider"))
+```
+
+SDK 0.1.6 exposes the serving provider through the response callback for both `complete` and `stream`. `SonnelyError.provider` also retains the provider when a response supplied it before an error. To review the route attempts, open [Request logs](/console/logs) using the request ID.
 
 ## Existing OpenAI SDKs
 

@@ -479,6 +479,9 @@ test("the retired Sonnely app sends bookmarks to the current site and rejects le
   const oldApp = await request.get("/", { headers, maxRedirects: 0 });
   expect(oldApp.status()).toBe(308);
   expect(oldApp.headers().location).toBe("https://sonnely.com/");
+  const verification = await request.get("/verify", { headers, maxRedirects: 0 });
+  expect(verification.status()).toBe(308);
+  expect(verification.headers().location).toBe("https://sonnely.com/verify");
   for (const response of [
     await request.post("/api/v1/chat/completions", { data: { model: "legacy" }, maxRedirects: 0 }),
     await request.get("/v1/models", { headers, maxRedirects: 0 }),

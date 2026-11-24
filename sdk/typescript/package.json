@@ -1,6 +1,6 @@
 {
   "name": "@sonnely/sdk",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Typed server-side client for the Sonnely inference API",
   "type": "module",
   "engines": {

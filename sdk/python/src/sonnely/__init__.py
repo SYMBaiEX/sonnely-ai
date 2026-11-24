@@ -22,12 +22,15 @@ class ResponseMetadata:
 
     request_id: str | None
     retry_after: str | None
+    provider: str | None = None
 
 
 def _response_metadata(headers: Message | None) -> ResponseMetadata:
     if headers is None:
         return ResponseMetadata(None, None)
-    return ResponseMetadata(headers.get("X-Sonnely-Request-Id"), headers.get("Retry-After"))
+    return ResponseMetadata(
+        headers.get("X-Sonnely-Request-Id"), headers.get("Retry-After"), headers.get("X-Sonnely-Provider"),
+    )
 
 
 class SonnelyError(Exception):
@@ -40,6 +43,7 @@ class SonnelyError(Exception):
         self.status = status
         self.request_id: str | None = metadata.request_id if metadata is not None else None
         self.retry_after: str | None = metadata.retry_after if metadata is not None else None
+        self.provider: str | None = metadata.provider if metadata is not None else None
 
 
 class _NoRedirect(HTTPRedirectHandler):
