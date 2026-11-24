@@ -2,9 +2,11 @@
 
 import { UsageMax } from "./usage-max";
 import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useConnectedWallet, useIsWalletReady } from "@solana/kit-plugin-wallet/react";
 import {
   ArrowUpRight,
   BarChart3,
+  ChevronDown,
   CircleHelp,
   Code2,
   Download,
@@ -28,6 +30,7 @@ import { IntentsCheckout } from "./intents-checkout";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
 import { usernameHelp } from "@/lib/username";
+import { solanaWalletClients } from "./solana-wallet";
 import { payWithWallet, request, type Session, type UsageRow } from "./wallet";
 import { WorkspaceHeading } from "./workspace-heading";
 
@@ -835,6 +838,86 @@ type Receipt = {
   archivedAt?: number;
 };
 
+function ConfidentialBilling({ wallet }: { wallet: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const summary = useRef<HTMLElement>(null);
+  const { data, error, reload } = useRemote<{ treasuryRegistered: boolean; walletRegistered: boolean }>(
+    expanded,
+    "billing-privacy-rings",
+  );
+  const client = solanaWalletClients.mainnet;
+  const connected = useConnectedWallet(client);
+  const walletReady = useIsWalletReady(client);
+  const matchingWallet =
+    connected?.account.address === wallet && connected.account.chains.includes("solana:mainnet")
+      ? connected
+      : null;
+  const transactionSupport = !walletReady
+    ? "Checking connected wallet…"
+    : !matchingWallet
+      ? "Connect your signed-in wallet"
+      : matchingWallet.supportedTransactionVersions.has(1)
+        ? `${matchingWallet.wallet.name} reports support`
+        : `${matchingWallet.wallet.name} · support unavailable`;
+  const treasuryRegistered = data?.treasuryRegistered;
+  const walletRegistered = data?.walletRegistered;
+  const registrationLabel = (registered?: boolean) =>
+    error ? "Unavailable" : registered === undefined ? "Checking…" : registered ? "Registered" : "Unregistered";
+  const registrationStatus = error
+    ? "Privacy Rings registration status is unavailable."
+    : data
+      ? `Treasury: ${registrationLabel(treasuryRegistered)}. Your wallet: ${registrationLabel(walletRegistered)}.`
+      : "Checking mainnet Privacy Rings registration…";
+
+  return (
+    <details
+      className="billing-confidential"
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary ref={summary}>
+        <Shield size={18} aria-hidden="true" />
+        <span>Confidential USDC</span>
+        <span className="pill">Unavailable</span>
+        <ChevronDown size={17} aria-hidden="true" />
+      </summary>
+      <div className="billing-confidential-body">
+        <p className="caption">
+          Private transfers need receipt verification before they can add compute credits.
+        </p>
+        <p role="status" className={error ? "caption" : "visually-hidden"}>
+          {expanded ? registrationStatus : ""}
+        </p>
+        <dl>
+          <div>
+            <dt>Treasury registration</dt>
+            <dd>{registrationLabel(treasuryRegistered)}</dd>
+          </div>
+          <div>
+            <dt>Your wallet registration</dt>
+            <dd>{registrationLabel(walletRegistered)}</dd>
+          </div>
+          <div>
+            <dt>Solana v1 transactions</dt>
+            <dd>{transactionSupport}</dd>
+          </div>
+        </dl>
+        {error && (
+          <button
+            type="button"
+            className="button quiet"
+            onClick={() => {
+              summary.current?.focus();
+              reload();
+            }}
+          >
+            Retry registration check
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
+
 export function Billing({
   session,
   refresh,
@@ -1037,7 +1120,7 @@ export function Billing({
                   : profile
                     ? method === "sol"
                       ? "Enter the USD credit amount. You’ll review a time-limited SOL quote before you pay."
-                      : "Enter a USDC amount. Credits post after your wallet transfer finalizes."
+                      : "Credits post after your public USDC transfer finalizes."
                     : "Connect your Solana wallet in the header to buy credits."}
               </p>
               <form
@@ -1348,6 +1431,9 @@ export function Billing({
                 {failure?.action === "confirm" && <Failure message={failure.message} />}
               </details>
             </section>
+          )}
+          {profile?.role === "admin" && session?.cluster === "mainnet" && (
+            <ConfidentialBilling key={profile.wallet} wallet={profile.wallet} />
           )}
         </section>
         <section className="panel breakdown billing-history">

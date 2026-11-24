@@ -828,3 +828,73 @@
   border-color: var(--accent);
   background: var(--console-selected);
 }
+
+.billing-confidential {
+  border-block-start: 1px solid var(--line);
+  padding-block-start: .5rem;
+}
+
+.billing-confidential > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  min-block-size: var(--console-control-size);
+  padding-inline: .375rem;
+  border-radius: .375rem;
+  list-style: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.billing-confidential > summary::-webkit-details-marker {
+  display: none;
+}
+
+.billing-confidential > summary > svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.billing-confidential > summary > .pill {
+  margin-inline-start: auto;
+}
+
+.billing-confidential[open] > summary > svg:last-child {
+  rotate: 180deg;
+}
+
+.billing-confidential-body {
+  display: grid;
+  justify-items: start;
+  gap: .875rem;
+  padding: .5rem .375rem 0;
+}
+
+.billing-confidential-body dl {
+  display: grid;
+  gap: .5rem;
+  inline-size: 100%;
+  margin: 0;
+  font-size: var(--console-caption);
+}
+
+.billing-confidential-body dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .125rem .75rem;
+  padding-block-end: .5rem;
+  border-block-end: 1px solid var(--line);
+}
+
+.billing-confidential-body dt {
+  color: var(--muted);
+}
+
+.billing-confidential-body dd {
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  font-weight: 550;
+}
