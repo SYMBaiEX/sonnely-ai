@@ -4,7 +4,7 @@ export const realtimeModel = { id: "voxtral-mini-4b-realtime", provider: "tinfoi
 
 export const specializedModels = {
   "audio/translations": {
-    "voxtral-small-24b": { provider: "tinfoil", rate: 0.2, outputRate: 0.6 },
+    "voxtral-small-24b": { provider: "tinfoil", rate: 0.0007168, unit: "request" },
   },
   "convert/file": {
     "doc-upload": { provider: "tinfoil", rate: 0.05, unit: "request" },

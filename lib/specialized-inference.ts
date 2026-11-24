@@ -102,34 +102,17 @@ async function prepare(endpoint: SpecializedEndpoint, raw: unknown) {
         audio.length <= 44
       )
         throw new SonnelyError("Send a 16 kHz mono PCM16 WAV file with a standard 44-byte header.", 400);
+      const payload = new FormData();
+      payload.set("file", file, "input.wav");
+      payload.set("model", model);
+      payload.set("response_format", "json");
       return {
         model,
         max_cost_microusd,
-        maximumTokens: 2048,
-        maximumOutputTokens: 512,
-        upstreamPath: "/v1/chat/completions" as const,
-        payload: {
-          model,
-          max_tokens: 512,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Translate the spoken audio into English. Return only the English transcript.",
-                },
-                { type: "input_audio", input_audio: { data: audio.toString("base64"), format: "wav" } },
-              ],
-            },
-          ],
-        },
-        response: z
-          .object({
-            choices: z.array(z.object({ message: z.object({ content: z.string().min(1) }) })).length(1),
-            usage: tokenUsage.extend({ completion_tokens: z.int().nonnegative() }),
-          })
-          .transform((result) => ({ text: result.choices[0].message.content, usage: result.usage })),
+        payload,
+        maximumTokens: 0,
+        upstreamPath: "/v1/audio/translations" as const,
+        response: z.object({ text: z.string().trim().min(1).max(32_000) }),
       };
     }
     case "convert/file": {
@@ -142,9 +125,9 @@ async function prepare(endpoint: SpecializedEndpoint, raw: unknown) {
         max_cost_microusd,
         payload,
         maximumTokens: 0,
-        upstreamPath: "/v1/convert/file?mode=raw" as const,
+        upstreamPath: "/v1/convert/file" as const,
         response: z.object({
-          document: z.object({ md_content: z.string().max(1_000_000) }),
+          document: z.object({ md_content: z.string().trim().min(1).max(1_000_000) }),
           status: z.literal("success"),
         }),
       };
@@ -379,7 +362,7 @@ export async function runSpecialized(request: NextRequest, endpoint: Specialized
           ? (operation.payload as FormData)
           : JSON.stringify({
               ...operation.payload,
-              ...(endpoint === "responses" || endpoint === "audio/translations"
+              ...(endpoint === "responses"
                 ? {
                     user_cache_secret: createHmac("sha256", secret)
                       .update("tinfoil-cache:" + hash)

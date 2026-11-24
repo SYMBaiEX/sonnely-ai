@@ -9,7 +9,7 @@ import { specializedRequests } from "@/lib/specialized-requests";
 
 const specializedDescriptions = {
   "audio/translations": "Translate spoken audio into English text",
-  "convert/file": "Convert the text layer of one PDF to Markdown",
+  "convert/file": "Convert one PDF to Markdown",
   redact: "Redact detected personal information",
   responses: "Generate a single-turn text response",
   "audio/speech": "Synthesize WAV audio from text",
