@@ -78,6 +78,21 @@ test("Fumadocs serves search, SDK downloads, and compatibility links", async ({ 
   }
 });
 
+test("the Teams guide opens at its canonical and Markdown routes", async ({ page, request }) => {
+  const guide = await page.goto("/docs/teams");
+  expect(guide?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/docs\/teams$/);
+  await expect(page.getByRole("heading", { name: "Teams and projects", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Teams", exact: true })).toHaveAttribute("href", /\/console\/teams$/);
+
+  for (const route of ["/docs/teams.md", "/llms.mdx/docs/teams/content.md"]) {
+    const markdown = await request.get(route, { maxRedirects: 0 });
+    expect(markdown.status()).toBe(200);
+    expect(markdown.headers()["content-type"]).toMatch(/^text\/markdown/);
+    expect(await markdown.text()).toContain("Project requests draw credits");
+  }
+});
+
 test("the shared docs header leads to the site and console on desktop and mobile", async ({ page }) => {
   for (const width of [1440, 320]) {
     await page.setViewportSize({ width, height: 800 });
