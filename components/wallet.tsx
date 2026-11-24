@@ -119,6 +119,8 @@ export function useSession(liveDays?: number) {
 }
 
 let mobileRegistration: Promise<void> | undefined;
+const mobileAdapterName = "Mobile Wallet Adapter";
+const remoteMobileAdapterName = "Remote Mobile Wallet Adapter";
 
 function registerMobileWallet() {
   if (!window.isSecureContext || !/Android/i.test(navigator.userAgent)) return;
@@ -240,20 +242,25 @@ export function WalletControl({
       });
       const signIn = features[SolanaSignIn];
       const signer = features[SolanaSignMessage];
-      let signed: { signature: Uint8Array; signedMessage?: Uint8Array } | undefined;
-      if (signIn && input) {
+      const isMobileAdapter = wallet.name === mobileAdapterName || wallet.name === remoteMobileAdapterName;
+      let signature: Uint8Array | undefined;
+      let signedMessage: Uint8Array | undefined;
+      // Mobile Wallet Adapter can reuse authorization that predates this challenge.
+      if (signIn && input && !isMobileAdapter) {
         const [output] = await signIn.signIn(input);
         if (output && output.account.address !== account.address)
           throw new Error("The wallet signed in with a different address.");
-        signed = output;
+        signature = output?.signature;
+        signedMessage = output?.signedMessage;
       } else if (signer && account.features.includes(SolanaSignMessage)) {
-        [signed] = await signer.signMessage({ account, message: new TextEncoder().encode(message) });
+        const [output] = await signer.signMessage({ account, message: new TextEncoder().encode(message) });
+        signature = output?.signature;
       }
-      if (!signed) throw new Error("No signature was returned.");
+      if (!signature) throw new Error("No signature was returned.");
       await request("verify", {
         wallet: account.address,
-        signature: [...signed.signature],
-        ...(signed.signedMessage ? { signedMessage: [...signed.signedMessage] } : {}),
+        signature: [...signature],
+        ...(signedMessage ? { signedMessage: [...signedMessage] } : {}),
         invite: sessionStorage.getItem("sonnely.invite") ?? undefined,
       });
       sessionStorage.removeItem("sonnely.invite");
@@ -326,7 +333,7 @@ export function WalletControl({
                     onClick={() => connect(wallet)}
                     disabled={busy}
                   >
-                    {wallet.name === "Mobile Wallet Adapter" ? "Solana mobile wallet" : wallet.name}
+                    {wallet.name === mobileAdapterName ? "Solana mobile wallet" : wallet.name}
                   </button>
                 ))
               ) : (
