@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowDown, ArrowRight, ArrowUpRight, Boxes, Fingerprint, KeyRound, Wallet } from "lucide-react";
-import { ProviderInventory } from "@/components/provider-inventory";
 import { ModelGuide } from "@/components/model-guide";
 import { CostExample } from "@/components/cost-example";
 import { configuredProviders, nearIntentsFundingEnabled } from "@/lib/managed-access";
-import { ModelCatalog } from "@/components/shared";
+import { ModelCatalog } from "@/components/model-catalog";
 import { Contact } from "@/components/contact";
 import { SiteLead, type SiteBrief } from "@/components/site-lead";
 import { JournalIndex } from "@/components/journal-index";
@@ -14,7 +13,7 @@ import { isProductPage, productPages } from "@/lib/product-pages";
 import { computeFeatures, isComputeProduct } from "@/lib/compute-features";
 import { computePlans, computeQuote } from "@/lib/compute";
 import { creditBalance } from "@/lib/credit-amount";
-import { models } from "@/lib/models";
+import { countRunnableModels, modelCatalogEntries } from "@/lib/model-catalog";
 import { markupPercent } from "@/lib/pricing";
 
 const pages = {
@@ -76,9 +75,9 @@ const briefs = {
   models: {
     title: "Sonnely catalog",
     rows: [
-      ["Text models", String(models.length)],
-      ["Compatibility", "OpenAI Chat Completions"],
-      ["Rates", "USD per million tokens"],
+      ["Available model IDs", String(countRunnableModels(configuredProviders()))],
+      ["Provider entries", String(modelCatalogEntries.length)],
+      ["Providers", "NEAR AI, Phala, Tinfoil"],
     ],
   },
   pricing: {
@@ -132,7 +131,7 @@ const entryActions = {
   },
   models: {
     section: "#available-models",
-    label: "Compare live models",
+    label: "Explore models",
     next: "/console",
     action: "Try the playground",
   },
@@ -208,8 +207,8 @@ export default async function Subpage({ params }: Props) {
           >
             <header className="section-head">
               <div>
-                <h2 id="model-comparison-title">Available on Sonnely</h2>
-                <p>Compare token prices and context windows.</p>
+                <h2 id="model-comparison-title">Models and rates</h2>
+                <p>Compare provider routes, supported endpoints, and pricing.</p>
               </div>
             </header>
             <ModelCatalog availableProviders={configuredProviders()} />
@@ -217,7 +216,6 @@ export default async function Subpage({ params }: Props) {
               How routing works <ArrowUpRight size={15} aria-hidden="true" />
             </Link>
           </section>
-          <ProviderInventory />
           <ModelGuide />
         </>
       )}
