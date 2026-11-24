@@ -147,10 +147,14 @@ test("mainnet checkout quotes and shows a direct SOL transfer", async ({ page })
   });
   await page.goto("/console/billing");
   await expect(page.getByRole("heading", { name: "Buy credits" })).toBeVisible();
-  const method = page.getByRole("combobox", { name: "Payment method" });
+  const method = page.getByRole("group", { name: "Payment method" });
   test.skip(!(await method.count()), "SOL funding is disabled in this test deployment.");
-  await expect(method).toHaveValue("usdc");
-  await method.selectOption("sol");
+  const usdc = method.getByRole("button", { name: "USDC", exact: true });
+  const sol = method.getByRole("button", { name: "SOL", exact: true });
+  await expect(usdc).toHaveAttribute("aria-pressed", "true");
+  await sol.press("Enter");
+  await expect(sol).toHaveAttribute("aria-pressed", "true");
+  await expect(usdc).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByRole("spinbutton", { name: "Credits in USD" })).toHaveValue("5");
   await page.getByRole("button", { name: "Continue to payment" }).click();
   await expect(page.getByRole("heading", { name: "Pay 0.05 SOL" })).toBeFocused();

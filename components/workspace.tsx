@@ -982,23 +982,36 @@ export function Billing({
             <span className="pill">{session?.billingEnabled ? session.cluster : "Solana Pay"}</span>
           </div>
           {(showSol || showOther) && (
-            <label>
-              Payment method
-              <select
-                value={method}
-                disabled={!!pending || submitted}
-                onChange={(event) => {
-                  const next = event.currentTarget.value as typeof method;
-                  setMethod(next);
-                  setIntent(null);
-                  setFailure(undefined);
-                }}
-              >
-                <option value="usdc">USDC</option>
-                {showSol && <option value="sol">SOL</option>}
-                {showOther && <option value="other">Other crypto</option>}
-              </select>
-            </label>
+            <fieldset className="billing-payment-method">
+              <legend>Payment method</legend>
+              <div className="billing-payment-options">
+                {(
+                  [
+                    { id: "usdc", label: "USDC", available: true },
+                    { id: "sol", label: "SOL", available: showSol },
+                    { id: "other", label: "Other crypto", available: showOther },
+                  ] as const
+                )
+                  .filter(({ available }) => available)
+                  .map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="button quiet"
+                      aria-pressed={method === id}
+                      disabled={!!pending || submitted}
+                      onClick={() => {
+                        if (method === id) return;
+                        setMethod(id);
+                        setIntent(null);
+                        setFailure(undefined);
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+              </div>
+            </fieldset>
           )}
           {method !== "other" && (
             <>

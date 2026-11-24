@@ -802,3 +802,32 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+.billing-payment-method {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.billing-payment-method legend {
+  margin-block-end: .5rem;
+  font-weight: 600;
+}
+
+.billing-payment-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.billing-payment-options .button {
+  flex: 1 1 6rem;
+  min-block-size: var(--console-control-size);
+}
+
+.billing-payment-options .button[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--console-selected);
+}
