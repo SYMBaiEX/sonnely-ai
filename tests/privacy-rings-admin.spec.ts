@@ -33,3 +33,25 @@ test("unauthenticated requests cannot read or prepare Privacy Ring registration"
     data: {},
   })).status()).toBe(401);
 });
+
+test("finalized registry information is visible after reopening Admin", async ({ page }) => {
+  const { treasury, profit: registryAddress } = localFixtureWallets();
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: {
+        enabled: true,
+        cluster: "mainnet",
+        profile: { wallet: fixtureWallet, role: "admin", name: "", balance: 0, onboarding: "later" },
+      },
+    }),
+  );
+  await page.route("**/api/sonnely/admin", (route) => route.fulfill({ status: 503, json: {} }));
+  await page.route("**/api/sonnely/admin-crm?*", (route) => route.fulfill({ json: {} }));
+  await page.route("**/api/sonnely/admin-privacy-rings", (route) =>
+    route.fulfill({ json: { cluster: "mainnet", treasury, registered: true, canPrepare: false, registryAddress } }),
+  );
+  await page.goto("/console/admin/privacy-rings");
+  await expect(page.getByText("Registered", { exact: true })).toBeVisible();
+  await expect(page.locator(`a[href="https://explorer.solana.com/address/${registryAddress}"]`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Register", exact: true })).toHaveCount(0);
+});
