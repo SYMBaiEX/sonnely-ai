@@ -863,3 +863,50 @@
   overflow-wrap: anywhere;
   font-size: var(--console-caption);
 }
+
+.console .usage-filters {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.console .usage-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 1fr));
+  gap: 10px 12px;
+}
+
+.console .usage-filter-grid label {
+  min-width: 0;
+}
+
+.console .usage-filter-grid select {
+  width: 100%;
+  min-width: 0;
+}
+
+.console .usage-sample {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.console .usage-sample p {
+  margin: 0;
+}
+
+.console .usage-stats .stat {
+  align-content: start;
+  min-width: 0;
+}
+
+.console .usage-stats .stat small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.console :is(.chart-panel, .breakdown) .control-label select {
+  min-width: 0;
+}
