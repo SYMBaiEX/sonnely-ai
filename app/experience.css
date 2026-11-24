@@ -569,6 +569,16 @@ html:has(.console-bar) {
   font-size: 15px;
   overflow-wrap: anywhere;
 }
+.catalog-list .catalog-identity h3 a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.catalog-list .catalog-identity h3 a:hover {
+  color: var(--accent);
+}
 .catalog-identity p {
   color: var(--muted);
   font-weight: 400;

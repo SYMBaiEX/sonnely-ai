@@ -4,27 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Search } from "lucide-react";
 import { apiBasePath } from "@/lib/api-contract";
-import { modelCatalogEntries, type ModelCatalogEndpoint, type ModelCatalogRates } from "@/lib/model-catalog";
+import {
+  contextFormat,
+  endpointDocs,
+  modelCatalogEntries,
+  modelDetailHref,
+  modelPlaygroundHref,
+  rateLabels,
+  workloadNames,
+  type ModelCatalogEndpoint,
+  type ModelCatalogRates,
+} from "@/lib/model-catalog";
 import { routeLabels } from "@/lib/model-privacy";
 import { formatRate, markupPercent } from "@/lib/pricing";
 import { providerIds, providerNames, type ProviderId } from "@/lib/provider-models";
 import { CopyButton } from "./shared";
-
-const workloadNames = {
-  "chat/completions": "Chat Completions",
-  responses: "Responses",
-  embeddings: "Embeddings",
-  rerank: "Reranking",
-  systemone: "System One decisions",
-  "images/generations": "Image generation",
-  "images/edits": "Image editing",
-  "audio/transcriptions": "Audio transcription",
-  realtime: "Realtime transcription",
-  "audio/translations": "Audio translation",
-  "audio/speech": "Speech synthesis",
-  "convert/file": "Document conversion",
-  redact: "Redaction",
-} satisfies Record<ModelCatalogEndpoint, string>;
 
 const upstreamWorkloads: Partial<Record<string, readonly ModelCatalogEndpoint[]>> = {
   text: ["chat/completions"],
@@ -34,22 +28,6 @@ const upstreamWorkloads: Partial<Record<string, readonly ModelCatalogEndpoint[]>
   image: ["images/generations", "images/edits"],
   transcription: ["audio/transcriptions"],
 };
-const rateLabels = [
-  ["input", "input / 1M tokens"],
-  ["cache", "cached input / 1M tokens"],
-  ["output", "output / 1M tokens"],
-  ["request", "per request"],
-  ["session", "per session"],
-] as const;
-const contextFormat = new Intl.NumberFormat("en");
-
-function endpointDocs(endpoint: ModelCatalogEndpoint) {
-  if (endpoint === "chat/completions") return "/docs/api#create-a-completion";
-  if (["realtime", "audio/translations", "convert/file", "redact", "responses"].includes(endpoint))
-    return "/docs/providers#additional-tinfoil-endpoints";
-  return "/docs/providers#embeddings-decisions-images-and-audio";
-}
-
 function RateList({ rates }: { rates: ModelCatalogRates }) {
   return (
     <ul className="catalog-rates" role="list">
@@ -201,7 +179,11 @@ export function ModelCatalog({ availableProviders }: { availableProviders: reado
                           {model.mark ?? (model.name.match(/[a-z0-9]/i)?.[0].toUpperCase() || "•")}
                         </span>
                         <div>
-                          <h3>{model.name}</h3>
+                          <h3>
+                            <Link href={modelDetailHref(model)} prefetch={false}>
+                              {model.name}
+                            </Link>
+                          </h3>
                           <span className="model-tier">
                             {providerNames[model.provider]} · {routeLabels[model.privacyRoute]}
                           </span>
@@ -262,10 +244,7 @@ export function ModelCatalog({ availableProviders }: { availableProviders: reado
                       <div className="catalog-row-actions">
                         {chat && (
                           <Link
-                            href={
-                              "/console?" +
-                              new URLSearchParams({ model: chat.modelId, provider: model.provider })
-                            }
+                            href={modelPlaygroundHref(chat.modelId, model.provider)}
                             className="text-link"
                           >
                             Open in chat <ArrowUpRight size={15} aria-hidden="true" />

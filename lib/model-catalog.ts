@@ -129,3 +129,46 @@ export function countRunnableModels(providers: readonly ProviderId[]) {
     ),
   ).size;
 }
+
+export const workloadNames = {
+  "chat/completions": "Chat Completions",
+  responses: "Responses",
+  embeddings: "Embeddings",
+  rerank: "Reranking",
+  systemone: "System One decisions",
+  "images/generations": "Image generation",
+  "images/edits": "Image editing",
+  "audio/transcriptions": "Audio transcription",
+  realtime: "Realtime transcription",
+  "audio/translations": "Audio translation",
+  "audio/speech": "Speech synthesis",
+  "convert/file": "Document conversion",
+  redact: "Redaction",
+} satisfies Record<ModelCatalogEndpoint, string>;
+
+export const rateLabels = [
+  ["input", "input / 1M tokens"],
+  ["cache", "cached input / 1M tokens"],
+  ["output", "output / 1M tokens"],
+  ["request", "per request"],
+  ["session", "per session"],
+] as const;
+export const contextFormat = new Intl.NumberFormat("en");
+
+export function endpointDocs(endpoint: ModelCatalogEndpoint) {
+  if (endpoint === "chat/completions") return "/docs/api#create-a-completion";
+  if (["realtime", "audio/translations", "convert/file", "redact", "responses"].includes(endpoint))
+    return "/docs/providers#additional-tinfoil-endpoints";
+  return "/docs/providers#embeddings-decisions-images-and-audio";
+}
+
+export function modelDetailHref({
+  provider,
+  upstreamId,
+}: Pick<ModelCatalogEntry, "provider" | "upstreamId">) {
+  return "/models/" + provider + "/" + upstreamId.split("/").map(encodeURIComponent).join("/");
+}
+
+export function modelPlaygroundHref(model: string, provider: ProviderId) {
+  return "/console?" + new URLSearchParams({ model, provider });
+}
