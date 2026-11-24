@@ -1,38 +1,139 @@
 import { expect, test } from "@playwright/test";
 import { apiBasePath } from "../lib/api-contract";
 
-test("all upstream inventories are discoverable with separate execution mappings", async ({
+type ProviderCatalogResponse = {
+  providers: Record<
+    string,
+    { id: string; chatId?: string | null; pricing?: { input?: number; output?: number } }[]
+  >;
+  active_providers: string[];
+  specializedModels: Record<string, Record<string, { provider: string }>>;
+  realtimeModel: { id: string; provider: string };
+};
+
+type ChatCatalogResponse = {
+  data: { id: string; routes: { provider: string; upstream_model: string }[] }[];
+};
+
+test("the public and workspace model catalogs include every provider model and Sonnely endpoint", async ({
   request,
   page,
 }) => {
-  const response = await request.get(apiBasePath + "/provider-models");
-  expect(response.ok()).toBe(true);
-  const catalog = await response.json();
+  const [providerResponse, chatResponse] = await Promise.all([
+    request.get(apiBasePath + "/provider-models"),
+    request.get(apiBasePath + "/models"),
+  ]);
+  expect(providerResponse.ok()).toBe(true);
+  expect(chatResponse.ok()).toBe(true);
+  const catalog: ProviderCatalogResponse = await providerResponse.json();
+  const chat: ChatCatalogResponse = await chatResponse.json();
   expect(Object.keys(catalog.providers)).toEqual(["near-ai", "phala", "tinfoil"]);
-  expect(catalog.providers["near-ai"].map(({ id }: { id: string }) => id)).toContain(
-    "anthropic/claude-fable-5",
-  );
-  expect(catalog.providers.phala.map(({ id }: { id: string }) => id)).toContain("qwen/qwen3-asr-1.7b");
-  expect(catalog.providers.tinfoil.map(({ id }: { id: string }) => id)).toContain("nomic-embed-text");
-  expect(catalog.specializedModels.embeddings["nomic-embed-text"].provider).toBe("tinfoil");
 
-  const models = await (await request.get(apiBasePath + "/models")).json();
-  const modelIds = models.data.map(({ id }: { id: string }) => id);
-  expect(modelIds).toContain("tinfoil/inkling-2-small");
-  expect(modelIds).not.toContain("anthropic/claude-fable-5");
-  expect(modelIds).not.toContain("Qwen/Qwen3-Reranker-0.6B");
+  const specialized = Object.entries(catalog.specializedModels).flatMap(([endpoint, routes]) =>
+    Object.entries(routes).map(([model, { provider }]) => ({ endpoint, model, provider })),
+  );
+  specialized.push({
+    endpoint: "realtime",
+    model: catalog.realtimeModel.id,
+    provider: catalog.realtimeModel.provider,
+  });
+  const expectedRows = Object.entries(catalog.providers).flatMap(([provider, entries]) =>
+    entries.map((entry) => {
+      const routes = specialized
+        .filter(
+          (route) =>
+            route.provider === provider && (route.model === entry.id || route.model === entry.chatId),
+        )
+        .map(({ endpoint, model }) => endpoint + " " + model);
+      if (entry.chatId && entry.pricing?.input !== undefined && entry.pricing.output !== undefined)
+        routes.push("chat/completions " + entry.chatId);
+      const active = catalog.active_providers.includes(provider);
+      const status = routes.length === 0 ? "Provider catalog only" : active ? "" : "Unavailable";
+      return {
+        provider,
+        upstreamModel: entry.id,
+        routes: routes.sort(),
+        status,
+      };
+    }),
+  );
+  for (const route of specialized) {
+    expect(
+      expectedRows.some(
+        ({ provider, routes }) =>
+          provider === route.provider && routes.includes(route.endpoint + " " + route.model),
+      ),
+    ).toBe(true);
+  }
+  expect(
+    expectedRows
+      .filter(({ provider }) => catalog.active_providers.includes(provider))
+      .flatMap(({ provider, upstreamModel, routes }) =>
+        routes
+          .filter((route) => route.startsWith("chat/completions "))
+          .map((route) => [provider, upstreamModel, route.slice("chat/completions ".length)].join(" ")),
+      )
+      .sort(),
+  ).toEqual(
+    chat.data
+      .flatMap(({ id, routes }) =>
+        routes.map(({ provider, upstream_model }) => [provider, upstream_model, id].join(" ")),
+      )
+      .sort(),
+  );
 
   await page.setViewportSize({ width: 320, height: 800 });
-  await page.goto("/models");
-  const inventory = page.getByRole("region", { name: "Full provider catalogs" });
-  for (const name of ["NEAR AI", "Phala", "Tinfoil"]) {
-    await inventory
-      .locator("summary")
-      .filter({ hasText: name + " ·" })
-      .click();
+  for (const path of ["/models", "/console/models"]) {
+    await page.goto(path);
+    const table = page.getByRole("table", { name: "Model rates and context" });
+    const rows = table.locator("tbody tr");
+    await expect(rows).toHaveCount(expectedRows.length);
+    const rendered = await rows.evaluateAll((tableRows) =>
+      tableRows.map((row) => ({
+        provider: row.getAttribute("data-provider"),
+        upstreamModel: row.getAttribute("data-upstream-model"),
+        routes: Array.from(
+          row.querySelectorAll("[data-endpoint]"),
+          (route) => route.getAttribute("data-endpoint") + " " + route.getAttribute("data-model-id"),
+        ).sort(),
+        status: row.querySelector(".catalog-availability")?.textContent ?? "",
+      })),
+    );
+    const byModel = (row: { provider: string | null; upstreamModel: string | null }) =>
+      row.provider + "/" + row.upstreamModel;
+    expect(rendered.sort((a, b) => byModel(a).localeCompare(byModel(b)))).toEqual(
+      [...expectedRows].sort((a, b) => byModel(a).localeCompare(byModel(b))),
+    );
+    const flux = rows.filter({
+      has: page.locator('[data-model-id="black-forest-labs/FLUX.2-klein-4B"]'),
+    });
+    for (const endpoint of ["images/generations", "images/edits"]) {
+      await expect(flux.locator('[data-endpoint="' + endpoint + '"]')).toContainText(/\$[\d.]+ per request/);
+    }
+    await expect(table.locator('[data-endpoint="realtime"]')).toContainText(/\$[\d.]+ per session/);
+    const redaction = table.locator('[data-endpoint="redact"]');
+    await expect(redaction).toContainText(/\$[\d.]+ input \/ 1M tokens/);
+    await expect(redaction).toContainText(/\$[\d.]+ per request/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+
+    const providerFilter = page.getByRole("combobox", { name: "Provider", exact: true });
+    const workloadFilter = page.getByRole("combobox", { name: "Workload", exact: true });
+    const availabilityFilter = page.getByRole("combobox", { name: "Availability", exact: true });
+    const search = page.getByRole("searchbox", { name: "Find a model", exact: true });
+    await availabilityFilter.selectOption("available");
+    await expect(rows).toHaveCount(expectedRows.filter(({ status }) => status === "").length);
+    await availabilityFilter.selectOption("catalog");
+    await expect(rows).toHaveCount(
+      expectedRows.filter(({ status }) => status === "Provider catalog only").length,
+    );
+    await availabilityFilter.selectOption("all");
+    await providerFilter.selectOption("tinfoil");
+    await workloadFilter.selectOption("embeddings");
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toHaveAttribute("data-upstream-model", "nomic-embed-text");
+    await search.fill("does not match a model");
+    await expect(page.getByText("No models match your filters.", { exact: true })).toBeVisible();
   }
-  await expect(inventory.getByText("nomic-embed-text", { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 });
 
 test("non-chat routes enforce auth and reject incompatible models or parameters", async ({ request }) => {

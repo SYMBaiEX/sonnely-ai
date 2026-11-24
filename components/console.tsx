@@ -37,7 +37,7 @@ import { Admin } from "./admin";
 import { Chat } from "./chat";
 import { Playground } from "./playground";
 
-import { ModelCatalog } from "./shared";
+import { ModelCatalog } from "./model-catalog";
 import type { ProviderId } from "@/lib/provider-catalog";
 import { Billing, Keys, Referrals, SettingsPanel, Usage, type Preferences } from "./workspace";
 import { Onboarding } from "./onboarding";
@@ -430,7 +430,7 @@ export function ConsoleScreen({
           <WorkspaceHeading
             icon={Cpu}
             title="Models"
-            description="Compare models, context windows, and token rates."
+            description="Browse provider models, supported endpoints, and rates."
           />
           <ModelCatalog availableProviders={availableProviders} />
         </>

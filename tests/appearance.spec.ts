@@ -122,6 +122,8 @@ test("request stages, catalog ordering and keyboard navigation work", async ({ p
   await expect(page.locator("#request-path-detail")).toContainText("hardware-isolated environment");
   await expect(page.getByRole("link", { name: "Attestation guide" })).toBeVisible();
   await page.goto("/models");
+  await page.getByRole("combobox", { name: "Provider", exact: true }).selectOption("near-ai");
+  await page.getByRole("combobox", { name: "Workload", exact: true }).selectOption("chat/completions");
   await page.getByRole("combobox", { name: "Sort models" }).selectOption("input");
   await expect(
     page.getByRole("table", { name: "Model rates and context" }).getByRole("heading").first(),
@@ -430,9 +432,9 @@ test("journal filtering, contact topics and mobile navigation remain usable", as
   await page.getByRole("button", { name: /Billing USDC/ }).click();
   await expect(page.getByRole("combobox", { name: "Topic" })).toHaveValue("Billing");
   await page.goto("/models");
-  const deepSeek = page
-    .getByRole("row")
-    .filter({ has: page.getByRole("heading", { name: "DeepSeek V4.1 Flash", exact: true }) });
+  const deepSeek = page.locator(
+    '[data-provider="near-ai"][data-upstream-model="deepseek-ai/DeepSeek-V4.1-Flash-1017"]',
+  );
   await expect(deepSeek.getByText("$0.0066", { exact: true })).toBeVisible();
   for (const path of [
     "/",

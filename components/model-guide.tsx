@@ -15,8 +15,8 @@ export function ModelGuide() {
     <section className="content-section" aria-labelledby="compare-models-heading">
       <h2 id="compare-models-heading">Compare models by workload</h2>
       <p>
-        All models accept and return text through Sonnely. Start with one representative prompt and compare
-        the output before committing a budget.
+        Chat Completions models accept and return text through Sonnely. Start with one representative prompt
+        and compare the output before committing a budget.
       </p>
       <dl className="reference-list">
         {featuredModels.map((model) => (

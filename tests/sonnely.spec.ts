@@ -226,16 +226,16 @@ test("public routes and console work across desktop and mobile", async ({ page }
     .filter({ has: page.getByRole("heading", { name: "Qwen 3.6 35B", exact: true }) })
     .getByRole("link", { name: "Open in chat" })
     .click();
-  const route = page.getByRole("button", { name: /Qwen 3\.6 35B/ });
+  const route = page.locator(".playground-route-trigger");
   await expect(route).toContainText("Qwen 3.6 35B");
   await route.click();
   const picker = page.getByRole("dialog", { name: "Choose a model" });
-  await expect(picker.getByRole("radio", { name: /^Qwen 3.6 35B/ })).toBeChecked();
+  await expect(picker.getByRole("radio", { name: /Qwen 3\.6 35B/ })).toBeChecked();
   await picker.getByText("GLM 5.3 Flash", { exact: true }).click();
   await picker.getByRole("button", { name: "Use model" }).click();
   await expect(route).toContainText("GLM 5.3 Flash");
   await expect(route).toBeFocused();
-  await page.getByRole("button", { name: "What is a trusted execution environment?" }).click();
+  await page.getByRole("button", { name: "Private inference" }).click();
   await expect(page.getByText("Sample transcript")).toBeVisible();
   await page.getByRole("button", { name: "Jump to ⌘ K" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Usage", exact: true }).click();
@@ -271,7 +271,7 @@ test("public routes and console work across desktop and mobile", async ({ page }
   await expect(workspaceMenu).toBeFocused();
   await expect(workspaceNav).toBeHidden();
   await route.click();
-  await expect(picker.getByRole("button", { name: "Apply route" })).toBeInViewport();
+  await expect(picker.getByRole("button", { name: "Use model" })).toBeInViewport();
   await picker.getByRole("button", { name: "Cancel" }).click();
   await expect(route).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
@@ -502,7 +502,7 @@ test("published guides link to supported endpoints and workflows", async ({ page
   await page.getByRole("link", { name: "errors and recovery", exact: true }).last().click();
   await expect(page.getByRole("heading", { name: "Errors and recovery", exact: true })).toBeVisible();
   await page.goto("/models");
-  await expect(page.getByRole("table", { name: "Model rates and provider context" })).toContainText(
+  await expect(page.getByRole("table", { name: "Model rates and context" })).toContainText(
     "Qwen 3.6 35B",
   );
   await page.goto("/blog/rotate-api-keys");

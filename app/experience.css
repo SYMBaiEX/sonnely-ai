@@ -102,19 +102,34 @@ html[data-initial-theme="light"]:not(.dark) .docs-shell {
 .catalog-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 10px;
-  align-items: center;
+  gap: 10px;
+  align-items: end;
   margin-bottom: 8px;
 }
 .catalog-tools .search {
-  margin: 0;
-  max-width: 26rem;
-  flex: 1 1 185px;
+  min-width: 0;
+  min-height: 44px;
+  flex: 2 1 160px;
+}
+.catalog-search svg {
+  flex: none;
+}
+.catalog-search input {
+  min-width: 0;
+}
+.catalog-filter {
+  display: grid;
+  flex: 1 1 130px;
+  gap: 4px;
+  min-width: 0;
+  font-size: 0.81rem;
+  color: var(--muted);
 }
 .catalog-tools select {
-  min-height: 42px;
-  width: auto;
-  max-width: 100%;
+  min-height: 44px;
+  width: 100%;
+  min-width: 0;
+  font-size: 0.875rem;
 }
 .catalog-count {
   margin: 0 0 12px;
@@ -519,6 +534,7 @@ html:has(.console-bar) {
 .catalog-list th,
 .catalog-list td {
   padding: 9px clamp(9px, 1.2vw, 17px);
+  vertical-align: top;
 }
 .catalog-list thead th {
   color: var(--muted);
@@ -539,14 +555,19 @@ html:has(.console-bar) {
 .catalog-identity .model-mark {
   flex: 0 0 auto;
 }
+.catalog-list .catalog-identity {
+  align-items: start;
+}
 .catalog-list tbody th {
   white-space: normal;
+  width: 36%;
 }
 .catalog-identity > div {
   min-width: 0;
 }
 .catalog-identity h3 {
   font-size: 15px;
+  overflow-wrap: anywhere;
 }
 .catalog-identity p {
   color: var(--muted);
@@ -555,9 +576,55 @@ html:has(.console-bar) {
   margin-top: 3px;
   max-width: 42ch;
 }
+.catalog-model-id {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 400;
+}
 .catalog-value {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+.catalog-workloads {
+  width: 39%;
+}
+.catalog-endpoints,
+.catalog-rates {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.catalog-endpoints > li + li {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.catalog-endpoints .text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  overflow-wrap: anywhere;
+}
+.catalog-rates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.catalog-rates strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.catalog-provider-only {
+  font-size: 0.85rem;
+}
+.catalog-upstream-workload {
+  display: block;
 }
 .catalog-actions .text-link {
   display: flex;
@@ -565,15 +632,18 @@ html:has(.console-bar) {
 }
 .catalog-row-actions {
   display: flex;
-  align-items: center;
-  gap: 7px 10px;
+  align-items: flex-start;
+  gap: 6px 10px;
   flex-wrap: wrap;
 }
-.catalog-row-actions .button.small {
-  min-height: 30px;
+.catalog-row-actions :is(.button.small, .text-link) {
+  min-height: 32px;
 }
 .catalog-mobile-label {
   display: none;
+}
+.catalog-note a {
+  overflow-wrap: anywhere;
 }
 
 .checkout {
@@ -606,7 +676,7 @@ html:has(.console-bar) {
   margin-inline-start: 8px;
 }
 
-@container catalog (max-width: 55rem) {
+@container catalog (max-width: 46rem) {
   .catalog-list table,
   .catalog-list tbody {
     display: block;
@@ -622,37 +692,32 @@ html:has(.console-bar) {
   }
   .catalog-list tbody tr {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    padding: 8px 12px;
-    column-gap: 9px;
+    gap: 6px;
+    padding: 10px 12px;
   }
   .catalog-list tbody tr:first-child {
     border-top: 0;
   }
   .catalog-list tbody th,
   .catalog-list tbody td {
-    padding: 4px 0;
-  }
-  .catalog-list tbody th,
-  .catalog-list .catalog-actions {
-    grid-column: 1 / -1;
-  }
-  .catalog-list .catalog-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    min-width: 0;
+    width: auto;
+    padding: 2px 0;
   }
   .catalog-list .catalog-actions .button {
     margin: 0;
   }
   .catalog-mobile-label {
-    display: block;
+    display: inline;
+    margin-inline-end: 6px;
     color: var(--muted);
-    font-size: 11px;
-    white-space: normal;
+    font-size: 0.76rem;
+  }
+  .catalog-row-actions :is(.button.small, .text-link) {
+    min-height: 44px;
   }
 }
+
 @media (max-width: 600px) {
   .checkout .payment-qr {
     display: grid;

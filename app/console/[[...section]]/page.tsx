@@ -24,7 +24,7 @@ const sections = [
 export type Section = (typeof sections)[number];
 type Props = {
   params: Promise<{ section?: string[] }>;
-  searchParams: Promise<{ model?: string; run?: string }>;
+  searchParams: Promise<{ model?: string; provider?: string; run?: string }>;
 };
 
 export async function generateMetadata({ params }: Props) {
@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: Props) {
 }
 
 export default async function ConsolePage({ params, searchParams }: Props) {
-  const [{ section }, { model, run }] = await Promise.all([params, searchParams]);
+  const [{ section }, { model, provider, run }] = await Promise.all([params, searchParams]);
   const name = section?.[0] ?? "chat";
   const adminArea = name === "admin" && section?.[1] ? section[1] : undefined;
   const badDepth =
@@ -55,7 +55,8 @@ export default async function ConsolePage({ params, searchParams }: Props) {
     models.find((item) => item.id === model) ??
     models.find((item) => availableProviders.some((id) => providerRoute(item, id))) ??
     models[0];
-  const initialProvider = availableProviders.find((id) => providerRoute(initial, id)) ?? initial.provider;
+  const routes = availableProviders.filter((id) => providerRoute(initial, id));
+  const initialProvider = routes.find((id) => id === provider) ?? routes[0] ?? initial.provider;
   return (
     <ConsoleScreen
       section={name as Section}
