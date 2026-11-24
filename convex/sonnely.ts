@@ -293,12 +293,15 @@ const usageRow = v.object({
   id: v.id("usage"),
   time: v.number(),
   keyName: v.string(),
+  keyId: v.optional(v.id("keys")),
   model: v.string(),
   provider: v.union(v.literal("near-ai"), v.literal("phala"), v.literal("tinfoil")),
   input: v.number(),
   output: v.number(),
   cost: v.number(),
   status: v.string(),
+  cached: v.optional(v.number()),
+  providerMs: v.optional(v.number()),
 });
 
 async function usageRows(ctx: QueryCtx, account: Id<"accounts">, since: number) {
@@ -307,17 +310,33 @@ async function usageRows(ctx: QueryCtx, account: Id<"accounts">, since: number) 
     .withIndex("by_account", (q) => q.eq("account", account).gte("_creationTime", since))
     .order("desc")
     .take(1000);
-  return rows.map(({ _id, _creationTime, keyName, model, provider, input, output, cost, status }) => ({
-    id: _id,
-    time: _creationTime,
-    keyName,
-    model,
-    provider: provider ?? ("near-ai" as const),
-    input,
-    output,
-    cost,
-    status,
-  }));
+  return rows.map(
+    ({ _id, _creationTime, key, keyName, model, provider, input, output, cost, status, usageMaxDetails }) => {
+      const cached = usageMaxDetails?.usage?.cacheReadTokens;
+      const timing = usageMaxDetails?.timing;
+      const providerMs = timing ? timing.providerDoneAt - timing.providerAt : undefined;
+      return {
+        id: _id,
+        time: _creationTime,
+        keyName,
+        keyId: key,
+        model,
+        provider: provider ?? ("near-ai" as const),
+        input,
+        output,
+        cost,
+        status,
+        cached:
+          cached !== undefined && Number.isSafeInteger(cached) && cached >= 0 && cached <= input
+            ? cached
+            : undefined,
+        providerMs:
+          providerMs !== undefined && Number.isSafeInteger(providerMs) && providerMs >= 0
+            ? providerMs
+            : undefined,
+      };
+    },
+  );
 }
 
 export const usage = query({

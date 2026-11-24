@@ -20,6 +20,17 @@ import {
 import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 
+import { providerIds, providerNames, type ProviderId } from "@/lib/provider-models";
+import {
+  filterUsage,
+  noUsageFilters,
+  providerP95,
+  summarizeUsage,
+  usageCsv,
+  usageKey,
+  usageStates,
+} from "@/lib/usage-analytics";
+
 import { creditBalance, creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
 import {
   confidentialPaymentStatus,
@@ -525,6 +536,38 @@ export function Keys({ signedIn }: { signedIn: boolean }) {
   );
 }
 
+const usageModelNames = new Map<string, string>(models.map((model) => [model.id, model.name]));
+const usageModelName = (id: string) => usageModelNames.get(id) ?? id;
+const usageChartMetrics = ["Spend", "Requests", "Tokens", "Errors", "Cached input"] as const;
+const usageGroups = ["Model", "Provider", "Key"] as const;
+type UsageGroup = (typeof usageGroups)[number];
+type UsageMetric = (typeof usageChartMetrics)[number];
+type UsageTotals = ReturnType<typeof summarizeUsage>;
+const breakdownOrders = {
+  spend: "Highest spend",
+  requests: "Most requests",
+  failed: "Most errors",
+  held: "Most held credit",
+  name: "Name",
+} as const;
+const usageCount = new Intl.NumberFormat("en-US");
+const usagePercent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
+
+function usageMetricValue(totals: UsageTotals, metric: UsageMetric) {
+  switch (metric) {
+    case "Spend":
+      return totals.spend;
+    case "Requests":
+      return totals.requests;
+    case "Tokens":
+      return totals.input + totals.output;
+    case "Errors":
+      return totals.failed;
+    case "Cached input":
+      return totals.cacheSamples ? totals.cached : undefined;
+  }
+}
+
 export function Usage({
   signedIn,
   balance,
@@ -538,129 +581,254 @@ export function Usage({
   setRange: (range: number) => void;
   liveRows?: UsageRow[];
 }) {
-  const [metric, setMetric] = useState<"Spend" | "Tokens" | "Requests">("Spend");
-  const [group, setGroup] = useState<"Model" | "Key">("Model");
+  const [metric, setMetric] = useState<UsageMetric>("Spend");
+  const [group, setGroup] = useState<UsageGroup>("Model");
   const [view, setView] = useState<"Chart" | "Table">("Chart");
-  const { data, error } = useRemote<UsageRow[]>(signedIn, "usage?days=" + range);
+  const [order, setOrder] = useState<keyof typeof breakdownOrders>("spend");
+  const [filters, setFilters] = useState(noUsageFilters);
+  const providerFilter = useRef<HTMLSelectElement>(null);
+  const { data, error, reload } = useRemote<UsageRow[]>(signedIn, "usage?days=" + range);
   const usage = signedIn ? (liveRows ?? data) : null;
-  const rows = usage ?? [];
+  const source = usage ?? [];
+  const filtered = Object.values(filters).some(Boolean);
+  const rows = filtered ? filterUsage(source, filters) : source;
   const loading = signedIn && !usage && !error;
+  const capped = source.length >= 1000;
   const activityStatus = !signedIn
     ? "Connect a wallet to see request activity."
     : loading
       ? "Loading activity…"
       : usage
-        ? "No activity in this period."
+        ? filtered
+          ? "No requests match these filters."
+          : "No activity in this period."
         : "Activity is unavailable.";
-  const spend = rows.reduce((sum, row) => sum + (row.status === "complete" ? row.cost : 0), 0);
-  const held = rows.reduce(
-    (sum, row) => sum + (["pending", "unreported"].includes(row.status) ? row.cost : 0),
-    0,
+
+  const modelIds = [...new Set(source.map((row) => row.model))].sort(
+    (a, b) => usageModelName(a).localeCompare(usageModelName(b)) || a.localeCompare(b),
   );
-  const tokens = rows.reduce((sum, row) => sum + row.input + row.output, 0);
-  const grouped = Map.groupBy(rows, (row) => {
-    if (group === "Model") return models.find((model) => model.id === row.model)?.name ?? row.model;
-    return row.keyName;
-  });
+  const keyNames = new Map<string, string>();
+  for (const row of source) {
+    const key = usageKey(row);
+    if (!keyNames.has(key)) keyNames.set(key, row.keyName);
+  }
+  const keyNameCounts = new Map<string, number>();
+  for (const label of keyNames.values()) keyNameCounts.set(label, (keyNameCounts.get(label) ?? 0) + 1);
+  const keyOptions = Array.from(keyNames, ([key, name]) => {
+    const label =
+      (keyNameCounts.get(name) ?? 0) > 1 && key.startsWith("key:") ? `${name} · ${key.slice(-6)}` : name;
+    return [key, label] as const;
+  }).sort((left, right) => left[1].localeCompare(right[1]));
+  const keyLabels = new Map(keyOptions);
+  const updateFilter = (field: keyof typeof filters, value: string) =>
+    setFilters((current) => ({ ...current, [field]: value }));
+
+  const totals = summarizeUsage(rows);
+  const resolved = totals.complete + totals.failed;
+  const providerDuration = providerP95(rows);
+  const stats = [
+    ["Credit balance", balance === undefined ? "—" : creditBalance(balance), "Available workspace credits"],
+    ["Spend", usage ? usd(totals.spend) : "—", "Settled charges"],
+    [
+      "Requests",
+      usage ? usageCount.format(totals.requests) : "—",
+      usage ? `${usageCount.format(totals.failed)} failed` : undefined,
+    ],
+    ["Tokens", usage ? usageCount.format(totals.input + totals.output) : "—", "Input and output combined"],
+    [
+      "Success rate",
+      resolved ? usagePercent.format(totals.complete / resolved) : "—",
+      `${usageCount.format(resolved)} resolved requests`,
+    ],
+    ["Held credits", usage ? usd(totals.held) : "—", "Reserved or under review"],
+    [
+      "Cached input",
+      totals.cacheSamples ? usageCount.format(totals.cached) : "—",
+      totals.cacheSamples
+        ? `${usageCount.format(totals.cacheSamples)} requests reporting cache`
+        : "No cache measurements",
+    ],
+    [
+      "Provider duration p95",
+      providerDuration.value === undefined
+        ? "—"
+        : providerDuration.value < 1000
+          ? `${providerDuration.value} ms`
+          : `${(providerDuration.value / 1000).toFixed(2)} s`,
+      providerDuration.samples
+        ? `${usageCount.format(providerDuration.samples)} measured requests`
+        : "No duration measurements",
+    ],
+  ];
+  const grouped = Map.groupBy(rows, (row) =>
+    group === "Model" ? row.model : group === "Provider" ? row.provider : usageKey(row),
+  );
+  const breakdown = Array.from(grouped, ([id, entries]) => ({
+    id,
+    label:
+      group === "Model"
+        ? usageModelName(id)
+        : group === "Provider"
+          ? (providerNames[id as ProviderId] ?? id)
+          : (keyLabels.get(id) ?? entries[0].keyName),
+    ...summarizeUsage(entries),
+  })).sort((a, b) => (order === "name" ? 0 : b[order] - a[order]) || a.label.localeCompare(b.label));
+
   const daily = Map.groupBy(rows, (row) => day(row.time));
-  const series = Array.from({ length: range }, (_, i) => {
-    const time = Date.now() - (range - i - 1) * 86400_000;
-    const entries = daily.get(day(time)) ?? [];
-    const value = entries.reduce(
-      (sum, row) =>
-        sum +
-        (metric === "Spend"
-          ? row.status === "complete"
-            ? row.cost
-            : 0
-          : metric === "Tokens"
-            ? row.input + row.output
-            : 1),
-      0,
-    );
+  const firstSampleAt = capped ? source[source.length - 1].time : undefined;
+  const firstSampleDay = firstSampleAt === undefined ? undefined : day(firstSampleAt);
+  const now = Date.now();
+  const series = Array.from({ length: range }, (_, index) => {
+    const time = now - (range - index - 1) * 86_400_000;
+    const dateKey = day(time);
+    const value =
+      firstSampleDay && dateKey < firstSampleDay
+        ? undefined
+        : usageMetricValue(summarizeUsage(daily.get(dateKey) ?? []), metric);
     return { time, value };
   });
-  const high = Math.max(1, ...series.map((point) => point.value));
+  const high = Math.max(1, ...series.map((point) => point.value ?? 0));
+  const hasMetric = series.some((point) => point.value !== undefined);
+  const metricValue = (value: number | undefined) =>
+    value === undefined ? "—" : metric === "Spend" ? usd(value) : usageCount.format(value);
+
   function exportCsv() {
-    const escape = (value: string | number) => {
-      const text = String(value);
-      return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
-    };
-    const lines = [
-      "time,model,input,output,cost,status",
-      ...rows.map((row) =>
-        [
-          new Date(row.time).toISOString(),
-          row.model,
-          row.input,
-          row.output,
-          creditDecimal(row.cost),
-          row.status,
-        ]
-          .map(escape)
-          .join(","),
-      ),
-    ];
-    const url = URL.createObjectURL(new Blob([lines.join("\n") + "\n"], { type: "text/csv" }));
+    const url = URL.createObjectURL(new Blob([usageCsv(rows)], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = "sonnely-usage-" + day(Date.now()) + ".csv";
     link.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
   return (
     <>
       <WorkspaceHeading
         icon={BarChart3}
         title="Usage"
-        description="Track requests, tokens, and spend across models and providers. Dates are in UTC."
+        description="Track charges, tokens, and request performance. Dates use UTC."
       >
         <button type="button" className="button quiet" disabled={!rows.length} onClick={exportCsv}>
-          <Download size={15} /> Export CSV
+          <Download size={15} aria-hidden="true" /> Export CSV
         </button>
         <label className="control-label">
           Date range
-          <select value={range} onChange={(e) => setRange(Number(e.target.value))}>
+          <select value={range} onChange={(event) => setRange(Number(event.target.value))}>
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
             <option value={90}>Last 90 days</option>
           </select>
         </label>
       </WorkspaceHeading>
-      <Failure message={liveRows ? "" : error} />
-      <div className="stat-grid">
-        {[
-          ["Credit balance", balance === undefined ? "—" : creditBalance(balance)],
-          ["Spend", usage ? usd(spend) : "—"],
-          ["Requests", usage ? rows.length : "—"],
-          ["Tokens", usage ? tokens.toLocaleString() : "—"],
-        ].map(([label, value]) => (
+      {!liveRows && error && (
+        <div className="actions">
+          <Failure message={error} />
+          <button type="button" className="button quiet" onClick={reload}>
+            Retry usage
+          </button>
+        </div>
+      )}
+      {signedIn && (
+        <section className="panel usage-filters" aria-label="Usage filters">
+          <div className="usage-filter-grid">
+            <label className="control-label">
+              Provider
+              <select
+                ref={providerFilter}
+                value={filters.provider}
+                onChange={(event) => updateFilter("provider", event.target.value)}
+              >
+                <option value="">All providers</option>
+                {providerIds.map((id) => (
+                  <option key={id} value={id}>
+                    {providerNames[id]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="control-label">
+              Model
+              <select value={filters.model} onChange={(event) => updateFilter("model", event.target.value)}>
+                <option value="">All models</option>
+                {filters.model && !modelIds.includes(filters.model) && (
+                  <option value={filters.model}>{usageModelName(filters.model)}</option>
+                )}
+                {modelIds.map((id) => (
+                  <option key={id} value={id}>
+                    {usageModelName(id)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="control-label">
+              API key
+              <select value={filters.key} onChange={(event) => updateFilter("key", event.target.value)}>
+                <option value="">All keys</option>
+                {filters.key && !keyLabels.has(filters.key) && (
+                  <option value={filters.key}>Selected key</option>
+                )}
+                {keyOptions.map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="control-label">
+              Status
+              <select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}>
+                <option value="">All statuses</option>
+                {Object.entries(usageStates).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {usage && (
+            <div className="usage-sample">
+              <p className="caption" role="status">
+                {usageCount.format(rows.length)} of {usageCount.format(source.length)} requests shown.
+                {capped && " Analytics and CSV cover the 1,000 most recent requests in this date range."}
+              </p>
+              {filtered && (
+                <button
+                  type="button"
+                  className="button quiet small"
+                  onClick={() => {
+                    setFilters(noUsageFilters);
+                    providerFilter.current?.focus();
+                  }}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+      <div className="stat-grid usage-stats" role="group" aria-label="Usage summary">
+        {stats.map(([label, value, description]) => (
           <div className="panel stat" key={label}>
             <span>{label}</span>
             <strong>{value}</strong>
+            {description && <small>{description}</small>}
           </div>
         ))}
       </div>
-      {held > 0 && <p className="caption">Reserved for unreported or in-progress requests {usd(held)}.</p>}
-      {rows.length === 1000 && (
-        <p className="caption">Showing the 1,000 most recent requests in this period.</p>
-      )}
-      <section className="panel chart-panel">
+      <section className="panel chart-panel" aria-labelledby="usage-chart-heading">
         <div className="between controls">
-          <h2>{metric} by day</h2>
+          <h2 id="usage-chart-heading">{metric} by day</h2>
           <div className="actions">
-            <div className="segmented" aria-label="Chart metric">
-              {(["Spend", "Tokens", "Requests"] as const).map((value) => (
-                <button
-                  type="button"
-                  key={value}
-                  aria-pressed={value === metric}
-                  onClick={() => setMetric(value)}
-                >
-                  {value}
-                </button>
-              ))}
-            </div>
+            <label className="control-label">
+              Chart metric
+              <select value={metric} onChange={(event) => setMetric(event.target.value as UsageMetric)}>
+                {usageChartMetrics.map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </label>
             <div className="segmented" aria-label="Chart view">
               {(["Chart", "Table"] as const).map((value) => (
                 <button
@@ -675,10 +843,15 @@ export function Usage({
             </div>
           </div>
         </div>
-        {!rows.length ? (
+        {firstSampleAt !== undefined && (
+          <p className="caption">Days before {date(firstSampleAt)} fall outside this sample.</p>
+        )}
+        {!rows.length || !hasMetric ? (
           <div className="chart-empty">
-            <BarChart3 size={23} />
-            <p role="status">{activityStatus}</p>
+            <BarChart3 size={23} aria-hidden="true" />
+            <p role="status">
+              {!rows.length ? activityStatus : "No cached input measurements in this view."}
+            </p>
           </div>
         ) : view === "Chart" ? (
           <>
@@ -686,7 +859,7 @@ export function Usage({
               {series.map(({ time, value }) => (
                 <span
                   key={time}
-                  title={shortDate(time) + " · " + (metric === "Spend" ? usd(value) : value)}
+                  title={shortDate(time) + " · " + metricValue(value)}
                   data-empty={!value || undefined}
                   style={{ height: value ? Math.max(1, (value / high) * 100) + "%" : "1px" }}
                 />
@@ -702,19 +875,17 @@ export function Usage({
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>{metric}</th>
+                  <th scope="col">Date (UTC)</th>
+                  <th scope="col">{metric}</th>
                 </tr>
               </thead>
               <tbody>
-                {series
-                  .filter((point) => point.value)
-                  .map(({ time, value }) => (
-                    <tr key={time}>
-                      <td>{date(time)}</td>
-                      <td>{metric === "Spend" ? usd(value) : value}</td>
-                    </tr>
-                  ))}
+                {series.map(({ time, value }) => (
+                  <tr key={time}>
+                    <th scope="row">{date(time)}</th>
+                    <td>{metricValue(value)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -723,20 +894,32 @@ export function Usage({
       <section className="panel breakdown">
         <div className="between controls">
           <h2 id="request-breakdown">Request breakdown</h2>
-          <div className="segmented" aria-label="Group usage">
-            {(["Model", "Key"] as const).map((value) => (
-              <button
-                type="button"
-                key={value}
-                aria-pressed={value === group}
-                onClick={() => setGroup(value)}
-              >
-                By {value.toLowerCase()}
-              </button>
-            ))}
+          <div className="actions">
+            <div className="segmented" aria-label="Group usage">
+              {usageGroups.map((value) => (
+                <button
+                  type="button"
+                  key={value}
+                  aria-pressed={value === group}
+                  onClick={() => setGroup(value)}
+                >
+                  By {value.toLowerCase()}
+                </button>
+              ))}
+            </div>
+            <label className="control-label">
+              Sort groups
+              <select value={order} onChange={(event) => setOrder(event.target.value as typeof order)}>
+                {Object.entries(breakdownOrders).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
-        {grouped.size ? (
+        {breakdown.length ? (
           <div
             className="table-wrap workspace-data-table"
             role="region"
@@ -746,35 +929,33 @@ export function Usage({
             <table>
               <thead>
                 <tr>
-                  {[group, "Requests", "Failed", "Input", "Output", "Spend"].map((value) => (
-                    <th key={value}>{value}</th>
-                  ))}
+                  {[group, "Requests", "Failed", "Input", "Cached input", "Output", "Spend", "Held"].map(
+                    (value) => (
+                      <th scope="col" key={value}>
+                        {value}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {Array.from(grouped, ([label, groupRows]) => (
-                  <tr key={label}>
-                    <th scope="row">{label}</th>
-                    <td>{groupRows.length}</td>
-                    <td>{groupRows.filter((row) => row.status === "failed").length}</td>
-                    <td>{groupRows.reduce((n, r) => n + r.input, 0)}</td>
-                    <td>{groupRows.reduce((n, r) => n + r.output, 0)}</td>
-                    <td>{usd(groupRows.reduce((n, r) => n + (r.status === "complete" ? r.cost : 0), 0))}</td>
+                {breakdown.map((entry) => (
+                  <tr key={entry.id}>
+                    <th scope="row">{entry.label}</th>
+                    <td>{usageCount.format(entry.requests)}</td>
+                    <td>{usageCount.format(entry.failed)}</td>
+                    <td>{usageCount.format(entry.input)}</td>
+                    <td>{entry.cacheSamples ? usageCount.format(entry.cached) : "—"}</td>
+                    <td>{usageCount.format(entry.output)}</td>
+                    <td>{usd(entry.spend)}</td>
+                    <td>{usd(entry.held)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <p className="caption">
-            {!signedIn
-              ? "Connect a wallet to see the request breakdown."
-              : loading
-                ? "Loading request breakdown…"
-                : usage
-                  ? "No request breakdown for this period."
-                  : "Request breakdown is unavailable."}
-          </p>
+          <p className="caption">{activityStatus}</p>
         )}
       </section>
       {rows.length > 0 && (
@@ -803,9 +984,10 @@ export function Usage({
                 {rows.slice(0, 25).map((row) => (
                   <tr key={row.id}>
                     <th scope="row">
-                      {models.find(({ id }) => id === row.model)?.name ?? row.model}
+                      {usageModelName(row.model)}
                       <div className="caption">
-                        {date(row.time)} · <CopyButton value={row.id} label="Copy request reference" />
+                        {date(row.time)} · {providerNames[row.provider]} ·{" "}
+                        <CopyButton value={row.id} label="Copy request reference" />
                       </div>
                       <Link className="text-link" href={"/console/logs?request=" + encodeURIComponent(row.id)}>
                         View request details
@@ -829,7 +1011,7 @@ export function Usage({
           </Link>
         </section>
       )}
-      {usage && <UsageMax days={range} hasUsage={rows.some((row) => row.status === "complete")} />}
+      {usage && <UsageMax days={range} hasUsage={source.some((row) => row.status === "complete")} />}
     </>
   );
 }
