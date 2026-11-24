@@ -188,7 +188,7 @@ export async function verifyPayment(
   if (verifyNetwork) await verifyCluster(rpc, order.cluster);
   const result = await rpcCall(rpc, "getTransaction", [
     signature,
-    { commitment, encoding: order.sol ? "json" : "jsonParsed", maxSupportedTransactionVersion: 0 },
+    { commitment, encoding: order.sol ? "json" : "jsonParsed", maxSupportedTransactionVersion: 1 },
   ]);
   if (order.sol) return verifySolTransfer(result, wallet, order, order.sol);
   const tx = transaction.safeParse(result);

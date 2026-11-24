@@ -67,7 +67,7 @@ function BudgetSample() {
 function FundingPath() {
   return (
     <div className="gateway-sample gateway-funding">
-      <span>USDC on Solana</span>
+      <span>USDC or SOL</span>
       <ArrowRight size={16} aria-hidden="true" />
       <span>Compute credits</span>
     </div>
@@ -106,7 +106,7 @@ const capabilities = [
     id: "funding",
     icon: Wallet,
     title: "Solana sign-in and funding",
-    body: "Sign in with your Solana wallet. When checkout is available, top up with USDC.",
+    body: "Sign in with your Solana wallet. When checkout is available, top up with USDC or SOL.",
     href: "/docs/billing",
     action: "See how funding works",
     Sample: FundingPath,

@@ -155,8 +155,13 @@ test("NEAR still returns billed costs with new NEAR inference paused", async () 
 
 test("prepares an unsigned, simulated USDC transfer with an indexed reference", async () => {
   const { preparePayment } = await import("../lib/payment-transaction");
-  const { address, getTransactionDecoder, getCompiledTransactionMessageDecoder } =
-    await import("@solana/kit");
+  const {
+    AccountRole,
+    address,
+    decompileTransactionMessage,
+    getTransactionDecoder,
+    getCompiledTransactionMessageDecoder,
+  } = await import("@solana/kit");
   const fetchOriginal = globalThis.fetch;
   try {
     let simulationError: unknown = null;
@@ -168,20 +173,25 @@ test("prepares an unsigned, simulated USDC transfer with an indexed reference", 
       expect(request.params[1]).toMatchObject({ sigVerify: false, encoding: "base64" });
       return Response.json({ result: { value: { err: simulationError } } });
     };
-    for (const version of ["legacy", 0] as const) {
+    for (const version of ["legacy", 0, 1] as const) {
       const encoded = await preparePayment(rpc, payer, order, version);
       const tx = getTransactionDecoder().decode(Buffer.from(encoded, "base64"));
       expect(Object.entries(tx.signatures)).toEqual([[payer, null]]);
-      const message = getCompiledTransactionMessageDecoder().decode(tx.messageBytes);
-      if (message.version !== version) throw new Error("Unexpected transaction version");
+      const compiled = getCompiledTransactionMessageDecoder().decode(tx.messageBytes);
+      if (compiled.version !== version) throw new Error("Unexpected transaction version");
+      const message = decompileTransactionMessage(compiled);
+      if (message.version === 1)
+        expect(message.config).toMatchObject({
+          computeUnitLimit: 200_000,
+          loadedAccountsDataSizeLimit: 4 * 1024 * 1024,
+        });
       const [createAta, transfer] = message.instructions;
       expect(Array.from(createAta.data ?? [])).toEqual([1]);
       expect(Array.from(transfer.data ?? [])).toEqual([12, 64, 75, 76, 0, 0, 0, 0, 0, 6]);
-      const referenceIndex = message.staticAccounts.indexOf(address(order.reference));
-      expect(transfer.accountIndices?.at(-1)).toBe(referenceIndex);
-      expect(referenceIndex).toBeGreaterThanOrEqual(
-        message.staticAccounts.length - message.header.numReadonlyNonSignerAccounts,
-      );
+      expect(transfer.accounts?.at(-1)).toMatchObject({
+        address: address(order.reference),
+        role: AccountRole.READONLY,
+      });
     }
     simulationError = { InstructionError: [1, { Custom: 1 }] };
     await expect(preparePayment(rpc, payer, order, "legacy")).rejects.toThrow("Your wallet needs 5.00 USDC");
@@ -220,10 +230,14 @@ test("native SOL credits require the exact referenced system transfer before quo
     header: { numRequiredSignatures: 1, numReadonlySignedAccounts: 0, numReadonlyUnsignedAccounts: 2 },
     instructions: [{ programIdIndex: 3, accounts: [0, 1, 2], data: bs58.encode(data) }],
   };
-  const result = { blockTime: 1_799_999_999, meta: { err: null }, transaction: { message } };
+  const result = { version: 1, blockTime: 1_799_999_999, meta: { err: null }, transaction: { message } };
   globalThis.fetch = async (_url, init) => {
     const { params } = JSON.parse(String(init?.body));
-    expect(params[1]).toMatchObject({ commitment: "finalized", encoding: "json" });
+    expect(params[1]).toMatchObject({
+      commitment: "finalized",
+      encoding: "json",
+      maxSupportedTransactionVersion: 1,
+    });
     return Response.json({ result });
   };
   try {

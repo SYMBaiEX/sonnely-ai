@@ -3,6 +3,8 @@ import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { test, expect, type BrowserContext } from "@playwright/test";
 import bs58 from "bs58";
 import { models } from "../lib/models";
+import { createSignInMessageText, verifySignIn } from "@solana/wallet-standard-util";
+import type { SolanaSignInInput } from "@solana/wallet-standard-features";
 
 function createWallet() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -48,6 +50,86 @@ async function registerWallet(context: BrowserContext) {
   }, identity);
   return identity.wallet;
 }
+
+test("wallet sign-in uses native SIWS and posts the exact signed bytes", async ({ page }) => {
+  const identity = createWallet();
+  const input = {
+    address: identity.wallet,
+    domain: "localhost",
+    uri: "http://localhost",
+    statement: "Sign in to Sonnely.",
+    nonce: "ab0123456789",
+    version: "1",
+  };
+  let verified = false;
+  await page.exposeFunction("signNativeFixture", (draft: SolanaSignInInput) => {
+    expect(draft).toEqual(input);
+    const message = new TextEncoder().encode(createSignInMessageText(input));
+    return { signedMessage: [...message], signature: identity.sign(message) };
+  });
+  await page.addInitScript(
+    ({ wallet, bytes }) => {
+      const account = {
+        address: wallet,
+        publicKey: Uint8Array.from(bytes),
+        chains: ["solana:mainnet"],
+        features: ["solana:signIn"],
+      };
+      const browser = window as typeof window & {
+        signNativeFixture: (draft: unknown) => Promise<{ signedMessage: number[]; signature: number[] }>;
+      };
+      window.addEventListener("wallet-standard:app-ready", (event) => {
+        (event as CustomEvent).detail.register({
+          version: "1.0.0",
+          name: "Native SIWS fixture",
+          icon: "data:image/png;base64,",
+          accounts: [],
+          chains: account.chains,
+          features: {
+            "standard:connect": { version: "1.0.0", connect: async () => ({ accounts: [account] }) },
+            "solana:signIn": {
+              version: "1.0.0",
+              signIn: async (draft: unknown) => {
+                const result = await browser.signNativeFixture(draft);
+                return [
+                  {
+                    account,
+                    signedMessage: Uint8Array.from(result.signedMessage),
+                    signature: Uint8Array.from(result.signature),
+                  },
+                ];
+              },
+            },
+          },
+        });
+      });
+    },
+    { wallet: identity.wallet, bytes: identity.bytes },
+  );
+  await page.route("**/api/sonnely/session", (route) =>
+    route.fulfill({
+      json: { enabled: true, profile: verified ? { wallet: identity.wallet, balance: 0 } : null },
+    }),
+  );
+  await page.route("**/api/sonnely/challenge", (route) =>
+    route.fulfill({ json: { input, message: createSignInMessageText(input) } }),
+  );
+  await page.route("**/api/sonnely/verify", (route) => {
+    const { wallet, signature, signedMessage } = route.request().postDataJSON();
+    expect(wallet).toBe(identity.wallet);
+    verified = verifySignIn(input, {
+      account: { address: wallet, publicKey: Uint8Array.from(identity.bytes), chains: [], features: [] },
+      signature: Uint8Array.from(signature),
+      signedMessage: Uint8Array.from(signedMessage),
+    });
+    expect(verified).toBe(true);
+    return route.fulfill({ json: { wallet } });
+  });
+  await page.goto("/console");
+  await page.getByRole("button", { name: "Connect wallet" }).click();
+  await page.getByRole("button", { name: "Native SIWS fixture" }).click();
+  await expect.poll(() => verified).toBe(true);
+});
 
 test("public routes and console work across desktop and mobile", async ({ page }) => {
   await page.goto("/");

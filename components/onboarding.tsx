@@ -207,7 +207,7 @@ export function Onboarding({
               <>
                 <p>
                   {canFund
-                    ? "Choose any positive USDC amount on Solana. You’ll review the transfer before signing it in your wallet."
+                    ? "Choose a credit amount in Billing. You’ll review the asset, amount, and network before signing in your wallet."
                     : "Open the Playground to try a model, then create a budgeted key when you’re ready to build."}
                 </p>
                 <div className={styles.actions}>

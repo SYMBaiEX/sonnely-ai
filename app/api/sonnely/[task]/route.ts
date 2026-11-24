@@ -174,6 +174,7 @@ export async function POST(request: NextRequest, context: Context) {
       };
       const response = json({
         message: createSignInMessageText(input),
+        input,
       });
       response.cookies.set("sonnely_challenge", seal(secret, JSON.stringify(input)), {
         ...cookie,
@@ -183,8 +184,13 @@ export async function POST(request: NextRequest, context: Context) {
     }
 
     if (task === "verify") {
-      const { wallet, signature, invite } = z
-        .object({ wallet: address, signature: signatureBytes(64), invite: inviteCode.optional() })
+      const { wallet, signature, signedMessage, invite } = z
+        .object({
+          wallet: address,
+          signature: signatureBytes(64),
+          signedMessage: z.array(z.int().min(0).max(255)).min(1).max(2048).optional(),
+          invite: inviteCode.optional(),
+        })
         .parse(raw);
       const input = JSON.parse(
         unseal(
@@ -203,13 +209,13 @@ export async function POST(request: NextRequest, context: Context) {
       ) {
         throw new SonnelyError("Start a new sign-in challenge.", 401);
       }
-      const signedMessage = new TextEncoder().encode(
+      const expectedMessage = new TextEncoder().encode(
         createSignInMessageText({ ...input, address: wallet, domain: input.domain }),
       );
       const publicKey = bs58.decode(wallet);
       const verified = verifySignIn(input, {
         account: { address: wallet, publicKey, chains: [], features: [] },
-        signedMessage,
+        signedMessage: signedMessage ? Uint8Array.from(signedMessage) : expectedMessage,
         signature: Uint8Array.from(signature),
       });
       if (!verified) throw new SonnelyError("Wallet signature could not be verified.", 401);
@@ -402,7 +408,7 @@ export async function POST(request: NextRequest, context: Context) {
       const { reference, signature, version } = z
         .object({
           reference: address,
-          version: z.union([z.literal("legacy"), z.literal(0)]).optional(),
+          version: z.union([z.literal("legacy"), z.literal(0), z.literal(1)]).optional(),
           signature: z
             .string()
             .min(64)
