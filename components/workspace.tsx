@@ -2,11 +2,9 @@
 
 import { UsageMax } from "./usage-max";
 import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useConnectedWallet, useIsWalletReady } from "@solana/kit-plugin-wallet/react";
 import {
   ArrowUpRight,
   BarChart3,
-  ChevronDown,
   CircleHelp,
   Code2,
   Download,
@@ -23,7 +21,11 @@ import Link from "next/link";
 import { models, shorten, usd } from "@/lib/models";
 
 import { creditBalance, creditDecimal, parseCreditAmount } from "@/lib/credit-amount";
-import { confidentialPilotAmount, type ConfidentialPilotOrder } from "@/lib/confidential-pilot-types";
+import {
+  confidentialPaymentStatus,
+  type ConfidentialPayment,
+  type ConfidentialPaymentsSnapshot,
+} from "@/lib/confidential-payment-types";
 import { solDecimal, type SolPayment } from "@/lib/sol-quote";
 import { intentFunds, type FundingQuote, type IntentFund } from "@/lib/intent-funding";
 import { MotionSwitch } from "./ambient-motion";
@@ -31,12 +33,7 @@ import { IntentsCheckout } from "./intents-checkout";
 import { CopyButton } from "./shared";
 import type { Theme } from "@/lib/appearance";
 import { usernameHelp } from "@/lib/username";
-import {
-  confidentialPilotWalletIssue,
-  prepareConfidentialPilot,
-  signConfidentialPilot,
-} from "./confidential-usdc-wallet";
-import { solanaWalletClients } from "./solana-wallet";
+import { ConfidentialCheckout, confidentialPaymentsRoute } from "./confidential-checkout";
 import { payWithWallet, request, type Session, type UsageRow } from "./wallet";
 import { WorkspaceHeading } from "./workspace-heading";
 
@@ -69,8 +66,9 @@ function Failure({ message }: { message: string }) {
   ) : null;
 }
 
-function useRemote<T>(enabled: boolean, route: string) {
-  const [state, setState] = useState<{ route: string; version: number; data?: T; error?: string }>();
+function useRemote<T>(enabled: boolean, route: string, options?: { keepPrevious?: boolean; scope?: string }) {
+  const { keepPrevious, scope } = options ?? {};
+  const [state, setState] = useState<{ route: string; scope?: string; version: number; data?: T; error?: string }>();
   const [version, setVersion] = useState(0);
   useEffect(() => {
     if (!enabled) {
@@ -80,12 +78,13 @@ function useRemote<T>(enabled: boolean, route: string) {
     let alive = true;
     void request<T>(route)
       .then((data) => {
-        if (alive) setState({ route, version, data });
+        if (alive) setState({ route, scope, version, data });
       })
       .catch((error) => {
         if (alive)
           setState({
             route,
+            scope,
             version,
             error: error instanceof Error ? error.message : "Could not load this page.",
           });
@@ -93,8 +92,11 @@ function useRemote<T>(enabled: boolean, route: string) {
     return () => {
       alive = false;
     };
-  }, [enabled, route, version]);
-  const current = enabled && state?.route === route && state.version === version ? state : undefined;
+  }, [enabled, route, scope, version]);
+  const current =
+    enabled && state?.route === route && state.scope === scope && (keepPrevious || state.version === version)
+      ? state
+      : undefined;
   return {
     data: current?.data ?? null,
     error: current?.error ?? "",
@@ -844,259 +846,6 @@ type Receipt = {
   archivedAt?: number;
 };
 
-const confidentialPilotRoute = "confidential-pilot/";
-
-function ConfidentialBilling({ wallet, refresh }: { wallet: string; refresh: () => Promise<void> }) {
-  const [expanded, setExpanded] = useState(false);
-  const summary = useRef<HTMLElement>(null);
-  const review = useRef<HTMLHeadingElement>(null);
-  const pilotStatus = useRef<HTMLParagraphElement>(null);
-  const [currentOrder, setCurrentOrder] = useState<ConfidentialPilotOrder>();
-  const [draft, setDraft] = useState<Awaited<ReturnType<typeof prepareConfidentialPilot>>>();
-  const [signed, setSigned] = useState<string>();
-  const [pending, setPending] = useState<"prepare" | "send" | "check">();
-  const [paymentError, setPaymentError] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("");
-  const { data, error, reload } = useRemote<{ treasuryRegistered: boolean; walletRegistered: boolean }>(
-    expanded,
-    "billing-privacy-rings",
-  );
-  const pilot = useRemote<{ available: boolean; order: ConfidentialPilotOrder | null }>(
-    expanded,
-    confidentialPilotRoute + "order",
-  );
-  const client = solanaWalletClients.mainnet;
-  const connected = useConnectedWallet(client);
-  const walletReady = useIsWalletReady(client);
-  const matchingWallet =
-    connected?.account.address === wallet && connected.account.chains.includes("solana:mainnet")
-      ? connected
-      : null;
-  const transactionSupport = !walletReady
-    ? "Checking connected wallet…"
-    : !matchingWallet
-      ? "Connect your signed-in wallet"
-      : matchingWallet.supportedTransactionVersions.has(1)
-        ? `${matchingWallet.wallet.name} reports support`
-        : `${matchingWallet.wallet.name} · support unavailable`;
-  const treasuryRegistered = data?.treasuryRegistered;
-  const walletRegistered = data?.walletRegistered;
-  const order = currentOrder ?? pilot.data?.order;
-  const waitForSignature = order?.status === "pending" ? order.submission?.signature : undefined;
-  const walletIssue = walletReady ? confidentialPilotWalletIssue(wallet, matchingWallet ?? undefined) : "Checking connected wallet…";
-  const canPrepare = Boolean(pilot.data?.available && treasuryRegistered && walletRegistered && !walletIssue);
-  const registrationLabel = (registered?: boolean) =>
-    error ? "Unavailable" : registered === undefined ? "Checking…" : registered ? "Registered" : "Unregistered";
-  const registrationStatus = error
-    ? "Privacy Rings registration status is unavailable."
-    : data
-      ? `Treasury: ${registrationLabel(treasuryRegistered)}. Your wallet: ${registrationLabel(walletRegistered)}.`
-      : "Checking mainnet Privacy Rings registration…";
-
-  async function receiveOrder(result: ConfidentialPilotOrder) {
-    setCurrentOrder(result);
-    if (result.status === "finalized") {
-      setDraft(undefined);
-      setSigned(undefined);
-      setPaymentError("");
-      setPaymentStatus("Confidential payment finalized. $0.01 in credits added.");
-      await refresh();
-    } else if (!result.submission) {
-      setDraft(undefined);
-      setSigned(undefined);
-      setPaymentError("");
-      setPaymentStatus("The transfer expired or failed. You can prepare it again.");
-    } else {
-      setPaymentStatus("Waiting for Solana finality…");
-    }
-  }
-
-  const reportOrder = useEffectEvent(receiveOrder);
-  const reference = order?.reference;
-  useEffect(() => {
-    if (!reference || !waitForSignature) return;
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function poll() {
-      try {
-        const updated = await request<ConfidentialPilotOrder>(confidentialPilotRoute + "status", { reference });
-        if (stopped) return;
-        await reportOrder(updated);
-        if (updated.status === "finalized" || !updated.submission) return;
-      } catch {
-        // The order stays recoverable if an RPC is temporarily unavailable.
-      }
-      if (!stopped) timer = setTimeout(poll, 7_000);
-    }
-    timer = setTimeout(poll, 7_000);
-    return () => {
-      stopped = true;
-      clearTimeout(timer);
-    };
-  }, [reference, waitForSignature]);
-
-  useEffect(() => {
-    if (draft) review.current?.focus();
-  }, [draft]);
-
-  async function run(action: NonNullable<typeof pending>, callback: () => Promise<void>) {
-    setPending(action);
-    setPaymentError("");
-    try {
-      await callback();
-    } catch (error) {
-      setPaymentError(error instanceof Error ? error.message : "The pilot request failed.");
-    } finally {
-      setPending(undefined);
-    }
-  }
-
-  function prepare() {
-    void run("prepare", async () => {
-      setDraft(undefined);
-      setSigned(undefined);
-      setPaymentStatus("");
-      const next = await request<ConfidentialPilotOrder>(confidentialPilotRoute + "order", {});
-      setCurrentOrder(next);
-      if (next.submission) return;
-      setDraft(await prepareConfidentialPilot(next));
-    });
-  }
-
-  function approve() {
-    if (!order || !draft) return;
-    void run("send", async () => {
-      const transaction = signed ?? await signConfidentialPilot(order, draft);
-      setSigned(transaction);
-      setPaymentStatus("Submitting approved transfer…");
-      const submission = await request<ConfidentialPilotOrder>(confidentialPilotRoute + "submit", {
-        reference: order.reference, transaction, approval: draft.approval,
-      });
-      setDraft(undefined);
-      setSigned(undefined);
-      await receiveOrder(submission);
-      pilotStatus.current?.focus();
-    });
-  }
-
-  return (
-    <details
-      className="billing-confidential"
-      onToggle={(event) => setExpanded(event.currentTarget.open)}
-    >
-      <summary ref={summary}>
-        <Shield size={18} aria-hidden="true" />
-        <span>Confidential USDC</span>
-        <span className="pill">Pilot</span>
-        <ChevronDown size={17} aria-hidden="true" />
-      </summary>
-      <div className="billing-confidential-body">
-        <p role="status" className={error ? "caption" : "visually-hidden"}>
-          {expanded ? registrationStatus : ""}
-        </p>
-        <dl>
-          <div>
-            <dt>Treasury registration</dt>
-            <dd>{registrationLabel(treasuryRegistered)}</dd>
-          </div>
-          <div>
-            <dt>Your wallet registration</dt>
-            <dd>{registrationLabel(walletRegistered)}</dd>
-          </div>
-          <div>
-            <dt>Solana v1 transactions</dt>
-            <dd>{transactionSupport}</dd>
-          </div>
-        </dl>
-        {error && (
-          <button
-            type="button"
-            className="button quiet"
-            onClick={() => {
-              summary.current?.focus();
-              reload();
-            }}
-          >
-            Retry registration check
-          </button>
-        )}
-        {expanded && (
-          <div className="billing-pilot-transfer">
-            <p className="caption">
-              Pay 0.01 USDC from your Privacy Rings balance. The wallet addresses and order reference are public.
-              Helius’s attested prover processes private proof inputs. Sonnely reads this transfer to verify your credits.
-            </p>
-            {!pilot.error && !pilot.data && <p role="status" className="caption">Checking pilot availability…</p>}
-            {pilot.error && (
-              <button type="button" className="button quiet" onClick={() => {
-                summary.current?.focus();
-                pilot.reload();
-              }}>Retry checkout status</button>
-            )}
-            {pilot.data && !pilot.data.available && (
-              <p className="caption">This wallet or deployment is unavailable for the pilot.</p>
-            )}
-            {pilot.data?.available && walletIssue && !waitForSignature && <p className="caption">{walletIssue}</p>}
-            {order?.status === "finalized" && order.signature && (
-              <p className="caption">
-                Latest test credited {creditBalance(confidentialPilotAmount)}.{" "}
-                <a className="text-link" href={`https://explorer.solana.com/tx/${order.signature}`}>
-                  View transaction <ArrowUpRight size={14} aria-hidden="true" />
-                </a>
-              </p>
-            )}
-            <p
-              className={paymentStatus || waitForSignature ? "status" : "visually-hidden"}
-              ref={pilotStatus}
-              tabIndex={-1}
-              role="status"
-            >
-              {paymentStatus || (waitForSignature ? "Waiting for Solana finality…" : "")}
-            </p>
-            <Failure message={paymentError} />
-            {waitForSignature && (
-              <button
-                type="button"
-                className="button quiet"
-                disabled={Boolean(pending)}
-                onClick={() => void run("check", async () => receiveOrder(await request<ConfidentialPilotOrder>(
-                  confidentialPilotRoute + "status", { reference },
-                )))}
-              >
-                {pending === "check" ? "Checking…" : "Check payment"}
-              </button>
-            )}
-            {draft && order && (
-              <section className="checkout" aria-labelledby="confidential-pilot-review">
-                <h3 id="confidential-pilot-review" tabIndex={-1} ref={review}>Review 0.01 USDC</h3>
-                <dl>
-                  <div><dt>Network</dt><dd>Solana mainnet</dd></div>
-                  <div><dt>Recipient</dt><dd>{order.treasury}</dd></div>
-                  <div><dt>Fee payer</dt><dd>{order.payer}</dd></div>
-                  <div><dt>Simulated SOL cost</dt><dd>{solDecimal(Number(draft.payerDebitLamports))} SOL</dd></div>
-                </dl>
-                <button type="button" className="button accent" disabled={Boolean(pending) || Boolean(!signed && walletIssue)} onClick={approve}>
-                  {pending === "send" ? "Waiting for approval…" : signed ? "Retry signed transfer" : "Approve 0.01 USDC"}
-                </button>
-                {!waitForSignature && (
-                  <button type="button" className="button quiet" disabled={Boolean(pending)} onClick={prepare}>
-                    Prepare a fresh simulation
-                  </button>
-                )}
-              </section>
-            )}
-            {!draft && !waitForSignature && pilot.data?.available && (
-              <button type="button" className="button quiet" disabled={!canPrepare || Boolean(pending)} onClick={prepare}>
-                {pending === "prepare" ? "Preparing test transfer…" : "Prepare 0.01 USDC test"}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </details>
-  );
-}
-
 export function Billing({
   session,
   refresh,
@@ -1112,9 +861,33 @@ export function Billing({
   const intentsWidgetUrl = intentsFunding?.widgetUrl;
   const { data, error, reload } = useRemote<Receipt[]>(Boolean(profile), "history");
   const [dollars, setDollars] = useState("5");
-  const [method, setMethod] = useState<"usdc" | "sol" | "other">("usdc");
+  const [method, setMethod] = useState<"usdc" | "sol" | "confidential" | "other">("usdc");
   const showSol = Boolean(solFunding && session?.cluster === "mainnet");
+  const showConfidential = Boolean(profile && session?.cluster === "mainnet");
   const showOther = Boolean(intentsFunding && session?.cluster === "mainnet");
+  const confidential = useRemote<ConfidentialPaymentsSnapshot>(
+    showConfidential,
+    confidentialPaymentsRoute + "orders",
+    { keepPrevious: true, scope: profile?.wallet },
+  );
+  const [confidentialSelection, setConfidentialSelection] = useState<{
+    wallet: string;
+    order: ConfidentialPayment | null;
+  }>();
+  const selectedPayment = confidentialSelection?.wallet === profile?.wallet ? confidentialSelection : undefined;
+  const confidentialOrder = selectedPayment ? selectedPayment.order : confidential.data?.order ?? null;
+  const confidentialHistory = new Map(
+    (confidential.data?.history ?? []).map((payment) => [payment.reference, payment]),
+  );
+  if (confidentialOrder) confidentialHistory.set(confidentialOrder.reference, confidentialOrder);
+  const paymentHistory = [
+    ...(data ?? []).map((item) => ({ kind: "public" as const, item, time: item.time })),
+    ...Array.from(confidentialHistory.values(), (item) => ({
+      kind: "confidential" as const,
+      item,
+      time: item.createdAt,
+    })),
+  ].sort((left, right) => right.time - left.time);
   const [fund, setFund] = useState<IntentFund>("sol");
   const [fundAmount, setFundAmount] = useState("0.1");
   const [refundTo, setRefundTo] = useState("");
@@ -1211,6 +984,13 @@ export function Billing({
     openPayment(payment);
   }
 
+  function selectConfidentialPayment(payment: ConfidentialPayment | null) {
+    if (!profile) return;
+    setConfidentialSelection({ wallet: profile.wallet, order: payment });
+    if (payment) confidential.reload();
+    if (payment?.status === "credited") void refresh().catch(() => {});
+  }
+
   async function run(name: string, action: () => Promise<void>) {
     setPending(name);
     setFailure(undefined);
@@ -1259,7 +1039,7 @@ export function Billing({
             <h2>Buy credits</h2>
             <span className="pill">{session?.billingEnabled ? session.cluster : "Solana Pay"}</span>
           </div>
-          {(showSol || showOther) && (
+          {(showSol || showConfidential || showOther) && (
             <fieldset className="billing-payment-method">
               <legend>Payment method</legend>
               <div className="billing-payment-options">
@@ -1267,6 +1047,7 @@ export function Billing({
                   [
                     { id: "usdc", label: "USDC", available: true },
                     { id: "sol", label: "SOL", available: showSol },
+                    { id: "confidential", label: "Confidential USDC", available: showConfidential },
                     { id: "other", label: "Other crypto", available: showOther },
                   ] as const
                 )
@@ -1291,7 +1072,7 @@ export function Billing({
               </div>
             </fieldset>
           )}
-          {method !== "other" && (
+          {(method === "usdc" || method === "sol") && (
             <>
               <p className="caption">
                 {session?.termsRequired
@@ -1366,6 +1147,19 @@ export function Billing({
               </form>
               {failure?.action === "deposit" && <Failure message={failure.message} />}
             </>
+          )}
+          {method === "confidential" && showConfidential && (
+            <ConfidentialCheckout
+              key={profile?.wallet}
+              order={confidentialOrder}
+              available={Boolean(confidential.data?.available && session?.billingEnabled)}
+              loading={!confidential.data && !confidential.error}
+              lookupError={confidential.error}
+              retry={confidential.reload}
+              amount={dollars}
+              changeAmount={setDollars}
+              onOrder={selectConfidentialPayment}
+            />
           )}
           {method === "other" && showOther && intentsWidgetUrl && (
             <IntentsCheckout
@@ -1611,18 +1405,12 @@ export function Billing({
               </details>
             </section>
           )}
-          {profile?.role === "admin" && session?.cluster === "mainnet" && (
-            <ConfidentialBilling key={profile.wallet} wallet={profile.wallet} refresh={async () => {
-              reload();
-              await refresh();
-            }} />
-          )}
         </section>
         <section className="panel breakdown billing-history">
           <h2 id="payment-history" ref={historyHeading} tabIndex={-1}>
             Payment history
           </h2>
-          {profile && data?.length ? (
+          {profile && paymentHistory.length > 0 ? (
             <div
               className="table-wrap workspace-data-table payment-history"
               role="region"
@@ -1641,7 +1429,28 @@ export function Billing({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((item) => (
+                  {paymentHistory.map(({ kind, item, time }) => kind === "confidential" ? (
+                    <tr key={item.reference}>
+                      <td>{date(time)}</td>
+                      <td>{item.cluster}</td>
+                      <td>{creditBalance(item.amount)}</td>
+                      <td>Confidential USDC</td>
+                      <td>{confidentialPaymentStatus(item)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="text-link"
+                          disabled={Boolean(pending) || submitted}
+                          onClick={() => {
+                            setMethod("confidential");
+                            selectConfidentialPayment(item);
+                          }}
+                        >
+                          View payment
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
                     <tr key={item.reference}>
                       <td>{date(item.time)}</td>
                       <td>{item.cluster}</td>

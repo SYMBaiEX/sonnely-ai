@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { auth, requireAdmin } from "./access";
+import { creditedConfidentialDeposits } from "./ledger";
 
 const span = 86_400_000;
 const limit = 2_000;
@@ -55,12 +56,13 @@ export const daily = query({
   handler: async (ctx, args) => {
     await requireAdmin(ctx, args);
     const range = Math.min(90, Math.max(7, Math.round(args.days)));
-    const [usage, deposits, accounts] = await Promise.all([
+    const since = Date.parse(utcDay(Date.now() - (range - 1) * span));
+    const [usage, deposits, confidential, accounts] = await Promise.all([
       ctx.db.query("usage").order("desc").take(limit),
       ctx.db.query("deposits").order("desc").take(limit),
+      creditedConfidentialDeposits(ctx, since, limit),
       ctx.db.query("accounts").order("desc").take(limit),
     ]);
-    const since = Date.parse(utcDay(Date.now() - (range - 1) * span));
     const days: DayBucket[] = [];
     const buckets = new Map<string, DayBucket>();
     for (let offset = 0; offset < range; offset++) {
@@ -113,6 +115,12 @@ export const daily = query({
       bucket.deposits++;
       bucket.depositUsd += row.amount;
     }
+    for (const row of confidential) {
+      const bucket = buckets.get(utcDay(row.resolvedAt ?? row._creationTime));
+      if (!bucket) continue;
+      bucket.deposits++;
+      bucket.depositUsd += row.amount;
+    }
     for (const row of accounts) {
       if (row._creationTime < since) continue;
       const bucket = buckets.get(utcDay(row._creationTime));
@@ -149,7 +157,7 @@ export const daily = query({
       .map(([route, requests]) => ({ provider: route, requests }));
     return {
       days,
-      truncated: usage.length === limit || deposits.length === limit || accounts.length === limit,
+      truncated: [usage, deposits, confidential, accounts].some((rows) => rows.length === limit),
       topCustomers,
       topModels,
       providerSplit,

@@ -1,6 +1,5 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { blockhash, createSolanaRpc, signature, type Base64EncodedWireTransaction } from "@solana/kit";
-import bs58 from "bs58";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { api } from "@/convex/_generated/api";
@@ -13,7 +12,6 @@ import type { ConfidentialPilotOrder } from "@/lib/confidential-pilot-types";
 import { publicInference } from "@/lib/managed-access";
 import { address, billing, finalizedBlockHeight, verifyCluster } from "@/lib/payments";
 import { termsVersion } from "@/lib/policy";
-import { billingPrivacyRingsStatus } from "@/lib/privacy-rings";
 import {
   verifyPrivacyRingsPilotDraft,
   verifyPrivacyRingsPilotReceipt,
@@ -125,20 +123,7 @@ export async function POST(request: NextRequest, { params }: Context) {
     const raw = await readBody(request, operation === "relay" ? relayLimit : 12_000);
 
     if (operation === "order") {
-      z.strictObject({}).parse(raw);
-      if (!config) throw new SonnelyError("Confidential USDC is unavailable on this deployment.", 503);
-      if (config.treasury === payer)
-        throw new SonnelyError("Use a separate paying wallet for the pilot.", 409);
-      const readiness = await billingPrivacyRingsStatus(payer);
-      if (!readiness.treasuryRegistered || !readiness.walletRegistered)
-        throw new SonnelyError("Both wallets need a finalized Privacy Rings registration.", 409);
-      return json(
-        await db.mutation(api.confidentialPilot.open, {
-          ...auth,
-          treasury: config.treasury,
-          reference: bs58.encode(randomBytes(32)),
-        }),
-      );
+      throw new SonnelyError("Start a new Confidential USDC payment in Billing.", 410);
     }
 
     if (!["relay", "simulate", "submit", "status"].includes(operation))

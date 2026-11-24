@@ -6,6 +6,7 @@ import { auth, requireAdmin, requireOperator, walletRole } from "./access";
 import { recordAudit, recordEvent } from "./events";
 import { termsVersion } from "../lib/policy";
 import { firstConversion } from "./referralPipeline";
+import { hasCreditedDeposit } from "./ledger";
 import { taskDoc } from "./crmTasks";
 
 const state = v.union(v.literal("open"), v.literal("in_progress"), v.literal("resolved"));
@@ -220,13 +221,8 @@ export const customers = query({
     const sort = args.sort ?? "recent";
     const since = Date.now() - 30 * 86_400_000;
     const signals = async (account: Id<"accounts">) => {
-      const [deposit, request] = await Promise.all([
-        ctx.db
-          .query("deposits")
-          .withIndex("by_account_cluster_signature", (q) =>
-            q.eq("account", account).eq("cluster", "mainnet").gt("signature", undefined),
-          )
-          .first(),
+      const [funded, request] = await Promise.all([
+        hasCreditedDeposit(ctx, account),
         ctx.db
           .query("usage")
           .withIndex("by_account_status_time", (q) =>
@@ -234,7 +230,7 @@ export const customers = query({
           )
           .first(),
       ]);
-      return { funded: Boolean(deposit), active: Boolean(request) };
+      return { funded, active: Boolean(request) };
     };
     if (!flag && !funded && active === undefined && sort === "recent") {
       const result = await rows.paginate({ ...args.page, numItems: 30 });
@@ -463,7 +459,7 @@ export const customer = query({
       inviter: v.optional(identity),
       deposits: v.array(
         v.object({
-          id: v.id("deposits"),
+          id: v.union(v.id("deposits"), v.id("confidentialPaymentOrders")),
           time: v.number(),
           amount: v.number(),
           cluster: v.string(),
@@ -518,6 +514,7 @@ export const customer = query({
     const [
       inviter,
       deposits,
+      confidentialDeposits,
       usageRows,
       tickets,
       notes,
@@ -533,6 +530,11 @@ export const customer = query({
       ctx.db
         .query("deposits")
         .withIndex("by_account", (q) => q.eq("account", account._id))
+        .order("desc")
+        .take(500),
+      ctx.db
+        .query("confidentialPaymentOrders")
+        .withIndex("by_account_and_status", (q) => q.eq("account", account._id).eq("status", "credited"))
         .order("desc")
         .take(500),
       ctx.db
@@ -612,17 +614,30 @@ export const customer = query({
     return {
       customer: customerDoc(account),
       ...conversion,
+      funded: conversion.funded || confidentialDeposits.length > 0,
       acceptedTerms: account.termsVersion,
       acceptedAt: account.termsAcceptedAt,
       inviter: inviter ? customerDoc(inviter) : undefined,
-      deposits: deposits.slice(0, 12).map((row) => ({
-        id: row._id,
-        time: row.finalizedAt ?? row._creationTime,
-        amount: row.amount,
-        cluster: row.cluster,
-        reference: row.reference,
-        signature: row.signature,
-      })),
+      deposits: [
+        ...deposits.map((row) => ({
+          id: row._id,
+          time: row.finalizedAt ?? row._creationTime,
+          amount: row.amount,
+          cluster: row.cluster,
+          reference: row.reference,
+          signature: row.signature,
+        })),
+        ...confidentialDeposits.map((row) => ({
+          id: row._id,
+          time: row.resolvedAt ?? row._creationTime,
+          amount: row.amount,
+          cluster: "mainnet",
+          reference: row.reference,
+          signature: row.signature,
+        })),
+      ]
+        .sort((left, right) => right.time - left.time)
+        .slice(0, 12),
       traces: usageRows.slice(0, 12).map((row) => traceDoc(row, account.wallet)),
       tickets: await Promise.all(tickets.map((row) => ticketDoc(ctx, row))),
       suspended: flagRows.some((row) => row.flag === "suspended"),
@@ -648,9 +663,9 @@ export const customer = query({
       tasks: await Promise.all(followUps.map((row) => taskDoc(ctx, row))),
       timeline,
       stats: {
-        totalDeposits: deposits
-          .filter((row) => row.finalizedAt !== undefined)
-          .reduce((sum, row) => sum + row.amount, 0),
+        totalDeposits:
+          deposits.filter((row) => row.finalizedAt !== undefined).reduce((sum, row) => sum + row.amount, 0) +
+          confidentialDeposits.reduce((sum, row) => sum + row.amount, 0),
         totalSpend: usageRows
           .filter((row) => row.status === "complete")
           .reduce((sum, row) => sum + row.cost, 0),
@@ -825,16 +840,28 @@ export const activation = query({
     const cohort = accounts.slice(0, 200);
     const milestones = await Promise.all(
       cohort.map(async (row) => {
-        const [deposit, conversion] = await Promise.all([
+        const [deposit, confidential, credited, conversion] = await Promise.all([
           ctx.db
             .query("deposits")
             .withIndex("by_account_cluster_signature", (q) =>
               q.eq("account", row._id).eq("cluster", "mainnet"),
             )
             .first(),
+          ctx.db
+            .query("confidentialPaymentOrders")
+            .withIndex("by_account", (q) => q.eq("account", row._id))
+            .first(),
+          ctx.db
+            .query("confidentialPaymentOrders")
+            .withIndex("by_account_and_status", (q) => q.eq("account", row._id).eq("status", "credited"))
+            .first(),
           firstConversion(ctx, row._id),
         ]);
-        return { payment: Boolean(deposit), ...conversion };
+        return {
+          ...conversion,
+          payment: Boolean(deposit || confidential),
+          funded: conversion.funded || Boolean(credited),
+        };
       }),
     );
     return {

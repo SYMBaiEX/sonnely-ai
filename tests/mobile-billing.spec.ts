@@ -35,7 +35,6 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   let signed = false;
   let credited = false;
   let checkedSignature = false;
-  let registryReads = 0;
   const finality = Promise.withResolvers<void>();
   const signatureBytes = new Uint8Array(64).fill(17);
   const expectedSignature = getBase58Decoder().decode(signatureBytes);
@@ -108,13 +107,8 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
         });
       case "history":
         return route.fulfill({ json: [] });
-      case "billing-privacy-rings":
-        expect(route.request().method()).toBe("GET");
-        if (++registryReads === 1) return route.fulfill({ status: 503, json: { error: "RPC unavailable" } });
-        return route.fulfill({ json: { cluster: "mainnet", treasuryRegistered: true, walletRegistered: false } });
-      case "order":
-        expect(route.request().method()).toBe("GET");
-        return route.fulfill({ json: { available: true, order: null } });
+      case "orders":
+        return route.fulfill({ json: { available: true, order: null, history: [] } });
       case "deposit": {
         const { dollars } = route.request().postDataJSON();
         expect(["5", "0.10"]).toContain(dollars);
@@ -159,26 +153,8 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   await page.goto("/console/billing");
   const input = page.getByRole("spinbutton", { name: "Amount in USDC" });
   await expect(input).toHaveValue("5");
-  const privacy = page.locator("details").filter({ hasText: "Confidential USDC" });
-  const disclosure = privacy.locator("summary");
-  await expect(disclosure).toHaveText(/Confidential USDC.*Pilot/);
-  expect(registryReads).toBe(0);
-  await disclosure.focus();
-  await disclosure.press("Enter");
-  await expect(privacy.getByText("Privacy Rings registration status is unavailable.")).toBeVisible();
-  await privacy.getByRole("button", { name: "Retry registration check" }).press("Enter");
-  await expect(disclosure).toBeFocused();
-  await expect(privacy.getByText("Registered", { exact: true })).toBeVisible();
-  await expect(privacy.getByText("Unregistered", { exact: true })).toBeVisible();
-  await expect(privacy.getByText("Connect your signed-in wallet")).toBeVisible();
-  await expect(privacy.getByRole("button", { name: "Prepare 0.01 USDC test" })).toBeDisabled();
-  expect(signed).toBe(false);
-  await expect(privacy.getByRole("button", { name: /pay/i })).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
   await page.getByRole("button", { name: /wallet options/ }).click();
   await page.getByRole("button", { name: "Payment fixture" }).click();
-  await expect(privacy.getByText("Payment fixture reports support")).toBeVisible();
-  await expect(privacy.getByRole("button", { name: "Prepare 0.01 USDC test" })).toBeDisabled();
   await page.getByRole("button", { name: "Continue to payment" }).click();
   await expect(page.getByRole("heading", { name: "Pay $5.00 in USDC" })).toBeFocused();
   const review = page.getByRole("region", { name: "Review transfer" });
@@ -268,50 +244,81 @@ test("an archived payment stays recoverable and cannot be reused for checkout", 
   await expect(page.getByRole("link", { name: "Finalized" })).toBeVisible();
 });
 
-test("a submitted confidential test resumes and credits after finality", async ({ page }) => {
-  const testSignature = getBase58Decoder().decode(new Uint8Array(64).fill(32));
+test("a customer can submit a native confidential payment and track credits after review", async ({ page }) => {
+  const signature = getBase58Decoder().decode(new Uint8Array(64).fill(32));
+  const createdAt = Date.now();
   const order = {
     reference,
     payer: wallet,
     treasury: firstReference,
     cluster: "mainnet",
     amount: 10_000,
-    createdAt: Date.now(),
-    status: "pending",
-    submission: { signature: testSignature, messageHash: "a".repeat(64), lastValidBlockHeight: 50 },
+    createdAt,
+    expiresAt: createdAt + 60 * 60 * 1000,
   };
-  let credited = false;
+  let state: "awaiting_payment" | "under_review" | "credited" | null = null;
+  let submitted = 0;
+  const payment = () =>
+    state ? { ...order, status: state, ...(state !== "awaiting_payment" ? { signature } : {}) } : null;
+
   await page.route("**/api/sonnely/**", async (route) => {
-    switch (new URL(route.request().url()).pathname.split("/").at(-1)) {
+    const url = new URL(route.request().url());
+    switch (url.pathname.split("/").at(-1)) {
       case "session":
-        return route.fulfill({ json: {
-          profile: { wallet, name: "Pilot", role: "admin", balance: credited ? 10_000 : 0, onboarding: "later" },
-          enabled: true, billingEnabled: true, cluster: "mainnet",
-        } });
+        return route.fulfill({
+          json: {
+            profile: { wallet, name: "Customer", role: "member", balance: state === "credited" ? 10_000 : 0, onboarding: "later" },
+            enabled: true,
+            billingEnabled: true,
+            cluster: "mainnet",
+          },
+        });
       case "history":
         return route.fulfill({ json: [] });
-      case "billing-privacy-rings":
-        return route.fulfill({ json: { treasuryRegistered: true, walletRegistered: true } });
+      case "orders":
+        if (route.request().method() === "POST") {
+          expect(route.request().postDataJSON()).toEqual({ amount: "0.01" });
+          state = "awaiting_payment";
+          return route.fulfill({ json: payment() });
+        }
+        return route.fulfill({ json: { available: true, order: payment(), history: payment() ? [payment()] : [] } });
+      case "submit":
+        expect(route.request().postDataJSON()).toEqual({ reference, signature });
+        state = "under_review";
+        submitted++;
+        return route.fulfill({ json: payment() });
       case "order":
-        expect(route.request().method()).toBe("GET");
-        return route.fulfill({ json: { available: true, order } });
-      case "status":
-        expect(route.request().postDataJSON()).toEqual({ reference });
-        credited = true;
-        return route.fulfill({ json: { ...order, status: "finalized", signature: testSignature } });
+        expect(url.searchParams.get("reference")).toBe(reference);
+        state = "credited";
+        return route.fulfill({ json: payment() });
       default:
         return route.continue();
     }
   });
+
   await page.goto("/console/billing");
-  const panel = page.locator("details").filter({ hasText: "Confidential USDC" });
-  await panel.locator("summary").press("Enter");
-  await expect(panel.getByText("Waiting for Solana finality…")).toBeVisible();
-  await expect(panel.getByRole("button", { name: /prepare 0.01/i })).toHaveCount(0);
-  await panel.getByRole("button", { name: "Check payment" }).press("Enter");
-  await expect(panel.getByText("Confidential payment finalized. $0.01 in credits added.")).toBeVisible();
-  await expect(panel.getByRole("link", { name: "View transaction" })).toHaveAttribute("href", `https://explorer.solana.com/tx/${testSignature}`);
+  await page.getByRole("button", { name: "Confidential USDC", exact: true }).press("Enter");
+  await page.getByRole("spinbutton", { name: "Amount in USDC" }).fill("0.01");
+  await page.getByRole("button", { name: "Get payment details" }).press("Enter");
+  const paymentPanel = page.getByRole("region", { name: "0.01 USDC", exact: true });
+  await expect(paymentPanel.getByRole("heading")).toBeFocused();
+  await expect(paymentPanel.getByText("Private Mode → Send")).toBeVisible();
+  await expect(paymentPanel.getByText(firstReference, { exact: true })).toBeVisible();
+  await expect(paymentPanel.getByRole("button", { name: "Copy treasury address" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
+  await paymentPanel.getByRole("textbox", { name: "Transaction signature" }).fill(signature);
+  await paymentPanel.getByRole("button", { name: "Verify payment" }).press("Enter");
+  await expect(paymentPanel.getByText("Under review")).toBeVisible();
+  await expect(page.locator(".amount")).toHaveText("$0.00");
+
+  await page.reload();
+  await page.getByRole("button", { name: "View payment" }).click();
+  await expect(paymentPanel.getByText("Under review")).toBeVisible();
+  await paymentPanel.getByRole("button", { name: "Refresh status" }).press("Enter");
+  await expect(paymentPanel.getByText("Credited", { exact: true })).toBeVisible();
+  await expect(paymentPanel.getByRole("link", { name: "View transaction" })).toHaveAttribute("href", `https://explorer.solana.com/tx/${signature}`);
   await expect(page.locator(".amount")).toHaveText("$0.01");
+  expect(submitted).toBe(1);
 });
 
 test("mainnet checkout quotes and shows a direct SOL transfer", async ({ page }) => {

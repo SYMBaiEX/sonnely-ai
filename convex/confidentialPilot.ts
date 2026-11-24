@@ -1,4 +1,3 @@
-import bs58 from "bs58";
 import { ConvexError, v } from "convex/values";
 import { confidentialPilotAmount } from "../lib/confidential-pilot-types";
 import { mainnetMint } from "../lib/payments";
@@ -6,7 +5,7 @@ import type { Doc } from "./_generated/dataModel";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { auth, requireAdmin } from "./access";
 import { recordEvent } from "./events";
-import { assertDepositSignatureUnused } from "./ledger";
+import { assertDepositReferenceUnused, assertDepositSignatureUnused, base58Bytes } from "./ledger";
 
 const submissionFields = {
   signature: v.string(),
@@ -26,15 +25,6 @@ const orderView = v.object({
   signature: v.optional(v.string()),
   finalizedAt: v.optional(v.number()),
 });
-
-function base58Bytes(value: string, size: 32 | 64) {
-  if (value.length < size || value.length > (size === 32 ? 44 : 88)) return false;
-  try {
-    return bs58.decode(value).length === size;
-  } catch {
-    return false;
-  }
-}
 
 function view(row: Doc<"confidentialPilotOrders">): typeof orderView.type {
   const {
@@ -127,17 +117,7 @@ export const open = mutation({
       return view(existing);
     }
 
-    const [existingPilot, existingDeposit] = await Promise.all([
-      ctx.db
-        .query("confidentialPilotOrders")
-        .withIndex("by_reference", (q) => q.eq("reference", reference))
-        .unique(),
-      ctx.db
-        .query("deposits")
-        .withIndex("by_reference", (q) => q.eq("reference", reference))
-        .unique(),
-    ]);
-    if (existingPilot || existingDeposit) throw new ConvexError("Payment reference already exists.");
+    await assertDepositReferenceUnused(ctx, reference);
     const id = await ctx.db.insert("confidentialPilotOrders", {
       account: account._id,
       payer: account.wallet,
@@ -215,7 +195,7 @@ export const finalize = mutation({
     if (row.submission?.signature !== signature)
       throw new ConvexError("No matching confidential payment submission.");
 
-    await assertDepositSignatureUnused(ctx, signature, row._id);
+    await assertDepositSignatureUnused(ctx, signature, { pilot: row._id });
     const balance = account.balance + confidentialPilotAmount;
     if (!Number.isSafeInteger(balance))
       throw new ConvexError("The payment exceeds the credit balance limit.");

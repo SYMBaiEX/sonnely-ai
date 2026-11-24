@@ -1,6 +1,7 @@
+import bs58 from "bs58";
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { enqueueGatewaySettlement } from "./usageMaxOutbox";
 
 export async function settleUsage(
@@ -69,9 +70,9 @@ export async function settleUsage(
 export async function assertDepositSignatureUnused(
   ctx: MutationCtx,
   signature: string,
-  pilotOrder?: Id<"confidentialPilotOrders">,
+  owner?: { pilot?: Id<"confidentialPilotOrders">; confidential?: Id<"confidentialPaymentOrders"> },
 ) {
-  const [publicDeposit, confidentialDeposit] = await Promise.all([
+  const [publicDeposit, pilotDeposit, confidentialDeposit] = await Promise.all([
     ctx.db
       .query("deposits")
       .withIndex("by_signature", (q) => q.eq("signature", signature))
@@ -80,9 +81,68 @@ export async function assertDepositSignatureUnused(
       .query("confidentialPilotOrders")
       .withIndex("by_submission_signature", (q) => q.eq("submission.signature", signature))
       .unique(),
+    ctx.db
+      .query("confidentialPaymentOrders")
+      .withIndex("by_signature", (q) => q.eq("signature", signature))
+      .unique(),
   ]);
-  if (publicDeposit || (confidentialDeposit && confidentialDeposit._id !== pilotOrder))
+  if (
+    publicDeposit ||
+    (pilotDeposit && pilotDeposit._id !== owner?.pilot) ||
+    (confidentialDeposit && confidentialDeposit._id !== owner?.confidential)
+  )
     throw new ConvexError("Payment already recorded.");
+}
+
+export async function assertDepositReferenceUnused(ctx: MutationCtx, reference: string) {
+  const matches = await Promise.all([
+    ctx.db
+      .query("deposits")
+      .withIndex("by_reference", (q) => q.eq("reference", reference))
+      .first(),
+    ctx.db
+      .query("confidentialPilotOrders")
+      .withIndex("by_reference", (q) => q.eq("reference", reference))
+      .first(),
+    ctx.db
+      .query("confidentialPaymentOrders")
+      .withIndex("by_reference", (q) => q.eq("reference", reference))
+      .first(),
+  ]);
+  if (matches.some(Boolean)) throw new ConvexError("Payment reference already exists.");
+}
+
+export function base58Bytes(value: string, size: 32 | 64) {
+  if (value.length < size || value.length > (size === 32 ? 44 : 88)) return false;
+  try {
+    return bs58.decode(value).length === size;
+  } catch {
+    return false;
+  }
+}
+
+export function creditedConfidentialDeposits(ctx: QueryCtx, since: number, limit: number) {
+  return ctx.db
+    .query("confidentialPaymentOrders")
+    .withIndex("by_status_and_resolvedAt", (q) => q.eq("status", "credited").gte("resolvedAt", since))
+    .order("desc")
+    .take(limit);
+}
+
+export async function hasCreditedDeposit(ctx: QueryCtx, account: Id<"accounts">) {
+  const [publicDeposit, confidentialDeposit] = await Promise.all([
+    ctx.db
+      .query("deposits")
+      .withIndex("by_account_cluster_signature", (q) =>
+        q.eq("account", account).eq("cluster", "mainnet").gt("signature", undefined),
+      )
+      .first(),
+    ctx.db
+      .query("confidentialPaymentOrders")
+      .withIndex("by_account_and_status", (q) => q.eq("account", account).eq("status", "credited"))
+      .first(),
+  ]);
+  return Boolean(publicDeposit || confidentialDeposit);
 }
 
 export async function creditDeposit(

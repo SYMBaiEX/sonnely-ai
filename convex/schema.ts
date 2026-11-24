@@ -201,6 +201,38 @@ export default defineSchema({
     .index("by_account_and_status", ["account", "status"])
     .index("by_reference", ["reference"])
     .index("by_submission_signature", ["submission.signature"]),
+  confidentialPaymentOrders: defineTable({
+    account: v.id("accounts"),
+    reference: v.string(),
+    payer: v.string(),
+    treasury: v.string(),
+    amount: v.number(),
+    status: v.union(
+      v.literal("awaiting_payment"),
+      v.literal("under_review"),
+      v.literal("credited"),
+      v.literal("rejected"),
+      v.literal("cancelled"),
+      v.literal("expired"),
+    ),
+    expiresAt: v.number(),
+    cancelledAt: v.optional(v.number()),
+    signature: v.optional(v.string()),
+    slot: v.optional(v.number()),
+    blockTime: v.optional(v.number()),
+    submittedAt: v.optional(v.number()),
+    resolvedAt: v.optional(v.number()),
+    reason: v.optional(v.string()),
+    reviewReason: v.optional(
+      v.union(v.literal("details-encrypted"), v.literal("amount-mismatch"), v.literal("asset-mismatch")),
+    ),
+  })
+    .index("by_account", ["account"])
+    .index("by_account_and_status", ["account", "status"])
+    .index("by_reference", ["reference"])
+    .index("by_signature", ["signature"])
+    .index("by_status_and_submittedAt", ["status", "submittedAt"])
+    .index("by_status_and_resolvedAt", ["status", "resolvedAt"]),
   creditResolutions: defineTable({
     usage: v.id("usage"),
     admin: v.id("accounts"),

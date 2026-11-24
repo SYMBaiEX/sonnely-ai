@@ -829,84 +829,37 @@
   background: var(--console-selected);
 }
 
-.billing-confidential {
-  border-block-start: 1px solid var(--line);
-  padding-block-start: .5rem;
-}
-
-.billing-confidential > summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .5rem;
-  min-block-size: var(--console-control-size);
-  padding-inline: .375rem;
-  border-radius: .375rem;
-  list-style: none;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.billing-confidential > summary::-webkit-details-marker {
-  display: none;
-}
-
-.billing-confidential > summary > svg {
-  flex: none;
-  color: var(--muted);
-}
-
-.billing-confidential > summary > .pill {
-  margin-inline-start: auto;
-}
-
-.billing-confidential[open] > summary > svg:last-child {
-  rotate: 180deg;
-}
-
-.billing-confidential-body {
+.confidential-payment-details {
   display: grid;
-  justify-items: start;
-  gap: .875rem;
-  padding: .5rem .375rem 0;
-}
-
-.billing-confidential-body dl {
-  display: grid;
-  gap: .5rem;
-  inline-size: 100%;
+  gap: .625rem;
   margin: 0;
-  font-size: var(--console-caption);
+  min-inline-size: 0;
 }
 
-.billing-confidential-body dl > div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: .125rem .75rem;
-  padding-block-end: .5rem;
+.confidential-payment-details > div {
+  display: grid;
+  gap: .375rem;
+  padding-block-end: .625rem;
   border-block-end: 1px solid var(--line);
 }
 
-.billing-confidential-body dt {
+.confidential-payment-details dt {
   color: var(--muted);
+  font-size: var(--console-caption);
 }
 
-.billing-confidential-body dd {
+.confidential-payment-details dd,
+.confidential-payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .75rem;
   margin: 0;
   min-inline-size: 0;
-  overflow-wrap: anywhere;
-  font-weight: 550;
 }
 
-.billing-pilot-transfer {
-  display: grid;
-  justify-items: start;
-  gap: .75rem;
+.confidential-payment-details code {
   min-inline-size: 0;
-  inline-size: 100%;
-}
-
-.billing-pilot-transfer > .checkout {
-  inline-size: 100%;
+  overflow-wrap: anywhere;
+  font-size: var(--console-caption);
 }
