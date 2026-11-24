@@ -19,7 +19,7 @@
 
 Sonnely is an open-source gateway for confidential model inference. Stream completions through an OpenAI-compatible API, set spending limits on API keys, and see token usage and exact charges in your workspace.
 
-**Sonnely has no project token.** Sign in with a Solana wallet. Fund your workspace with **USDC on Solana** through Solana Pay, and pay for inference from your credit balance. Your wallet pays Solana network fees in SOL. [Funding guide](https://docs.sonnely.com/docs/billing)
+**Sonnely has no project token.** Sign in with a Solana wallet. Fund your workspace with **USDC or native SOL on Solana** through Solana Pay, and pay for inference from your credit balance. Your wallet pays Solana network fees in SOL. [Funding guide](https://docs.sonnely.com/docs/billing)
 
 [![Sonnely homepage with the confidential request path from client to gateway to enclave](docs/screenshots/sonnely-home.webp)](https://sonnely.com)
 
@@ -30,7 +30,7 @@ Sonnely is an open-source gateway for confidential model inference. Stream compl
 
 ## Send your first request
 
-1. Open the [console](https://sonnely.com/console), connect a Solana wallet, and add USDC credits in [Billing](https://sonnely.com/console/billing).
+1. Open the [console](https://sonnely.com/console), connect a Solana wallet, and add credits with USDC or SOL in [Billing](https://sonnely.com/console/billing).
 2. Create a key in [API keys](https://sonnely.com/console/keys). Give temporary keys a lifetime cap and expiry. Load the key into your server environment as `SONNELY_API_KEY`.
 3. Discover the [live model list](https://sonnely.com/api/sonnely/v1/models) and send a completion. This example makes one billable request.
 

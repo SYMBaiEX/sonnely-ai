@@ -22,7 +22,7 @@ const pages = {
   models: ["Model catalog", "Compare the models you can run, what they cost, and the context they support."],
   pricing: [
     "Pay for what you run",
-    "Add USDC to your balance and pay by the token. You can set a budget for each API key.",
+    "Fund your balance with USDC or SOL and pay for inference by the token. You can set a budget for each API key.",
   ],
   blog: [
     "Field notes",
@@ -84,7 +84,7 @@ const briefs = {
   pricing: {
     title: "Inference billing",
     rows: [
-      ["Funding", "USDC on Solana"],
+      ["Funding", "USDC or SOL on Solana"],
       ["Meter", "Reported tokens"],
       ["Sonnely markup", markupPercent + "%"],
     ],
@@ -231,10 +231,10 @@ export default async function Subpage({ params }: Props) {
             <div className="model-cards price-cards">
               <article className="panel benefit">
                 <Wallet />
-                <h3>USDC credits</h3>
+                <h3>Prepaid credits</h3>
                 <p>
-                  Choose your top-up amount in USDC after signing in and accepting the current terms. Credits
-                  post automatically when the Solana transfer finalizes.
+                  After signing in and accepting the current terms, choose a credit amount and pay with USDC
+                  or SOL. Credits post automatically when the Solana transfer finalizes.
                 </p>
                 <Link className="text-link" href="/console/billing">
                   Billing console <ArrowUpRight size={16} />
@@ -302,9 +302,9 @@ export default async function Subpage({ params }: Props) {
               <details name="billing-questions">
                 <summary>What do I need to buy credits?</summary>
                 <p>
-                  Use a compatible wallet with USDC on Solana and enough SOL for network fees and token
-                  account setup if needed. Sign in with the wallet that will pay and approve the transfer from
-                  Billing.
+                  Use a compatible Solana wallet with enough SOL for network fees. Sign in with the wallet
+                  that will pay, then choose SOL or USDC in Billing. A USDC payment can also require token
+                  account setup.
                 </p>
               </details>
               <details name="billing-questions">

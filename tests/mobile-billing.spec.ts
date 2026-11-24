@@ -43,7 +43,7 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
         features: {
           "solana:signAndSendTransaction": {
             version: "1.0.0",
-            supportedTransactionVersions: ["legacy"],
+            supportedTransactionVersions: ["legacy", 0, 1],
             signAndSendTransaction: async (input: { chain: string; transaction: Uint8Array }) => {
               if (input.chain !== chain || input.transaction[0] !== 1)
                 throw new Error("Invalid fixture transfer");
@@ -90,7 +90,7 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
             status: 400,
             json: { error: "Your wallet needs 5.00 USDC on this Solana network for this transfer." },
           });
-        expect(route.request().postDataJSON()).toEqual({ reference, version: "legacy" });
+        expect(route.request().postDataJSON()).toEqual({ reference, version: 1 });
         return route.fulfill({ json: { transaction: "AQ==" } });
       case "confirm":
         if (route.request().postDataJSON().reference === firstReference)

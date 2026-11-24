@@ -8,6 +8,9 @@ import { StandardConnect, type StandardConnectFeature } from "@wallet-standard/f
 import {
   SolanaSignAndSendTransaction,
   SolanaSignMessage,
+  SolanaSignIn,
+  type SolanaSignInFeature,
+  type SolanaSignInInput,
   type SolanaSignAndSendTransactionFeature,
   type SolanaSignMessageFeature,
 } from "@solana/wallet-standard-features";
@@ -116,6 +119,8 @@ export function useSession(liveDays?: number) {
 }
 
 let mobileRegistration: Promise<void> | undefined;
+const mobileAdapterName = "Mobile Wallet Adapter";
+const remoteMobileAdapterName = "Remote Mobile Wallet Adapter";
 
 function registerMobileWallet() {
   if (!window.isSecureContext || !/Android/i.test(navigator.userAgent)) return;
@@ -150,8 +155,13 @@ export async function payWithWallet(
     ];
     if (!account || !feature || !account.features.includes(SolanaSignAndSendTransaction)) continue;
     const versions = feature.supportedTransactionVersions;
-    const version = versions.includes("legacy") ? "legacy" : versions.includes(0) ? 0 : undefined;
-    if (version === undefined || (task === "admin-payout-transaction" && version !== "legacy")) continue;
+    const version =
+      task === "admin-payout-transaction"
+        ? versions.includes("legacy")
+          ? "legacy"
+          : undefined
+        : ([1, 0, "legacy"] as const).find((candidate) => versions.includes(candidate));
+    if (version === undefined) continue;
     const { transaction } = await request<{ transaction: string }>(task, {
       reference,
       version,
@@ -195,7 +205,7 @@ export function WalletControl({
             (wallet) =>
               wallet.chains.some((chain) => chain.startsWith("solana:")) &&
               StandardConnect in wallet.features &&
-              SolanaSignMessage in wallet.features,
+              (SolanaSignIn in wallet.features || SolanaSignMessage in wallet.features),
           ),
       );
     update();
@@ -216,7 +226,8 @@ export function WalletControl({
     setFailure("");
     setBusy(true);
     try {
-      const features = wallet.features as StandardConnectFeature & SolanaSignMessageFeature;
+      const features = wallet.features as StandardConnectFeature &
+        Partial<SolanaSignInFeature & SolanaSignMessageFeature>;
       const { accounts } = await features[StandardConnect].connect();
       if (session?.profile) {
         if (!accounts.some((item) => item.address === session.profile?.wallet))
@@ -226,15 +237,30 @@ export function WalletControl({
       }
       const account = accounts.find((item) => item.chains.some((chain) => chain.startsWith("solana:")));
       if (!account) throw new Error("No Solana account is available in this wallet.");
-      const { message } = await request<{ message: string }>("challenge", { wallet: account.address });
-      const [signed] = await features[SolanaSignMessage].signMessage({
-        account,
-        message: new TextEncoder().encode(message),
+      const { input, message } = await request<{ input: SolanaSignInInput; message: string }>("challenge", {
+        wallet: account.address,
       });
-      if (!signed) throw new Error("No signature was returned.");
+      const signIn = features[SolanaSignIn];
+      const signer = features[SolanaSignMessage];
+      const isMobileAdapter = wallet.name === mobileAdapterName || wallet.name === remoteMobileAdapterName;
+      let signature: Uint8Array | undefined;
+      let signedMessage: Uint8Array | undefined;
+      // Mobile Wallet Adapter can reuse authorization that predates this challenge.
+      if (signIn && input && !isMobileAdapter) {
+        const [output] = await signIn.signIn(input);
+        if (output && output.account.address !== account.address)
+          throw new Error("The wallet signed in with a different address.");
+        signature = output?.signature;
+        signedMessage = output?.signedMessage;
+      } else if (signer && account.features.includes(SolanaSignMessage)) {
+        const [output] = await signer.signMessage({ account, message: new TextEncoder().encode(message) });
+        signature = output?.signature;
+      }
+      if (!signature) throw new Error("No signature was returned.");
       await request("verify", {
         wallet: account.address,
-        signature: [...signed.signature],
+        signature: [...signature],
+        ...(signedMessage ? { signedMessage: [...signedMessage] } : {}),
         invite: sessionStorage.getItem("sonnely.invite") ?? undefined,
       });
       sessionStorage.removeItem("sonnely.invite");
@@ -307,7 +333,7 @@ export function WalletControl({
                     onClick={() => connect(wallet)}
                     disabled={busy}
                   >
-                    {wallet.name === "Mobile Wallet Adapter" ? "Solana mobile wallet" : wallet.name}
+                    {wallet.name === mobileAdapterName ? "Solana mobile wallet" : wallet.name}
                   </button>
                 ))
               ) : (

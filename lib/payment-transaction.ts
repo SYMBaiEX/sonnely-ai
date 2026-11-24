@@ -9,6 +9,7 @@ import {
   getBase64EncodedWireTransaction,
   lamports,
   pipe,
+  setTransactionMessageConfig,
   setTransactionMessageFeePayer,
   setTransactionMessageLifetimeUsingBlockhash,
 } from "@solana/kit";
@@ -42,7 +43,7 @@ export async function preparePaymentEnvelope(
   rpc: string,
   wallet: string,
   order: { amount: number; mint: string; reference: string; recipient: string; sol?: SolPayment },
-  version: "legacy" | 0,
+  version: "legacy" | 0 | 1,
 ) {
   const payer = createNoopSigner(address(wallet));
   const owner = address(order.recipient);
@@ -83,8 +84,15 @@ export async function preparePaymentEnvelope(
         return [createRecipient, { ...transfer, accounts: [...transfer.accounts, reference] }];
       })();
   const { value } = parsedBlockhash.data;
+  const initialMessage =
+    version === 1
+      ? setTransactionMessageConfig(
+          { computeUnitLimit: 200_000, loadedAccountsDataSizeLimit: 4 * 1024 * 1024 },
+          createTransactionMessage({ version: 1 }),
+        )
+      : createTransactionMessage({ version });
   const message = pipe(
-    createTransactionMessage({ version }),
+    initialMessage,
     (tx) => setTransactionMessageFeePayer(payer.address, tx),
     (tx) =>
       setTransactionMessageLifetimeUsingBlockhash(
