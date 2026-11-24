@@ -14,6 +14,7 @@ const sections = [
   "keys",
   "usage",
   "logs",
+  "batch",
   "blackboxes",
   "dry-docks",
   "billing",
@@ -74,6 +75,7 @@ export default async function ConsolePage({ params, searchParams }: Props) {
       initialRun={typeof run === "string" && /^[a-z0-9]{20,80}$/.test(run) ? run : undefined}
       initialProvider={initialProvider}
       availableProviders={availableProviders}
+      agentFeatures={process.env.SONNELY_AGENT_CAPABILITIES === "true"}
     />
   );
 }

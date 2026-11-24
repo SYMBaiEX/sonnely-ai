@@ -12,6 +12,7 @@
     "api",
     "providers",
     "streaming",
+    "batch",
     "attestation",
     "observability",
     "---Compute---",

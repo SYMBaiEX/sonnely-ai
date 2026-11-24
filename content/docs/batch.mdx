@@ -1,0 +1,26 @@
+---
+title: Batch inference
+description: Run, resume, and export a local JSONL batch with your Sonnely credits.
+---
+
+## Prepare the file
+
+Open [Batch](/console/batch) with the Solana wallet whose credits you want to use. Upload up to 200 nonstreaming Chat Completions requests in a JSONL file up to 4 MiB. Put one request on each line and give each request a unique `custom_id`.
+
+```text
+{"custom_id":"summary-001","method":"POST","url":"/v1/chat/completions","body":{"model":"deepseek-ai/DeepSeek-V4.1-Flash-1017","messages":[{"role":"user","content":"Summarize this note in one sentence."}],"max_tokens":128}}
+```
+
+Batch checks the JSONL structure, model, provider, request limits, and estimated reservations before sending anything. Set `provider.only` to pin a provider yourself. Otherwise, Batch shows and pins an available route during preflight. Tool calls and structured outputs require a compatible route. Each row can supply `max_cost_microusd` as a reservation cap. The page shows the total estimated maximum reservation at current rates.
+
+## Run and resume
+
+Select **Run batch** when the file is ready. The browser sends one request at a time and spaces starts at least five seconds apart. Requests use standard inference prices and wallet credits. Keep the app open while it runs. **Pause batch** lets the current request finish and saves its status before stopping.
+
+Reopen Batch with the same wallet and browser to resume. A blocked row can be resumed after you address its sign-in, credit, or request limit issue. A row with an interrupted connection has its own retry control. Retry sends the original checkpoint key so the gateway can identify any existing reservation. When the gateway returns the original reference, open **Request details** to see its settlement. The gateway stores request metadata for lookup and does not replay completion bodies.
+
+## Export and clear
+
+**Download results** exports completed responses as JSONL. **Download errors and status** exports the checkpoint status and any request reference for each remaining row. Both files retain the original `custom_id` and input order for matching.
+
+The uploaded file and result bodies are held in your browser’s local Batch storage. Sonnely receives each request through the normal inference gateway. Each wallet has one saved batch on a browser. Export results before selecting **Clear saved batch** to remove the local files and checkpoints. Preserve any checkpoints you want to investigate. Importing a cleared file again creates a new batch with new request keys.
