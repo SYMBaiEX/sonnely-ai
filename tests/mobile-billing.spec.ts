@@ -25,6 +25,7 @@ test("Android Chrome discovers the Solana mobile wallet and fits the billing pag
     route.fulfill({ json: { profile: null, enabled: true, cluster: "mainnet" } }),
   );
   await page.goto("/console/billing");
+  await expect(page.getByText("Confidential USDC", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Connect wallet" }).click();
   await expect(page.getByRole("button", { name: "Solana mobile wallet" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
@@ -34,6 +35,7 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   let signed = false;
   let credited = false;
   let checkedSignature = false;
+  let registryReads = 0;
   const finality = Promise.withResolvers<void>();
   const signatureBytes = new Uint8Array(64).fill(17);
   const expectedSignature = getBase58Decoder().decode(signatureBytes);
@@ -97,7 +99,7 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
       case "session":
         return route.fulfill({
           json: {
-            profile: { wallet, name: "Pilot", balance: credited ? 100_000 : 0, referral: "fixture" },
+            profile: { wallet, name: "Pilot", role: "admin", balance: credited ? 100_000 : 0, referral: "fixture" },
             enabled: true,
             billingEnabled: true,
             paymentVerificationEnabled: true,
@@ -106,6 +108,10 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
         });
       case "history":
         return route.fulfill({ json: [] });
+      case "billing-privacy-rings":
+        expect(route.request().method()).toBe("GET");
+        if (++registryReads === 1) return route.fulfill({ status: 503, json: { error: "RPC unavailable" } });
+        return route.fulfill({ json: { cluster: "mainnet", treasuryRegistered: true, walletRegistered: false } });
       case "deposit": {
         const { dollars } = route.request().postDataJSON();
         expect(["5", "0.10"]).toContain(dollars);
@@ -150,8 +156,24 @@ test("checkout explains insufficient USDC and confirms a smaller transfer", asyn
   await page.goto("/console/billing");
   const input = page.getByRole("spinbutton", { name: "Amount in USDC" });
   await expect(input).toHaveValue("5");
+  const privacy = page.locator("details").filter({ hasText: "Confidential USDC" });
+  const disclosure = privacy.locator("summary");
+  await expect(disclosure).toHaveText(/Confidential USDC.*Unavailable/);
+  expect(registryReads).toBe(0);
+  await disclosure.focus();
+  await disclosure.press("Enter");
+  await expect(privacy.getByRole("status")).toHaveText("Privacy Rings registration status is unavailable.");
+  await privacy.getByRole("button", { name: "Retry registration check" }).press("Enter");
+  await expect(disclosure).toBeFocused();
+  await expect(privacy.getByText("Registered", { exact: true })).toBeVisible();
+  await expect(privacy.getByText("Unregistered", { exact: true })).toBeVisible();
+  await expect(privacy.getByText("Connect your signed-in wallet")).toBeVisible();
+  expect(signed).toBe(false);
+  await expect(privacy.getByRole("button", { name: /pay/i })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()?.width);
   await page.getByRole("button", { name: /wallet options/ }).click();
   await page.getByRole("button", { name: "Payment fixture" }).click();
+  await expect(privacy.getByText("Payment fixture reports support")).toBeVisible();
   await page.getByRole("button", { name: "Continue to payment" }).click();
   await expect(page.getByRole("heading", { name: "Pay $5.00 in USDC" })).toBeFocused();
   const review = page.getByRole("region", { name: "Review transfer" });
