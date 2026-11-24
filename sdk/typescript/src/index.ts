@@ -44,9 +44,10 @@ export type Completion = {
   }[];
   usage: Usage;
   sonnely_receipt?: Receipt;
+  sonnely_request_id?: string;
 };
 
-export type CompletionChunk = Omit<Completion, "choices" | "object" | "usage"> & {
+export type CompletionChunk = Omit<Completion, "choices" | "object" | "usage" | "sonnely_request_id"> & {
   object: "chat.completion.chunk";
   choices: {
     index: number;
@@ -74,17 +75,30 @@ export type ModelList = {
   }[];
 };
 
-type Options = { receipt?: boolean; signal?: AbortSignal };
+export type ResponseMetadata = { requestId: string | null; retryAfter: string | null };
+export type CompletionOptions = InferenceOptions & {
+  receipt?: boolean;
+  onResponse?: (metadata: ResponseMetadata) => void;
+};
 type ErrorEvent = { error?: { message?: string; code?: number } };
 
 export class SonnelyError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-  ) {
+  readonly requestId: string | null;
+  readonly retryAfter: string | null;
+
+  constructor(message: string, public readonly status: number, details?: ResponseMetadata) {
     super(message);
     this.name = "SonnelyError";
+    this.requestId = details?.requestId ?? null;
+    this.retryAfter = details?.retryAfter ?? null;
   }
+}
+
+function responseMetadata(response: Response): ResponseMetadata {
+  return {
+    requestId: response.headers.get("X-Sonnely-Request-Id"),
+    retryAfter: response.headers.get("Retry-After"),
+  };
 }
 
 export class Sonnely {
@@ -102,12 +116,16 @@ export class Sonnely {
     const res = await this.fetcher(this.baseURL + path, { ...init, redirect: "error" });
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as ErrorEvent | null;
-      throw new SonnelyError(body?.error?.message ?? `Sonnely returned HTTP ${res.status}.`, res.status);
+      throw new SonnelyError(
+        body?.error?.message ?? `Sonnely returned HTTP ${res.status}.`,
+        res.status,
+        responseMetadata(res),
+      );
     }
     return res;
   }
 
-  private create(body: object, { receipt, signal }: Options) {
+  private create(body: object, { receipt, signal, idempotencyKey }: CompletionOptions) {
     if (!this.apiKey) throw new SonnelyError("A Sonnely API key is required for completions.", 401);
     return this.send("/chat/completions", {
       method: "POST",
@@ -116,6 +134,7 @@ export class Sonnely {
         Authorization: "Bearer " + this.apiKey,
         "Content-Type": "application/json",
         ...(receipt ? { "X-Sonnely-Receipt": "v1" } : {}),
+        ...(idempotencyKey !== undefined ? { "Idempotency-Key": idempotencyKey } : {}),
       },
       body: JSON.stringify(body),
     });
@@ -171,19 +190,23 @@ export class Sonnely {
     return (await this.send("/models", { signal })).json() as Promise<ModelList>;
   }
 
-  async complete(body: CompletionRequest, options: Options = {}): Promise<Completion> {
-    return (await this.create({ ...body, stream: false }, options)).json() as Promise<Completion>;
+  async complete(body: CompletionRequest, options: CompletionOptions = {}): Promise<Completion> {
+    const response = await this.create({ ...body, stream: false }, options);
+    const data = (await response.json()) as Completion;
+    options.onResponse?.(responseMetadata(response));
+    return data;
   }
 
   async *stream(
     body: CompletionRequest,
-    options: Options & { includeUsage?: boolean } = {},
+    options: CompletionOptions & { includeUsage?: boolean } = {},
   ): AsyncGenerator<CompletionChunk> {
     const res = await this.create(
       { ...body, stream: true, stream_options: { include_usage: options.includeUsage ?? true } },
       options,
     );
-    if (!res.body) throw new SonnelyError("Sonnely returned an empty stream.", 502);
+    const metadata = responseMetadata(res);
+    if (!res.body) throw new SonnelyError("Sonnely returned an empty stream.", 502, metadata);
 
     const reader = res.body.getReader();
     const decode = new TextDecoder();
@@ -191,6 +214,7 @@ export class Sonnely {
     const parser = createParser({ onEvent: ({ data }) => events.push(data) });
 
     try {
+      options.onResponse?.(metadata);
       for (;;) {
         const { value, done } = await reader.read();
         parser.feed(decode.decode(value, { stream: !done }));
@@ -199,12 +223,12 @@ export class Sonnely {
           if (data === "[DONE]") return;
           const chunk = JSON.parse(data) as CompletionChunk & ErrorEvent;
           if (chunk.error) {
-            throw new SonnelyError(chunk.error.message ?? "Sonnely stream failed.", chunk.error.code ?? 502);
+            throw new SonnelyError(chunk.error.message ?? "Sonnely stream failed.", chunk.error.code ?? 502, metadata);
           }
           yield chunk;
         }
 
-        if (done) throw new SonnelyError("The stream ended before Sonnely confirmed settlement.", 502);
+        if (done) throw new SonnelyError("The stream ended before Sonnely confirmed settlement.", 502, metadata);
       }
     } finally {
       await reader.cancel().catch(() => undefined);

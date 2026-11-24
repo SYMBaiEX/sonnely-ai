@@ -21,3 +21,5 @@ Call `models()` for live routes and rates. Use `stream(request, { receipt: true 
 [SDK guide](https://docs.sonnely.com/docs/sdks) · [API reference](https://docs.sonnely.com/docs/api) · [Usage](https://sonnely.com/console/usage)
 
 Use `infer(endpoint, body)` for Responses, text or file workloads, and WAV speech output. The result includes `data` and `requestId`. Pass a `FormData` body for PDF, audio, and image uploads. Use `providerModels()` for full catalog discovery and `realtimeConnection()` for the URL and bearer headers accepted by a server-side WebSocket client. See the [SDK guide](https://docs.sonnely.com/docs/sdks#specialized-inference).
+
+Pass `idempotencyKey` to `complete` or `stream` when you need to retry an operation. Use `onResponse` to capture the gateway request ID on a successful response. `SonnelyError` exposes `status`, `requestId`, and `retryAfter`. A duplicate key returns HTTP 409 with the original request ID.

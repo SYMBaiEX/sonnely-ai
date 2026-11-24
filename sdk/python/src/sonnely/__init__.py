@@ -4,22 +4,42 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
+from email.message import Message
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-__all__ = ["Sonnely", "SonnelyError"]
+__all__ = ["ResponseMetadata", "Sonnely", "SonnelyError"]
+
+
+@dataclass(frozen=True)
+class ResponseMetadata:
+    """Request metadata returned by the Sonnely gateway."""
+
+    request_id: str | None
+    retry_after: str | None
+
+
+def _response_metadata(headers: Message | None) -> ResponseMetadata:
+    if headers is None:
+        return ResponseMetadata(None, None)
+    return ResponseMetadata(headers.get("X-Sonnely-Request-Id"), headers.get("Retry-After"))
 
 
 class SonnelyError(Exception):
     """An HTTP or stream error from the Sonnely gateway."""
 
-    def __init__(self, message: str, status: int):
+    def __init__(
+        self, message: str, status: int, *, metadata: ResponseMetadata | None = None,
+    ):
         super().__init__(message)
         self.status = status
+        self.request_id: str | None = metadata.request_id if metadata is not None else None
+        self.retry_after: str | None = metadata.retry_after if metadata is not None else None
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -80,7 +100,7 @@ class Sonnely:
                     message = json.load(error)["error"]["message"]
                 except (ValueError, KeyError, TypeError):
                     message = f"Sonnely returned HTTP {error.code}."
-            raise SonnelyError(message, error.code) from None
+            raise SonnelyError(message, error.code, metadata=_response_metadata(error.headers)) from None
 
     def models(self) -> dict[str, Any]:
         """List public models and provider routes."""
@@ -140,17 +160,41 @@ class Sonnely:
             {"Authorization": f"Bearer {self._api_key}"},
         )
 
-    def complete(self, request: dict[str, Any], *, receipt: bool = False) -> dict[str, Any]:
+    def complete(
+        self,
+        request: dict[str, Any],
+        *,
+        receipt: bool = False,
+        idempotency_key: str | None = None,
+        on_response: Callable[[ResponseMetadata], None] | None = None,
+    ) -> dict[str, Any]:
         """Request a single completion."""
-        with self._send("/chat/completions", {**request, "stream": False}, receipt=receipt) as response:
-            return json.load(response)
+        with self._send(
+            "/chat/completions", {**request, "stream": False},
+            receipt=receipt, idempotency_key=idempotency_key,
+        ) as response:
+            data = json.load(response)
+            if on_response is not None:
+                on_response(_response_metadata(response.headers))
+            return data
 
     def stream(
-        self, request: dict[str, Any], *, receipt: bool = False, include_usage: bool = True
+        self,
+        request: dict[str, Any],
+        *,
+        receipt: bool = False,
+        include_usage: bool = True,
+        idempotency_key: str | None = None,
+        on_response: Callable[[ResponseMetadata], None] | None = None,
     ) -> Iterator[dict[str, Any]]:
         """Yield completion chunks and require Sonnely's settlement marker."""
         body = {**request, "stream": True, "stream_options": {"include_usage": include_usage}}
-        with self._send("/chat/completions", body, receipt=receipt) as response:
+        with self._send(
+            "/chat/completions", body, receipt=receipt, idempotency_key=idempotency_key,
+        ) as response:
+            metadata = _response_metadata(response.headers)
+            if on_response is not None:
+                on_response(metadata)
             fields = []
             for raw_line in response:
                 line = raw_line.decode("utf-8").rstrip("\r\n")
@@ -164,6 +208,10 @@ class Sonnely:
                     event = json.loads(data)
                     if "error" in event:
                         error = event["error"]
-                        raise SonnelyError(error.get("message", "Sonnely stream failed."), error.get("code", 502))
+                        raise SonnelyError(
+                            error.get("message", "Sonnely stream failed."),
+                            error.get("code", 502),
+                            metadata=metadata,
+                        )
                     yield event
-        raise SonnelyError("The stream ended before Sonnely confirmed settlement.", 502)
+        raise SonnelyError("The stream ended before Sonnely confirmed settlement.", 502, metadata=metadata)
