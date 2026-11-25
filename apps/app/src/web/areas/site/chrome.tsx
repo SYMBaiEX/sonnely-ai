@@ -8,13 +8,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { footerGroups, headerLinks, productsMenu } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
@@ -158,31 +152,20 @@ function SiteNavigation() {
   const [openPath, setOpenPath] = useState<string | null>(null);
   const mobileOpen = openPath !== null;
   const menu = useRef<HTMLDetailsElement>(null);
-  const mobileToggle = useRef<HTMLButtonElement>(null);
   const consoleAction = (
     <a href="/console/chat" className="button accent">
       Open console <ArrowUpRight size={15} aria-hidden="true" />
     </a>
   );
 
-  useEffect(() => {
-    function dismiss(event: PointerEvent) {
-      const details = menu.current;
-      if (!(event.target instanceof Node)) return;
-      if (details?.open && !details.contains(event.target)) details.open = false;
-      if (mobileOpen && !mobileToggle.current?.closest(".site-nav")?.contains(event.target)) {
-        setOpenPath(null);
-      }
-    }
-    document.addEventListener("pointerdown", dismiss);
-    return () => document.removeEventListener("pointerdown", dismiss);
-  }, [mobileOpen]);
-
   const closeMobile = () => setOpenPath(null);
   const current = typeof window === "undefined" ? "/" : window.location.pathname;
 
   return (
     <>
+      {mobileOpen && (
+        <button type="button" className="nav-dismiss" aria-label="Close navigation" onClick={closeMobile} />
+      )}
       <nav aria-label="Main navigation" data-mobile-open={mobileOpen || undefined}>
         <details
           ref={menu}
@@ -240,7 +223,6 @@ function SiteNavigation() {
         <ThemeSwitch />
         {consoleAction}
         <button
-          ref={mobileToggle}
           className="mobile-menu-control"
           type="button"
           aria-label={mobileOpen ? "Close navigation" : "Open navigation"}

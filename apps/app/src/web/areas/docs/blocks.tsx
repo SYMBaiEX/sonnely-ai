@@ -1,7 +1,10 @@
 // spec/app/docs/index.md, "Story: Read the documentation" — the `@`-directives of a
 // body, rendered as the components they name, markdown around them.
 import {
+  ArrowDown,
   Box,
+  Braces,
+  Copy,
   Cpu,
   Fingerprint,
   LifeBuoy,
@@ -105,11 +108,13 @@ function Block_({ block }: { block: Block }) {
     case "steps":
       return (
         <div className="fd-steps">
-          {block.children.map((step, i) => (
-            <div key={i} className="fd-step">
-              <Blocks blocks={step.kind === "step" ? step.children : [step]} />
-            </div>
-          ))}
+          {block.children
+            .filter((step): step is Block & { kind: "step" } => step.kind === "step")
+            .map((step, i) => (
+              <div key={i} className="fd-step">
+                <Blocks blocks={step.children} />
+              </div>
+            ))}
         </div>
       );
     case "step":
@@ -158,36 +163,50 @@ function Tabs({ block }: { block: Block & { kind: "tabs" } }) {
 
 function ApiReference() {
   const rows: Endpoint[] = apiEndpoints;
+  const baseUrl = apiOrigin + apiBasePath;
   return (
-    <div className="docs-api-reference">
-      <p>
-        Base URL: <code>{apiOrigin + apiBasePath}</code>
-      </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Path</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((e) => (
-            <tr key={`${e.method} ${e.path}`}>
-              <td>
-                <code>{e.method}</code>
-              </td>
-              <td>
-                <a href={e.anchor}>
-                  <code>{e.path}</code>
-                </a>
-              </td>
-              <td>{e.description}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="docs-api-entry">
+      <div className="docs-api-base">
+        <div>
+          <span>
+            <Braces size={16} aria-hidden="true" /> Base URL
+          </span>
+          <code>{baseUrl}</code>
+        </div>
+        <CopyBaseUrl value={baseUrl} />
+      </div>
+      <nav className="docs-endpoints" aria-label="API endpoints">
+        {rows.map((endpoint) => (
+          <a href={endpoint.anchor} key={endpoint.path}>
+            <span className="docs-http-method" data-method={endpoint.method}>
+              {endpoint.method}
+            </span>
+            <span>
+              <code>{endpoint.path}</code>
+              <small>{endpoint.description}</small>
+            </span>
+            <ArrowDown size={16} aria-hidden="true" />
+          </a>
+        ))}
+      </nav>
     </div>
+  );
+}
+
+function CopyBaseUrl({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="docs-copy-base"
+      onClick={() => {
+        void navigator.clipboard.writeText(value).then(() => setCopied(true));
+      }}
+      onBlur={() => setCopied(false)}
+      onPointerLeave={() => setCopied(false)}
+    >
+      <Copy size={14} aria-hidden="true" /> {copied ? "Copied" : "Copy base URL"}
+    </button>
   );
 }
 
@@ -213,7 +232,10 @@ const mdComponents: Components = {
 };
 
 export function Markdown({ lines }: { lines: string[] }) {
-  const text = lines.join("\n").trim();
+  const text = lines
+    .join("\n")
+    .trim()
+    .replace(/\n(?=\d+\. \*\*)/g, "\n\n");
   if (text === "") return null;
   return (
     <div className="docs-prose">

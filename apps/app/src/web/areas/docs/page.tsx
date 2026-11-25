@@ -1,12 +1,30 @@
-// spec/app/docs/index.md, "Story: Read the documentation" — a guide's page:
-// top navigation, a sidebar of sections, the rendered body, a table of
-// contents, and links to the neighbors.
-import { BookOpen, Copy, FileText, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+// spec/app/docs/index.md, "Story: Read the documentation"
+import {
+  ArrowUpRight,
+  BookOpen,
+  Box,
+  ChevronRight,
+  CircleHelp,
+  Copy,
+  FileText,
+  Fingerprint,
+  Rocket,
+  Search,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { docAt, docs, docsIn, sections, slugAfter, slugBefore } from "../../../../gen/app__docs.ts";
 import { bodyLines, markdownUrl, parseBlocks, searchDocs, tocOf } from "../../../docs.ts";
 import "../site/appearance.ts";
+import { MotionSwitch, AmbientVisualizer } from "../site/motion.tsx";
+import { SiteHeader, useAmbientMotion, useTheme } from "../site/chrome.tsx";
 import { Blocks } from "./blocks.tsx";
+
+const sectionIcons = {
+  "Get started": Rocket,
+  Inference: Fingerprint,
+  Compute: Box,
+  Support: CircleHelp,
+} as const;
 
 export function DocsPage({ slug }: { slug: string }) {
   const doc = docAt(slug);
@@ -15,40 +33,37 @@ export function DocsPage({ slug }: { slug: string }) {
   const toc = useMemo(() => tocOf(lines), [lines]);
   const before = slugBefore(slug);
   const after = slugAfter(slug);
+  const motion = useAmbientMotion();
+  const theme = useTheme();
+  const kind = slug === "index" ? "overview" : slug === "api" ? "api" : "guide";
+
   return (
-    <div className="docs-shell">
-      <a href="#docs-page" className="docs-skip">
+    <div className="theme-root site docs-shell" data-theme={theme} data-motion={motion ? "on" : "off"}>
+      <a href="#docs-page" className="skip">
         Skip to documentation
       </a>
-      <header className="docs-topnav">
-        <a href="/" className="docs-topnav-brand">
-          Sonnely
-        </a>
-        <nav className="docs-topnav-links" aria-label="Site">
-          <a href="/inference">Inference</a>
-          <a href="/models">Models</a>
-          <a href="/docs" aria-current="page">
-            Docs
-          </a>
-          <a href="/console/chat">Console</a>
-        </nav>
-        <SearchDocs />
-      </header>
+      <div className="docs-backdrop" data-motion={motion ? "on" : "off"} aria-hidden="true">
+        <div className="workspace-scene" />
+        <AmbientVisualizer motion={motion} theme={theme} />
+      </div>
+      <SiteHeader />
       <div className="docs-layout">
         <Sidebar slug={slug} />
-        <main id="docs-page" className="docs-main">
+        <main id="docs-page" className="docs-main" tabIndex={-1}>
           <article className="docs-article">
-            <header className="docs-article-header">
+            <header className="docs-article-header" data-docs-page={kind}>
               <h1>{doc.title}</h1>
               <p className="docs-article-description">{doc.description}</p>
               <div className="docs-page-actions">
                 <CopyMarkdown slug={slug} />
-                <a className="docs-page-action" href={markdownUrl(slug)} download={`${slug === "index" ? "docs" : slug}.md`}>
-                  <FileText size={14} /> Download Markdown
+                <a className="docs-page-action" href={markdownUrl(slug)}>
+                  View Markdown
                 </a>
               </div>
             </header>
-            <Blocks blocks={blocks} />
+            <div className={kind === "guide" ? "docs-guide" : undefined}>
+              <Blocks blocks={blocks} />
+            </div>
             <footer className="docs-prev-next">
               {before === "" ? <span /> : <a href={`/docs${before === "index" ? "" : `/${before}`}`}>← {docAt(before).title}</a>}
               {after === "" ? <span /> : <a href={`/docs/${after}`}>{docAt(after).title} →</a>}
@@ -74,29 +89,49 @@ export function DocsPage({ slug }: { slug: string }) {
 
 function Sidebar({ slug }: { slug: string }) {
   return (
-    <aside className="docs-sidebar">
-      <a href="/docs" className="docs-sidebar-brand">
-        <BookOpen size={16} /> Documentation
-      </a>
-      <nav className="docs-sidebar-nav" aria-label="Documentation">
-        <a href="/docs" aria-current={slug === "index" ? "page" : undefined}>
-          Overview
+    <aside className="docs-sidebar" aria-label="Documentation sidebar">
+      <div className="docs-sidebar-head">
+        <a href="/docs" className="docs-sidebar-brand">
+          <BookOpen size={18} /> Documentation
         </a>
-        {sections.map((section) => (
-          <section key={section}>
-            <h2>{section}</h2>
-            {docsIn(section).map((d) => (
-              <a key={d.slug} href={`/docs/${d.slug}`} aria-current={d.slug === slug ? "page" : undefined}>
-                {d.title}
-              </a>
-            ))}
-          </section>
-        ))}
+        <SearchDocs />
+      </div>
+      <nav className="docs-sidebar-nav" aria-label="Documentation">
+        <a href="/docs" className="docs-sidebar-link" data-overview="" aria-current={slug === "index" ? "page" : undefined}>
+          <BookOpen size={16} aria-hidden="true" />
+          <span>Overview</span>
+          <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
+        </a>
+        {sections.map((section) => {
+          const Icon = sectionIcons[section as keyof typeof sectionIcons] ?? CircleHelp;
+          return (
+            <section key={section}>
+              <h2 className="docs-sidebar-section">
+                <Icon size={15} aria-hidden="true" /> {section}
+              </h2>
+              {docsIn(section).map((d) => (
+                <a key={d.slug} href={`/docs/${d.slug}`} className="docs-sidebar-link" aria-current={d.slug === slug ? "page" : undefined}>
+                  <span>{d.title}</span>
+                  <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
+                </a>
+              ))}
+            </section>
+          );
+        })}
       </nav>
       <footer className="docs-sidebar-footer">
-        <a href="/">Sonnely</a>
-        <a href="/console/chat">Console</a>
-        <a href="https://status.sonnely.com">Status</a>
+        <nav aria-label="Sonnely links">
+          <a href="/">
+            Sonnely <ArrowUpRight size={13} aria-hidden="true" />
+          </a>
+          <a href="/console/chat">
+            Console <ArrowUpRight size={13} aria-hidden="true" />
+          </a>
+          <a href="/status">
+            Status <ArrowUpRight size={13} aria-hidden="true" />
+          </a>
+        </nav>
+        <MotionSwitch icon />
       </footer>
     </aside>
   );
@@ -104,15 +139,20 @@ function Sidebar({ slug }: { slug: string }) {
 
 function CopyMarkdown({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = async () => {
+    const copy = async () => {
     const doc = docAt(slug);
     const { pageMarkdown } = await import("../../../docs.ts");
     await navigator.clipboard.writeText(pageMarkdown(doc.slug));
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button type="button" className="docs-page-action" onClick={() => void copy()}>
+    <button
+      type="button"
+      className="docs-page-action"
+      onClick={() => void copy()}
+      onBlur={() => setCopied(false)}
+      onPointerLeave={() => setCopied(false)}
+    >
       <Copy size={14} /> {copied ? "Copied" : "Copy Markdown"}
     </button>
   );
@@ -121,33 +161,40 @@ function CopyMarkdown({ slug }: { slug: string }) {
 function SearchDocs() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
   const results = useMemo(() => searchDocs(query).results.slice(0, 8), [query]);
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
   return (
-    <div className="docs-search" ref={box}>
+    <div
+      className="docs-search"
+      onBlur={(event) => {
+        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
+          setOpen(false);
+        }
+      }}
+    >
       <Search size={14} className="docs-search-icon" />
       <input
         value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
+        onChange={(event) => {
+          setQuery(event.target.value);
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Search documentation"
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" || results.length === 0) return;
+          event.preventDefault();
+          event.currentTarget.parentElement?.querySelector("a")?.focus();
+        }}
+        placeholder="Search"
         aria-label="Search documentation"
+        aria-controls="docs-search-results"
+        aria-expanded={open && query.trim() !== ""}
       />
+      <kbd>⌘K</kbd>
       {open && query.trim() !== "" && (
-        <div className="docs-search-results" role="listbox">
+        <div className="docs-search-results" id="docs-search-results" role="listbox" aria-label="Documentation search results">
           {results.length === 0 && <p className="docs-search-empty">No results for “{query}”.</p>}
           {results.map((r) => (
-            <a key={r.id} href={r.url} onClick={() => setOpen(false)}>
+            <a key={r.id} href={r.url} role="option" aria-selected="false" onClick={() => setOpen(false)}>
               <strong>{r.type === "page" ? r.content.split(" — ")[0] : docTitle(r.url)}</strong>
               <span>{r.content}</span>
             </a>
