@@ -1,38 +1,57 @@
-# my-vibestack-app
+# Sonnely
 
-Built with [Vibestack](https://github.com/lalalune/vibestack): stories, rules and Quint state machines in `spec/`, verified TypeScript and Effect adapters out, and a React interface on `@repo/ui` and `@repo/design-system`.
+Confidential AI inference on Solana. Sonnely is an open-source gateway for
+confidential model inference: stream completions through an OpenAI-compatible
+API, set spending limits on API keys, and see token usage and exact charges in
+a workspace. A visitor signs in with a Solana wallet; finalized USDC and SOL
+payments fund credits through Solana Pay, and inference is paid from the
+credit balance.
+
+Built with [Vibestack](https://github.com/lalalune/vibestack) — thank you to
+its authors. Every application rule lives as a story in `spec/` with a Quint
+state machine beside it; the verified TypeScript core, Effect adapters and
+React hooks are generated and proved from those models, and the shell around
+them is VibeLang on Effect 4. `pnpm check` simulates every machine, replays
+the generated code against the model, proves every obligation with Dafny,
+drives the HTTP shell against the spec, and explores the page with Bombadil.
 
 ## Getting started
 
-Requires Node 26+, pnpm 10+, and Dafny 4.11 (`pnpm doctor --install-dafny` checks and installs Dafny automatically).
+Requires Node 26+, pnpm 10+, and Dafny 4.11 (`pnpm doctor` checks the toolchain).
 
 ```sh
 pnpm install
 pnpm doctor
 pnpm check
-pnpm dev
+```
+
+Run the app:
+
+```sh
+# Full stack, production-style: builds and serves the app with the API on one port.
+pnpm -C apps/app start          # PORT=8080 pnpm -C apps/app start to choose a port
+
+# Development: vite with hot reload on http://localhost:5173, /api proxied to the server.
+pnpm -C apps/app start &        # the API server (any port; 3010 by convention)
+bun run dev                     # or: pnpm dev
 ```
 
 ## Commands
 
 | Command | Does |
 | --- | --- |
-| `pnpm dev` | Runs the app and launches Vibestack Studio |
-| `pnpm studio` | Opens Vibestack Studio (or run `pnpm dlx vibestack-studio`) |
-| `pnpm check` | Runs the full verification pipeline: model, simulation, proofs, types, tests, traces, review |
-| `pnpm gen` | Generates TypeScript, Effect adapters, and React hooks from `spec/` |
+| `pnpm dev` | vite dev server with hot reload |
+| `pnpm check` | Full verification: model, simulation, replay, Dafny proofs, types, tests, traces, browser explore, review |
+| `pnpm gen` | Regenerates `gen/` from `spec/` |
 | `pnpm accept` | Records reviewed rules in `spec/lock.json` |
-| `pnpm new <name>` | Scaffolds a new spec area |
-| `pnpm quick` | Fast local check: typecheck, unit tests, and lint |
-| `pnpm verify` | Full build, typecheck, tests, browser tests, `check`, and lint |
-| `pnpm upgrade` | Upgrades Vibestack and refreshes managed agent skills |
 | `pnpm doctor` | Checks Node, pnpm, Dafny, Quint, Chromium, and skill links |
 
 ## Layout
 
-| Path | Role |
+| Path | What |
 | --- | --- |
-| `spec/` | Stories, rules, and Quint models (`spec/index.md` is the entry point) |
-| `apps/app/` | Starter React + VibeLang application wired to `spec/app/` |
-| `packages/design-system/` | Design tokens (`tokens.json`) and generated CSS theme |
-| `packages/ui/` | Shared Radix + Tailwind component library with Storybook metadata |
+| `spec/` | The product: stories, rules and Quint machines, one tree rooted at `spec/index.md` |
+| `apps/app/` | The application: VibeLang server + React areas in `src/web/areas/` |
+| `packages/design-system/` | Sonnely's design tokens (oklch palette, Geist fonts) |
+| `packages/ui/` | Shared shadcn-style components |
+| `packages/vibestack/` | Vendored [Vibestack](https://github.com/lalalune/vibestack) compiler and tooling (upstream, MIT) |
