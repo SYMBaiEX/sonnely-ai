@@ -7,6 +7,7 @@ import { ModelsPage } from "./models.tsx";
 import { ModelPage } from "./model.tsx";
 import { StatusPage } from "./status.tsx";
 import { PostPage } from "./post.tsx";
+import { JournalPage } from "./journal-index.tsx";
 import { PrivacyPage, TermsPage } from "./legal.tsx";
 import { VerifyPage } from "./verify.tsx";
 import { ContactPage } from "./contact.tsx";
@@ -42,6 +43,9 @@ export function render(page: Page): React.ReactNode {
       break;
     case "Status":
       body = <StatusPage />;
+      break;
+    case "Journal":
+      body = <JournalPage />;
       break;
     case "Post":
       body = <PostPage slug={page.slug} />;

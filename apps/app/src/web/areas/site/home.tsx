@@ -42,7 +42,6 @@ import {
 } from "./content.ts";
 import { articles } from "./journal.ts";
 import { PlatformLinks } from "./products.tsx";
-import { JournalIndex } from "./journal-index.tsx";
 import { ProductIcon } from "./icons.tsx";
 import {
   buttonAccent,
@@ -786,7 +785,7 @@ function HomeResources() {
       <section className="home-resources home-guides" aria-labelledby="guides-heading">
         <div className={sectionHead}>
           <h2 id="guides-heading">Practical guides.</h2>
-          <a className={textLink} href="/#journal-articles">
+          <a className={textLink} href="/blog">
             Read the journal <ArrowRight size={16} aria-hidden="true" />
           </a>
         </div>
@@ -923,7 +922,6 @@ export function Home() {
         <WorkspacePreview />
         <PlatformLinks className="home-directory" />
         <HomeResources />
-        <JournalIndex />
         <section className="closing home-closing" aria-labelledby="home-closing-heading">
           <Scene />
           <div>

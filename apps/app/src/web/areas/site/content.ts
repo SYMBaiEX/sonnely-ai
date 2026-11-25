@@ -19,7 +19,7 @@ export const headerLinks = [
   ["/models", "Models"],
   ["/models#billing", "Pricing"],
   ["/docs", "Docs"],
-  ["/#journal-articles", "Journal"],
+  ["/blog", "Journal"],
   ["/contact", "Contact"],
 ] as const;
 
@@ -228,7 +228,7 @@ export const footerGroups = [
   {
     title: "Sonnely",
     links: [
-      ["/#journal-articles", "Journal"],
+      ["/blog", "Journal"],
       ["/contact", "Support"],
     ],
   },

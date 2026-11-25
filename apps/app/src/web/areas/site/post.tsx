@@ -29,7 +29,7 @@ export function PostPage({ slug }: { slug: string }) {
         title={article.title}
         description={article.summary}
         status={article.category}
-        back={["/#journal-articles", "Field notes"]}
+        back={["/blog", "Field notes"]}
       />
       <div className={sections.length ? readerGrid : undefined}>
         {sections.length > 0 && <ReaderNavigation sections={sections} />}

@@ -31,6 +31,7 @@ export function pathOf(page: Page): string {
     case "Models": return "/models";
     case "Model": return `/models/${page.provider}/${page.model}`;
     case "Status": return "/status";
+    case "Journal": return "/blog";
     case "Post": return `/blog/${page.slug}`;
     case "Privacy": return "/privacy";
     case "Terms": return "/terms";
@@ -58,7 +59,7 @@ export function pageOf(path: string): Page {
         ? { tag: "Model", provider: decodeURIComponent(parts[1]), model: parts.slice(2).map(decodeURIComponent).join("/") }
         : { tag: "Models" };
     case "status": return { tag: "Status" };
-    case "blog": return parts[1] ? { tag: "Post", slug: parts.slice(1).map(decodeURIComponent).join("/") } : { tag: "Home" };
+    case "blog": return parts[1] ? { tag: "Post", slug: parts.slice(1).map(decodeURIComponent).join("/") } : { tag: "Journal" };
     case "privacy": return { tag: "Privacy" };
     case "terms": return { tag: "Terms" };
     case "verify": return { tag: "Verify" };

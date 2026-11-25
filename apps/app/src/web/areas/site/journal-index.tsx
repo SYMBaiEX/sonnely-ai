@@ -3,15 +3,9 @@ import { ArrowUpRight, Search } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@repo/ui";
 import { articles } from "./journal.ts";
-import {
-  buttonSmall,
-  eyebrow,
-  pill,
-  searchBox,
-  sectionHead,
-  serif,
-  textLink,
-} from "./ui.ts";
+import { SiteLead } from "./chrome.tsx";
+import { PlatformLinks } from "./products.tsx";
+import { buttonSmall, eyebrow, serif, textLink, wrap } from "./ui.ts";
 
 const topics = ["All", ...new Set(articles.map((article) => article.category))];
 
@@ -28,19 +22,7 @@ export function JournalIndex() {
   );
   const featured = topic === "All" && !term ? entries[0] : undefined;
   return (
-    <section className="journal-index" id="journal-articles" aria-labelledby="journal-heading">
-      <div className={sectionHead}>
-        <div>
-          <p className={eyebrow}>Field notes</p>
-          <h2
-            id="journal-heading"
-            style={serif}
-            className="max-w-160 text-[clamp(26px,4vw,38px)] font-normal leading-tight"
-          >
-            Notes on how requests run, how you’re billed, and what to check when something breaks.
-          </h2>
-        </div>
-      </div>
+    <section className="journal-index" id="journal-articles" aria-label="Journal articles">
       <div className="journal-tools">
         <div className="journal-filters" role="group" aria-label="Filter by topic">
           {topics.map((item) => (
@@ -116,5 +98,18 @@ export function JournalIndex() {
         </p>
       )}
     </section>
+  );
+}
+
+export function JournalPage() {
+  return (
+    <div className={wrap + " inner-page market-page page-blog"}>
+      <SiteLead
+        title="Field notes"
+        description="Notes on how requests run, how you’re billed, and what to check when something breaks."
+      />
+      <JournalIndex />
+      <PlatformLinks compact />
+    </div>
   );
 }
