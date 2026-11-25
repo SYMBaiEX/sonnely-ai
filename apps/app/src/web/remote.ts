@@ -89,6 +89,13 @@ function closeStream() {
   streamError = undefined;
 }
 
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", closeStream);
+  window.addEventListener("pageshow", () => {
+    if (machineListeners.size > 0) openStream();
+  });
+}
+
 function subscribeMachine(name: string, notify: () => void) {
   const listeners = machineListeners.get(name) ?? new Set<() => void>();
   listeners.add(notify);
