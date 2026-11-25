@@ -5,6 +5,7 @@ import { BookOpen, Copy, FileText, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { docAt, docs, docsIn, sections, slugAfter, slugBefore } from "../../../../gen/app__docs.ts";
 import { bodyLines, markdownUrl, parseBlocks, searchDocs, tocOf } from "../../../docs.ts";
+import "../site/appearance.ts";
 import { Blocks } from "./blocks.tsx";
 
 export function DocsPage({ slug }: { slug: string }) {

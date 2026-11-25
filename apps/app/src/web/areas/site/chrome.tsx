@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import { footerGroups, headerLinks, productsMenu } from "./content.ts";
+import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
 import { Scene } from "./scene.tsx";
 import { ProductIcon } from "./icons.tsx";

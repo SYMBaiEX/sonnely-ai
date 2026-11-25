@@ -1780,6 +1780,39 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"],htm
 html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
   color-scheme: light;
 }
+.site :is(h1, h2, h3, p, dl, dd, pre){
+  margin: 0;
+}
+.site :is(h1, h2, h3){
+  line-height: 1.12;
+  font-weight: 570;
+  letter-spacing: -0.035em;
+}
+.site p{
+  line-height: 1.55;
+}
+.site :is(button, input, textarea, select){
+  font: inherit;
+  color: inherit;
+}
+.site button{
+  cursor: pointer;
+}
+.site button:disabled{
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+.site svg{
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.site :focus-visible{
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+}
+.site :is(code, pre){
+  font-family: var(--mono);
+}
 .site .visually-hidden{
   position: absolute;
   width: 1px;
@@ -3135,6 +3168,40 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
 }
 .site :where(#content [id]){
   scroll-margin-block-start: var(--site-anchor-offset);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.site[data-motion="on"]) {
+    scroll-behavior: smooth;
+  }
+  html:has(.site .skip:focus) {
+    scroll-behavior: auto;
+  }
+  @supports (animation-timeline: view()) {
+    .site[data-motion="on"] :is(.section-head, [data-reveal]) {
+      animation: site-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 76%;
+    }
+    .site[data-motion="on"] [data-reveal="fade"] {
+      --site-reveal-shift: 0px;
+    }
+    .site[data-motion="on"] :is(.gateway-tile, .workload-card, .resource-row):nth-child(2n) {
+      animation-range: entry 6% entry 88%;
+    }
+    .site[data-motion="on"] :is(.section-head, [data-reveal]):focus-within {
+      animation: none;
+    }
+    @keyframes site-reveal {
+      from {
+        opacity: 0.78;
+        translate: 0 var(--site-reveal-shift, 12px);
+      }
+      to {
+        opacity: 1;
+        translate: 0 0;
+      }
+    }
+  }
 }
 .site .market-lead{
   display: grid;
