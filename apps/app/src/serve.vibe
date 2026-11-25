@@ -25,6 +25,8 @@ import { store } from kv
 
 export { store }
 
+const fileRequest = (url: string) => /\.[A-Za-z0-9]+$/.test(url.split("?")[0] ?? "")
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- layers are composed opaquely here
 const staticFiles = (web: string): Layer.Layer<any, unknown, never> => {
   let index: Buffer | undefined
@@ -38,7 +40,7 @@ const staticFiles = (web: string): Layer.Layer<any, unknown, never> => {
           (request, response) =>
             response.status === 404 &&
             !request.url.startsWith("/api/") &&
-            ((request.headers["accept"] ?? "").includes("text/html") || !/\.[A-Za-z0-9]+(?:[?#]|$)/.test(request.url))
+            ((request.headers["accept"] ?? "").includes("text/html") || !fileRequest(request.url))
               ? Effect.try(() => (index ??= indexHtml(web))).pipe(
                   Effect.map((body) =>
                     HttpServerResponse.uint8Array(body, { contentType: "text/html" })
