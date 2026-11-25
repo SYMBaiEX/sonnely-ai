@@ -1,4 +1,4 @@
-// spec/app/console/chat.md, "Story: Converse with a model": the playground machine, the responder behind it, and the endpoint that turns a send into an answer.
+// spec/app/console/chat.md, "Story: Converse with a model"
 import { Machine, stored, initial } from "../../../gen/app__console__chat.effect.vibe"
 import { Machine as LogsMachine } from "../../../gen/app__console__logs.effect.vibe"
 import type { Chat } from "../../../gen/app__console__chat.ts"
@@ -7,15 +7,43 @@ import { catalog, providerOf } from "../../../gen/app__console__catalog.ts"
 import { machineApi } from "../../machines.vibe"
 import { store } from "../../serve.vibe"
 
+module playgroundNode {
+  import { randomUUID } from "node:crypto"
+  export function newRef() {
+    return randomUUID()
+  }
+  export function silentWav() {
+    const samples = 1600
+    const bytes = new Uint8Array(44 + samples * 2)
+    const view = new DataView(bytes.buffer)
+    const write = (offset: number, value: string) => {
+      for (let index = 0; index < value.length; index++) bytes[offset + index] = value.charCodeAt(index)
+    }
+    write(0, "RIFF")
+    view.setUint32(4, 36 + samples * 2, true)
+    write(8, "WAVE")
+    write(12, "fmt ")
+    view.setUint32(16, 16, true)
+    view.setUint16(20, 1, true)
+    view.setUint16(22, 1, true)
+    view.setUint32(24, 16000, true)
+    view.setUint32(28, 32000, true)
+    view.setUint16(32, 2, true)
+    view.setUint16(34, 16, true)
+    write(36, "data")
+    view.setUint32(40, samples * 2, true)
+    return bytes
+  }
+}
+import { newRef, silentWav } from playgroundNode
+
 const noStore = { "cache-control": "no-store" }
 
-/** What answers a prompt: on staging a deterministic local responder; the inference gateway takes its place in production. */
 export service Responder {
   static readonly key = "sonnely/console/chat#Responder"
   reply(prompt: string, model: string): string!!
 }
 
-/** The deterministic local responder, default until a gateway is provided. */
 const local: Responder.Shape = {
   effect reply(prompt: string, model: string) {
     const canned = samples.find((sample) => sample.prompt === prompt)
@@ -46,14 +74,12 @@ function tokenEstimate(text: string) {
   return Math.max(1, Math.ceil(text.length / 4))
 }
 
-/** The last user prompt of the thread `id` in `state`, or undefined. */
 function lastPrompt(state: Chat, id: string) {
   const thread = state.threads.find((t) => t.id === id)
   const message = thread?.messages[thread.messages.length - 1]
   return message?.role === "User" ? message.content : undefined
 }
 
-/** Answer the last user message of thread `id`: stream the responder's answer through `reply` events, then log the request. */
 export effect function completeReply(id: string, model: string) {
   const machine = try Machine
   const responder = try Responder
@@ -73,7 +99,6 @@ export effect function completeReply(id: string, model: string) {
   return entry
 }
 
-/** The request-log row a completed reply leaves behind. */
 function recordEntry(id: string, model: string, prompt: string, answer: string, durationMs: number): LogEntry {
   const input = tokenEstimate(prompt)
   const output = tokenEstimate(answer)
@@ -94,7 +119,6 @@ function recordEntry(id: string, model: string, prompt: string, answer: string, 
   }
 }
 
-/** There is no pending user message to answer. */
 export error NoPrompt { id: string }
 
 effect function replyRoute() {
@@ -114,9 +138,117 @@ effect function replyRoute() {
   return try HttpServerResponse.json({ ok: true, entry: answered }, { headers: noStore })
 }
 
+
+function streamChunk(ref: string, model: string, delta: object, finish: string | null) {
+  return { id: `chatcmpl-${ref}`, object: "chat.completion.chunk", created: 0, model, choices: [{ index: 0, delta, finish_reason: finish }] }
+}
+
+function receiptChunk(ref: string, model: string) {
+  const empty = "0000000000000000000000000000000000000000000000000000000000000000"
+  return {
+    id: `chatcmpl-${ref}`,
+    object: "chat.completion.chunk",
+    created: 0,
+    model,
+    choices: [],
+    sonnely_request_id: ref,
+    sonnely_receipt: {
+      version: "v1",
+      provider: "near-ai",
+      requested_model: model,
+      provider_completion_id: ref,
+      charged_microusd: 0,
+      cached_input_tokens: 0,
+      upstream_request_sha256: empty,
+      upstream_response_sha256: empty,
+      evidence: { status: "unavailable" },
+    },
+  }
+}
+
+effect function streamRoute() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
+  }
+  const raw = request.json catch () => undefined
+  const parsed = raw as { id?: unknown; model?: unknown } | undefined
+  if (!parsed || typeof parsed.id !== "string" || typeof parsed.model !== "string") {
+    return try HttpServerResponse.json({ error: "send {id, model}" }, { status: 400, headers: noStore })
+  }
+  const machine = try Machine
+  const responder = try Responder
+  const state = try machine.get()
+  const prompt = lastPrompt(state, parsed.id)
+  if (prompt === undefined) return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
+  const answer = try responder.reply(prompt, parsed.model)
+  const ref = try Effect.try(() => newRef())
+  const events: string[] = [`data: ${JSON.stringify(streamChunk(ref, parsed.model, { role: "assistant" }, null))}\n\n`]
+  for (let at = 0; at < answer.length; at += 24) {
+    events.push(`data: ${JSON.stringify(streamChunk(ref, parsed.model, { content: answer.slice(at, at + 24) }, null))}\n\n`)
+  }
+  events.push(`data: ${JSON.stringify(streamChunk(ref, parsed.model, {}, "stop"))}\n\n`)
+  if (request.headers["x-sonnely-receipt"] === "v1") events.push(`data: ${JSON.stringify(receiptChunk(ref, parsed.model))}\n\n`)
+  events.push("data: [DONE]\n\n")
+  const chunks = Stream.schedule(Stream.fromIterable(events), Schedule.spaced("35 millis"))
+  return HttpServerResponse.stream(Stream.encodeText(chunks), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive", "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" },
+  })
+}
+
+function playgroundShape(endpoint: string, ref: string) {
+  const staged = "Sonnely staging: this playground endpoint answers deterministic output; no provider is upstream."
+  if (endpoint === "responses") return { id: `resp-${ref}`, object: "response", created: 0, output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: staged }] }], status: "completed", sonnely_request_id: ref }
+  if (endpoint === "embeddings") return { object: "list", data: [{ object: "embedding", embedding: [0.5, 0.5], index: 0 }], sonnely_request_id: ref }
+  if (endpoint === "rerank") return { object: "list", results: [{ index: 0, relevance_score: 0.91 }, { index: 1, relevance_score: 0.42 }], sonnely_request_id: ref }
+  if (endpoint === "systemone") return { answers: { decision: { noul: 0.87 } }, output_text: staged, sonnely_request_id: ref }
+  if (endpoint === "redact") return { redacted_text: staged, sonnely_request_id: ref }
+  if (endpoint === "convert/file") return { document: { md_content: "# Converted document\n\n" + staged }, sonnely_request_id: ref }
+  if (endpoint === "images/generations" || endpoint === "images/edits") return { created: 0, data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }], sonnely_request_id: ref }
+  return { text: staged, sonnely_request_id: ref }
+}
+
+effect function playgroundJson(endpoint: string) {
+  const request = try HttpServerRequest.HttpServerRequest
+  const _body = request.text catch () => ""
+  const ref = try Effect.try(() => newRef())
+  const response = try HttpServerResponse.json(playgroundShape(endpoint, ref), { headers: noStore })
+  return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
+}
+
+effect function playgroundSpeech() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const _body = request.text catch () => ""
+  const ref = try Effect.try(() => newRef())
+  const bytes = try Effect.try(() => silentWav())
+  const response = HttpServerResponse.uint8Array(bytes, { contentType: "audio/wav", headers: noStore })
+  return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
+}
+
+function playgroundRoute(path: string, endpoint: string) {
+  return HttpRouter.add("POST", `/api/console/playground/${path}`, provideService(playgroundJson(endpoint), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(3072)))
+}
+
 export const chatApi = Layer.unwrap(effect {
   return Layer.mergeAll(
     machineApi("console__chat", try Machine),
+    playgroundRoute("responses", "responses"),
+    playgroundRoute("embeddings", "embeddings"),
+    playgroundRoute("rerank", "rerank"),
+    playgroundRoute("systemone", "systemone"),
+    playgroundRoute("redact", "redact"),
+    playgroundRoute("convert/file", "convert/file"),
+    playgroundRoute("images/generations", "images/generations"),
+    playgroundRoute("images/edits", "images/edits"),
+    playgroundRoute("audio/transcriptions", "audio/transcriptions"),
+    playgroundRoute("audio/translations", "audio/translations"),
+    HttpRouter.add("POST", "/api/console/playground/audio/speech", provideService(playgroundSpeech(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("POST", "/api/console/chat/stream", provideService(
+      provideService(streamRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256)),
+      Responder,
+      local,
+    )),
     HttpRouter.add("POST", "/api/console/chat/reply", provideService(
       provideService(replyRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256)),
       Responder,
@@ -129,13 +261,10 @@ export function chatState(dir: string) {
   return Layer.provide(stored("console__chat"), store(dir))
 }
 
-/** The chat machine's store, for tests and drivers. */
 export const chatStore = stored("console__chat")
 
-/** The empty chat, for tests and drivers. */
 export { initial }
 
-/** An untrusted input, decoded and applied to the chat machine. */
 export effect function chatDispatch(input: unknown) {
   const machine = try Machine
   return try machine.receive(input)
