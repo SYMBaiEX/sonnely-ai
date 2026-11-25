@@ -1,0 +1,26 @@
+// spec/app/console/logs.md, "Story: Review request activity": the request-history machine.
+import { Machine, stored, initial } from "../../../gen/app__console__logs.effect.vibe"
+import type { Event } from "../../../gen/app__console__logs.ts"
+import type { Logs } from "../../../gen/app__console__logs.ts"
+import { machineApi } from "../../machines.vibe"
+import { store } from "../../serve.vibe"
+
+export const logsApi = Layer.unwrap(effect {
+  return machineApi("console__logs", try Machine)
+})
+
+export function logsState(dir: string) {
+  return Layer.provide(stored("console__logs"), store(dir))
+}
+
+/** The logs machine's store, for tests and drivers. */
+export const logsStore = stored("console__logs")
+
+/** The empty history, for tests and drivers. */
+export { initial }
+
+/** An untrusted input, decoded and applied to the logs machine. */
+export effect function logsDispatch(input: unknown) {
+  const machine = try Machine
+  return try machine.receive(input)
+}

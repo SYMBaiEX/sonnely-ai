@@ -1,0 +1,63 @@
+// spec/app/console/batch.md, "Story: Prepare and run a batch": the batch machine and the endpoint that runs one row at a time.
+import { Machine, stored, initial } from "../../../gen/app__console__batch.effect.vibe"
+import type { Batch } from "../../../gen/app__console__batch.ts"
+import { machineApi } from "../../machines.vibe"
+import { store } from "../../serve.vibe"
+
+const noStore = { "cache-control": "no-store" }
+
+/** The first queued or blocked row of a working batch, or undefined. */
+function pendingRow(batch: Batch): number | undefined {
+  if (batch.tag !== "Working") return undefined
+  const index = batch.rows.findIndex((row) => row.status === "Queued" || row.status === "Blocked")
+  return index < 0 ? undefined : index
+}
+
+/**
+ * Run one row: the runner sends the first queued or blocked row, then settles it on the device — on staging a
+ * local outcome (a custom id ending in "-fail" fails; everything else succeeds); the gateway settles it in
+ * production. Returns whether anything is still pending.
+ */
+export effect function advance() {
+  const machine = try Machine
+  const state = try machine.get()
+  const index = pendingRow(state)
+  if (index === undefined) return { done: true }
+  try machine.send({ type: "start", index })
+  const running = try machine.get()
+  const row = running.tag === "Working" ? running.rows[index] : undefined
+  const failed = row !== undefined && row.customId.endsWith("-fail")
+  const settled = failed
+    ? machine.send({ type: "failed", index, detail: "The gateway rejected this request." }) catch effect (error) => { return error }
+    : machine.send({ type: "succeed", index }) catch effect (error) => { return error }
+  const rejection = settled as { _tag?: string }
+  if (rejection && typeof rejection === "object" && "_tag" in rejection) return { done: true, error: rejection._tag }
+  return { done: false, index, status: failed ? "Failed" : "Succeeded" }
+}
+
+effect function runRoute() {
+  return try HttpServerResponse.json(try advance(), { headers: noStore })
+}
+
+export const batchApi = Layer.unwrap(effect {
+  return Layer.mergeAll(
+    machineApi("console__batch", try Machine),
+    HttpRouter.add("POST", "/api/console/batch/run", provideService(runRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+  )
+})
+
+export function batchState(dir: string) {
+  return Layer.provide(stored("console__batch"), store(dir))
+}
+
+/** The batch machine's store, for tests and drivers. */
+export const batchStore = stored("console__batch")
+
+/** The empty batch, for tests and drivers. */
+export { initial }
+
+/** An untrusted input, decoded and applied to the batch machine. */
+export effect function batchDispatch(input: unknown) {
+  const machine = try Machine
+  return try machine.receive(input)
+}

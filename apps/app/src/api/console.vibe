@@ -1,0 +1,43 @@
+// spec/app/console/index.md: the settings machine, the workspace sub-machines and the catalog endpoint.
+import { Machine, stored, initial } from "../../gen/app__console.effect.vibe"
+import { catalog } from "../../gen/app__console__catalog.ts"
+import { machineApi } from "../machines.vibe"
+import { store } from "../serve.vibe"
+import { batchApi, batchState } from "./console/batch.vibe"
+import { chatApi, chatState } from "./console/chat.vibe"
+import { logsApi, logsState } from "./console/logs.vibe"
+
+effect function catalogRows() {
+  return try HttpServerResponse.json({ catalog }, { headers: { "cache-control": "no-store" } })
+}
+
+export const consoleApi = Layer.unwrap(effect {
+  return Layer.mergeAll(
+    machineApi("console", try Machine),
+    chatApi,
+    logsApi,
+    batchApi,
+    HttpRouter.add("GET", "/api/console/catalog", catalogRows()),
+  )
+})
+
+export function consoleState(dir: string) {
+  return Layer.mergeAll(
+    Layer.provide(stored("console"), store(dir)),
+    chatState(dir),
+    logsState(dir),
+    batchState(dir),
+  )
+}
+
+/** The settings machine's store, for tests and drivers. */
+export const consoleStore = stored("console")
+
+/** The factory settings, for tests and drivers. */
+export { initial }
+
+/** An untrusted input, decoded and applied to the settings machine. */
+export effect function dispatch(input: unknown) {
+  const machine = try Machine
+  return try machine.receive(input)
+}

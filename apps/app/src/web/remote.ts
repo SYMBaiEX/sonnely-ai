@@ -25,14 +25,19 @@ export function useRemote<T>(name: string): Remote<T> {
 
   const send = useCallback(
     async (input: unknown) => {
-      const response = await fetch(base(name), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      const answer = (await response.json()) as { ok: boolean; error?: string };
-      if (!answer.ok) setError(answer.error);
-      return answer.ok;
+      try {
+        const response = await fetch(base(name), {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        const answer = (await response.json().catch(() => null)) as { ok: boolean; error?: string } | null;
+        if (!answer?.ok) setError(answer?.error ?? `request failed (HTTP ${response.status})`);
+        return answer?.ok ?? false;
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "request failed");
+        return false;
+      }
     },
     [name],
   );

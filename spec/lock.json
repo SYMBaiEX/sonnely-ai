@@ -600,9 +600,337 @@
         "ba0b0f893da4"
       ]
     },
+    "spec/app/console/batch.md": {
+      "@document": [
+        "4a7618b21ef1"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A batch is idle, or a working job of named rows": [
+        "9a599b28e196",
+        "ea9b6740df9b"
+      ],
+      "Domain / The page starts with no batch": [
+        "e3b0c44298fc",
+        "80e32f5b0db7",
+        "47cb6c1f09ee"
+      ],
+      "## Story: Prepare and run a batch": [
+        "6ba1428e492d"
+      ],
+      "Story: Prepare and run a batch / Submitting a file opens a batch of queued rows": [
+        "232f79e974b0",
+        "dd551ffe97b0",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / Running sends one queued or blocked row at a time": [
+        "94d32e0157a3",
+        "0c452df4dc92",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / A row in flight settles one way": [
+        "98d876210381",
+        "007eeb4c164a",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / An interrupted row can go back in the queue": [
+        "e3b0c44298fc",
+        "7bc6003847cb",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / Clearing drops the batch and starts over": [
+        "e3b0c44298fc",
+        "4b030487505a",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / Row custom ids are never repeated inside a batch": [
+        "e3b0c44298fc",
+        "3300f72c4281",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / At most one row is ever in flight": [
+        "e3b0c44298fc",
+        "f12dc85f23d1",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / A settled row stays settled until the batch is cleared": [
+        "65c50c0d6eaf",
+        "c8d11a490592",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / A batch can finish": [
+        "e3b0c44298fc",
+        "e6aa9becd2da",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / A row can need attention": [
+        "e3b0c44298fc",
+        "2fcf97116309",
+        "47cb6c1f09ee"
+      ],
+      "Story: Prepare and run a batch / Submitting queues every request": [
+        "e3b0c44298fc",
+        "35a89ce26246",
+        "406a96a55e25"
+      ]
+    },
+    "spec/app/console/catalog.md": {
+      "@document": [
+        "eb42b32ae24d"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A route is one endpoint, one routed model id and its rates": [
+        "d9f9bc9defc8",
+        "279bc666093f"
+      ],
+      "Domain / A catalog row is a provider model and the routes it is served on": [
+        "d5b1fd2966be",
+        "4d465389751d",
+        "ad3f61fe0b2b"
+      ],
+      "## Story: Browse the catalog": [
+        "01ce1e91373e"
+      ],
+      "Story: Browse the catalog / The catalog lists the providers' models verbatim": [
+        "f1992395d30d",
+        "c5b92485abe9",
+        "ff1969743df7"
+      ],
+      "Story: Browse the catalog / Every row names a provider Sonnely routes": [
+        "e3b0c44298fc",
+        "9ae49100b2c2",
+        "44948cc90823"
+      ],
+      "Story: Browse the catalog / Chat routes always price input and output tokens": [
+        "e3b0c44298fc",
+        "5e7091939f57",
+        "44948cc90823"
+      ],
+      "Story: Browse the catalog / Rates are never negative except the -1 \"does not apply\" mark": [
+        "47c5c011b2c7",
+        "0ef18fe7f4e6",
+        "44948cc90823"
+      ],
+      "Story: Browse the catalog / The catalog keeps the ids the models are routed on": [
+        "d62ae7213413",
+        "0ebb9694cd97",
+        "44948cc90823"
+      ],
+      "Story: Browse the catalog / Each provider serves a chat model id once": [
+        "852fc61987c9",
+        "8107a4a1a2a2",
+        "44948cc90823"
+      ]
+    },
+    "spec/app/console/chat.md": {
+      "@document": [
+        "27d2a7f54ae3"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A conversation is an alternating run of user and assistant messages": [
+        "5392b7dfd214",
+        "3339c3f34148"
+      ],
+      "Domain / The playground is the threads, the open one and the chosen model": [
+        "709adefa519a",
+        "6fde00a7666d",
+        "bfce264b5925"
+      ],
+      "## Story: Converse with a model": [
+        "02282012d6a2"
+      ],
+      "Story: Converse with a model / A new conversation starts with no thread open": [
+        "e3b0c44298fc",
+        "8621602a91f3",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / Choosing a model picks what the next message runs on": [
+        "e3b0c44298fc",
+        "d315f2622939",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / Sending takes one turn at a time": [
+        "70fb8e8688bd",
+        "494c4755e73a",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / The responder answers or extends an answer in progress": [
+        "c3f71633957a",
+        "8c84a2b1e3d3",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / A thread can be reopened and forgotten": [
+        "a7342282872c",
+        "f5ac6be75fbd",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / An earlier user message can be edited and sent again": [
+        "39f1d069bbf0",
+        "e993b0cec6c0",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / Every thread alternates a user turn with an assistant turn": [
+        "e3b0c44298fc",
+        "5e23360065f1",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / The open thread always exists, or none is open": [
+        "e3b0c44298fc",
+        "70789ba55a0b",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / Thread ids are never repeated": [
+        "e3b0c44298fc",
+        "cd790b7c3d26",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / A send leaves the other threads alone": [
+        "e3b0c44298fc",
+        "3d5bb31a4d47",
+        "016659eb5868"
+      ],
+      "Story: Converse with a model / A reply touches at most one thread": [
+        "e3b0c44298fc",
+        "fca65d4b1176",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / A model can answer": [
+        "e3b0c44298fc",
+        "81acf02fe8d1",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Converse with a model / The history can hold more than one conversation": [
+        "e3b0c44298fc",
+        "dcc31d91ce49",
+        "8ec4f51d1c8c"
+      ]
+    },
     "spec/app/console/index.md": {
       "@document": [
-        "1c30b2a90bee"
+        "f12819561954"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / Console settings are a profile and a set of device choices": [
+        "cb15151f5067",
+        "b9e8485cd9be"
+      ],
+      "Domain / The console starts unnamed with factory defaults": [
+        "e3b0c44298fc",
+        "58c3a4e074e3",
+        "68409c98d996"
+      ],
+      "## Story: Set up the workspace profile": [
+        "c2f93b23f435"
+      ],
+      "Story: Set up the workspace profile / Saving a profile only happens when something changed": [
+        "9e6f7639917d",
+        "8a5a82e6d769",
+        "68409c98d996"
+      ],
+      "Story: Set up the workspace profile / A saved profile keeps the device choices": [
+        "e3b0c44298fc",
+        "e42207903793",
+        "ba79f7726483"
+      ],
+      "Story: Set up the workspace profile / A profile can be personalized": [
+        "e3b0c44298fc",
+        "0915392a07c1",
+        "68409c98d996"
+      ],
+      "## Story: Choose how this device shows the console": [
+        "b606ed8f4bf2"
+      ],
+      "Story: Choose how this device shows the console / Choosing a theme changes the theme": [
+        "20d1ec1eb39d",
+        "f2152a9fb864",
+        "68409c98d996"
+      ],
+      "Story: Choose how this device shows the console / The plain-writing and device-history choices toggle independently": [
+        "0842795a9c56",
+        "f26ff273ec30",
+        "68409c98d996"
+      ],
+      "Story: Choose how this device shows the console / The device can be asked to keep chat history": [
+        "e3b0c44298fc",
+        "15770ac5c6cd",
+        "68409c98d996"
+      ]
+    },
+    "spec/app/console/logs.md": {
+      "@document": [
+        "8840db2cc96b"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A request row records what ran, how it ended and what it cost": [
+        "4c05b2106701",
+        "c3fe197e42ef"
+      ],
+      "Domain / The page filters by age, provider, status and exact model or key": [
+        "ab6fe97e6dff",
+        "cc59bd73983b",
+        "614fd2fa615e"
+      ],
+      "Domain / The workspace opens with a sample history": [
+        "e3b0c44298fc",
+        "3fe90d11449d",
+        "46ddec91c8c3"
+      ],
+      "Domain / What the page shows is the history the filters pass": [
+        "e3b0c44298fc",
+        "05886edddec8",
+        "46ddec91c8c3"
+      ],
+      "## Story: Review request activity": [
+        "e2013d0466b9"
+      ],
+      "Story: Review request activity / Served requests are recorded newest first": [
+        "3a85a1db3382",
+        "94c928b133cc",
+        "46ddec91c8c3"
+      ],
+      "Story: Review request activity / Each filter can be set on its own": [
+        "e3b0c44298fc",
+        "d3e6717e4253",
+        "46ddec91c8c3"
+      ],
+      "Story: Review request activity / The filters can be reset together": [
+        "e3b0c44298fc",
+        "8499448a7014",
+        "46ddec91c8c3"
+      ],
+      "Story: Review request activity / Request ids are never repeated": [
+        "e3b0c44298fc",
+        "a3f427d40f88",
+        "46ddec91c8c3"
+      ],
+      "Story: Review request activity / History never loses a recorded row": [
+        "e3b0c44298fc",
+        "00647148e97e",
+        "46ddec91c8c3"
+      ],
+      "Story: Review request activity / The filtered list only ever shows rows that pass every filter": [
+        "e3b0c44298fc",
+        "4ecf6424836d",
+        "e76c6bca2214"
+      ],
+      "Story: Review request activity / A row can be recorded": [
+        "e3b0c44298fc",
+        "1e0618f05e91",
+        "46ddec91c8c3"
+      ],
+      "Story: Review request activity / A filter can rule everything out": [
+        "e3b0c44298fc",
+        "7d11ec664da9",
+        "e76c6bca2214"
       ]
     },
     "spec/app/docs/index.md": {
