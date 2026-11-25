@@ -921,7 +921,7 @@ export function Home() {
         <HomeModelList />
         <HomeWorkloads />
         <WorkspacePreview />
-        <PlatformLinks />
+        <PlatformLinks className="home-directory" />
         <HomeResources />
         <JournalIndex />
         <section className="closing home-closing" aria-labelledby="home-closing-heading">

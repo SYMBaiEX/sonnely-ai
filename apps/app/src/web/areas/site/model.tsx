@@ -22,17 +22,7 @@ import {
   workloadNames,
 } from "./data.ts";
 import { modelApiExample } from "./content.ts";
-import {
-  buttonAccent,
-  buttonSmall,
-  caption,
-  monoSm,
-  panel,
-  pill,
-  serif,
-  textLink,
-  wrap,
-} from "./ui.ts";
+import { buttonAccent, buttonSmall, caption, textLink, wrap } from "./ui.ts";
 
 function EndpointCard({
   entry,
@@ -52,63 +42,51 @@ function EndpointCard({
   const rates = routeRates(route);
 
   return (
-    <section
-      className={panel + " grid gap-6 p-0 min-[900px]:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"}
-      id={id}
-      aria-labelledby={id + "-heading"}
-    >
-      <div className="grid content-start gap-4 p-6">
-        <h2 id={id + "-heading"} style={serif} className="text-2xl font-normal">
-          {endpointName}
-        </h2>
-        <p className="flex items-center gap-2 font-mono text-sm">
-          <span className="rounded bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
-            {endpoint === "Realtime" ? "WebSocket" : "POST"}
-          </span>
-          <code>/{path}</code>
+    <section className="panel model-endpoint" id={id} aria-labelledby={id + "-heading"}>
+      <div className="model-endpointInfo">
+        <h2 id={id + "-heading"}>{endpointName}</h2>
+        <p className="model-endpointPath">
+          <span>{endpoint === "Realtime" ? "WebSocket" : "POST"}</span> <code>/{path}</code>
         </p>
-        <dl className="grid gap-2.5">
-          <div className="grid gap-1 text-[13px]">
-            <dt className="text-muted-foreground">API model ID</dt>
+        <dl className="model-rateList">
+          <div>
+            <dt>API model ID</dt>
             <dd>
-              <code className={monoSm}>{modelId}</code>
+              <code>{modelId}</code>
             </dd>
           </div>
           {rateLabels.map(([key, label]) =>
             rates[key] === undefined ? null : (
-              <div key={key} className="flex justify-between gap-4 text-[13px]">
-                <dt className="text-muted-foreground">{label}</dt>
+              <div key={key}>
+                <dt>{label}</dt>
                 <dd>{formatRate(rates[key])}</dd>
               </div>
             ),
           )}
         </dl>
         {endpoint === "ChatCompletions" && (
-          <ul className="flex flex-wrap gap-1.5" aria-label="Chat capabilities" role="list">
-            <li className={pill}>Streaming</li>
-            <li className={pill}>Completion receipts</li>
-            {deepseek && <li className={pill}>Function calling</li>}
-            {deepseek && entry.provider === "Tinfoil" && <li className={pill}>Structured outputs</li>}
+          <ul className="model-capabilities" aria-label="Chat capabilities" role="list">
+            <li>Streaming</li>
+            <li>Completion receipts</li>
+            {deepseek && <li>Function calling</li>}
+            {deepseek && entry.provider === "Tinfoil" && <li>Structured outputs</li>}
           </ul>
         )}
         <a className={textLink} href={endpointDocs(endpoint)}>
           Endpoint guide <ArrowUpRight size={14} aria-hidden="true" />
         </a>
       </div>
-      <div className="border-t border-border min-[900px]:border-t-0 min-[900px]:border-s">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4.5 py-3">
-          <h3 className="text-sm font-medium">{example.language} example</h3>
+      <div className="model-example">
+        <div className="model-exampleHead">
+          <h3>{example.language} example</h3>
           <CopyButton
             value={example.code}
             label={"Copy example for " + endpointName}
             text="Copy example"
           />
         </div>
-        {example.note && <p className={caption + " px-4.5 pt-3"}>{example.note}</p>}
-        <pre
-          aria-label={example.language + " request example"}
-          className="overflow-auto p-4.5 font-mono text-xs leading-relaxed"
-        >
+        {example.note && <p className={caption}>{example.note}</p>}
+        <pre aria-label={example.language + " request example"}>
           <code>{example.code}</code>
         </pre>
       </div>
@@ -145,7 +123,7 @@ export function ModelPage({ provider, model }: { provider: string; model: string
   );
 
   return (
-    <div className={wrap + " grid gap-6 pt-6"}>
+    <div className={wrap + " inner-page market-page model-detail"}>
       <SiteLead
         title={entry.name}
         description={entry.summary || `Model details for ${providerName}.`}
@@ -165,21 +143,17 @@ export function ModelPage({ provider, model }: { provider: string; model: string
         }}
       >
         {available && chat && (
-          <div className="mt-5.5">
-            <a className={buttonAccent} href={modelPlaygroundHref(chat.modelId, entry.provider)}>
-              Open in Playground <ArrowUpRight size={15} aria-hidden="true" />
-            </a>
-          </div>
+          <a className={buttonAccent} href={modelPlaygroundHref(chat.modelId, entry.provider)}>
+            Open in Playground <ArrowUpRight size={15} aria-hidden="true" />
+          </a>
         )}
       </SiteLead>
-      <section className={panel + " flex flex-wrap items-start justify-between gap-6"} aria-labelledby="model-privacy">
-        <div className="max-w-130">
-          <h2 id="model-privacy" className="text-lg font-medium">
-            {routeLabels[entry.privacy]}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">{privacyDescriptions[entry.privacy]}</p>
+      <section className="panel model-privacy" aria-labelledby="model-privacy">
+        <div>
+          <h2 id="model-privacy">{routeLabels[entry.privacy]}</h2>
+          <p>{privacyDescriptions[entry.privacy]}</p>
         </div>
-        <div className="grid gap-2.5">
+        <div className="model-links">
           <a className={textLink} href="/docs/attestation#data-handling">
             Sonnely’s gateway boundary
           </a>
@@ -189,11 +163,9 @@ export function ModelPage({ provider, model }: { provider: string; model: string
         </div>
       </section>
       {alternates.length > 0 && (
-        <nav className="grid gap-3" aria-label="Other providers for this model">
-          <h2 className="text-xs uppercase tracking-widest text-muted-foreground">
-            Other providers
-          </h2>
-          <div className="flex flex-wrap gap-2">
+        <nav className="model-alternates" aria-label="Other providers for this model">
+          <h2>Other providers</h2>
+          <div className="model-links">
             {alternates.map((alternate) => (
               <a
                 className={buttonSmall}
@@ -209,10 +181,10 @@ export function ModelPage({ provider, model }: { provider: string; model: string
       )}
       {entry.routes.length ? (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="model-apiLead">
             <p className={caption}>
-              API examples use a funded Sonnely API key stored as{" "}
-              <code className={monoSm}>SONNELY_API_KEY</code>. Rates are in USD.
+              API examples use a funded Sonnely API key stored as <code>SONNELY_API_KEY</code>. Rates are in
+              USD.
             </p>
             <a className={textLink} href="/console/keys">
               Manage API keys
@@ -223,14 +195,10 @@ export function ModelPage({ provider, model }: { provider: string; model: string
           ))}
         </>
       ) : (
-        <section className={panel + " flex flex-wrap items-start justify-between gap-6"} aria-labelledby="catalog-only">
+        <section className="panel model-privacy" aria-labelledby="catalog-only">
           <div>
-            <h2 id="catalog-only" className="text-lg font-medium">
-              Provider catalog only
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              See the provider catalog for usage and pricing for this entry.
-            </p>
+            <h2 id="catalog-only">Provider catalog only</h2>
+            <p>See the provider catalog for usage and pricing for this entry.</p>
           </div>
           <a className={textLink} href="/models#available-models">
             Browse Sonnely models

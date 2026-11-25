@@ -11,48 +11,30 @@ import {
 } from "./data.ts";
 import { entryActions, pages, platformLinks, traceStages, type ProductPageId } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
-import {
-  buttonAccent,
-  caption,
-  cardLink,
-  cardLinkArrow,
-  factsLabel,
-  factsRow,
-  monoSm,
-  panel,
-  sectionHead,
-  serif,
-  textLink,
-  wrap,
-} from "./ui.ts";
+import { buttonAccent, caption, textLink, wrap } from "./ui.ts";
 
-export function PlatformLinks({ compact = false }: { compact?: boolean }) {
+export function PlatformLinks({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
   return (
-    <section className={compact ? "my-14" : "my-18"} aria-labelledby="platform-links-heading">
-      <div className={sectionHead}>
-        <h2
-          id="platform-links-heading"
-          style={serif}
-          className="max-w-160 text-[clamp(26px,4vw,38px)] font-normal leading-tight"
-        >
+    <section
+      className={(compact ? "product-related" : "section product-index") + " " + className}
+      aria-labelledby="platform-links-heading"
+    >
+      <div className="product-indexIntro" data-reveal="rise">
+        <h2 id="platform-links-heading">
           {compact ? "Explore the platform" : "Inference, from API to operations."}
         </h2>
-        {!compact && (
-          <p className="max-w-85 text-sm text-muted-foreground">
-            Choose a model route, understand each request, and explore compute products.
-          </p>
-        )}
+        {!compact && <p>Choose a model route, understand each request, and explore compute products.</p>}
       </div>
-      <ul className="grid gap-3 min-[800px]:grid-cols-3" role="list">
+      <ul className="product-linkList" role="list">
         {platformLinks.map(({ href, label, description, icon }) => (
           <li key={href}>
-            <a href={href} className={cardLink}>
+            <a href={href}>
               <ProductIcon name={icon} size={20} />
               <span>
-                <strong className="block text-[15px] font-medium">{label}</strong>
-                {!compact && <small className="text-xs text-muted-foreground">{description}</small>}
+                <strong>{label}</strong>
+                {!compact && <small>{description}</small>}
               </span>
-              <ArrowUpRight size={16} aria-hidden="true" className={cardLinkArrow} />
+              <ArrowUpRight size={16} aria-hidden="true" />
             </a>
           </li>
         ))}
@@ -63,17 +45,11 @@ export function PlatformLinks({ compact = false }: { compact?: boolean }) {
 
 function ProductSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section
-      id={id}
-      className="grid gap-8 border-b border-border py-8 last:border-b-0 min-[800px]:grid-cols-[220px_minmax(0,1fr)]"
-      aria-labelledby={id + "-heading"}
-    >
-      <div>
-        <h2 id={id + "-heading"} style={serif} className="text-2xl font-normal">
-          {title}
-        </h2>
+    <section id={id} className="product-section" aria-labelledby={id + "-heading"}>
+      <div className="product-sectionTitle" data-reveal="rise">
+        <h2 id={id + "-heading"}>{title}</h2>
       </div>
-      <div className="grid gap-4 text-[15px] leading-relaxed text-muted-foreground">{children}</div>
+      <div className="product-body">{children}</div>
     </section>
   );
 }
@@ -88,10 +64,8 @@ function NextLink({ href, children }: { href: string; children: ReactNode }) {
 
 function ProductSample({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <figure className={panel + " p-4.5"}>
-      <figcaption className="mb-3 text-xs uppercase tracking-wider text-muted-foreground">
-        {label}
-      </figcaption>
+    <figure className="panel product-sample" data-reveal="rise">
+      <figcaption>{label}</figcaption>
       {children}
     </figure>
   );
@@ -99,11 +73,11 @@ function ProductSample({ label, children }: { label: string; children: ReactNode
 
 function SampleFacts({ rows }: { rows: readonly (readonly [string, string])[] }) {
   return (
-    <dl className="grid gap-2">
+    <dl className="product-sampleStats">
       {rows.map(([label, value]) => (
-        <div key={label} className={factsRow}>
-          <dt className={factsLabel}>{label}</dt>
-          <dd className="text-foreground">{value}</dd>
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
         </div>
       ))}
     </dl>
@@ -115,62 +89,53 @@ export function TracePreview() {
   const selected = traceStages[active];
   const total = traceStages[traceStages.length - 1].end;
   return (
-    <figure className="grid gap-3.5 rounded-md border border-border bg-secondary p-4">
-      <figcaption className="flex items-center justify-between text-[13px]">
-        <span className="inline-flex items-center gap-1.5">
+    <figure className="product-trace">
+      <figcaption>
+        <span>
           <ProductIcon name="Radio" size={17} /> Example trace
         </span>
-        <span className="inline-flex items-center gap-1.5 text-ok">
+        <span className="product-traceStatus">
           <CircleCheck size={15} aria-hidden="true" /> Settled
         </span>
       </figcaption>
-      <dl className="flex gap-8">
+      <dl className="product-traceMetrics">
         <div>
-          <dt className="text-[11px] text-muted-foreground">First token</dt>
-          <dd className="text-[15px] font-semibold">780 ms</dd>
+          <dt>First token</dt>
+          <dd>780 ms</dd>
         </div>
         <div>
-          <dt className="text-[11px] text-muted-foreground">Gateway time</dt>
-          <dd className="text-[15px] font-semibold">1.2 s</dd>
+          <dt>Gateway time</dt>
+          <dd>1.2 s</dd>
         </div>
       </dl>
-      <ol className="grid gap-1">
+      <ol className="product-waterfall">
         {traceStages.map(({ name, start, end, icon }, index) => (
           <li key={name}>
-            <button
-              type="button"
-              aria-pressed={active === index}
-              onClick={() => setActive(index)}
-              className={
-                "grid w-full grid-cols-[180px_minmax(0,1fr)_70px] items-center gap-3 rounded-sm px-2 py-1.5 text-start text-[13px] " +
-                (active === index ? "bg-accent" : "")
-              }
-            >
-              <span className="inline-flex items-center gap-2">
+            <button type="button" aria-pressed={active === index} onClick={() => setActive(index)}>
+              <span className="product-traceLabel">
                 <ProductIcon name={icon} size={16} /> {name}
               </span>
-              <span className="relative h-2.5 overflow-hidden rounded-full bg-card" aria-hidden="true">
+              <span className="product-traceTrack" aria-hidden="true">
                 <span
-                  className="absolute inset-y-0 rounded-full bg-primary"
                   style={{
                     insetInlineStart: (start / total) * 100 + "%",
                     width: ((end - start) / total) * 100 + "%",
                   }}
                 />
               </span>
-              <span className={monoSm + " text-end text-muted-foreground"}>{end - start} ms</span>
+              <span className="product-traceDuration">{end - start} ms</span>
             </button>
           </li>
         ))}
       </ol>
-      <div className="text-[13px]" aria-live="polite">
+      <div className="product-traceDetail" aria-live="polite">
         <div>
           <strong>{selected.name}</strong>{" "}
-          <span className="text-muted-foreground">
+          <span>
             {selected.start.toLocaleString("en-US")}–{selected.end.toLocaleString("en-US")} ms
           </span>
         </div>
-        <p className="mt-1 text-muted-foreground">{selected.detail}</p>
+        <p>{selected.detail}</p>
       </div>
     </figure>
   );
@@ -217,7 +182,7 @@ function Observability() {
           audit history in Sonnely.
         </p>
         <ProductSample label="Normalized invoice line · example">
-          <pre className={monoSm + " overflow-auto"}>
+          <pre>
             <code>{"reference,cost_usd\nprovider-request-id,0.000042"}</code>
           </pre>
         </ProductSample>
@@ -236,7 +201,7 @@ function Observability() {
               ["p95 latency", "5 seconds"],
             ]}
           />
-          <p className={caption + " mt-2"}>Alerts use at least five attempts in the previous hour.</p>
+          <p className={caption}>Alerts use at least five attempts in the previous hour.</p>
         </ProductSample>
       </ProductSection>
       <ProductSection id="evaluations" title="Evaluate before you roll out.">
@@ -275,11 +240,10 @@ function Inference() {
         <p>
           Send an OpenAI-compatible Chat Completions request with streaming enabled. Ask for final
           usage when consuming the stream. Set a cap for one request with{" "}
-          <code className={monoSm}>max_cost_microusd</code>, alongside daily and lifetime limits on
-          the API key.
+          <code>max_cost_microusd</code>, alongside daily and lifetime limits on the API key.
         </p>
         <ProductSample label="Streaming request options">
-          <pre className={monoSm + " overflow-auto"}>
+          <pre>
             <code>
               {JSON.stringify(
                 {
@@ -322,7 +286,7 @@ const computeProductIds = ["blackboxes", "dry-docks"] as const;
 function Compute() {
   return (
     <ProductSection id="products" title="Compute products">
-      <div className="grid gap-3 min-[800px]:grid-cols-2">
+      <div className="product-computeList">
         {computeProductIds.map((id) => {
           const Icon = id === "blackboxes" ? Fingerprint : Terminal;
           const title = computePlans[id].title;
@@ -331,13 +295,13 @@ function Compute() {
               ? "Attested confidential VMs"
               : "Isolated public-repository builds on Boat";
           return (
-            <a id={id} key={id} href={"/" + id} className={cardLink}>
+            <a id={id} key={id} href={"/" + id}>
               <Icon aria-hidden="true" size={20} />
               <span>
-                <strong className="block font-medium">{title}</strong>
-                <small className="text-muted-foreground">{detail}</small>
+                <strong>{title}</strong>
+                <small>{detail}</small>
               </span>
-              <ArrowUpRight aria-hidden="true" size={16} className={cardLinkArrow} />
+              <ArrowUpRight aria-hidden="true" size={16} />
             </a>
           );
         })}
@@ -401,22 +365,22 @@ function DryDocks() {
         runs the build with streamed logs and a downloadable output archive.
       </p>
       <ProductSample label="Planned build workflow">
-        <ol className="grid list-decimal gap-2.5 ps-5">
+        <ol className="product-buildSteps">
           <li>
-            <strong className="block text-foreground">Pin the source</strong>
-            <span className="text-[13px]">Repository URL and commit SHA</span>
+            <strong>Pin the source</strong>
+            <span>Repository URL and commit SHA</span>
           </li>
           <li>
-            <strong className="block text-foreground">Follow the build</strong>
-            <span className="text-[13px]">Live logs · {plan.size}</span>
+            <strong>Follow the build</strong>
+            <span>Live logs · {plan.size}</span>
           </li>
           <li>
-            <strong className="block text-foreground">Collect artifacts</strong>
-            <span className="text-[13px]">Download the archive before retention expires</span>
+            <strong>Collect artifacts</strong>
+            <span>Download the archive before retention expires</span>
           </li>
           <li>
-            <strong className="block text-foreground">Auto teardown</strong>
-            <span className="text-[13px]">Each build runs within a time-limited lease</span>
+            <strong>Auto teardown</strong>
+            <span>Each build runs within a time-limited lease</span>
           </li>
         </ol>
       </ProductSample>
@@ -511,7 +475,7 @@ export function ProductPage({ page }: { page: ProductPageId }) {
         brief={pageBriefs[page]}
       >
         {entry && (
-          <div className="mt-5.5 flex items-center gap-4">
+          <div className="product-entry-actions">
             <a href={entry.section} className={buttonAccent}>
               {entry.label} <ArrowDown size={15} aria-hidden="true" />
             </a>
@@ -521,10 +485,10 @@ export function ProductPage({ page }: { page: ProductPageId }) {
           </div>
         )}
       </SiteLead>
-      <div>
-        <div className={sections.length ? "grid items-start gap-8 min-[800px]:grid-cols-[220px_minmax(0,1fr)]" : undefined}>
+      <div className="product-product">
+        <div className={sections.length ? "product-withNavigation" : undefined}>
           {sections.length > 0 && <ReaderNavigation sections={sections} />}
-          <div>
+          <div className="product-page">
             <Content />
           </div>
         </div>
