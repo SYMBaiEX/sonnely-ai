@@ -1,4 +1,4 @@
-// spec/app/admin/index.md — the admin console uses the legacy operations shell, reading vibestack machines through the CRM adapter.
+// spec/app/admin/index.md
 import "../site/site.css";
 import "./admin.css";
 import type { Page } from "../../../../gen/app__nav.ts";
@@ -8,9 +8,9 @@ import { Admin } from "./legacy/admin.tsx";
 import { ConsoleFrame } from "../console/frame.tsx";
 
 export function AdminPage({ area }: { area: string }) {
-  if (area === "referrals") return <ReferralsPage />;
   const session = useSession();
   const admin = useAdmin();
+  if (area === "referrals") return <ReferralsPage />;
   const signedIn = session.state?.tag === "SignedIn" ? session.state : undefined;
   const wallet = signedIn?.wallet ?? "";
   const roster = admin.state?.ops.roster ?? [];
@@ -20,7 +20,8 @@ export function AdminPage({ area }: { area: string }) {
 
   return (
     <ConsoleFrame section="Admin">
-      <div className="theme-root site admin-legacy-scope">
+      <div className="theme-root site admin-legacy-scope" data-motion="on">
+        <div className="workspace-scene" aria-hidden="true" />
         <div className="console-content admin-legacy-console">
           <Admin
             key={wallet || "signed-out"}

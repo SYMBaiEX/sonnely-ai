@@ -315,10 +315,30 @@ async function crmRead(task: string) {
       return { day, requests: dayRows.length, input: dayRows.reduce((n: number, row: any) => n + Math.max(0, row.input), 0), output: dayRows.reduce((n: number, row: any) => n + Math.max(0, row.output), 0), spendMicros: dayRows.reduce((n: number, row: any) => n + row.cost, 0) };
     });
     return {
-      days: daily.map((row) => ({ day: row.day, requests: row.requests, completed: row.requests, spend: row.spendMicros, signups: 0, deposits: 0, depositUsd: 0 })),
-      topModels: [],
+      days: daily.map((row) => {
+        const dayRows = rows.filter((item) => new Date(item.time).toISOString().slice(0, 10) === row.day);
+        return {
+          day: row.day,
+          requests: row.requests,
+          completed: dayRows.filter((item) => item.status === "Complete").length,
+          spend: row.spendMicros,
+          signups: customers.filter((item) => new Date(item.joined).toISOString().slice(0, 10) === row.day).length,
+          deposits: (states["billing-deposits"]?.intents ?? []).filter((item) => new Date(item.createdAt).toISOString().slice(0, 10) === row.day).length,
+          depositUsd: (states["billing-deposits"]?.intents ?? []).filter((item) => new Date(item.createdAt).toISOString().slice(0, 10) === row.day).reduce((sum, item) => sum + item.amount, 0),
+        };
+      }),
+      topModels: Object.entries(rows.reduce((groups, row) => {
+        const group = (groups[row.model] ??= { model: row.model, requests: 0, spend: 0 });
+        group.requests += 1;
+        group.spend += row.cost;
+        return groups;
+      }, {})).map(([, row]) => row).sort((a, b) => b.spend - a.spend).slice(0, 8),
       topCustomers: [],
-      providerSplit: [],
+      providerSplit: Object.entries(rows.reduce((groups, row) => {
+        const provider = providerId(row.provider);
+        groups[provider] = (groups[provider] ?? 0) + 1;
+        return groups;
+      }, {})).map(([provider, requests]) => ({ provider, requests })).sort((a, b) => b.requests - a.requests),
       truncated: false,
     };
   }
