@@ -9,9 +9,10 @@ and back button speak for the same state the machine keeps.
 ### Pages and console sections
 
 Every page a visitor can be on. A console page is one of its sections; the
-admin section can name an admin area. `Model` carries the provider and the
-model id, `Post` and `Doc` carry their slugs, `Verify` may carry the receipt
-it was opened to inspect.
+admin section can name an admin area. `Journal` is the journal's index and
+`Post` one of its articles. `Model` carries the provider and the model id,
+`Post` and `Doc` carry their slugs, `Verify` may carry the receipt it was
+opened to inspect.
 
 ```quint
 type Section =
