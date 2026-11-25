@@ -3,6 +3,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type FocusEvent,
@@ -53,7 +54,6 @@ export function SiteLinks({
   const [openPath, setOpenPath] = useState<string | null>(null);
   const mobileOpen = openPath === path;
   const mobileToggle = useRef<HTMLButtonElement>(null);
-  const navigation = useRef<HTMLElement>(null);
   const menu = useRef<HTMLDetailsElement>(null);
   const toggle = useRef<HTMLElement>(null);
   const currentProduct = isProductPage(path.slice(1));
@@ -79,6 +79,10 @@ export function SiteLinks({
       closeMobile();
     }
   }
+
+  useLayoutEffect(() => {
+    if (mobileOpen) toggle.current?.focus();
+  }, [mobileOpen]);
 
   useEffect(() => {
     function dismiss(event: PointerEvent) {
@@ -107,7 +111,6 @@ export function SiteLinks({
     <>
       <nav
         id={navigationId}
-        ref={navigation}
         aria-label="Main navigation"
         data-mobile-open={mobileOpen || undefined}
         onBlur={closeOnFocusExit}
@@ -186,10 +189,7 @@ export function SiteLinks({
           aria-expanded={mobileOpen}
           onClick={() => {
             if (mobileOpen) closeMobile();
-            else {
-              setOpenPath(path);
-              requestAnimationFrame(() => navigation.current?.querySelector("summary")?.focus());
-            }
+            else setOpenPath(path);
           }}
         >
           <span className="mobile-menu-glyph" aria-hidden="true">

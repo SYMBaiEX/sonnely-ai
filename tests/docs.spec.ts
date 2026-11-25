@@ -6,12 +6,14 @@ test("the Platform menu exposes the enabled product pages on desktop and mobile"
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main navigation" });
     const headerMenu = page.getByRole("button", { name: "Open navigation", exact: true });
+    const trigger = nav.locator("summary");
     if (width === 320) {
       await expect(nav).toBeHidden();
-      await headerMenu.click();
+      await headerMenu.press("Enter");
+    } else {
+      await trigger.focus();
     }
-    const trigger = nav.locator("summary");
-    await trigger.focus();
+    await expect(trigger).toBeFocused();
     await page.keyboard.press("Enter");
     const panel = nav.getByRole("list", { name: "Platform pages" });
     const routes = await panel
@@ -19,8 +21,13 @@ test("the Platform menu exposes the enabled product pages on desktop and mobile"
       .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
     expect(routes).toEqual(["/inference", "/observability", "/compute"]);
 
+    const firstLink = panel.getByRole("link", { name: /^Confidential inference/ });
     await page.keyboard.press("Tab");
-    await expect(panel.getByRole("link", { name: /Confidential inference/ })).toBeFocused();
+    await expect(firstLink).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(panel.getByRole("link", { name: /^Observability/ })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(firstLink).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();
     await expect(trigger).toBeFocused();
