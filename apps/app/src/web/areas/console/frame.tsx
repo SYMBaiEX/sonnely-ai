@@ -1,6 +1,6 @@
 // spec/app/console/index.md: the frame every console section shares — the section rail, the session-aware
 // header and the sign-in state the sections gate themselves on.
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Fragment } from "react";
 import {
   Activity,
@@ -28,6 +28,7 @@ import type { Session as WorkspaceSession } from "../../../../gen/app__session.t
 import type { Console as ConsoleSettings, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
 import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Referrals as ReferralState } from "../../../../gen/app__admin__referrals.ts";
+import type { Registry as AdminRegistry } from "../../../../gen/app__admin.ts";
 import { useRemote, type Remote } from "../../remote.ts";
 import { ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
@@ -89,12 +90,11 @@ function walletBalance(ledger: Ledger | undefined, wallet: string) {
   );
 }
 
-const winterStart = Date.parse("2026-11-20T06:00:00Z");
-const winterEnd = Date.parse("2027-01-01T06:00:00Z");
-
 function machineTheme(theme: Theme): ConsoleTheme {
   return theme === "light" ? "Light" : theme === "system" ? "System" : "Dark";
 }
+
+const operatorRoles = { Admin: "admin", Support: "support", Finance: "finance", Member: "member" } as const;
 
 export interface ConsoleProfile {
   wallet: string;
@@ -102,7 +102,7 @@ export interface ConsoleProfile {
   username: string;
   balance: number;
   referral: string;
-  role: "member" | "admin";
+  role: "member" | "admin" | "support" | "finance";
 }
 
 export interface ConsoleShell {
@@ -133,6 +133,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   const settings = useRemote<ConsoleSettings>("console");
   const ledger = useRemote<Ledger>("billing-ledger");
   const referrals = useRemote<ReferralState>("admin-referrals");
+  const admin = useRemote<AdminRegistry>("admin");
   const theme = useTheme();
   const motion = useAmbientMotion();
   const [palette, setPalette] = useState(false);
@@ -143,6 +144,10 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   const selected = all.find((item) => item.section === section) ?? all[0];
   const signedIn = session.state?.tag === "SignedIn" ? session.state.wallet : "";
   const referral = signedIn ? referrals.state?.codes.find((code) => code.owner === signedIn)?.code ?? "" : "";
+  const roster = admin.state?.ops.roster;
+  const operator = signedIn ? roster?.find((row) => row.wallet === signedIn) : undefined;
+  const bootstrapOperator = Boolean(signedIn && admin.state && roster?.length === 0);
+  const role: ConsoleProfile["role"] = operator ? operatorRoles[operator.role] : bootstrapOperator ? "admin" : "member";
   const profile: ConsoleProfile | null = signedIn
     ? {
         wallet: signedIn,
@@ -150,7 +155,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
         username: settings.state?.username ?? "",
         balance: walletBalance(ledger.state, signedIn),
         referral,
-        role: "member",
+        role,
       }
     : null;
 
@@ -217,13 +222,9 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     saveProfile,
     chooseTheme,
   };
-  const winter = Date.now() >= winterStart && Date.now() < winterEnd;
-  const seasonalArt = (winter
-    ? { "--art-day": 'url("/winter-day.webp")', "--art-night": 'url("/winter-night.webp")' }
-    : {}) as CSSProperties;
   const visibleGroups = groups.map((group) => ({
     ...group,
-    items: group.items.filter((item) => item.id !== "admin" || Boolean(profile)),
+    items: group.items.filter((item) => item.id !== "admin" || (profile?.role ?? "member") !== "member"),
   }));
   const visibleItems = visibleGroups.flatMap((group) => group.items);
   const PageIcon = selected.Icon;
@@ -237,7 +238,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     ));
 
   return (
-    <div className="theme-root site" data-area="console" data-theme={theme} data-motion={motion ? "on" : "off"} style={seasonalArt}>
+    <div className="theme-root site" data-area="console" data-theme={theme} data-motion={motion ? "on" : "off"}>
       <div className="console">
       <a href="#console-content" className="skip">
         Skip to workspace
@@ -254,7 +255,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
           </span>
           <span>
             <strong>{profile ? profile.name || shorten(profile.wallet) : "Your workspace"}</strong>
-            <small>{profile ? "Solana wallet connected" : "Solana wallet access"}</small>
+            <small>{profile?.role === "admin" ? "Administrator" : profile ? "Solana wallet connected" : "Solana wallet access"}</small>
           </span>
         </a>
         <nav aria-label="Workspace navigation" className="rail-nav">
