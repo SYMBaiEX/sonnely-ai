@@ -1,0 +1,21 @@
+// spec/app/usage.md, "Story: Meter a request"
+import { Machine, stored } from "../../gen/app__usage.effect.vibe"
+import { machineApi } from "../machines.vibe"
+import { store } from "../serve.vibe"
+
+export const usageApi = Layer.unwrap(effect {
+  return machineApi("usage", try Machine)
+})
+
+/** The meter machine, kept under "usage". */
+export const usage = stored("usage")
+
+/** An event from anywhere untrusted, decoded before the rules see it. */
+export effect function dispatch(input: unknown) {
+  const machine = try Machine
+  return try machine.receive(input)
+}
+
+export function usageState(dir: string) {
+  return Layer.provide(usage, store(dir))
+}

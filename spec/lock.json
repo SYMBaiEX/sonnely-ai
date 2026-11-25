@@ -982,7 +982,93 @@
     },
     "spec/app/keys.md": {
       "@document": [
-        "c5602997abc2"
+        "9c188dcfba70"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A key record and its lifetime": [
+        "e3b0c44298fc",
+        "d2145b545d03"
+      ],
+      "Domain / The registry starts empty": [
+        "e3b0c44298fc",
+        "b328226b6c4e",
+        "7a45085ce6ab"
+      ],
+      "## Story: Issue a key": [
+        "4dda0fb85d2c"
+      ],
+      "Story: Issue a key / A new key needs a name, unique credentials and valid limits": [
+        "1b8069b04567",
+        "4b563177a661",
+        "d73d8078c0b6"
+      ],
+      "Story: Issue a key / A workspace key can be renamed and have its limits updated": [
+        "26b6ed72eaa0",
+        "205ecad7294e",
+        "d73d8078c0b6"
+      ],
+      "Story: Issue a key / Every registered key is well formed": [
+        "e3b0c44298fc",
+        "a31db63a125d",
+        "d73d8078c0b6"
+      ],
+      "Story: Issue a key / Ids, prefixes and hashes are unique across the registry": [
+        "e3b0c44298fc",
+        "8135c08541c5",
+        "7a45085ce6ab"
+      ],
+      "Story: Issue a key / A workspace can hold a capped and an uncapped key": [
+        "e3b0c44298fc",
+        "034ec1cf53e9",
+        "7a45085ce6ab"
+      ],
+      "## Story: Spend through a key": [
+        "18104890a66e"
+      ],
+      "Story: Spend through a key / Only an active key within its limits can be metered": [
+        "420b1cbdd702",
+        "215be4178435",
+        "d73d8078c0b6"
+      ],
+      "Story: Spend through a key / Spend only ever grows": [
+        "e3b0c44298fc",
+        "62fb4ec4b3bd",
+        "d73d8078c0b6"
+      ],
+      "Story: Spend through a key / Only metering touches last used and the day's tally": [
+        "e3b0c44298fc",
+        "a6ba9f86b0c5",
+        "d73d8078c0b6"
+      ],
+      "Story: Spend through a key / A key can be metered": [
+        "e3b0c44298fc",
+        "1083065bbfe7",
+        "7a45085ce6ab"
+      ],
+      "## Story: Revoke a key": [
+        "2eed66851ba4"
+      ],
+      "Story: Revoke a key / Only an active key can be revoked": [
+        "e3b0c44298fc",
+        "23e7a1d70c56",
+        "d73d8078c0b6"
+      ],
+      "Story: Revoke a key / Revoked is final": [
+        "e3b0c44298fc",
+        "f84efe43d246",
+        "d73d8078c0b6"
+      ],
+      "Story: Revoke a key / A revoked key can be shown": [
+        "e3b0c44298fc",
+        "e843bfd2d60e",
+        "7a45085ce6ab"
+      ],
+      "Story: Revoke a key / A revoked key takes no update and no metering": [
+        "e3b0c44298fc",
+        "abcf392128c7",
+        "4d24a73b9a16"
       ]
     },
     "spec/app/models.md": {
@@ -1198,17 +1284,275 @@
     },
     "spec/app/support.md": {
       "@document": [
-        "7084b2671e5b"
+        "1f8d52a2e59a"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A ticket and its replies": [
+        "b289472b783f",
+        "e87a596d1ba4"
+      ],
+      "Domain / The queue starts empty": [
+        "e3b0c44298fc",
+        "7df245b9c371",
+        "a0bc152490a4"
+      ],
+      "## Story: Open a request": [
+        "522889c36e71"
+      ],
+      "Story: Open a request / A request needs valid fields and a fresh id": [
+        "e3b0c44298fc",
+        "b7422cfa47f5",
+        "a0bc152490a4"
+      ],
+      "Story: Open a request / Every ticket stays well formed and uniquely identified": [
+        "e3b0c44298fc",
+        "1a917c580d5c",
+        "a0bc152490a4"
+      ],
+      "Story: Open a request / A request can be opened": [
+        "e3b0c44298fc",
+        "0a59f4b10bac",
+        "a0bc152490a4"
+      ],
+      "## Story: Converse on a request": [
+        "9548e28376dd"
+      ],
+      "Story: Converse on a request / The customer can reply on their request": [
+        "724d79bd7b93",
+        "ea5baac89a52",
+        "1a784f83effd"
+      ],
+      "Story: Converse on a request / The team can reply publicly or note internally": [
+        "587eaee39745",
+        "616eca48e753",
+        "1a784f83effd"
+      ],
+      "Story: Converse on a request / Replying reopens a resolved request": [
+        "e3b0c44298fc",
+        "1c236f2a7598",
+        "1a784f83effd"
+      ],
+      "Story: Converse on a request / A staff reply starts progress on an open request": [
+        "e3b0c44298fc",
+        "15c4c01c5499",
+        "1a784f83effd"
+      ],
+      "Story: Converse on a request / Replies are never removed": [
+        "e3b0c44298fc",
+        "a65fd35c60fd",
+        "1a784f83effd"
+      ],
+      "Story: Converse on a request / A thread can hold a public reply from the team": [
+        "e3b0c44298fc",
+        "a99c3b35a4a8",
+        "a0bc152490a4"
+      ],
+      "## Story: Move a request through its states": [
+        "ede8c369ee6f"
+      ],
+      "Story: Move a request through its states / Staff set the state directly": [
+        "e3b0c44298fc",
+        "1e762436f4e6",
+        "1a784f83effd"
+      ],
+      "Story: Move a request through its states / Only the listed transitions move a request's state": [
+        "e3b0c44298fc",
+        "2c9e7da8ae1f",
+        "1a784f83effd"
+      ],
+      "Story: Move a request through its states / A request can be resolved": [
+        "e3b0c44298fc",
+        "86643a88bbbc",
+        "a0bc152490a4"
+      ],
+      "Story: Move a request through its states / The lifecycle as the customer and the team run it": [
+        "e3b0c44298fc",
+        "823cfa55f3ef",
+        "f00b538a8bee"
       ]
     },
     "spec/app/teams.md": {
       "@document": [
-        "5da2e279854b"
+        "915d4a6c2814"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A team, its members, invites and projects": [
+        "2077b5228406",
+        "8734f170416a"
+      ],
+      "Domain / The directory starts empty": [
+        "e3b0c44298fc",
+        "9a7d22f7a7aa",
+        "7b3a7ad24118"
+      ],
+      "## Story: Form a team": [
+        "dd6aa8ba7fca"
+      ],
+      "Story: Form a team / A team starts with its creator as the sole owner": [
+        "73ec36113df2",
+        "374ef55b5410",
+        "c513e94f3a13"
+      ],
+      "Story: Form a team / Every team keeps an owner and a finite role set": [
+        "e3b0c44298fc",
+        "91e1aa6c7097",
+        "c513e94f3a13"
+      ],
+      "## Story: Invite and join": [
+        "a60969c792ae"
+      ],
+      "Story: Invite and join / An owner or admin can invite; only an owner may offer admin": [
+        "fafc4c24170d",
+        "8cbc59202531",
+        "c513e94f3a13"
+      ],
+      "Story: Invite and join / An invite is answered once — accept joins, decline voids": [
+        "b24809a34104",
+        "a2b06dcbacfb",
+        "c513e94f3a13"
+      ],
+      "Story: Invite and join / A pending invite can be cancelled": [
+        "dd14ada3879e",
+        "1307302ddaaa",
+        "c513e94f3a13"
+      ],
+      "Story: Invite and join / An answered invite is gone": [
+        "e3b0c44298fc",
+        "923093468dce",
+        "c513e94f3a13"
+      ],
+      "Story: Invite and join / An invitation can be accepted": [
+        "e3b0c44298fc",
+        "b76597df342a",
+        "7b3a7ad24118"
+      ],
+      "Story: Invite and join / An invite can be used only once": [
+        "e3b0c44298fc",
+        "e1e146669069",
+        "767ffdeb9df2"
+      ],
+      "Story: Invite and join / A member cannot invite": [
+        "e3b0c44298fc",
+        "67b3cf03a135",
+        "767ffdeb9df2"
+      ],
+      "## Story: Manage members": [
+        "09c1f3a94aa9"
+      ],
+      "Story: Manage members / Only an owner can grant a role below owner": [
+        "4c718b5d1b52",
+        "17072320a7d3",
+        "c513e94f3a13"
+      ],
+      "Story: Manage members / Members can leave; an owner can remove anyone but an owner": [
+        "9c99f70644ae",
+        "75892a6301a2",
+        "c513e94f3a13"
+      ],
+      "Story: Manage members / A team's owner survives every transition": [
+        "e3b0c44298fc",
+        "702aa1a15766",
+        "c513e94f3a13"
+      ],
+      "Story: Manage members / The sole owner cannot be removed or demoted": [
+        "e3b0c44298fc",
+        "e971855cb5fc",
+        "9c42b06c3f42"
+      ],
+      "## Story: Budget a project": [
+        "9873fa2a71d0"
+      ],
+      "Story: Budget a project / A manager can create a project with a valid budget": [
+        "5defb86b9c5c",
+        "da89e5362b58",
+        "c513e94f3a13"
+      ],
+      "Story: Budget a project / A manager can update or archive a live project": [
+        "e3b0c44298fc",
+        "be11302f0856",
+        "c513e94f3a13"
+      ],
+      "Story: Budget a project / A project can be created and archived": [
+        "e3b0c44298fc",
+        "58932943c3fb",
+        "7b3a7ad24118"
       ]
     },
     "spec/app/usage.md": {
       "@document": [
-        "ff92f82e9cc3"
+        "8a2c9fde9899"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A metered request": [
+        "acc692fc8a32",
+        "521be996ec6a"
+      ],
+      "Domain / The meter starts empty": [
+        "e3b0c44298fc",
+        "da3c5fcb0700",
+        "459a3eb738a5"
+      ],
+      "## Story: Meter a request": [
+        "aaf9e691944c"
+      ],
+      "Story: Meter a request / A request is recorded with a reserved cost": [
+        "281f749e9d87",
+        "0109630b7e67",
+        "459a3eb738a5"
+      ],
+      "Story: Meter a request / A pending request settles with its real usage": [
+        "6af655189832",
+        "9e4ae6799fa1",
+        "bdb6062e9dae"
+      ],
+      "Story: Meter a request / A pending request can fail or go under review": [
+        "e3b0c44298fc",
+        "7baa9b4bec68",
+        "bdb6062e9dae"
+      ],
+      "Story: Meter a request / A pending row carries no measurements yet": [
+        "e3b0c44298fc",
+        "c15dca7b008a",
+        "459a3eb738a5"
+      ],
+      "Story: Meter a request / Every row is well formed and uniquely identified": [
+        "e3b0c44298fc",
+        "6de846eba97f",
+        "459a3eb738a5"
+      ],
+      "Story: Meter a request / Rows are never removed and settled rows never change": [
+        "e3b0c44298fc",
+        "687f40409ae9",
+        "bdb6062e9dae"
+      ],
+      "Story: Meter a request / A pending row can only settle, fail or go under review": [
+        "e3b0c44298fc",
+        "d42d6ff6f2c4",
+        "bdb6062e9dae"
+      ],
+      "Story: Meter a request / A request can complete and one can be held": [
+        "e3b0c44298fc",
+        "edd4d073fda1",
+        "459a3eb738a5"
+      ],
+      "## Story: Roll usage up": [
+        "35b27cced6e2"
+      ],
+      "Story: Roll usage up / Totals are the sum of their rows": [
+        "f7b66eab4edd",
+        "646595fe9801",
+        "459a3eb738a5"
+      ],
+      "Story: Roll usage up / Period filters keep only what is inside the window": [
+        "e3b0c44298fc",
+        "3f2adaaa9217",
+        "459a3eb738a5"
       ]
     },
     "spec/index.md": {

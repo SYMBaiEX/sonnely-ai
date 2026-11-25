@@ -1,0 +1,21 @@
+// spec/app/teams.md, "Story: Form a team"
+import { Machine, stored } from "../../gen/app__teams.effect.vibe"
+import { machineApi } from "../machines.vibe"
+import { store } from "../serve.vibe"
+
+export const teamsApi = Layer.unwrap(effect {
+  return machineApi("teams", try Machine)
+})
+
+/** The directory machine, kept under "teams". */
+export const teams = stored("teams")
+
+/** An event from anywhere untrusted, decoded before the rules see it. */
+export effect function dispatch(input: unknown) {
+  const machine = try Machine
+  return try machine.receive(input)
+}
+
+export function teamsState(dir: string) {
+  return Layer.provide(teams, store(dir))
+}
