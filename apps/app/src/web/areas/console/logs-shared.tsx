@@ -1,5 +1,5 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes -- these controls intentionally use the migrated observability class names */
-// spec/app/console/index.md, "Story: Open the console"
+// spec/app/console/logs.md, "Story: Review request activity"
 import { Check, Copy, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 

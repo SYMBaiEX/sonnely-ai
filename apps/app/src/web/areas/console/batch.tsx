@@ -1,19 +1,18 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated batch class names and keeps the checkpoint workflow together */
 // spec/app/console/batch.md, "Story: Prepare and run a batch"
 import { ArrowUpRight, Download, Files, Pause, Play, RefreshCw, Upload } from "lucide-react";
-import { useRef, useState, type ChangeEvent } from "react";
+import { Suspense, use, useRef, useState, type ChangeEvent } from "react";
+import { z } from "zod";
 import type { Batch } from "../../../../gen/app__console__batch.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { useRemote, type Remote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
-import { SignInGate } from "./gate.tsx";
-import { WorkspaceHeading, creditBalance, providerNames } from "./logs-shared.tsx";
+import { WorkspaceHeading, creditBalance, providerIds, providerNames } from "./logs-shared.tsx";
 import "./logs.css";
 import "./batch.css";
 
 const batchLimits = { rows: 200, bytes: 4 * 1024 * 1024, delayMs: 5000 } as const;
 const batchEndpoint = "/v1/chat/completions";
-const endpoints = new Set([batchEndpoint, "/api/sonnely/v1/chat/completions", "/chat/completions"]);
 const utf8 = new TextEncoder();
 const statusLabels = {
   queued: "Queued",
@@ -45,34 +44,100 @@ const example = {
   },
 };
 
-type BatchBody = {
-  model: string;
-  messages: { role: string; content?: unknown; tool_calls?: unknown }[];
-  max_tokens?: number;
-  max_cost_microusd?: number;
-  provider?: { only: [string] };
-  stream?: false;
-  tools?: unknown[];
-  tool_choice?: unknown;
-  response_format?: { type?: string };
-};
-type BatchRow = {
-  customId: string;
-  body: BatchBody & { provider: { only: [string] }; max_cost_microusd: number };
-  estimatedMaximum: number;
-  status: keyof typeof statusLabels;
-  detail?: string;
-  reference?: string;
-  httpStatus?: number;
-  output?: unknown;
-};
-type BatchJob = { version: 1; id: string; filename: string; createdAt: number; lastSentAt?: number; rows: BatchRow[] };
+const requestLimits = { bodyBytes: 36_000, messages: 32, charactersPerMessage: 12_000, defaultOutputTokens: 512, maxOutputTokens: 2_048 } as const;
+const toolName = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+const callId = z.string().min(1).max(200);
+const jsonSchema = z.record(z.string(), z.json());
+const functionTool = z.strictObject({
+  type: z.literal("function"),
+  function: z.strictObject({
+    name: toolName,
+    description: z.string().max(2048).optional(),
+    parameters: jsonSchema.optional(),
+    strict: z.boolean().nullable().optional(),
+  }),
+});
+const toolChoice = z.union([
+  z.enum(["auto", "none", "required"]),
+  z.strictObject({ type: z.literal("function"), function: z.strictObject({ name: toolName }) }),
+]);
+const toolCall = z.object({
+  id: callId,
+  type: z.literal("function"),
+  function: z.object({ name: toolName, arguments: z.string() }),
+});
+const responseFormat = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("text") }),
+  z.strictObject({ type: z.literal("json_object") }),
+  z.strictObject({
+    type: z.literal("json_schema"),
+    json_schema: z.strictObject({
+      name: toolName,
+      description: z.string().max(2048).optional(),
+      schema: jsonSchema,
+      strict: z.boolean().nullable().optional(),
+    }),
+  }),
+]);
+const messageText = z.string().min(1).max(requestLimits.charactersPerMessage);
+const completionMessage = z.discriminatedUnion("role", [
+  z.strictObject({ role: z.literal("system"), content: messageText }),
+  z.strictObject({ role: z.literal("user"), content: messageText }),
+  z.strictObject({
+    role: z.literal("assistant"),
+    content: messageText.nullable().optional(),
+    tool_calls: z.array(toolCall).min(1).max(16).optional(),
+  }),
+  z.strictObject({ role: z.literal("tool"), content: messageText, tool_call_id: z.string().min(1).max(200) }),
+]);
+const providerPin = z.strictObject({ only: z.tuple([z.enum(providerIds)]) });
+const batchBody = z.strictObject({
+  model: z.string().min(1).max(100),
+  messages: z.array(completionMessage).min(1).max(requestLimits.messages),
+  max_tokens: z.int().min(1).max(requestLimits.maxOutputTokens).optional(),
+  max_cost_microusd: z.int().positive().optional(),
+  provider: providerPin.optional(),
+  stream: z.literal(false).optional(),
+  tools: z.array(functionTool).min(1).max(16).optional(),
+  tool_choice: toolChoice.optional(),
+  response_format: responseFormat.optional(),
+});
+const batchRequestBody = batchBody.extend({ provider: providerPin, max_cost_microusd: z.int().positive() });
+const inputLine = z.strictObject({
+  custom_id: z.string().trim().min(1).max(120).regex(/^[^\p{Cc}]+$/u),
+  method: z.literal("POST"),
+  url: z.enum([batchEndpoint, "/api/sonnely/v1/chat/completions", "/chat/completions"]),
+  body: batchBody,
+});
+const batchStatuses = ["queued", "sending", "succeeded", "failed", "blocked", "interrupted", "review"] as const;
+const batchRowSchema = z.object({
+  customId: z.string(),
+  body: batchRequestBody,
+  estimatedMaximum: z.int().nonnegative(),
+  status: z.enum(batchStatuses),
+  detail: z.string().optional(),
+  reference: z.string().optional(),
+  httpStatus: z.int().optional(),
+  output: z.unknown().optional(),
+});
+const batchJobSchema = z.object({
+  version: z.literal(1),
+  id: z.uuid(),
+  filename: z.string(),
+  createdAt: z.int(),
+  lastSentAt: z.int().optional(),
+  rows: z.array(batchRowSchema).min(1).max(batchLimits.rows),
+});
+type BatchRow = z.infer<typeof batchRowSchema>;
+type BatchJob = z.infer<typeof batchJobSchema>;
 type BatchIssue = { line: number; detail: string };
+
+type ProviderId = (typeof providerIds)[number];
 
 const chatRoutes = catalog.flatMap((model) =>
   model.routes
     .filter((route) => route.endpoint === "chat/completions")
-    .map((route) => ({ provider: model.provider, modelId: route.modelId, input: route.input, output: route.output })),
+    .map((route) => ({ provider: model.provider as ProviderId, modelId: route.modelId, input: route.input, output: route.output })),
 );
 
 function downloadFile(filename: string, text: string) {
@@ -84,21 +149,69 @@ function downloadFile(filename: string, text: string) {
   URL.revokeObjectURL(url);
 }
 
-function storageKey(wallet: string) {
-  return "sonnely.batch:" + wallet;
+type BatchBoot = { job: BatchJob | undefined; error: string };
+
+const storeName = "wallets";
+
+function openBatchDatabase() {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const opening = indexedDB.open("sonnely-batch-inference", 1);
+    opening.onupgradeneeded = () => opening.result.createObjectStore(storeName);
+    opening.onerror = () => reject(new Error("Batch storage is unavailable on this device."));
+    opening.onsuccess = () => resolve(opening.result);
+  });
 }
 
-function readBatch(wallet: string): BatchJob | undefined {
-  const text = localStorage.getItem(storageKey(wallet));
-  if (!text) return undefined;
-  const job = JSON.parse(text) as BatchJob;
-  if (job.version !== 1 || !Array.isArray(job.rows)) throw new Error("This device’s saved batch cannot be opened.");
-  return job;
+function savedBatchJob(value: unknown): BatchJob | undefined {
+  const parsed = batchJobSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
 }
 
-function writeBatch(wallet: string, job?: BatchJob) {
-  if (job) localStorage.setItem(storageKey(wallet), JSON.stringify(job));
-  else localStorage.removeItem(storageKey(wallet));
+async function readBatch(wallet: string) {
+  const database = await openBatchDatabase();
+  try {
+    return await new Promise<BatchJob | undefined>((resolve, reject) => {
+      const reading = database.transaction(storeName).objectStore(storeName).get(wallet);
+      reading.onsuccess = () => {
+        if (reading.result === undefined) {
+          resolve(undefined);
+          return;
+        }
+        const job = savedBatchJob(reading.result);
+        if (!job) reject(new Error("This device’s saved batch cannot be opened."));
+        else resolve(job);
+      };
+      reading.onerror = () => reject(new Error("Could not read this device’s saved batch."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+function rememberBatch(wallet: string, job: BatchJob | undefined, error = "") {
+  const reading = batchReads.get(wallet);
+  if (reading) {
+    reading.boot.job = job ? resetInFlight(job) : undefined;
+    reading.boot.error = error;
+  }
+}
+
+async function writeBatch(wallet: string, job?: BatchJob) {
+  const database = await openBatchDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const writing = database.transaction(storeName, "readwrite");
+      if (job) writing.objectStore(storeName).put(job, wallet);
+      else writing.objectStore(storeName).delete(wallet);
+      writing.oncomplete = () => {
+        rememberBatch(wallet, job);
+        resolve();
+      };
+      writing.onerror = () => reject(new Error("Could not save this device’s batch checkpoint."));
+    });
+  } finally {
+    database.close();
+  }
 }
 
 function replaceRow(job: BatchJob, index: number, row: BatchRow) {
@@ -129,34 +242,41 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function validBody(value: unknown): value is BatchBody {
-  if (!record(value)) return false;
-  if (typeof value.model !== "string" || !value.model || value.model.length > 100) return false;
-  if (!Array.isArray(value.messages) || value.messages.length < 1 || value.messages.length > 32) return false;
-  if (value.stream !== undefined && value.stream !== false) return false;
-  if (value.max_tokens !== undefined && (!Number.isInteger(value.max_tokens) || Number(value.max_tokens) < 1)) return false;
-  if (value.max_cost_microusd !== undefined && (!Number.isInteger(value.max_cost_microusd) || Number(value.max_cost_microusd) < 1)) return false;
-  if (value.provider !== undefined && (!record(value.provider) || !Array.isArray(value.provider.only) || value.provider.only.length !== 1 || typeof value.provider.only[0] !== "string")) return false;
-  return value.messages.every((message) => record(message) && typeof message.role === "string");
+function routeCapabilities(modelId: string, provider: string) {
+  const deepseek = modelId === "deepseek-ai/DeepSeek-V4.1-Flash-1017";
+  return {
+    tools: deepseek && (provider === "phala" || provider === "tinfoil") && agentFeatures,
+    structured_outputs: deepseek && provider === "tinfoil" && agentFeatures,
+  };
 }
 
+const agentFeatures = false;
+const knownModels = new Set(chatRoutes.map((route) => route.modelId));
+
 function prepareLine(value: unknown): { row: BatchRow } | { issue: string } {
-  if (!record(value)) return { issue: "Expected a JSONL chat request." };
-  const customId = typeof value.custom_id === "string" ? value.custom_id.trim() : "";
-  if (!customId || customId.length > 120 || /\p{Cc}/u.test(customId)) return { issue: "Check custom_id for a nonstreaming chat request." };
-  if (value.method !== "POST" || typeof value.url !== "string" || !endpoints.has(value.url)) return { issue: "Check url for a nonstreaming chat request." };
-  if (!validBody(value.body)) return { issue: "Check body for a nonstreaming chat request." };
-  const body = value.body;
-  const route = chatRoutes.find((candidate) => candidate.modelId === body.model && (!body.provider || candidate.provider === body.provider.only[0]));
-  if (!route) return { issue: body.provider ? "No available route matches this model and provider." : "The model is not in the Sonnely chat catalog." };
+  const parsed = inputLine.safeParse(value);
+  if (!parsed.success) {
+    const path = parsed.error.issues[0]?.path.join(".");
+    return { issue: path ? "Check " + path + " for a nonstreaming chat request." : "Expected a JSONL chat request." };
+  }
+  const { custom_id: customId, body } = parsed.data;
+  if (!knownModels.has(body.model)) return { issue: "The model is not in the Sonnely chat catalog." };
+  const requested = body.provider?.only[0];
+  const route = chatRoutes.find((candidate) => candidate.modelId === body.model && (requested ? candidate.provider === requested : candidate.provider === "near-ai"))
+    ?? chatRoutes.find((candidate) => candidate.modelId === body.model && (!requested || candidate.provider === requested));
+  if (!route) return { issue: "No available route matches this model and provider." };
+  const capabilities = routeCapabilities(body.model, route.provider);
+  const usesTools = body.tools || body.tool_choice !== undefined || body.messages.some((item) => item.role === "tool" || (item.role === "assistant" && item.tool_calls));
+  if (usesTools && !capabilities.tools) return { issue: "Tool calls are unavailable on this route." };
+  if (body.response_format && body.response_format.type !== "text" && !capabilities.structured_outputs) return { issue: "Structured output is unavailable on this route." };
   if (body.tool_choice && !body.tools) return { issue: "tool_choice requires tools." };
-  if (body.messages.some((message) => message.role === "assistant" && !message.content && !message.tool_calls)) return { issue: "Assistant messages require content or tool calls." };
-  const bytes = utf8.encode(JSON.stringify(body.messages)).length + (body.tools || body.tool_choice || body.response_format ? utf8.encode(JSON.stringify({ tools: body.tools, tool_choice: body.tool_choice, response_format: body.response_format })).length : 0);
-  const maxTokens = body.max_tokens ?? 4096;
-  const estimatedMaximum = Math.max(1, Math.ceil((route.input * (bytes + 256)) / 1_000_000 + (route.output * maxTokens) / 1_000_000));
+  if (body.messages.some((item) => item.role === "assistant" && !item.content && !item.tool_calls)) return { issue: "Assistant messages require content or tool calls." };
+  const shape = { tools: body.tools, tool_choice: body.tool_choice, response_format: body.response_format };
+  const bytes = utf8.encode(JSON.stringify(body.messages)).length + (body.tools || body.tool_choice || body.response_format ? utf8.encode(JSON.stringify(shape)).length : 0);
+  const estimatedMaximum = Math.max(1, Math.ceil((route.input * (bytes + 256)) / 1_000_000 + (route.output * (body.max_tokens ?? requestLimits.defaultOutputTokens)) / 1_000_000));
   if (body.max_cost_microusd !== undefined && estimatedMaximum > body.max_cost_microusd) return { issue: "The reservation estimate exceeds max_cost_microusd." };
   const request: BatchRow["body"] = { ...body, provider: { only: [route.provider] }, max_cost_microusd: body.max_cost_microusd ?? estimatedMaximum };
-  if (utf8.encode(JSON.stringify(request)).length > 512 * 1024) return { issue: "The request exceeds Sonnely’s per-request body limit." };
+  if (utf8.encode(JSON.stringify(request)).length > requestLimits.bodyBytes) return { issue: "The request exceeds Sonnely’s per-request body limit." };
   return { row: { customId, body: request, estimatedMaximum, status: "queued" } };
 }
 
@@ -263,19 +383,49 @@ export function BatchSection() {
   const session = useWorkspaceSession();
   const machine = useRemote<Batch>("console__batch");
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
-  if (!wallet) return <SignInGate message="Sign in with a Solana wallet to open Batch." />;
-  return <BatchWorkspace key={wallet} wallet={wallet} machine={machine} />;
+  if (!wallet) {
+    return (
+      <div className="telemetry-legacy console batch-legacy">
+        <WorkspaceHeading icon={Files} title="Batch" description="Run a JSONL file through private inference and save the results on this device.">
+          <a className="button quiet" href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a>
+        </WorkspaceHeading>
+        <section className="panel batch-panel-section"><p>Sign in with a Solana wallet to open Batch.</p></section>
+      </div>
+    );
+  }
+  return (
+    <Suspense fallback={null}>
+      <BatchWorkspace key={wallet} wallet={wallet} machine={machine} />
+    </Suspense>
+  );
+}
+
+const batchReads = new Map<string, { promise: Promise<BatchBoot>; boot: BatchBoot }>();
+
+function readBoot(wallet: string) {
+  let reading = batchReads.get(wallet);
+  if (!reading) {
+    const boot: BatchBoot = { job: undefined, error: "" };
+    const promise = readBatch(wallet)
+      .then((job) => {
+        boot.job = job ? resetInFlight(job) : undefined;
+        return boot;
+      })
+      .catch((failure) => {
+        boot.error = workMessage(failure);
+        return boot;
+      });
+    reading = { promise, boot };
+    batchReads.set(wallet, reading);
+  }
+  return reading.promise;
 }
 
 function BatchWorkspace({ wallet, machine }: { wallet: string; machine: Remote<Batch> }) {
-  const [boot] = useState(() => {
-    try {
-      const job = readBatch(wallet);
-      return { job: job ? resetInFlight(job) : undefined, error: "" };
-    } catch (failure) {
-      return { job: undefined, error: workMessage(failure) };
-    }
-  });
+  return <BatchWorkspaceLoaded boot={use(readBoot(wallet))} wallet={wallet} machine={machine} />;
+}
+
+function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wallet: string; machine: Remote<Batch> }) {
   const [saved, setSaved] = useState<BatchJob | undefined>(boot.job);
   const [ready, setReady] = useState(!boot.error);
   const [activity, setActivity] = useState<"importing" | "running" | "clearing" | "idle">("idle");
@@ -288,10 +438,11 @@ function BatchWorkspace({ wallet, machine }: { wallet: string; machine: Remote<B
   const taskRef = useRef<AbortController | undefined>(undefined);
   const uploaderRef = useRef<HTMLInputElement>(null);
 
-  function reload() {
+  async function reload() {
     if (taskRef.current) return;
     try {
-      const job = readBatch(wallet);
+      const job = await readBatch(wallet);
+      rememberBatch(wallet, job);
       setSaved(job ? resetInFlight(job) : undefined);
       setReady(true);
       setError("");
@@ -325,7 +476,7 @@ function BatchWorkspace({ wallet, machine }: { wallet: string; machine: Remote<B
     setIssues(undefined);
     await operate("importing", async (signal) => {
       if (file.size > batchLimits.bytes) throw new Error("Choose a JSONL file up to 4 MiB.");
-      if (readBatch(wallet)) throw new Error("Clear the saved batch before importing a new file.");
+      if (await readBatch(wallet)) throw new Error("Clear the saved batch before importing a new file.");
       const result = preflightBatch(await file.text());
       if (signal.aborted) return;
       if (result.issueCount) {
@@ -333,7 +484,7 @@ function BatchWorkspace({ wallet, machine }: { wallet: string; machine: Remote<B
         return;
       }
       const next: BatchJob = { version: 1, id: crypto.randomUUID(), filename: file.name, createdAt: Date.now(), rows: result.rows };
-      writeBatch(wallet, next);
+      await writeBatch(wallet, next);
       if (machine.state?.tag !== "Idle") await machine.send({ type: "clear" });
       await machine.send({ type: "submit", id: next.id, filename: next.filename, requests: next.rows.map((row) => ({ customId: row.customId, model: row.body.model })) });
       setSaved(next);
@@ -353,29 +504,28 @@ function BatchWorkspace({ wallet, machine }: { wallet: string; machine: Remote<B
   async function run(jobId: string, retryIndex?: number) {
     if (!wallet) return;
     await operate("running", async (signal) => {
-      const loaded = readBatch(wallet);
+      const loaded = await readBatch(wallet);
       if (!loaded || loaded.id !== jobId) throw new Error("This batch changed in another tab. Refresh the saved batch.");
       let job = resetInFlight(loaded);
-      if (job !== loaded) writeBatch(wallet, job);
+      if (job !== loaded) await writeBatch(wallet, job);
       setSaved(job);
       const selected = job.rows.flatMap((row, index) => (retryIndex === undefined ? row.status === "queued" || row.status === "blocked" : index === retryIndex && row.status === "interrupted") ? [index] : []);
       for (const index of selected) {
-        if (signal.aborted) break;
         if (signal.aborted) break;
         const previous = job.rows[index];
         if (retryIndex === index) await machine.send({ type: "retry", index });
         await machine.send({ type: "start", index });
         const row: BatchRow = { customId: previous.customId, body: previous.body, estimatedMaximum: previous.estimatedMaximum, status: "sending" };
         const started = { ...replaceRow(job, index, row), lastSentAt: Date.now() };
-        writeBatch(wallet, started);
+        await writeBatch(wallet, started);
         if (signal.aborted) {
-          writeBatch(wallet, job);
+          await writeBatch(wallet, job);
           break;
         }
         setSaved(started);
         const result = await sendBatchRow(wallet, job.id, index, row, signal);
         job = replaceRow(started, index, result);
-        writeBatch(wallet, job);
+        await writeBatch(wallet, job);
         await sendMachine(index, result);
         setSaved(job);
         if (result.status === "blocked" || result.status === "interrupted") break;
@@ -391,10 +541,10 @@ function BatchWorkspace({ wallet, machine }: { wallet: string; machine: Remote<B
   async function clearBatch(jobId: string) {
     if (!wallet) return;
     await operate("clearing", async (signal) => {
-      const job = readBatch(wallet);
+      const job = await readBatch(wallet);
       if (!job || job.id !== jobId) throw new Error("This batch changed in another tab. Refresh the saved batch.");
       if (signal.aborted) return;
-      writeBatch(wallet);
+      await writeBatch(wallet);
       await machine.send({ type: "clear" });
       setSaved(undefined);
       setConfirmClear(false);
@@ -438,11 +588,11 @@ function BatchWorkspace({ wallet, machine }: { wallet: string; machine: Remote<B
           <label className="batch-upload">
             <Upload size={18} aria-hidden="true" />
             <span><strong>Choose JSONL file</strong><span className="caption">Each line needs a custom ID, endpoint, and request body.</span></span>
-            <input ref={uploaderRef} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready} onChange={(event) => void importBatch(event)} />
+            <input ref={uploaderRef} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready || !machine.state} onChange={(event) => void importBatch(event)} />
           </label>
           {issues && <div role="alert" className="error batch-issues"><strong>Found {issues.count} {issues.count === 1 ? "issue" : "issues"} in this file.</strong><ul>{issues.lines.map((issue) => <li key={issue.line}>{issue.line ? "Line " + issue.line + " · " : ""}{issue.detail}</li>)}</ul>{issues.count > issues.lines.length && <p>Showing the first {issues.lines.length} issues.</p>}</div>}
           {!ready && !error && <p role="status" className="caption">Opening this device’s batch storage…</p>}
-          {!ready && error && <button className="button quiet" type="button" onClick={reload}>Retry local storage</button>}
+          {!ready && error && <button className="button quiet" type="button" onClick={() => void reload()}>Retry local storage</button>}
         </section>
       ) : (
         <>
@@ -451,7 +601,7 @@ function BatchWorkspace({ wallet, machine }: { wallet: string; machine: Remote<B
               <div><h2 id="batch-summary-title" ref={focusHeading} tabIndex={-1}>{saved.filename}</h2><p className="caption">This batch and its checkpoints are stored in this browser for your wallet.</p></div>
               <div className="batch-actions">
                 {activity === "running" ? <button className="button quiet" type="button" disabled={pausing} onClick={() => { taskRef.current?.abort(); setPausing(true); }}><Pause size={16} aria-hidden="true" /> {pausing ? "Pausing…" : "Pause batch"}</button> : <button className="button accent" type="button" disabled={busy || !remaining || confirmClear} onClick={() => void run(saved.id)}><Play size={16} aria-hidden="true" /> {rows.every((row) => row.status === "queued") ? "Run batch" : "Resume batch"}</button>}
-                <button className="button quiet" type="button" disabled={busy} onClick={reload}><RefreshCw size={16} aria-hidden="true" /> Refresh saved batch</button>
+                <button className="button quiet" type="button" disabled={busy} onClick={() => void reload()}><RefreshCw size={16} aria-hidden="true" /> Refresh saved batch</button>
               </div>
             </div>
             <dl className="batch-stats"><div><dt>Requests</dt><dd>{rows.length}</dd></div><div><dt>Completed</dt><dd>{completed}</dd></div><div><dt>Needs attention</dt><dd>{attention}</dd></div><div><dt>Estimated max reservation</dt><dd>{creditBalance(estimate)}</dd></div></dl>

@@ -39,6 +39,10 @@ function formFields(form: HTMLFormElement) {
   };
 }
 
+function focusHeading(node: HTMLHeadingElement | null) {
+  node?.focus();
+}
+
 function CapFields({ editing, now }: { editing?: Key; now: number }) {
   return (
     <>
@@ -75,8 +79,6 @@ function KeysConsole() {
   const signedIn = session.state?.tag === "SignedIn";
   const data = state?.keys;
   const [now] = useState(() => Date.now());
-
-  const focusHeading = (node: HTMLHeadingElement | null) => node?.focus();
 
   function cancelRowAction() {
     setEditing(null);

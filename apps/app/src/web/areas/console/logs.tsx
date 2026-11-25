@@ -1,13 +1,12 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated request-log class names and keeps the drawer workflow together */
 // spec/app/console/logs.md, "Story: Review request activity"
 import { Activity, ArrowUpRight, Download, List, RefreshCw, Search, X } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
 import type { LogEntry, Logs, LogStatus, Window } from "../../../../gen/app__console__logs.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { visible } from "../../../../gen/app__console__logs.ts";
 import { useRemote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
-import { SignInGate } from "./gate.tsx";
 import {
   CopyButton,
   WorkspaceHeading,
@@ -72,6 +71,35 @@ type LogRow = LogEntry & {
   reasoningTokens?: number;
   stream?: boolean;
 };
+
+const locationEvent = "sonnely:locationchange";
+
+function interceptLogsPopstate(event: Event) {
+  if (window.location.pathname !== logPath) return;
+  event.stopImmediatePropagation();
+  window.dispatchEvent(new Event(locationEvent));
+}
+
+if (typeof window !== "undefined") window.addEventListener("popstate", interceptLogsPopstate);
+
+function subscribeLocation(callback: () => void) {
+  window.addEventListener("popstate", callback);
+  window.addEventListener(locationEvent, callback);
+  return () => {
+    window.removeEventListener("popstate", callback);
+    window.removeEventListener(locationEvent, callback);
+  };
+}
+
+function locationSearch() {
+  return window.location.search;
+}
+
+function navigateLogs(path: string, replace = false) {
+  if (replace) window.history.replaceState(null, "", path);
+  else window.history.pushState(null, "", path);
+  window.dispatchEvent(new Event(locationEvent));
+}
 
 function detailPath(id: string) {
   return logPath + "?" + new URLSearchParams({ request: id }).toString();
@@ -366,25 +394,21 @@ export function LogsSection() {
   const logs = useRemote<Logs>("console__logs");
   const [lookup, setLookup] = useState("");
   const [draft, setDraft] = useState(defaults);
-  const [requestId, setRequestId] = useState(() => new URLSearchParams(location.search).get("request"));
+  const requestId = new URLSearchParams(useSyncExternalStore(subscribeLocation, locationSearch)).get("request");
   const state = logs.state;
 
   const rows = useMemo(() => (state ? (visible(state) as LogRow[]) : []), [state]);
   const allRows = useMemo(() => (state?.entries ?? []) as LogRow[], [state]);
   const detailRow = requestId ? allRows.find((row) => row.id === requestId) : undefined;
 
-  if (session.state?.tag !== "SignedIn") {
-    return <SignInGate message="Connect a Solana wallet to view your request logs." />;
-  }
+  const signedIn = session.state?.tag === "SignedIn";
 
   function closeDetail() {
-    window.history.replaceState(null, "", logPath);
-    setRequestId(null);
+    navigateLogs(logPath, true);
   }
 
   function openDetail(id: string) {
-    window.history.pushState(null, "", detailPath(id));
-    setRequestId(id);
+    navigateLogs(detailPath(id));
   }
 
   async function applyFilters(event: FormEvent<HTMLFormElement>) {
@@ -433,7 +457,11 @@ export function LogsSection() {
           <Activity size={16} aria-hidden="true" /> View usage
         </a>
       </WorkspaceHeading>
-      <section className="panel log-filters" aria-label="Request log controls">
+      {!signedIn ? (
+        <p className="panel empty">Connect a Solana wallet to view your request logs.</p>
+      ) : (
+        <>
+          <section className="panel log-filters" aria-label="Request log controls">
         <form
           className="log-lookup"
           onSubmit={(event) => {
@@ -526,8 +554,10 @@ export function LogsSection() {
           </div>
         </form>
       </section>
-      <LogResults key={state ? windowDays[state.window] + state.provider + state.model + state.keyName + state.showing.tag : "loading"} rows={rows} error={logs.error} open={openDetail} />
-      {requestId && <RequestDetail key={requestId} id={requestId} row={detailRow} close={closeDetail} />}
+          <LogResults key={state ? windowDays[state.window] + state.provider + state.model + state.keyName + state.showing.tag : "loading"} rows={rows} error={logs.error} open={openDetail} />
+          {requestId && <RequestDetail key={requestId} id={requestId} row={detailRow} close={closeDetail} />}
+        </>
+      )}
     </div>
   );
 }
