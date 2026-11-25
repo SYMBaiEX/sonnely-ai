@@ -359,7 +359,245 @@
     },
     "spec/app/compute/index.md": {
       "@document": [
-        "17c0d963da8c"
+        "21c19b52b15d"
+      ]
+    },
+    "spec/app/compute/instances.md": {
+      "@document": [
+        "bf9ae132d1e0"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A run moves queued, provisioning, running, teardown, settled — or settles early": [
+        "8dd4b0492548",
+        "ba997ea91231"
+      ],
+      "Domain / A settled run reports completed, failed, stopped or expired": [
+        "a16674a355f6",
+        "99ce63d88952"
+      ],
+      "Domain / A Blackbox's attestation is pending until verified or rejected": [
+        "b43351a690e4",
+        "9019e8d8e04e"
+      ],
+      "Domain / A workload is a pinned OCI image or a pinned GitHub commit": [
+        "a22ce44b7267",
+        "6534f33857b4",
+        "1d2ad200c2c6"
+      ],
+      "Domain / No runs exist at first": [
+        "e3b0c44298fc",
+        "4759cbe05b5c",
+        "eeb756699b08"
+      ],
+      "Domain / A Blackbox comes in three TDX sizes and three SSD sizes": [
+        "98ee1aad610c",
+        "56107580cdcc",
+        "eeb756699b08"
+      ],
+      "Domain / The fee is 25% of compute cost plus 10,000 micro-USD for a billed run": [
+        "20ef41093c07",
+        "de60c8ee0e12",
+        "59d8c7c78229"
+      ],
+      "Domain / A Blackbox rents for 15 to 120 minutes, a Dry Dock for 5 to 15": [
+        "6a140f9964db",
+        "34e927d82555",
+        "eeb756699b08"
+      ],
+      "Domain / A workload must name a digest-pinned image and port, or a repository and full SHA": [
+        "6e4c27d1ba8e",
+        "8204ddd789f7",
+        "6e276e51262c"
+      ],
+      "## Story: Rent a confidential machine": [
+        "c1a0d514c61f"
+      ],
+      "Story: Rent a confidential machine / A wallet opens a run for a supported window and a valid workload": [
+        "7541f337fd59",
+        "f289229db3e2",
+        "309e6f4249a4"
+      ],
+      "Story: Rent a confidential machine / A wallet can run one compute job at a time": [
+        "bb1a820ccad5",
+        "173a8c96905d",
+        "b6e07bb56aa5"
+      ],
+      "Story: Rent a confidential machine / Run ids and a wallet's references are never reused": [
+        "3e44b859b778",
+        "f14608c18b58",
+        "30d5792c1123"
+      ],
+      "Story: Rent a confidential machine / The provider launches a queued run": [
+        "e3b0c44298fc",
+        "2bf46952a0a8",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A queued run that never launches settles for nothing": [
+        "fbca1cbeb04a",
+        "a8c938b08bde",
+        "b6e07bb56aa5"
+      ],
+      "Story: Rent a confidential machine / A provider that declines settles the run failed at no charge": [
+        "e9039b9d585e",
+        "d6ec8821e3c4",
+        "b6e07bb56aa5"
+      ],
+      "Story: Rent a confidential machine / A Blackbox only serves inference once its attestation is verified": [
+        "787694705d94",
+        "6fab949a5ef0",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A Blackbox that cannot be verified tears down failed": [
+        "08f882e1f205",
+        "5a08b049cd1e",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A Dry Dock runs once its build starts": [
+        "e3b0c44298fc",
+        "d4ac5dd62499",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A running or provisioning run can be asked to stop": [
+        "6ed4cbc158fa",
+        "bec014179627",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A provisioning or running run enters teardown with its outcome": [
+        "4fad0b4fe388",
+        "048e54b68588",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / Teardown settles the hold against metered time": [
+        "48d731168441",
+        "2507079aa85e",
+        "b6e07bb56aa5"
+      ],
+      "Story: Rent a confidential machine / A run's phase only moves forward along the lifecycle edges": [
+        "e3b0c44298fc",
+        "2213b081aca1",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A settled run is never resurrected": [
+        "fb92016575a3",
+        "89fdfd0b59a6",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A run's result is set exactly when it heads to settlement": [
+        "e3b0c44298fc",
+        "e3d58b2f1cfb",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A run's kind is its workload's kind": [
+        "e3b0c44298fc",
+        "a5ed620b0b68",
+        "b6e07bb56aa5"
+      ],
+      "Story: Rent a confidential machine / A running Blackbox is always verified, and a Dry Dock never needs evidence": [
+        "e3b0c44298fc",
+        "cc89e6ca9476",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A run's reserve is the quote of its spec": [
+        "1b76f2844e7b",
+        "e3ee2cdf8f42",
+        "6e276e51262c"
+      ],
+      "Story: Rent a confidential machine / A charge never exceeds the hold, and the hold is charge plus what returned": [
+        "e3b0c44298fc",
+        "16abef82c0dd",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A Blackbox that never verified is never billed": [
+        "e3b0c44298fc",
+        "b07d386f0a03",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / Metered time beyond the window is never charged": [
+        "e3b0c44298fc",
+        "0b7989699f1d",
+        "b6e07bb56aa5"
+      ],
+      "Story: Rent a confidential machine / A run that counts nothing is billed nothing": [
+        "e3b0c44298fc",
+        "46d1ab33d97f",
+        "6e276e51262c"
+      ],
+      "Story: Rent a confidential machine / Every run settles in the end": [
+        "2226b0466d82",
+        "5952b608a4bf",
+        "eeb756699b08"
+      ],
+      "Story: Rent a confidential machine / A run can reach running, be verified, settle completed or stop early, and evidence can be rejected": [
+        "e3b0c44298fc",
+        "65f4822e0253",
+        "eeb756699b08"
+      ]
+    },
+    "spec/app/compute/market.md": {
+      "@document": [
+        "c9269458ca82"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A provider offer names region, class, price and capacity": [
+        "a5ab8f82085b",
+        "17cc94d31c60"
+      ],
+      "Domain / The market opens with no offers": [
+        "e3b0c44298fc",
+        "590805a83405",
+        "ba0b0f893da4"
+      ],
+      "## Story: Allocate provider capacity": [
+        "da5b5266516f"
+      ],
+      "Story: Allocate provider capacity / An offer's key is its provider, region and class together": [
+        "e3b0c44298fc",
+        "8f990ecbbf6e",
+        "ba0b0f893da4"
+      ],
+      "Story: Allocate provider capacity / A provider lists an offer once per region and class": [
+        "e3b0c44298fc",
+        "652477d91007",
+        "91e2daca29ab"
+      ],
+      "Story: Allocate provider capacity / A claim allocates one unit of an offer's free capacity": [
+        "e3b0c44298fc",
+        "79509adc5b81",
+        "91e2daca29ab"
+      ],
+      "Story: Allocate provider capacity / A release restores one claimed unit": [
+        "e3b0c44298fc",
+        "88d4f1f95c2e",
+        "91e2daca29ab"
+      ],
+      "Story: Allocate provider capacity / Claimed capacity is always inside the offer's capacity": [
+        "3bf2c0253604",
+        "4474f2e992e6",
+        "ba0b0f893da4"
+      ],
+      "Story: Allocate provider capacity / Offers are listed once": [
+        "e3b0c44298fc",
+        "49cf1c79bcdf",
+        "91e2daca29ab"
+      ],
+      "Story: Allocate provider capacity / A step shifts an offer's allocation by at most one unit": [
+        "b72fe850d9a5",
+        "fdb2ef7127e1",
+        "91e2daca29ab"
+      ],
+      "Story: Allocate provider capacity / A claim followed by a release returns the offer to what it was": [
+        "e3b0c44298fc",
+        "d738aeb41ff2",
+        "fa04d171856d"
+      ],
+      "Story: Allocate provider capacity / Capacity can be claimed and an offer can fill": [
+        "e3b0c44298fc",
+        "22d03c5e59f3",
+        "ba0b0f893da4"
       ]
     },
     "spec/app/console/index.md": {

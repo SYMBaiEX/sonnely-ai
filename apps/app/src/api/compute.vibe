@@ -1,0 +1,10 @@
+// spec/app/compute/index.md: confidential compute — blackbox rentals (instances) and dry-dock builds, over provider capacity (market).
+import { instancesApi, instancesState } from "./compute/instances.vibe"
+import { marketApi, marketState } from "./compute/market.vibe"
+import { providerWorker } from "./compute/provider.vibe"
+
+export const computeApi = Layer.mergeAll(instancesApi, marketApi, providerWorker)
+
+export function computeState(dir: string) {
+  return Layer.mergeAll(instancesState(dir), marketState(dir))
+}
