@@ -315,6 +315,15 @@ export function Consoles() {
     }
   }
 
+  async function refreshRuns() {
+    try {
+      const response = await fetch("/api/machines/instances", { cache: "no-store" });
+      if (!response.ok) setActionError(`Rental status could not refresh (HTTP ${response.status}).`);
+    } catch {
+      setActionError("Rental status could not refresh.");
+    }
+  }
+
   async function stopRental() {
     if (!rental || pending) return false;
     setActionError("");
@@ -371,7 +380,7 @@ export function Consoles() {
       {instances.error && (
         <div className={styles.notice} role="alert">
           <span>Rental status could not refresh. {instances.error}</span>
-          <button type="button" className="button quiet small" onClick={() => undefined}>
+          <button type="button" className="button quiet small" onClick={() => void refreshRuns()}>
             Try again
           </button>
         </div>
@@ -665,7 +674,7 @@ export function Consoles() {
               <span className={styles.metric}>
                 <strong>{creditBalance(charged)}</strong> charged
               </span>
-              <button type="button" className="button quiet small" onClick={() => undefined}>
+              <button type="button" className="button quiet small" onClick={() => void refreshRuns()}>
                 <RefreshCw size={15} aria-hidden="true" /> Refresh
               </button>
             </div>
