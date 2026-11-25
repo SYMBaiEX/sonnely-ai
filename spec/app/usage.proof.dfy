@@ -233,6 +233,49 @@ lemma pendingSettlesAppend(u: Usage, after: Usage, x: Row)
   }
 }
 
+// stepWalletNeverChanges: a before-row's after-row keeps its wallet.
+
+lemma walletNeverChangesMap(u: Usage, after: Usage)
+  requires alwaysRowsAreWellFormed(u)
+  requires |after.rows| == |u.rows|
+  requires forall j :: 0 <= j < |u.rows| ==> (after.rows[j].id == u.rows[j].id)
+  requires forall j :: 0 <= j < |u.rows| ==> ((after.rows[j] == u.rows[j]) || (after.rows[j].wallet == u.rows[j].wallet))
+  ensures stepWalletNeverChanges(u, after)
+{
+  forall r | r in u.rows
+    ensures !(exists a :: a in rowWithId(after, r.id) && !((a.wallet == r.wallet)))
+  {
+    forall a | a in rowWithId(after, r.id)
+      ensures a.wallet == r.wallet
+    {
+      rowWithIdAll(after, r.id);
+      var j :| 0 <= j < |after.rows| && after.rows[j] == a;
+      assert u.rows[j].id == r.id;
+      sameIdIsSame(u, u.rows[j], r);
+    }
+  }
+}
+
+lemma walletNeverChangesAppend(u: Usage, after: Usage, x: Row)
+  requires alwaysRowsAreWellFormed(u)
+  requires after.rows == u.rows + [x]
+  requires !(exists r :: r in u.rows && !(r.id != x.id))
+  ensures stepWalletNeverChanges(u, after)
+{
+  forall r | r in u.rows
+    ensures !(exists a :: a in rowWithId(after, r.id) && !((a.wallet == r.wallet)))
+  {
+    forall a | a in rowWithId(after, r.id)
+      ensures a.wallet == r.wallet
+    {
+      rowWithIdAll(after, r.id);
+      assert a.id != x.id;
+      assert a in u.rows;
+      sameIdIsSame(u, a, r);
+    }
+  }
+}
+
 // A FoldLeft over one more element applies the step once at the end.
 
 lemma foldLeftAppendPartial<A, T>(f: (A, T) -> A, init: A, xs: seq<T>, last: T)
@@ -285,6 +328,7 @@ lemma foldCountIsLen(f: (int, Row) -> int, init: int, xs: seq<Row>)
 lemma record_ensures(u: Usage, by_: string, id: string, time: int, keyName: string, keyId: string, project: string, model: string, provider: Provider, cost: int)
   ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> alwaysPendingIsClean(record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
   ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> alwaysRowsAreWellFormed(record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
+  ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> stepWalletNeverChanges(u, record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
   ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> stepRowsOnlyGrow(u, record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
   ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> stepSettledRowsAreFixed(u, record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
   ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> stepPendingSettles(u, record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
@@ -310,6 +354,8 @@ lemma record_ensures(u: Usage, by_: string, id: string, time: int, keyName: stri
     pendingP(after);
     assert alwaysRowsAreWellFormed(after);
     assert alwaysPendingIsClean(after);
+    walletNeverChangesAppend(u, after, x);
+    assert stepWalletNeverChanges(u, after);
     rowsOnlyGrowAppend(u, after, x);
     assert stepRowsOnlyGrow(u, after);
     settledFixedAppend(u, after, x);
@@ -324,6 +370,7 @@ lemma record_ensures(u: Usage, by_: string, id: string, time: int, keyName: stri
 lemma charge_ensures(u: Usage, by_: string, id: string, input: int, output: int, cached: int, cost: int, providerMs: int)
   ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> alwaysPendingIsClean(charge(u, by_, id, input, output, cached, cost, providerMs)))
   ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> alwaysRowsAreWellFormed(charge(u, by_, id, input, output, cached, cost, providerMs)))
+  ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> stepWalletNeverChanges(u, charge(u, by_, id, input, output, cached, cost, providerMs)))
   ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> stepRowsOnlyGrow(u, charge(u, by_, id, input, output, cached, cost, providerMs)))
   ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> stepSettledRowsAreFixed(u, charge(u, by_, id, input, output, cached, cost, providerMs)))
   ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> stepPendingSettles(u, charge(u, by_, id, input, output, cached, cost, providerMs)))
@@ -356,6 +403,8 @@ lemma charge_ensures(u: Usage, by_: string, id: string, input: int, output: int,
     pendingP(after);
     assert alwaysRowsAreWellFormed(after);
     assert alwaysPendingIsClean(after);
+    walletNeverChangesMap(u, after);
+    assert stepWalletNeverChanges(u, after);
     rowsOnlyGrowMap(u, after);
     assert stepRowsOnlyGrow(u, after);
     settledFixedMap(u, after);
@@ -370,6 +419,7 @@ lemma charge_ensures(u: Usage, by_: string, id: string, input: int, output: int,
 lemma release_ensures(u: Usage, by_: string, id: string)
   ensures (inv(u) ==> canRelease(u, by_, id) ==> alwaysPendingIsClean(release(u, by_, id)))
   ensures (inv(u) ==> canRelease(u, by_, id) ==> alwaysRowsAreWellFormed(release(u, by_, id)))
+  ensures (inv(u) ==> canRelease(u, by_, id) ==> stepWalletNeverChanges(u, release(u, by_, id)))
   ensures (inv(u) ==> canRelease(u, by_, id) ==> stepRowsOnlyGrow(u, release(u, by_, id)))
   ensures (inv(u) ==> canRelease(u, by_, id) ==> stepSettledRowsAreFixed(u, release(u, by_, id)))
   ensures (inv(u) ==> canRelease(u, by_, id) ==> stepPendingSettles(u, release(u, by_, id)))
@@ -402,6 +452,8 @@ lemma release_ensures(u: Usage, by_: string, id: string)
     pendingP(after);
     assert alwaysRowsAreWellFormed(after);
     assert alwaysPendingIsClean(after);
+    walletNeverChangesMap(u, after);
+    assert stepWalletNeverChanges(u, after);
     rowsOnlyGrowMap(u, after);
     assert stepRowsOnlyGrow(u, after);
     settledFixedMap(u, after);
@@ -416,6 +468,7 @@ lemma release_ensures(u: Usage, by_: string, id: string)
 lemma unreported_ensures(u: Usage, by_: string, id: string)
   ensures (inv(u) ==> canUnreported(u, by_, id) ==> alwaysPendingIsClean(unreported(u, by_, id)))
   ensures (inv(u) ==> canUnreported(u, by_, id) ==> alwaysRowsAreWellFormed(unreported(u, by_, id)))
+  ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepWalletNeverChanges(u, unreported(u, by_, id)))
   ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepRowsOnlyGrow(u, unreported(u, by_, id)))
   ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepSettledRowsAreFixed(u, unreported(u, by_, id)))
   ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepPendingSettles(u, unreported(u, by_, id)))
@@ -448,6 +501,8 @@ lemma unreported_ensures(u: Usage, by_: string, id: string)
     pendingP(after);
     assert alwaysRowsAreWellFormed(after);
     assert alwaysPendingIsClean(after);
+    walletNeverChangesMap(u, after);
+    assert stepWalletNeverChanges(u, after);
     rowsOnlyGrowMap(u, after);
     assert stepRowsOnlyGrow(u, after);
     settledFixedMap(u, after);

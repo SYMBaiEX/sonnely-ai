@@ -134,6 +134,11 @@ session or from the already authenticated key owner inside the gateway; it
 never trusts a wallet supplied by the client. Reads project rows for the
 session wallet.
 
+```quint
+pure def stepWalletNeverChanges(before: Usage, after: Usage): bool =
+  before.rows.every(r => rowWithId(after, r.id).every(a => a.wallet == r.wallet))
+```
+
 ### A pending row carries no measurements yet
 
 ```quint

@@ -53,6 +53,7 @@ lemma sameIdIsSame(s: Keys, a: Key, b: Key)
 lemma update_ensures(s: Keys, by_: string, id: string, label_: string, cap: int, dailyCap: int, expiresAt: int, now: int)
   ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> alwaysKeysAreWellFormed(update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
   ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> alwaysCredentialsAreUnique(update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> stepKeyWalletNeverChanges(s, update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
   ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> stepSpendMovesOnlyWithUse(s, "update", update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
   ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> stepUseMarksUse(s, "update", update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
   ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> stepRevokedStaysRevoked(s, update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
@@ -80,6 +81,24 @@ lemma update_ensures(s: Keys, by_: string, id: string, label_: string, cap: int,
       ProofLib.FilterSamePredicate((o: Key) => (o.hash == s.keys[i].hash), (o: Key) => (o.hash == after.keys[i].hash), after.keys);
     }
     assert alwaysCredentialsAreUnique(after);
+    forall k | k in s.keys
+      ensures !(exists a :: a in keyWithId(after, k.id) && !((a.wallet == k.wallet)))
+    {
+      forall j | 0 <= j < |after.keys|
+        ensures (after.keys[j].id == k.id) ==> (after.keys[j].wallet == k.wallet)
+      {
+        if after.keys[j].id == k.id {
+          assert s.keys[j].id == k.id;
+          sameIdIsSame(s, s.keys[j], k);
+        }
+      }
+      forall a | a in keyWithId(after, k.id)
+        ensures a.wallet == k.wallet
+      {
+        withIdAll(after, k.id);
+      }
+    }
+    assert stepKeyWalletNeverChanges(s, after);
     forall k | k in s.keys
       ensures !(exists a :: a in keyWithId(after, k.id) && !((a.spent == k.spent) && (a.lastUsedAt == k.lastUsedAt)))
     {
@@ -142,6 +161,7 @@ lemma update_ensures(s: Keys, by_: string, id: string, label_: string, cap: int,
 lemma recordUse_ensures(s: Keys, by_: string, id: string, cost: int, day: string, now: int)
   ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> alwaysKeysAreWellFormed(recordUse(s, by_, id, cost, day, now)))
   ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> alwaysCredentialsAreUnique(recordUse(s, by_, id, cost, day, now)))
+  ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> stepKeyWalletNeverChanges(s, recordUse(s, by_, id, cost, day, now)))
   ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> stepSpendMovesOnlyWithUse(s, "recordUse", recordUse(s, by_, id, cost, day, now)))
   ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> stepUseMarksUse(s, "recordUse", recordUse(s, by_, id, cost, day, now)))
   ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> stepRevokedStaysRevoked(s, recordUse(s, by_, id, cost, day, now)))
@@ -175,6 +195,24 @@ lemma recordUse_ensures(s: Keys, by_: string, id: string, cost: int, day: string
       ProofLib.FilterSamePredicate((o: Key) => (o.hash == s.keys[i].hash), (o: Key) => (o.hash == after.keys[i].hash), after.keys);
     }
     assert alwaysCredentialsAreUnique(after);
+    forall k | k in s.keys
+      ensures !(exists a :: a in keyWithId(after, k.id) && !((a.wallet == k.wallet)))
+    {
+      forall j | 0 <= j < |after.keys|
+        ensures (after.keys[j].id == k.id) ==> (after.keys[j].wallet == k.wallet)
+      {
+        if after.keys[j].id == k.id {
+          assert s.keys[j].id == k.id;
+          sameIdIsSame(s, s.keys[j], k);
+        }
+      }
+      forall a | a in keyWithId(after, k.id)
+        ensures a.wallet == k.wallet
+      {
+        withIdAll(after, k.id);
+      }
+    }
+    assert stepKeyWalletNeverChanges(s, after);
     forall k | k in s.keys
       ensures !(exists a :: a in keyWithId(after, k.id) && !((a.spent >= k.spent) && (a.lastUsedAt >= k.lastUsedAt)))
     {
@@ -226,6 +264,7 @@ lemma recordUse_ensures(s: Keys, by_: string, id: string, cost: int, day: string
 lemma refundUse_ensures(s: Keys, by_: string, id: string, amount: int, day: string)
   ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> alwaysKeysAreWellFormed(refundUse(s, by_, id, amount, day)))
   ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> alwaysCredentialsAreUnique(refundUse(s, by_, id, amount, day)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepKeyWalletNeverChanges(s, refundUse(s, by_, id, amount, day)))
   ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepSpendMovesOnlyWithUse(s, "refundUse", refundUse(s, by_, id, amount, day)))
   ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepUseMarksUse(s, "refundUse", refundUse(s, by_, id, amount, day)))
   ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepRevokedStaysRevoked(s, refundUse(s, by_, id, amount, day)))
@@ -262,6 +301,24 @@ lemma refundUse_ensures(s: Keys, by_: string, id: string, amount: int, day: stri
       ProofLib.FilterSamePredicate((o: Key) => (o.hash == s.keys[i].hash), (o: Key) => (o.hash == after.keys[i].hash), after.keys);
     }
     assert alwaysCredentialsAreUnique(after);
+    forall k | k in s.keys
+      ensures !(exists a :: a in keyWithId(after, k.id) && !((a.wallet == k.wallet)))
+    {
+      forall j | 0 <= j < |after.keys|
+        ensures (after.keys[j].id == k.id) ==> (after.keys[j].wallet == k.wallet)
+      {
+        if after.keys[j].id == k.id {
+          assert s.keys[j].id == k.id;
+          sameIdIsSame(s, s.keys[j], k);
+        }
+      }
+      forall a | a in keyWithId(after, k.id)
+        ensures a.wallet == k.wallet
+      {
+        withIdAll(after, k.id);
+      }
+    }
+    assert stepKeyWalletNeverChanges(s, after);
     forall k | k in s.keys
       ensures !(exists a :: a in keyWithId(after, k.id) && !((a.spent <= k.spent) && (a.lastUsedAt == k.lastUsedAt)))
     {
@@ -310,6 +367,7 @@ lemma refundUse_ensures(s: Keys, by_: string, id: string, amount: int, day: stri
 lemma create_ensures(s: Keys, by_: string, id: string, label_: string, prefix: string, hash: string, project: string, scopes: seq<string>, cap: int, dailyCap: int, expiresAt: int, now: int)
   ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> alwaysKeysAreWellFormed(create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
   ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> alwaysCredentialsAreUnique(create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> stepKeyWalletNeverChanges(s, create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
   ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> stepSpendMovesOnlyWithUse(s, "create", create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
   ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> stepUseMarksUse(s, "create", create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
   ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> stepRevokedStaysRevoked(s, create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
@@ -338,6 +396,18 @@ lemma create_ensures(s: Keys, by_: string, id: string, label_: string, prefix: s
       }
     }
     assert alwaysCredentialsAreUnique(after);
+    forall k | k in s.keys
+      ensures !(exists a :: a in keyWithId(after, k.id) && !((a.wallet == k.wallet)))
+    {
+      forall a | a in keyWithId(after, k.id)
+        ensures a.wallet == k.wallet
+      {
+        withIdAll(after, k.id);
+        assert a in s.keys;
+        sameIdIsSame(s, a, k);
+      }
+    }
+    assert stepKeyWalletNeverChanges(s, after);
     forall k | k in s.keys
       ensures !(exists a :: a in keyWithId(after, k.id) && !((a.spent == k.spent) && (a.lastUsedAt == k.lastUsedAt)))
     {
@@ -382,6 +452,7 @@ lemma create_ensures(s: Keys, by_: string, id: string, label_: string, prefix: s
 lemma revoke_ensures(s: Keys, by_: string, id: string)
   ensures (inv(s) ==> canRevoke(s, by_, id) ==> alwaysKeysAreWellFormed(revoke(s, by_, id)))
   ensures (inv(s) ==> canRevoke(s, by_, id) ==> alwaysCredentialsAreUnique(revoke(s, by_, id)))
+  ensures (inv(s) ==> canRevoke(s, by_, id) ==> stepKeyWalletNeverChanges(s, revoke(s, by_, id)))
   ensures (inv(s) ==> canRevoke(s, by_, id) ==> stepSpendMovesOnlyWithUse(s, "revoke", revoke(s, by_, id)))
   ensures (inv(s) ==> canRevoke(s, by_, id) ==> stepUseMarksUse(s, "revoke", revoke(s, by_, id)))
   ensures (inv(s) ==> canRevoke(s, by_, id) ==> stepRevokedStaysRevoked(s, revoke(s, by_, id)))
@@ -409,6 +480,24 @@ lemma revoke_ensures(s: Keys, by_: string, id: string)
       ProofLib.FilterSamePredicate((o: Key) => (o.hash == s.keys[i].hash), (o: Key) => (o.hash == after.keys[i].hash), after.keys);
     }
     assert alwaysCredentialsAreUnique(after);
+    forall k | k in s.keys
+      ensures !(exists a :: a in keyWithId(after, k.id) && !((a.wallet == k.wallet)))
+    {
+      forall j | 0 <= j < |after.keys|
+        ensures (after.keys[j].id == k.id) ==> (after.keys[j].wallet == k.wallet)
+      {
+        if after.keys[j].id == k.id {
+          assert s.keys[j].id == k.id;
+          sameIdIsSame(s, s.keys[j], k);
+        }
+      }
+      forall a | a in keyWithId(after, k.id)
+        ensures a.wallet == k.wallet
+      {
+        withIdAll(after, k.id);
+      }
+    }
+    assert stepKeyWalletNeverChanges(s, after);
     forall k | k in s.keys
       ensures !(exists a :: a in keyWithId(after, k.id) && !((a.spent == k.spent) && (a.lastUsedAt == k.lastUsedAt)))
     {

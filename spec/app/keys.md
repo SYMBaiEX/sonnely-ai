@@ -139,6 +139,11 @@ that wallet; the API derives it from the verified session, or inside the
 gateway from the already authenticated key, rather than accepting it from the
 client. Reads project only rows whose wallet matches.
 
+```quint
+pure def stepKeyWalletNeverChanges(before: Keys, after: Keys): bool =
+  before.keys.every(k => keyWithId(after, k.id).every(a => a.wallet == k.wallet))
+```
+
 ### Every registered key is well formed
 
 ```quint
