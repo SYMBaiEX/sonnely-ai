@@ -1,16 +1,21 @@
-// spec/app/gateway/index.md — the staging gateway: bearer-key authorization and metered spend on the
-// shared "keys" store, the served-request ledger under "gateway-requests" and the resumable batch job
-// under "gateway-batch". There is no upstream provider here: each endpoint answers a deterministic
-// completion in the OpenAI wire shape, after the keyring and ledger machines rule on the request.
+// spec/app/gateway/index.md — the staging gateway: bearer-key authorization against the workspace
+// keys, metered reservations on the billing ledger, project and key budgets, the usage meter, the
+// served-request ledger under "gateway-requests" and the resumable batch job under "gateway-batch".
+// There is no upstream provider here: each endpoint answers a deterministic completion in the OpenAI
+// wire shape after the machines rule on the request.
 import * as Keyring from "../../gen/app__gateway__keyring.effect.vibe"
 import * as Requests from "../../gen/app__gateway__requests.effect.vibe"
 import * as Batch from "../../gen/app__gateway__batch.effect.vibe"
+import * as WorkspaceKeys from "../../gen/app__keys.effect.vibe"
+import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
+import * as Usage from "../../gen/app__usage.effect.vibe"
+import * as Teams from "../../gen/app__teams.effect.vibe"
 import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
-  /** The keyring id a bearer token resolves to: the record never holds the token itself. */
+  /** The workspace key hash a bearer token resolves to: the record never holds the token itself. */
   export function hashToken(token: string) {
     return createHash("sha256").update(token).digest("hex")
   }
@@ -43,14 +48,18 @@ effect function authorized(endpoint: Requests.Endpoint, model: string) {
   const request = try HttpServerRequest.HttpServerRequest
   const id = bearerId(request)
   if (id == "") return { refused: { error: { message: "A valid bearer key is required.", type: "invalid_request_error" }, status: 401 } }
-  const keyring = try Keyring.Machine
-  const state = try keyring.get()
-  const key = state.keys.find((k) => k.id == id)
+  const keys = try WorkspaceKeys.Machine
+  const state = try keys.get()
+  const key = state.keys.find((k) => k.hash == id)
   if (key == undefined || key.status != "Active") {
     return { refused: { error: { message: "The key is missing or revoked.", type: "invalid_request_error" }, status: 401 } }
   }
-  if (!Keyring.mayServe(key)) {
-    return { refused: { error: { message: "The key's spend limit is reached.", type: "insufficient_quota" }, status: 402 } }
+  const now = try Clock.currentTimeMillis
+  if (key.expiresAt != 0 && key.expiresAt <= now) {
+    return { refused: { error: { message: "The key has expired.", type: "invalid_request_error" }, status: 401 } }
+  }
+  if (!key.scopes.includes("inference")) {
+    return { refused: { error: { message: "The key cannot use inference.", type: "insufficient_quota" }, status: 402 } }
   }
   if (!Requests.registered(endpoint, model)) {
     return { refused: { error: { message: "Choose a model from the catalog.", type: "invalid_request_error" }, status: 404 } }
@@ -64,26 +73,122 @@ function stagedCost(bytes: number): number {
 }
 
 /**
- * Record the served request and its charge: open on the ledger, the emits a stream asks for, finish
- * with the settled cost, then the same amount on the keyring. Where the ledger or keyring refuses the
- * request faults rather than reporting spend that was not recorded.
+ * Record the served request and its charge: reserve the wallet's credits, hold project and key budget,
+ * write the pending usage row, open the served-request ledger, then settle the hold and usage exactly
+ * once. Every refusal before completion releases what the reservation took.
  */
-effect function meter(ref: string, key: Keyring.KeyRecord, endpoint: Requests.Endpoint, model: string, stream: boolean, emits: number[], cost: number) {
+function servedKey(key: WorkspaceKeys.Key): Keyring.KeyRecord {
+  return { id: key.hash, prefix: key.prefix, status: key.status, spendLimit: key.cap == 0 ? -1 : key.cap, spent: key.spent }
+}
+
+function providerOfModel(model: string): Usage.Provider {
+  if (model.startsWith("phala/")) return "Phala"
+  if (model.startsWith("tinfoil/")) return "Tinfoil"
+  return "NearAI"
+}
+
+effect function unwindMeter(ref: string, key: WorkspaceKeys.Key, cost: number, day: string, projectHeld: boolean, keyHeld: boolean, usageRecorded: boolean, opened: boolean) {
+  if (usageRecorded) {
+    const usage = try Usage.Machine
+    usage.send({ type: "release", id: ref }) catch () => undefined
+  }
+  if (keyHeld) {
+    const keys = try WorkspaceKeys.Machine
+    keys.send({ type: "refundUse", id: key.id, amount: cost, day }) catch () => undefined
+  }
+  if (projectHeld) {
+    const teams = try Teams.Machine
+    teams.send({ type: "releaseProject", projectId: key.project, amount: cost }) catch () => undefined
+  }
+  const ledger = try Ledger.Machine
+  ledger.send({ type: "release", wallet: key.wallet, detail: ref }) catch () => undefined
+  if (opened) {
+    const requests = try Requests.Machine
+    requests.send({ type: "fault", ref }) catch () => undefined
+  }
+}
+
+effect function meter(ref: string, key: WorkspaceKeys.Key, endpoint: Requests.Endpoint, model: string, stream: boolean, emits: number[], cost: number) {
+  const now = try Clock.currentTimeMillis
+  const day = new Date(now).toISOString().slice(0, 10)
+  const keys = try WorkspaceKeys.Machine
+  const keyState = try keys.get()
+  if (!WorkspaceKeys.canRecordUse(keyState, key.id, cost, day, now)) {
+    return { refused: { error: { message: "The API key budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
+  }
+  const teams = try Teams.Machine
+  if (key.project != "") {
+    const teamState = try teams.get()
+    if (!Teams.canHoldProject(teamState, key.project, cost)) {
+      return { refused: { error: { message: "The project budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
+    }
+  }
+  const ledger = try Ledger.Machine
+  const ledgerState = try ledger.get()
+  if (!Ledger.canReserve(ledgerState, key.wallet, ref, cost)) {
+    return { refused: { error: { message: "Insufficient compute credits.", type: "insufficient_quota" }, status: 402 } }
+  }
+  const reserved = ledger.send({ type: "reserve", wallet: key.wallet, detail: ref, amount: cost }) catch (e) => e
+  if (reserved instanceof Ledger.Rejected) {
+    return { refused: { error: { message: "Insufficient compute credits.", type: "insufficient_quota" }, status: 402 } }
+  }
+  let projectHeld = false
+  let keyHeld = false
+  let usageRecorded = false
+  let opened = false
+  if (key.project != "") {
+    const heldProject = teams.send({ type: "holdProject", projectId: key.project, amount: cost }) catch (e) => e
+    if (heldProject instanceof Teams.Rejected) {
+      ledger.send({ type: "release", wallet: key.wallet, detail: ref }) catch () => undefined
+      return { refused: { error: { message: "The project budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
+    }
+    projectHeld = true
+  }
+  const used = keys.send({ type: "recordUse", id: key.id, cost, day, now }) catch (e) => e
+  if (used instanceof WorkspaceKeys.Rejected) {
+    try unwindMeter(ref, key, cost, day, projectHeld, false, false, false)
+    return { refused: { error: { message: "The API key budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
+  }
+  keyHeld = true
+  const usage = try Usage.Machine
+  const row = usage.send({
+    type: "record",
+    id: ref,
+    time: now,
+    keyName: key.label,
+    keyId: key.id,
+    project: key.project,
+    model,
+    provider: providerOfModel(model),
+    cost,
+  }) catch (e) => e
+  if (row instanceof Usage.Rejected) {
+    try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, false, false)
+    return { refused: { error: { message: "The request could not be metered.", type: "server_error" }, status: 500 } }
+  }
+  usageRecorded = true
   const requests = try Requests.Machine
-  const opened = requests.send({ type: "open", ref, key, endpoint, model, stream }) catch (e) => e
-  if (opened instanceof Requests.Rejected) return { refused: { error: { message: "A request with this reference is already open.", type: "invalid_request_error" }, status: 409 } }
+  const openedRequest = requests.send({ type: "open", ref, key: servedKey(key), endpoint, model, stream }) catch (e) => e
+  if (openedRequest instanceof Requests.Rejected) {
+    try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, usageRecorded, false)
+    return { refused: { error: { message: "A request with this reference is already open.", type: "invalid_request_error" }, status: 409 } }
+  }
+  opened = true
   for (const tokens of emits) {
     const emitted = requests.send({ type: "emit", ref, tokens }) catch (e) => e
     if (emitted instanceof Requests.Rejected) {
-      requests.send({ type: "fault", ref }) catch () => undefined
+      try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, usageRecorded, opened)
       return { refused: { error: { message: "The request could not emit.", type: "server_error" }, status: 500 } }
     }
   }
-  const keyring = try Keyring.Machine
-  const charged = keyring.send({ type: "charge", id: key.id, amount: cost }) catch (e) => e
+  const settledMoney = ledger.send({ type: "settleHold", wallet: key.wallet, detail: ref, amount: cost }) catch (e) => e
+  if (settledMoney instanceof Ledger.Rejected) {
+    try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, usageRecorded, opened)
+    return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
+  }
+  const chargedUse = usage.send({ type: "charge", id: ref, input: 0, output: endpoint == "ChatCompletions" ? (stream ? emits.reduce((n, t) => n + t, 0) : 8) : 0, cached: -1, cost, providerMs: -1 }) catch (e) => e
   const finished = requests.send({ type: "finish", ref, cost }) catch (e) => e
-  if (charged instanceof Keyring.Rejected || finished instanceof Requests.Rejected) {
-    requests.send({ type: "fault", ref }) catch () => undefined
+  if (chargedUse instanceof Usage.Rejected || finished instanceof Requests.Rejected) {
     return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
   }
   return { served: true }
@@ -228,11 +333,11 @@ effect function providerModels() {
 effect function keyStatus() {
   const request = try HttpServerRequest.HttpServerRequest
   const id = bearerId(request)
-  const keyring = try Keyring.Machine
-  const state = try keyring.get()
-  const key = id == "" ? undefined : state.keys.find((k) => k.id == id)
+  const keys = try WorkspaceKeys.Machine
+  const state = try keys.get()
+  const key = id == "" ? undefined : state.keys.find((k) => k.hash == id)
   if (key == undefined) return try oops("A valid bearer key is required.", 401)
-  return try reply({ data: { prefix: key.prefix, status: key.status, spendLimit: key.spendLimit, spent: key.spent } })
+  return try reply({ data: { prefix: key.prefix, status: key.status, spendLimit: key.cap == 0 ? -1 : key.cap, spent: key.spent } })
 }
 
 // spec/app/gateway/batch.md, "Story: Run a resumable batch": the job is created once, sent row by row

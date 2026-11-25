@@ -2,7 +2,8 @@
 // for Phala (Blackboxes) and Boat (Dry Docks). It launches queued runs, verifies a Blackbox's attestation,
 // runs a Dry Dock's build, honours a stop, expires a run at the end of its lease, and settles it.
 import type { Event, Run } from "../../../gen/app__compute__instances.ts"
-import { Machine } from "../../../gen/app__compute__instances.effect.vibe"
+import { Machine, settledCharge } from "../../../gen/app__compute__instances.effect.vibe"
+import * as Ledger from "../../../gen/app__billing__ledger.effect.vibe"
 
 const POLL = "500 millis"
 const DOCK_BUILD_MS = 15_000
@@ -12,6 +13,7 @@ function nextEvent(run: Run, runningForMs: number): Event | undefined {
   const seconds = Math.max(0, Math.min(run.minutes * 60, Math.floor(runningForMs / 1000)))
   switch (run.phase) {
     case "Queued":
+      if (run.stopRequested) return { type: "abandon", id: run.id, result: "Stopped" }
       return { type: "launch", id: run.id }
     case "Provisioning":
       if (run.stopRequested) return { type: "tearDown", id: run.id, result: "Stopped" }
@@ -36,9 +38,17 @@ effect function supervise(id: string) {
     const state = try machine.get()
     const run = state.runs.find((r) => r.id === id)
     if (run === undefined || run.phase === "Settled") return
-    const runningFor = run.phase === "Running" ? (pollsRunning += 1) * 500 : 0
+    if (run.phase === "Running") pollsRunning += 1
+    const runningFor = pollsRunning * 500
     const event = nextEvent(run, runningFor)
-    if (event !== undefined) machine.send(event) catch () => undefined
+    let moneyReady = true
+    if (event?.type === "settleRun" || event?.type === "abandon" || event?.type === "decline") {
+      const charge = event.type === "settleRun" ? settledCharge(run, event.seconds, event.metered).charged : 0
+      const ledger = try Ledger.Machine
+      const settled = ledger.send({ type: "settleHold", wallet: run.wallet, detail: run.id, amount: charge }) catch (e) => e
+      moneyReady = !(settled instanceof Ledger.Rejected)
+    }
+    if (event !== undefined && moneyReady) machine.send(event) catch () => undefined
     try sleep(POLL)
   }
 }

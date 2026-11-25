@@ -325,10 +325,47 @@ pure def archiveProject(s: Teams, projectId: str, actor: str): Teams =
           if (p.id == projectId) { ...p, archived: true } else p) }) }
 ```
 
+### A live project holds each reservation inside its budget
+
+`spent` counts final charges together with reservations still in flight.
+Holding a reservation raises it before the request starts, so concurrent
+requests cannot together cross the project's budget. An archived project
+takes no new hold.
+
+```quint
+pure def canHoldProject(s: Teams, projectId: str, amount: int): bool =
+  amount > 0 and teamOfProject(s, projectId).some(t =>
+    t.projects.some(p => p.id == projectId and not(p.archived) and p.spent + amount <= p.budget))
+
+pure def holdProject(s: Teams, projectId: str, amount: int): Teams =
+  { teams: s.teams.listMap(t =>
+      { ...t, projects: t.projects.listMap(p =>
+          if (p.id == projectId) { ...p, spent: p.spent + amount } else p) }) }
+```
+
+### Settling or releasing a reservation returns what it did not spend
+
+The unused part of a reservation leaves `spent`; the final charge remains.
+Existing holds may settle after archival, so this transition does not ask
+whether the project is live.
+
+```quint
+pure def canReleaseProject(s: Teams, projectId: str, amount: int): bool =
+  amount > 0 and teamOfProject(s, projectId).some(t =>
+    t.projects.some(p => p.id == projectId and p.spent >= amount))
+
+pure def releaseProject(s: Teams, projectId: str, amount: int): Teams =
+  { teams: s.teams.listMap(t =>
+      { ...t, projects: t.projects.listMap(p =>
+          if (p.id == projectId) { ...p, spent: p.spent - amount } else p) }) }
+```
+
 ### A project can be created and archived
 
 ```quint
 pure def sometimesProjectExists(s: Teams): bool = s.teams.some(t => t.projects.length() >= 1)
 
 pure def sometimesArchived(s: Teams): bool = s.teams.some(t => t.projects.some(p => p.archived))
+
+pure def sometimesProjectSpend(s: Teams): bool = s.teams.some(t => t.projects.some(p => p.spent > 0))
 ```

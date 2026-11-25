@@ -178,6 +178,22 @@ export function dockDetails(run: Run) {
     : run.id;
 }
 
+
+export async function runRequest(path: string, input: unknown) {
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const body = (await response.json().catch(() => undefined)) as { ok?: boolean; error?: unknown } | undefined;
+    if (!response.ok || body?.ok !== true) return typeof body?.error === "string" ? body.error : `request failed (HTTP ${response.status})`;
+    return undefined;
+  } catch (cause) {
+    return cause instanceof Error ? cause.message : "request failed";
+  }
+}
+
 export interface RunObservation {
   createdAt?: number;
   startedAt?: number;

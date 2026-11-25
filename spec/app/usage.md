@@ -12,6 +12,7 @@ match the request log: `pending`, `complete`, `failed`, `unreported`.
 
 `cached` and `providerMs` are `-1` when the provider did not measure them.
 `keyId` is `""` for requests not made through a key (the console itself).
+`project` is the team project the key belongs to, or `""` for workspace use.
 Cost is micro-USD.
 
 ```quint
@@ -24,6 +25,7 @@ type Row = {
   time: int,
   keyName: str,
   keyId: str,
+  project: str,
   model: str,
   provider: Provider,
   input: int,
@@ -50,6 +52,7 @@ pure val idValues = Set("r1", "r2", "r3")
 pure val timeValues = Set(0, 86400000, 172800000)
 pure val keyNameValues = Set("CI key", "Console")
 pure val keyIdValues = Set("", "k1")
+pure val projectValues = Set("", "p1")
 pure val modelValues = Set("deepseek-ai/DeepSeek-V4.1", "openai/gpt-5.2")
 pure val inputValues = Set(0, 100, 500)
 pure val outputValues = Set(0, 50, 300)
@@ -60,9 +63,9 @@ pure val providerValues = Set(NearAI, Phala, Tinfoil)
 pure val statusValues = Set(Pending, Complete, Failed, Unreported)
 pure val sinceValues = Set(0, 86400000)
 pure val rowsValues = Set(List()).union(Set(List(
-  { id: "r1", time: 1000, keyName: "CI key", keyId: "k1", model: "deepseek-ai/DeepSeek-V4.1", provider: NearAI,
+  { id: "r1", time: 1000, keyName: "CI key", keyId: "k1", project: "p1", model: "deepseek-ai/DeepSeek-V4.1", provider: NearAI,
     input: 10, output: 5, cached: 3, cost: 100, providerMs: 40, status: Complete },
-  { id: "r2", time: 2000, keyName: "Console", keyId: "", model: "openai/gpt-5.2", provider: Phala,
+  { id: "r2", time: 2000, keyName: "Console", keyId: "", project: "", model: "openai/gpt-5.2", provider: Phala,
     input: 0, output: 0, cached: -1, cost: 50, providerMs: -1, status: Pending })))
 ```
 
@@ -77,13 +80,13 @@ pure val rowsValues = Set(List()).union(Set(List(
 Each request id is unique; the reserved cost is nonnegative.
 
 ```quint
-pure def canRecord(u: Usage, id: str, time: int, keyName: str, keyId: str, model: str, provider: Provider, cost: int): bool =
+pure def canRecord(u: Usage, id: str, time: int, keyName: str, keyId: str, project: str, model: str, provider: Provider, cost: int): bool =
   id != "" and keyName != "" and model != "" and cost >= 0 and time >= 0
   and u.rows.every(r => r.id != id)
 
-pure def record(u: Usage, id: str, time: int, keyName: str, keyId: str, model: str, provider: Provider, cost: int): Usage =
+pure def record(u: Usage, id: str, time: int, keyName: str, keyId: str, project: str, model: str, provider: Provider, cost: int): Usage =
   { rows: u.rows.append({
-      id: id, time: time, keyName: keyName, keyId: keyId, model: model, provider: provider,
+      id: id, time: time, keyName: keyName, keyId: keyId, project: project, model: model, provider: provider,
       input: 0, output: 0, cached: -1, cost: cost, providerMs: -1, status: Pending }) }
 ```
 
@@ -157,7 +160,7 @@ pure def stepPendingSettles(before: Usage, after: Usage): bool =
     r.status != Pending
     or rowWithId(after, r.id).every(a =>
       a == r or (a.status != Pending and a.id == r.id and a.time == r.time and a.keyName == r.keyName
-                 and a.keyId == r.keyId and a.model == r.model and a.provider == r.provider)))
+                 and a.keyId == r.keyId and a.project == r.project and a.model == r.model and a.provider == r.provider)))
 ```
 
 ### A request can complete and one can be held

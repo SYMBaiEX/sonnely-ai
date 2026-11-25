@@ -6,13 +6,13 @@ import type { Page } from "../../../../gen/app__nav.ts";
 import type { Session } from "../../../../gen/app__session.ts";
 import type { Project, Role, Team, Teams } from "../../../../gen/app__teams.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
-import type { LogEntry, Logs, LogStatus } from "../../../../gen/app__console__logs.ts";
+import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame } from "../console/frame.tsx";
 import { CopyButton, WorkspaceHeading, WorkspaceLegacy, creditBalance, creditDecimal, parseCreditAmount, shorten } from "./legacy.tsx";
 
 const roles: Record<Role, string> = { Owner: "Owner", Admin: "Admin", Member: "Member" };
-const usageStatuses: Record<LogStatus, string> = {
+const usageStatuses: Record<Status, string> = {
   Complete: "Charged",
   Failed: "Released",
   Pending: "Reserved",
@@ -201,7 +201,7 @@ function ProjectWorkspace({
   actor: string;
   role: Role;
   keys: Key[];
-  entries: LogEntry[];
+  entries: Row[];
   keysSend: SendEvent;
   teamsSend: SendEvent;
   pending: boolean;
@@ -210,8 +210,7 @@ function ProjectWorkspace({
   const [newKey, setNewKey] = useState<string>();
   const canManage = role !== "Member" && !project.archived;
   const projectKeys = keys.filter((key) => key.project === project.id && key.status === "Active");
-  const keyNames = new Set(projectKeys.map((key) => key.label));
-  const requests = entries.filter((entry) => keyNames.has(entry.keyName)).slice(0, 30);
+  const requests = entries.filter((entry) => entry.project === project.id).slice(0, 30);
   const now = Date.now();
 
   async function createKey(fields: FormData) {
@@ -230,6 +229,7 @@ function ProjectWorkspace({
         label: name,
         prefix: full.slice(0, 20),
         hash,
+        wallet: actor,
         project: project.id,
         scopes: ["inference"],
         cap,
@@ -374,7 +374,7 @@ function ProjectWorkspace({
                   <tr key={row.id}>
                     <th scope="row">
                       <div>{row.model}</div>
-                      <p className="caption">{formatTime.format(now - row.ageDays * dayMs)} UTC</p>
+                      <p className="caption">{formatTime.format(row.time)} UTC</p>
                       <code className="teams-reference">{row.id}</code>
                     </th>
                     <td>{row.keyName}</td>
@@ -406,7 +406,7 @@ function TeamWorkspace({
   team: Team;
   wallet: string;
   keys: Key[];
-  entries: LogEntry[];
+  entries: Row[];
   keysSend: SendEvent;
   teamsSend: SendEvent;
   pending: boolean;
@@ -629,7 +629,7 @@ function TeamWorkspace({
 function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void }) {
   const teams = useRemote<Teams>("teams");
   const keys = useRemote<Keys>("workspace-keys");
-  const logs = useRemote<Logs>("console__logs");
+  const usage = useRemote<Usage>("usage");
   const [selectedTeam, setSelectedTeam] = useState("");
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState("");
@@ -768,7 +768,7 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
               team={team}
               wallet={wallet}
               keys={keys.state?.keys ?? []}
-              entries={logs.state?.entries ?? []}
+              entries={usage.state?.rows ?? []}
               keysSend={keys.send}
               teamsSend={teams.send}
               pending={pending}

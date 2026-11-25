@@ -218,9 +218,11 @@ pure val rValues = Set(
 
 ### A wallet opens a run for a supported window and a valid workload
 
-Opening records the run as `Queued` and reserves the maximum hold — the
-quoted total for the whole window — against it. Repeating an open with a
-reference the wallet has used returns the earlier run and changes nothing.
+Opening records the run as `Queued`. The shell reserves the maximum hold —
+the quoted total for the whole window — on the billing ledger under the
+run's id before it sends this event, and a refusal there means the run never
+opens. Repeating an open with a reference the wallet has used returns the
+earlier run and changes nothing.
 
 ```quint
 pure def canOpen(c: Compute, id: str, reference: str, wallet: str, spec: Workload, minutes: int): bool =
@@ -389,7 +391,9 @@ pure def tearDown(c: Compute, id: str, result: Result): Compute =
 Counted seconds are capped at the window. A Blackbox bills its timed base
 unless it never verified, when it bills nothing; a Dry Dock bills the
 provider's metered base, capped by the timed base. The fee applies
-whenever a run was billed, and what is not charged returns to the wallet.
+whenever a run was billed. Before the run is marked `Settled`, the shell
+settles the ledger hold under the run's id for exactly this charge, and what
+is not charged returns to the wallet.
 
 ```quint
 pure def canSettleRun(c: Compute, id: str, seconds: int, metered: int): bool =

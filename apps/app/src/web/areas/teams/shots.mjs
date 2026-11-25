@@ -57,6 +57,7 @@ async function seedMigration() {
     label: "Launch key",
     prefix: full.slice(0, 20),
     hash: await sha256(full),
+    wallet,
     project: projectId,
     scopes: ["inference"],
     cap: 12_000_000,
@@ -65,21 +66,25 @@ async function seedMigration() {
     now,
   });
   await machine("workspace-keys", { type: "recordUse", id: keyId, cost: 1_350_000, day: new Date(now).toISOString().slice(0, 10), now });
-  await machine("console__logs", {
+  await machine("usage", {
     type: "record",
-    entry: {
-      id: "req-ui-fidelity-project",
-      model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
-      provider: "near-ai",
-      endpoint: "chat/completions",
-      keyName: "Launch key",
-      status: "Complete",
-      input: 812,
-      output: 348,
-      cost: 684,
-      durationMs: 3210,
-      ageDays: 0,
-    },
+    id: "req-ui-fidelity-project",
+    time: now,
+    keyName: "Launch key",
+    keyId,
+    project: projectId,
+    model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    provider: "NearAI",
+    cost: 1_350_000,
+  });
+  await machine("usage", {
+    type: "charge",
+    id: "req-ui-fidelity-project",
+    input: 812,
+    output: 348,
+    cached: -1,
+    cost: 684,
+    providerMs: 3210,
   });
   await machine("support", {
     type: "open",

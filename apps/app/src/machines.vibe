@@ -91,6 +91,16 @@ const multiplexedMachines = Layer.provideMerge(
   machineRegistry,
 )
 
+/** state and stream endpoints over one spec machine whose writes have a guarded route elsewhere. */
+export function machineReadApi(name: string, m: MachineLike) {
+  return Layer.mergeAll(
+    HttpRouter.add("GET", `/api/machines/${name}`, getState(m)),
+    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m)),
+    machineRegistration(name, m),
+    multiplexedMachines,
+  )
+}
+
 /** state, event and stream endpoints over one spec machine, mounted at /api/machines/<name>. */
 export function machineApi(name: string, m: MachineLike) {
   return Layer.mergeAll(

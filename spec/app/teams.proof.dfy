@@ -24,6 +24,19 @@ lemma inviteOfIs(t: Team, wallet: string)
 {
 }
 
+lemma filterSingletonSame<T>(p: T -> bool, xs: seq<T>, x: T, y: T)
+  requires |ProofLib.Filter(p, xs)| == 1
+  requires x in ProofLib.Filter(p, xs)
+  requires y in ProofLib.Filter(p, xs)
+  ensures x == y
+{
+  var f := ProofLib.Filter(p, xs);
+  var i :| 0 <= i < |f| && f[i] == x;
+  var j :| 0 <= j < |f| && f[j] == y;
+  assert i == 0;
+  assert j == 0;
+}
+
 // A literal passed to Seq.Filter and the same literal passed to ProofLib.Filter are
 // different function values to the verifier, so the seqs they return cannot be equated
 // directly. Going element by element, they keep the same entries.
@@ -887,6 +900,152 @@ lemma updateProject_ensures(s: Teams, projectId: string, actor: string, name: st
         if t.projects[k].id == projectId {
           assert p.name == name;
           assert p.budget == budget;
+        } else {
+          assert p == t.projects[k];
+        }
+        ProofLib.FilterLengthPointwise((o: Project) => (o.id == t.projects[k].id), (o: Project) => (o.id == t.projects[k].id), t.projects, t2.projects);
+        ProofLib.FilterSamePredicate((o: Project) => (o.id == t.projects[k].id), (o: Project) => (o.id == p.id), t2.projects);
+      }
+    }
+    piece1FromElems(after);
+    teamIdsUniqueAfter(s, after);
+    projectsRuleWhenIdsKeep(s, after);
+    wellP(after);
+    assert alwaysTeamsAreWellFormed(after);
+    ownersSurvivePointwise(s, after);
+    assert stepOwnersSurvive(s, after);
+  }
+}
+
+
+// holdProject: metered spend moves only the attributed project total.
+
+lemma holdProject_ensures(s: Teams, projectId: string, amount: int)
+  ensures (inv(s) ==> canHoldProject(s, projectId, amount) ==> alwaysTeamsAreWellFormed(holdProject(s, projectId, amount)))
+  ensures (inv(s) ==> canHoldProject(s, projectId, amount) ==> stepRespondConsumesTheInvite(s, "holdProject", holdProject(s, projectId, amount)))
+  ensures (inv(s) ==> canHoldProject(s, projectId, amount) ==> stepOwnersSurvive(s, holdProject(s, projectId, amount)))
+{
+  if inv(s) && canHoldProject(s, projectId, amount) {
+    var after := holdProject(s, projectId, amount);
+    wellP(s);
+    forall i | 0 <= i < |after.teams|
+      ensures (after.teams[i].id == s.teams[i].id)
+      ensures (after.teams[i].members == s.teams[i].members)
+      ensures (|after.teams[i].projects| == |s.teams[i].projects|)
+      ensures (forall k :: 0 <= k < |s.teams[i].projects| ==> (after.teams[i].projects[k].id == s.teams[i].projects[k].id))
+      ensures (after.teams[i].id != "")
+      ensures (after.teams[i].name != "")
+      ensures (|after.teams[i].members| >= 1)
+      ensures (|after.teams[i].members| <= 50)
+      ensures !((exists m :: m in after.teams[i].members && !((m.wallet != "") && (|ProofLib.Filter((o: Membership) => (o.wallet == m.wallet), after.teams[i].members)| == 1))))
+      ensures (exists m :: m in after.teams[i].members && m.role.Owner?)
+      ensures !((exists ii :: ii in after.teams[i].invites && !((ii.wallet != "") && (!ii.role.Owner?) && (ii.inviter != "") && (ii.expiresAt >= 0) && (|ProofLib.Filter((o: Invite) => (o.wallet == ii.wallet), after.teams[i].invites)| == 1))))
+      ensures !((exists pp :: pp in after.teams[i].projects && !((pp.id != "") && (pp.name != "") && budgetOk(pp.budget) && (pp.spent >= 0) && (|ProofLib.Filter((o: Project) => (o.id == pp.id), after.teams[i].projects)| == 1))))
+    {
+      var t := s.teams[i];
+      var t2 := after.teams[i];
+      assert t2.id == t.id;
+      assert t2.members == t.members;
+      assert |t2.projects| == |t.projects|;
+      forall k | 0 <= k < |t2.projects|
+        ensures t2.projects[k].id == t.projects[k].id
+      {
+      }
+      forall p | p in t2.projects
+        ensures ((p.id != "") && (p.name != "") && budgetOk(p.budget) && (p.spent >= 0) && (|ProofLib.Filter((o: Project) => (o.id == p.id), t2.projects)| == 1))
+      {
+        var k :| 0 <= k < |t2.projects| && t2.projects[k] == p;
+        assert t.projects[k] in t.projects;
+        assert p.id == t.projects[k].id;
+        if t.projects[k].id == projectId {
+          assert p == t.projects[k].(spent := t.projects[k].spent + amount);
+        } else {
+          assert p == t.projects[k];
+        }
+        ProofLib.FilterLengthPointwise((o: Project) => (o.id == t.projects[k].id), (o: Project) => (o.id == t.projects[k].id), t.projects, t2.projects);
+        ProofLib.FilterSamePredicate((o: Project) => (o.id == t.projects[k].id), (o: Project) => (o.id == p.id), t2.projects);
+      }
+    }
+    piece1FromElems(after);
+    teamIdsUniqueAfter(s, after);
+    projectsRuleWhenIdsKeep(s, after);
+    wellP(after);
+    assert alwaysTeamsAreWellFormed(after);
+    ownersSurvivePointwise(s, after);
+    assert stepOwnersSurvive(s, after);
+  }
+}
+
+
+// releaseProject: metered spend moves only the attributed project total.
+
+lemma releaseProject_ensures(s: Teams, projectId: string, amount: int)
+  ensures (inv(s) ==> canReleaseProject(s, projectId, amount) ==> alwaysTeamsAreWellFormed(releaseProject(s, projectId, amount)))
+  ensures (inv(s) ==> canReleaseProject(s, projectId, amount) ==> stepRespondConsumesTheInvite(s, "releaseProject", releaseProject(s, projectId, amount)))
+  ensures (inv(s) ==> canReleaseProject(s, projectId, amount) ==> stepOwnersSurvive(s, releaseProject(s, projectId, amount)))
+{
+  if inv(s) && canReleaseProject(s, projectId, amount) {
+    var after := releaseProject(s, projectId, amount);
+    wellP(s);
+    var wt :| wt in teamOfProject(s, projectId) && (exists q :: q in wt.projects && (q.id == projectId) && (q.spent >= amount));
+    var wp :| wp in wt.projects && (wp.id == projectId) && (wp.spent >= amount);
+    assert wt in s.teams by {
+      teamOfProjectIs(s, projectId);
+      ProofLib.FilterMember((t: Team) => (exists p :: p in t.projects && (p.id == projectId)), s.teams, wt);
+    }
+    assert !(exists pp :: pp in wt.projects && !((|teamOfProject(s, pp.id)| == 1)));
+    assert |teamOfProject(s, projectId)| == 1;
+    forall i | 0 <= i < |after.teams|
+      ensures (after.teams[i].id == s.teams[i].id)
+      ensures (after.teams[i].members == s.teams[i].members)
+      ensures (|after.teams[i].projects| == |s.teams[i].projects|)
+      ensures (forall k :: 0 <= k < |s.teams[i].projects| ==> (after.teams[i].projects[k].id == s.teams[i].projects[k].id))
+      ensures (after.teams[i].id != "")
+      ensures (after.teams[i].name != "")
+      ensures (|after.teams[i].members| >= 1)
+      ensures (|after.teams[i].members| <= 50)
+      ensures !((exists m :: m in after.teams[i].members && !((m.wallet != "") && (|ProofLib.Filter((o: Membership) => (o.wallet == m.wallet), after.teams[i].members)| == 1))))
+      ensures (exists m :: m in after.teams[i].members && m.role.Owner?)
+      ensures !((exists ii :: ii in after.teams[i].invites && !((ii.wallet != "") && (!ii.role.Owner?) && (ii.inviter != "") && (ii.expiresAt >= 0) && (|ProofLib.Filter((o: Invite) => (o.wallet == ii.wallet), after.teams[i].invites)| == 1))))
+      ensures !((exists pp :: pp in after.teams[i].projects && !((pp.id != "") && (pp.name != "") && budgetOk(pp.budget) && (pp.spent >= 0) && (|ProofLib.Filter((o: Project) => (o.id == pp.id), after.teams[i].projects)| == 1))))
+    {
+      var t := s.teams[i];
+      var t2 := after.teams[i];
+      assert t2.id == t.id;
+      assert t2.members == t.members;
+      assert |t2.projects| == |t.projects|;
+      forall k | 0 <= k < |t2.projects|
+        ensures t2.projects[k].id == t.projects[k].id
+      {
+      }
+      forall p | p in t2.projects
+        ensures ((p.id != "") && (p.name != "") && budgetOk(p.budget) && (p.spent >= 0) && (|ProofLib.Filter((o: Project) => (o.id == p.id), t2.projects)| == 1))
+      {
+        var k :| 0 <= k < |t2.projects| && t2.projects[k] == p;
+        assert t.projects[k] in t.projects;
+        assert p.id == t.projects[k].id;
+        if t.projects[k].id == projectId {
+          assert p == t.projects[k].(spent := t.projects[k].spent - amount);
+          assert t in teamOfProject(s, projectId) by {
+            assert t.projects[k] in t.projects;
+            teamOfProjectIs(s, projectId);
+            ProofLib.FilterMember((t: Team) => (exists p :: p in t.projects && (p.id == projectId)), s.teams, t);
+          }
+          filterSingletonSame((t: Team) => (exists p :: p in t.projects && (p.id == projectId)), s.teams, wt, t);
+          assert wt == t;
+          assert !(exists pp :: pp in wt.projects && !((pp.id != "") && (pp.name != "") && budgetOk(pp.budget) && (pp.spent >= 0) && (|ProofLib.Filter((o: Project) => (o.id == pp.id), wt.projects)| == 1)));
+          assert |ProofLib.Filter((o: Project) => (o.id == wp.id), wt.projects)| == 1;
+          ProofLib.FilterMember((o: Project) => (o.id == wp.id), wt.projects, wp);
+          assert wp in ProofLib.Filter((o: Project) => (o.id == wp.id), wt.projects);
+          ProofLib.FilterSamePredicate((o: Project) => (o.id == wp.id), (o: Project) => (o.id == projectId), wt.projects);
+          assert |ProofLib.Filter((o: Project) => (o.id == projectId), wt.projects)| == 1;
+          assert wp in ProofLib.Filter((o: Project) => (o.id == projectId), wt.projects);
+          ProofLib.FilterMember((o: Project) => (o.id == projectId), wt.projects, t.projects[k]);
+          assert t.projects[k] in ProofLib.Filter((o: Project) => (o.id == projectId), wt.projects);
+          filterSingletonSame((o: Project) => (o.id == projectId), wt.projects, wp, t.projects[k]);
+          assert wp == t.projects[k];
+          assert t.projects[k].spent >= amount;
+          assert p.spent >= 0;
         } else {
           assert p == t.projects[k];
         }

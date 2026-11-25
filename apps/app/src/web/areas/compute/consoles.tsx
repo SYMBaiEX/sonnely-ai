@@ -56,6 +56,7 @@ import {
   Moment,
   observeRuns,
   receiptFor,
+  runRequest,
   viewRun,
   WorkspaceHeading,
   type BlackboxAgentPreset,
@@ -304,14 +305,14 @@ export function Consoles() {
     attempt.current = { input, id: reference, run: id };
     setActionError("");
     setPending(true);
-    const ok = await instances.send({ type: "open", id, reference, wallet, spec, minutes });
+    const failure = await runRequest("/api/compute/runs", { type: "open", id, reference, wallet, spec, minutes });
     setPending(false);
-    if (ok) {
+    if (failure === undefined) {
       attempt.current = null;
       setSelected(id);
       composer.current?.close();
     } else {
-      setActionError(instances.error ?? "Unable to start this rental.");
+      setActionError(failure);
     }
   }
 
@@ -328,10 +329,11 @@ export function Consoles() {
     if (!rental || pending) return false;
     setActionError("");
     setPending(true);
-    const ok = await instances.send({ type: "stop", id: rental.run.id });
+    if (!wallet) return false;
+    const failure = await runRequest("/api/compute/runs/stop", { id: rental.run.id, wallet });
     setPending(false);
-    if (!ok) setActionError(instances.error ?? "Unable to end this rental.");
-    return ok;
+    if (failure !== undefined) setActionError(failure);
+    return failure === undefined;
   }
 
   const shownError = actionError || instances.error || "";
