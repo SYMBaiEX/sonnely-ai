@@ -1,10 +1,13 @@
 import { chromium } from "playwright";
 import { mkdir, writeFile } from "node:fs/promises";
+import { generateKeyPairSigner } from "@solana/kit";
 
 const legacyBase = process.env.LEGACY_URL ?? "http://localhost:3200";
 const migrationBase = process.env.MIGRATION_URL ?? "http://localhost:3108";
 const out = process.env.SHOT_DIR ?? "/tmp/ui2-workspace-shots";
-const wallet = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+const signer = await generateKeyPairSigner();
+const wallet = signer.address;
+let migrationCookie = "";
 const otherWallet = "DjVE6JNiYq52M37YLBjLvDSMaVG9eRQFRkPRCPwdJnn";
 const teamId = "team-ui-fidelity";
 const projectId = "project-ui-fidelity";
@@ -17,10 +20,33 @@ const spent = 4_200_000;
 async function machine(name, event) {
   const response = await fetch(`${migrationBase}/api/machines/${name}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", cookie: migrationCookie },
     body: JSON.stringify(event),
   });
   return response.json().catch(() => ({}));
+}
+
+function cookieValue(header, name) {
+  return header?.split(";")[0]?.startsWith(`${name}=`) ? header.split(";")[0] : "";
+}
+
+async function signInMigration() {
+  const challengeResponse = await fetch(`${migrationBase}/api/session/challenge`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ wallet }),
+  });
+  const challenge = await challengeResponse.json();
+  const challengeCookie = cookieValue(challengeResponse.headers.get("set-cookie"), "sonnely_challenge");
+  const signed = await signer.signMessages([{ content: new TextEncoder().encode(challenge.message), signatures: {} }]);
+  const signature = [...Object.values(signed[0])[0]];
+  const verifyResponse = await fetch(`${migrationBase}/api/session/verify`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: challengeCookie },
+    body: JSON.stringify({ wallet, signature }),
+  });
+  if (!verifyResponse.ok) throw new Error(`seed sign-in failed with HTTP ${verifyResponse.status}`);
+  migrationCookie = cookieValue(verifyResponse.headers.get("set-cookie"), "sonnely_session");
 }
 
 async function sha256(text) {
@@ -29,7 +55,7 @@ async function sha256(text) {
 }
 
 async function seedMigration() {
-  await machine("session", { type: "signIn", wallet });
+  await signInMigration();
   await machine("console", { type: "saveProfile", name: "Ada Workspace", username: "ada_lovelace" });
   await machine("teams", { type: "createTeam", id: teamId, name: "Core infrastructure", actor: wallet, now });
   await machine("teams", {
@@ -57,7 +83,6 @@ async function seedMigration() {
     label: "Launch key",
     prefix: full.slice(0, 20),
     hash: await sha256(full),
-    wallet,
     project: projectId,
     scopes: ["inference"],
     cap: 12_000_000,

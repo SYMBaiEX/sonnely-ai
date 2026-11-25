@@ -90,11 +90,11 @@ function providerOfModel(model: string): Usage.Provider {
 effect function unwindMeter(ref: string, key: WorkspaceKeys.Key, cost: number, day: string, projectHeld: boolean, keyHeld: boolean, usageRecorded: boolean, opened: boolean) {
   if (usageRecorded) {
     const usage = try Usage.Machine
-    usage.send({ type: "release", id: ref }) catch () => undefined
+    usage.send({ type: "release", id: ref }, key.wallet) catch () => undefined
   }
   if (keyHeld) {
     const keys = try WorkspaceKeys.Machine
-    keys.send({ type: "refundUse", id: key.id, amount: cost, day }) catch () => undefined
+    keys.send({ type: "refundUse", id: key.id, amount: cost, day }, key.wallet) catch () => undefined
   }
   if (projectHeld) {
     const teams = try Teams.Machine
@@ -113,7 +113,7 @@ effect function meter(ref: string, key: WorkspaceKeys.Key, endpoint: Requests.En
   const day = new Date(now).toISOString().slice(0, 10)
   const keys = try WorkspaceKeys.Machine
   const keyState = try keys.get()
-  if (!WorkspaceKeys.canRecordUse(keyState, key.id, cost, day, now)) {
+  if (!WorkspaceKeys.canRecordUse(keyState, key.wallet, key.id, cost, day, now)) {
     return { refused: { error: { message: "The API key budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
   }
   const teams = try Teams.Machine
@@ -144,7 +144,7 @@ effect function meter(ref: string, key: WorkspaceKeys.Key, endpoint: Requests.En
     }
     projectHeld = true
   }
-  const used = keys.send({ type: "recordUse", id: key.id, cost, day, now }) catch (e) => e
+  const used = keys.send({ type: "recordUse", id: key.id, cost, day, now }, key.wallet) catch (e) => e
   if (used instanceof WorkspaceKeys.Rejected) {
     try unwindMeter(ref, key, cost, day, projectHeld, false, false, false)
     return { refused: { error: { message: "The API key budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
@@ -161,7 +161,7 @@ effect function meter(ref: string, key: WorkspaceKeys.Key, endpoint: Requests.En
     model,
     provider: providerOfModel(model),
     cost,
-  }) catch (e) => e
+  }, key.wallet) catch (e) => e
   if (row instanceof Usage.Rejected) {
     try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, false, false)
     return { refused: { error: { message: "The request could not be metered.", type: "server_error" }, status: 500 } }
@@ -186,7 +186,7 @@ effect function meter(ref: string, key: WorkspaceKeys.Key, endpoint: Requests.En
     try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, usageRecorded, opened)
     return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
   }
-  const chargedUse = usage.send({ type: "charge", id: ref, input: 0, output: endpoint == "ChatCompletions" ? (stream ? emits.reduce((n, t) => n + t, 0) : 8) : 0, cached: -1, cost, providerMs: -1 }) catch (e) => e
+  const chargedUse = usage.send({ type: "charge", id: ref, input: 0, output: endpoint == "ChatCompletions" ? (stream ? emits.reduce((n, t) => n + t, 0) : 8) : 0, cached: -1, cost, providerMs: -1 }, key.wallet) catch (e) => e
   const finished = requests.send({ type: "finish", ref, cost }) catch (e) => e
   if (chargedUse instanceof Usage.Rejected || finished instanceof Requests.Rejected) {
     return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }

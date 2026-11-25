@@ -1,19 +1,69 @@
-// spec/app/keys.md, "Story: Issue a key"
-import { Machine, stored } from "../../gen/app__keys.effect.vibe"
-import { machineApi } from "../machines.vibe"
+// spec/app/keys.md, "Story: Issue a key": the workspace-key registry behind the verified-session
+// boundary. Reads project only the requesting wallet's keys, and every write's trusted sender is
+// that wallet — never a wallet or sender supplied by the client.
+import * as Keys from "../../gen/app__keys.effect.vibe"
 import { store } from "../serve.vibe"
+import { authenticatedWallet } from "./session.vibe"
+
+const noStore = { "cache-control": "no-store" }
+
+effect function reply(value: unknown, status: number = 200) {
+  return try HttpServerResponse.json(value, { status, headers: noStore })
+}
+
+function project(state: Keys.Keys, wallet: string): Keys.Keys {
+  return { keys: state.keys.filter((key) => key.wallet == wallet) }
+}
+
+effect function getState(keys: Keys.Machine.Shape) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try reply({ error: "sign in required" }, 401)
+  return try reply(project(try keys.get(), wallet))
+}
+
+effect function postEvent(keys: Keys.Machine.Shape) {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try reply({ error: "send application/json" }, 415)
+  }
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
+  const input = request.json catch () => undefined
+  const sent = keys.receive(input, wallet) catch (error) => error
+  const rejected = sent as { _tag?: string; state?: unknown }
+  if (rejected && typeof rejected == "object" && "_tag" in rejected) {
+    const status = rejected._tag == "NotAnEvent" ? 400 : rejected._tag == "Rejected" ? 409 : 500
+    return try reply({ ok: false, error: rejected._tag, state: rejected.state }, status)
+  }
+  return try reply({ ok: true, state: project(sent as Keys.Keys, wallet) })
+}
+
+effect function getStream(keys: Keys.Machine.Shape) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try reply({ error: "sign in required" }, 401)
+  const pushes = Stream.map(keys.changes, (state) => `data: ${JSON.stringify(project(state, wallet))}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
 
 export const keysApi = Layer.unwrap(effect {
-  return machineApi("workspace-keys", try Machine)
+  const keys = try Keys.Machine
+  return Layer.mergeAll(
+    HttpRouter.add("GET", "/api/machines/workspace-keys", getState(keys)),
+    HttpRouter.add("POST", "/api/machines/workspace-keys", provideService(postEvent(keys), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("GET", "/api/machines/workspace-keys/stream", getStream(keys)),
+  )
 })
 
 /** The registry machine, kept under "workspace-keys". */
-export const keys = stored("workspace-keys")
+export const keys = Keys.stored("workspace-keys")
 
 /** An event from anywhere untrusted, decoded before the rules see it. */
-export effect function dispatch(input: unknown) {
-  const machine = try Machine
-  return try machine.receive(input)
+export effect function dispatch(input: unknown, by: unknown) {
+  const machine = try Keys.Machine
+  return try machine.receive(input, try Keys.decodeSender(by))
 }
 
 export function keysState(dir: string) {

@@ -3,7 +3,7 @@
 import { LifeBuoy } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import type { Page } from "../../../../gen/app__nav.ts";
-import type { Session } from "../../../../gen/app__session.ts";
+import { useSession } from "../../session.ts";
 import type { Ticket, TicketState, Tickets } from "../../../../gen/app__support.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame } from "../console/frame.tsx";
@@ -245,7 +245,7 @@ function SignedInSupport({ reload }: { reload: () => void }) {
 }
 
 function SupportSession() {
-  const session = useRemote<Session>("session");
+  const session = useSession();
   const [revision, setRevision] = useState(0);
   const signedIn = session.state?.tag === "SignedIn";
   return (

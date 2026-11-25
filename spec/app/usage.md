@@ -26,6 +26,7 @@ type Row = {
   keyName: str,
   keyId: str,
   project: str,
+  wallet: str,
   model: str,
   provider: Provider,
   input: int,
@@ -48,6 +49,10 @@ pure val initial: Usage = { rows: List() }
 ```quint
 pure def rowWithId(u: Usage, id: str): List[Row] = u.rows.select(r => r.id == id)
 
+pure def ownedRowWithId(u: Usage, id: str, wallet: str): List[Row] =
+  u.rows.select(r => r.id == id and r.wallet == wallet)
+
+pure val byValues = Set("w1", "w2")
 pure val idValues = Set("r1", "r2", "r3")
 pure val timeValues = Set(0, 86400000, 172800000)
 pure val keyNameValues = Set("CI key", "Console")
@@ -63,9 +68,9 @@ pure val providerValues = Set(NearAI, Phala, Tinfoil)
 pure val statusValues = Set(Pending, Complete, Failed, Unreported)
 pure val sinceValues = Set(0, 86400000)
 pure val rowsValues = Set(List()).union(Set(List(
-  { id: "r1", time: 1000, keyName: "CI key", keyId: "k1", project: "p1", model: "deepseek-ai/DeepSeek-V4.1", provider: NearAI,
+  { id: "r1", time: 1000, keyName: "CI key", keyId: "k1", project: "p1", wallet: "w1", model: "deepseek-ai/DeepSeek-V4.1", provider: NearAI,
     input: 10, output: 5, cached: 3, cost: 100, providerMs: 40, status: Complete },
-  { id: "r2", time: 2000, keyName: "Console", keyId: "", project: "", model: "openai/gpt-5.2", provider: Phala,
+  { id: "r2", time: 2000, keyName: "Console", keyId: "", project: "", wallet: "w1", model: "openai/gpt-5.2", provider: Phala,
     input: 0, output: 0, cached: -1, cost: 50, providerMs: -1, status: Pending })))
 ```
 
@@ -80,13 +85,13 @@ pure val rowsValues = Set(List()).union(Set(List(
 Each request id is unique; the reserved cost is nonnegative.
 
 ```quint
-pure def canRecord(u: Usage, id: str, time: int, keyName: str, keyId: str, project: str, model: str, provider: Provider, cost: int): bool =
-  id != "" and keyName != "" and model != "" and cost >= 0 and time >= 0
+pure def canRecord(u: Usage, by: str, id: str, time: int, keyName: str, keyId: str, project: str, model: str, provider: Provider, cost: int): bool =
+  by != "" and id != "" and keyName != "" and model != "" and cost >= 0 and time >= 0
   and u.rows.every(r => r.id != id)
 
-pure def record(u: Usage, id: str, time: int, keyName: str, keyId: str, project: str, model: str, provider: Provider, cost: int): Usage =
+pure def record(u: Usage, by: str, id: str, time: int, keyName: str, keyId: str, project: str, model: str, provider: Provider, cost: int): Usage =
   { rows: u.rows.append({
-      id: id, time: time, keyName: keyName, keyId: keyId, project: project, model: model, provider: provider,
+      id: id, time: time, keyName: keyName, keyId: keyId, project: project, wallet: by, model: model, provider: provider,
       input: 0, output: 0, cached: -1, cost: cost, providerMs: -1, status: Pending }) }
 ```
 
@@ -96,30 +101,38 @@ Charging records the input and output tokens, the final charge and the
 provider's measurements; a cached token count never exceeds the input.
 
 ```quint
-pure def canCharge(u: Usage, id: str, input: int, output: int, cached: int, cost: int, providerMs: int): bool =
-  rowWithId(u, id).some(r => r.status == Pending)
+pure def canCharge(u: Usage, by: str, id: str, input: int, output: int, cached: int, cost: int, providerMs: int): bool =
+  ownedRowWithId(u, id, by).some(r => r.status == Pending)
   and input >= 0 and output >= 0 and cost >= 0
   and cached >= -1 and cached <= input and providerMs >= -1
 
-pure def charge(u: Usage, id: str, input: int, output: int, cached: int, cost: int, providerMs: int): Usage =
+pure def charge(u: Usage, by: str, id: str, input: int, output: int, cached: int, cost: int, providerMs: int): Usage =
   { rows: u.rows.listMap(r =>
-      if (r.id == id) { ...r, input: input, output: output, cached: cached, cost: cost, providerMs: providerMs, status: Complete }
+      if (r.id == id and r.wallet == by) { ...r, input: input, output: output, cached: cached, cost: cost, providerMs: providerMs, status: Complete }
       else r) }
 ```
 
 ### A pending request can fail or go under review
 
 ```quint
-pure def canRelease(u: Usage, id: str): bool = rowWithId(u, id).some(r => r.status == Pending)
+pure def canRelease(u: Usage, by: str, id: str): bool = ownedRowWithId(u, id, by).some(r => r.status == Pending)
 
-pure def release(u: Usage, id: str): Usage =
-  { rows: u.rows.listMap(r => if (r.id == id) { ...r, status: Failed } else r) }
+pure def release(u: Usage, by: str, id: str): Usage =
+  { rows: u.rows.listMap(r => if (r.id == id and r.wallet == by) { ...r, status: Failed } else r) }
 
-pure def canUnreported(u: Usage, id: str): bool = rowWithId(u, id).some(r => r.status == Pending)
+pure def canUnreported(u: Usage, by: str, id: str): bool = ownedRowWithId(u, id, by).some(r => r.status == Pending)
 
-pure def unreported(u: Usage, id: str): Usage =
-  { rows: u.rows.listMap(r => if (r.id == id) { ...r, status: Unreported } else r) }
+pure def unreported(u: Usage, by: str, id: str): Usage =
+  { rows: u.rows.listMap(r => if (r.id == id and r.wallet == by) { ...r, status: Unreported } else r) }
 ```
+
+### Every usage row belongs to the wallet that metered it
+
+The wallet is part of the row, and the trusted sender of record and settlement
+events must be that wallet. The API derives the sender from the verified
+session or from the already authenticated key owner inside the gateway; it
+never trusts a wallet supplied by the client. Reads project rows for the
+session wallet.
 
 ### A pending row carries no measurements yet
 
@@ -135,7 +148,7 @@ pure def alwaysPendingIsClean(u: Usage): bool =
 ```quint
 pure def alwaysRowsAreWellFormed(u: Usage): bool =
   u.rows.every(r =>
-    r.id != "" and r.keyName != "" and r.model != "" and r.time >= 0
+    r.id != "" and r.wallet != "" and r.keyName != "" and r.model != "" and r.time >= 0
     and r.input >= 0 and r.output >= 0 and r.cost >= 0
     and r.cached >= -1 and r.cached <= r.input and r.providerMs >= -1)
   and u.rows.every(r => u.rows.select(o => o.id == r.id).length() == 1)
@@ -160,7 +173,7 @@ pure def stepPendingSettles(before: Usage, after: Usage): bool =
     r.status != Pending
     or rowWithId(after, r.id).every(a =>
       a == r or (a.status != Pending and a.id == r.id and a.time == r.time and a.keyName == r.keyName
-                 and a.keyId == r.keyId and a.project == r.project and a.model == r.model and a.provider == r.provider)))
+                 and a.keyId == r.keyId and a.project == r.project and a.wallet == r.wallet and a.model == r.model and a.provider == r.provider)))
 ```
 
 ### A request can complete and one can be held

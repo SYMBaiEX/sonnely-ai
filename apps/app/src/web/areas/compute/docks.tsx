@@ -5,7 +5,7 @@ import { hourlyBaseOf, quoteFor, unitOf } from "../../../../gen/app__compute__in
 import type { Compute } from "../../../../gen/app__compute__instances.ts";
 import { balanceOf } from "../../../../gen/app__billing__ledger.ts";
 import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
-import type { Session } from "../../../../gen/app__session.ts";
+import { useSession } from "../../session.ts";
 import { useRemote } from "../../remote.ts";
 import {
   computeFee,
@@ -71,7 +71,7 @@ function fileName(view: RunView, kind: string) {
 
 export function Docks() {
   const instances = useRemote<Compute>("instances");
-  const session = useRemote<Session>("session");
+  const session = useSession();
   const ledger = useRemote<Ledger>("billing-ledger");
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   const allRuns = instances.state?.runs ?? [];

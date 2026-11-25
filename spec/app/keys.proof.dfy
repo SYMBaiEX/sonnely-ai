@@ -15,6 +15,21 @@ lemma withIdAll(s: Keys, id: string)
   }
 }
 
+
+lemma ownedKeyWithIdIs(s: Keys, id: string, wallet: string)
+  ensures ownedKeyWithId(s, id, wallet) == ProofLib.Filter((k: Key) => ((k.id == id) && (k.wallet == wallet)), s.keys)
+{
+}
+
+lemma ownedKeyWithIdAll(s: Keys, id: string, wallet: string)
+  ensures forall a :: (a in ownedKeyWithId(s, id, wallet)) == (a in s.keys && (a.id == id) && (a.wallet == wallet))
+{
+  ownedKeyWithIdIs(s, id, wallet);
+  forall a ensures (a in ownedKeyWithId(s, id, wallet)) == (a in s.keys && (a.id == id) && (a.wallet == wallet)) {
+    ProofLib.FilterMember((k: Key) => ((k.id == id) && (k.wallet == wallet)), s.keys, a);
+  }
+}
+
 lemma uniqueP(s: Keys)
   ensures alwaysCredentialsAreUnique(s) == !(exists k :: k in s.keys && !((|ProofLib.Filter((o: Key) => (o.id == k.id), s.keys)| == 1) && (|ProofLib.Filter((o: Key) => (o.prefix == k.prefix), s.keys)| == 1) && (|ProofLib.Filter((o: Key) => (o.hash == k.hash), s.keys)| == 1)))
 {
@@ -35,15 +50,15 @@ lemma sameIdIsSame(s: Keys, a: Key, b: Key)
 // The map transitions update, recordUse and revoke never touch id, prefix or hash, so each
 // credential filter counts the same before and after; the pointwise lemmas carry it across.
 
-lemma update_ensures(s: Keys, id: string, label_: string, cap: int, dailyCap: int, expiresAt: int, now: int)
-  ensures (inv(s) ==> canUpdate(s, id, label_, cap, dailyCap, expiresAt, now) ==> alwaysKeysAreWellFormed(update(s, id, label_, cap, dailyCap, expiresAt, now)))
-  ensures (inv(s) ==> canUpdate(s, id, label_, cap, dailyCap, expiresAt, now) ==> alwaysCredentialsAreUnique(update(s, id, label_, cap, dailyCap, expiresAt, now)))
-  ensures (inv(s) ==> canUpdate(s, id, label_, cap, dailyCap, expiresAt, now) ==> stepSpendMovesOnlyWithUse(s, "update", update(s, id, label_, cap, dailyCap, expiresAt, now)))
-  ensures (inv(s) ==> canUpdate(s, id, label_, cap, dailyCap, expiresAt, now) ==> stepUseMarksUse(s, "update", update(s, id, label_, cap, dailyCap, expiresAt, now)))
-  ensures (inv(s) ==> canUpdate(s, id, label_, cap, dailyCap, expiresAt, now) ==> stepRevokedStaysRevoked(s, update(s, id, label_, cap, dailyCap, expiresAt, now)))
+lemma update_ensures(s: Keys, by_: string, id: string, label_: string, cap: int, dailyCap: int, expiresAt: int, now: int)
+  ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> alwaysKeysAreWellFormed(update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> alwaysCredentialsAreUnique(update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> stepSpendMovesOnlyWithUse(s, "update", update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> stepUseMarksUse(s, "update", update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) ==> stepRevokedStaysRevoked(s, update(s, by_, id, label_, cap, dailyCap, expiresAt, now)))
 {
-  if inv(s) && canUpdate(s, id, label_, cap, dailyCap, expiresAt, now) {
-    var after := update(s, id, label_, cap, dailyCap, expiresAt, now);
+  if inv(s) && canUpdate(s, by_, id, label_, cap, dailyCap, expiresAt, now) {
+    var after := update(s, by_, id, label_, cap, dailyCap, expiresAt, now);
     uniqueP(s);
     forall i | 0 <= i < |after.keys|
       ensures ((after.keys[i].id != "") && (after.keys[i].label_ != "") && (after.keys[i].prefix != "") && (after.keys[i].hash != "") && (after.keys[i].wallet != "") && (|after.keys[i].scopes| >= 1) && capOk(after.keys[i].cap) && capOk(after.keys[i].dailyCap) && (after.keys[i].expiresAt >= 0) && (after.keys[i].createdAt >= 0) && (after.keys[i].lastUsedAt >= 0) && (after.keys[i].spent >= 0) && (after.keys[i].daySpent >= 0) && (after.keys[i].daySpent <= after.keys[i].spent) && ((after.keys[i].lastUsedAt == 0) == (after.keys[i].dayKey == "")) && (!(after.keys[i].lastUsedAt != 0) || (after.keys[i].lastUsedAt >= after.keys[i].createdAt)))
@@ -124,16 +139,17 @@ lemma update_ensures(s: Keys, id: string, label_: string, cap: int, dailyCap: in
   }
 }
 
-lemma recordUse_ensures(s: Keys, id: string, cost: int, day: string, now: int)
-  ensures (inv(s) ==> canRecordUse(s, id, cost, day, now) ==> alwaysKeysAreWellFormed(recordUse(s, id, cost, day, now)))
-  ensures (inv(s) ==> canRecordUse(s, id, cost, day, now) ==> alwaysCredentialsAreUnique(recordUse(s, id, cost, day, now)))
-  ensures (inv(s) ==> canRecordUse(s, id, cost, day, now) ==> stepSpendMovesOnlyWithUse(s, "recordUse", recordUse(s, id, cost, day, now)))
-  ensures (inv(s) ==> canRecordUse(s, id, cost, day, now) ==> stepUseMarksUse(s, "recordUse", recordUse(s, id, cost, day, now)))
-  ensures (inv(s) ==> canRecordUse(s, id, cost, day, now) ==> stepRevokedStaysRevoked(s, recordUse(s, id, cost, day, now)))
+lemma recordUse_ensures(s: Keys, by_: string, id: string, cost: int, day: string, now: int)
+  ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> alwaysKeysAreWellFormed(recordUse(s, by_, id, cost, day, now)))
+  ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> alwaysCredentialsAreUnique(recordUse(s, by_, id, cost, day, now)))
+  ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> stepSpendMovesOnlyWithUse(s, "recordUse", recordUse(s, by_, id, cost, day, now)))
+  ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> stepUseMarksUse(s, "recordUse", recordUse(s, by_, id, cost, day, now)))
+  ensures (inv(s) ==> canRecordUse(s, by_, id, cost, day, now) ==> stepRevokedStaysRevoked(s, recordUse(s, by_, id, cost, day, now)))
 {
-  if inv(s) && canRecordUse(s, id, cost, day, now) {
-    var after := recordUse(s, id, cost, day, now);
-    var w :| w in keyWithId(s, id) && w.status.Active? && (now >= w.createdAt) && (now >= w.lastUsedAt);
+  if inv(s) && canRecordUse(s, by_, id, cost, day, now) {
+    var after := recordUse(s, by_, id, cost, day, now);
+    var w :| w in ownedKeyWithId(s, id, by_) && w.status.Active? && (now >= w.createdAt) && (now >= w.lastUsedAt);
+    ownedKeyWithIdAll(s, id, by_);
     withIdAll(s, id);
     uniqueP(s);
     forall i | 0 <= i < |after.keys|
@@ -207,16 +223,17 @@ lemma recordUse_ensures(s: Keys, id: string, cost: int, day: string, now: int)
 // refundUse: a returned hold lowers spend only on the metered key; the day tally is
 // subtracted when the hold belongs to the day the key still carries.
 
-lemma refundUse_ensures(s: Keys, id: string, amount: int, day: string)
-  ensures (inv(s) ==> canRefundUse(s, id, amount, day) ==> alwaysKeysAreWellFormed(refundUse(s, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, id, amount, day) ==> alwaysCredentialsAreUnique(refundUse(s, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, id, amount, day) ==> stepSpendMovesOnlyWithUse(s, "refundUse", refundUse(s, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, id, amount, day) ==> stepUseMarksUse(s, "refundUse", refundUse(s, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, id, amount, day) ==> stepRevokedStaysRevoked(s, refundUse(s, id, amount, day)))
+lemma refundUse_ensures(s: Keys, by_: string, id: string, amount: int, day: string)
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> alwaysKeysAreWellFormed(refundUse(s, by_, id, amount, day)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> alwaysCredentialsAreUnique(refundUse(s, by_, id, amount, day)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepSpendMovesOnlyWithUse(s, "refundUse", refundUse(s, by_, id, amount, day)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepUseMarksUse(s, "refundUse", refundUse(s, by_, id, amount, day)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepRevokedStaysRevoked(s, refundUse(s, by_, id, amount, day)))
 {
-  if inv(s) && canRefundUse(s, id, amount, day) {
-    var after := refundUse(s, id, amount, day);
-    var w :| w in keyWithId(s, id) && w.spent >= amount;
+  if inv(s) && canRefundUse(s, by_, id, amount, day) {
+    var after := refundUse(s, by_, id, amount, day);
+    var w :| w in ownedKeyWithId(s, id, by_) && w.spent >= amount;
+    ownedKeyWithIdAll(s, id, by_);
     withIdAll(s, id);
     uniqueP(s);
     forall i | 0 <= i < |after.keys|
@@ -290,16 +307,16 @@ lemma refundUse_ensures(s: Keys, id: string, amount: int, day: string)
   }
 }
 
-lemma create_ensures(s: Keys, id: string, label_: string, prefix: string, hash: string, wallet: string, project: string, scopes: seq<string>, cap: int, dailyCap: int, expiresAt: int, now: int)
-  ensures (inv(s) ==> canCreate(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now) ==> alwaysKeysAreWellFormed(create(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now)))
-  ensures (inv(s) ==> canCreate(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now) ==> alwaysCredentialsAreUnique(create(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now)))
-  ensures (inv(s) ==> canCreate(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now) ==> stepSpendMovesOnlyWithUse(s, "create", create(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now)))
-  ensures (inv(s) ==> canCreate(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now) ==> stepUseMarksUse(s, "create", create(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now)))
-  ensures (inv(s) ==> canCreate(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now) ==> stepRevokedStaysRevoked(s, create(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now)))
+lemma create_ensures(s: Keys, by_: string, id: string, label_: string, prefix: string, hash: string, project: string, scopes: seq<string>, cap: int, dailyCap: int, expiresAt: int, now: int)
+  ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> alwaysKeysAreWellFormed(create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> alwaysCredentialsAreUnique(create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> stepSpendMovesOnlyWithUse(s, "create", create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> stepUseMarksUse(s, "create", create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
+  ensures (inv(s) ==> canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) ==> stepRevokedStaysRevoked(s, create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now)))
 {
-  if inv(s) && canCreate(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now) {
-    var x := Key(id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, KeyStatus.Active, now, 0, 0, "", 0);
-    var after := create(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now);
+  if inv(s) && canCreate(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now) {
+    var x := Key(id, label_, prefix, hash, by_, project, scopes, cap, dailyCap, expiresAt, KeyStatus.Active, now, 0, 0, "", 0);
+    var after := create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now);
     assert after.keys == s.keys + [x];
     uniqueP(s);
     forall k | k in after.keys
@@ -362,15 +379,15 @@ lemma create_ensures(s: Keys, id: string, label_: string, prefix: string, hash: 
   }
 }
 
-lemma revoke_ensures(s: Keys, id: string)
-  ensures (inv(s) ==> canRevoke(s, id) ==> alwaysKeysAreWellFormed(revoke(s, id)))
-  ensures (inv(s) ==> canRevoke(s, id) ==> alwaysCredentialsAreUnique(revoke(s, id)))
-  ensures (inv(s) ==> canRevoke(s, id) ==> stepSpendMovesOnlyWithUse(s, "revoke", revoke(s, id)))
-  ensures (inv(s) ==> canRevoke(s, id) ==> stepUseMarksUse(s, "revoke", revoke(s, id)))
-  ensures (inv(s) ==> canRevoke(s, id) ==> stepRevokedStaysRevoked(s, revoke(s, id)))
+lemma revoke_ensures(s: Keys, by_: string, id: string)
+  ensures (inv(s) ==> canRevoke(s, by_, id) ==> alwaysKeysAreWellFormed(revoke(s, by_, id)))
+  ensures (inv(s) ==> canRevoke(s, by_, id) ==> alwaysCredentialsAreUnique(revoke(s, by_, id)))
+  ensures (inv(s) ==> canRevoke(s, by_, id) ==> stepSpendMovesOnlyWithUse(s, "revoke", revoke(s, by_, id)))
+  ensures (inv(s) ==> canRevoke(s, by_, id) ==> stepUseMarksUse(s, "revoke", revoke(s, by_, id)))
+  ensures (inv(s) ==> canRevoke(s, by_, id) ==> stepRevokedStaysRevoked(s, revoke(s, by_, id)))
 {
-  if inv(s) && canRevoke(s, id) {
-    var after := revoke(s, id);
+  if inv(s) && canRevoke(s, by_, id) {
+    var after := revoke(s, by_, id);
     uniqueP(s);
     forall i | 0 <= i < |after.keys|
       ensures ((after.keys[i].id != "") && (after.keys[i].label_ != "") && (after.keys[i].prefix != "") && (after.keys[i].hash != "") && (after.keys[i].wallet != "") && (|after.keys[i].scopes| >= 1) && capOk(after.keys[i].cap) && capOk(after.keys[i].dailyCap) && (after.keys[i].expiresAt >= 0) && (after.keys[i].createdAt >= 0) && (after.keys[i].lastUsedAt >= 0) && (after.keys[i].spent >= 0) && (after.keys[i].daySpent >= 0) && (after.keys[i].daySpent <= after.keys[i].spent) && ((after.keys[i].lastUsedAt == 0) == (after.keys[i].dayKey == "")) && (!(after.keys[i].lastUsedAt != 0) || (after.keys[i].lastUsedAt >= after.keys[i].createdAt)))
@@ -454,12 +471,12 @@ lemma revoke_ensures(s: Keys, id: string)
 // spec/app/keys.md, "A revoked key takes no update and no metering": the created key is the
 // only one with its id; after revoke it is the only element of keyWithId(after, id).
 
-lemma lawRevokedIsFinal_ensures(s: Keys, id: string, label_: string, prefix: string, hash: string, wallet: string, project: string, scopes: seq<string>, cap: int, dailyCap: int, expiresAt: int, now: int, cost: int, day: string)
-  ensures (lawRevokedIsFinal(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now, cost, day) == true)
+lemma lawRevokedIsFinal_ensures(s: Keys, by_: string, id: string, label_: string, prefix: string, hash: string, project: string, scopes: seq<string>, cap: int, dailyCap: int, expiresAt: int, now: int, cost: int, day: string)
+  ensures (lawRevokedIsFinal(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now, cost, day) == true)
 {
-  var x := Key(id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, KeyStatus.Active, now, 0, 0, "", 0);
-  var mid := create(s, id, label_, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now);
-  var after := revoke(mid, id);
+  var x := Key(id, label_, prefix, hash, by_, project, scopes, cap, dailyCap, expiresAt, KeyStatus.Active, now, 0, 0, "", 0);
+  var mid := create(s, by_, id, label_, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now);
+  var after := revoke(mid, by_, id);
   if |keyWithId(s, id)| == 0 {
     assert mid.keys == s.keys + [x];
     withIdIs(s, id);
@@ -480,7 +497,9 @@ lemma lawRevokedIsFinal_ensures(s: Keys, id: string, label_: string, prefix: str
     assert !(exists k :: k in keyWithId(after, id) && !(k.status.Revoked?));
     assert !(exists k :: k in keyWithId(after, id) && (k.status.Active? && (k.project == "")));
     assert !(exists k :: k in keyWithId(after, id) && ((k.status.Active? && (now >= k.createdAt)) && (now >= k.lastUsedAt)));
-    assert !canUpdate(after, id, label_, cap, dailyCap, expiresAt, now);
-    assert !canRecordUse(after, id, cost, day, now);
+    ownedKeyWithIdAll(after, id, by_);
+    withIdAll(after, id);
+    assert !canUpdate(after, by_, id, label_, cap, dailyCap, expiresAt, now);
+    assert !canRecordUse(after, by_, id, cost, day, now);
   }
 }

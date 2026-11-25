@@ -11,10 +11,28 @@ import {
   SolanaSignOffchainMessage,
   SolanaSignTransaction,
   type SolanaSignInInput,
+  type SolanaSignInOutput,
 } from "@solana/wallet-standard-features";
 import { ChevronDown, Wallet as WalletIcon } from "lucide-react";
 import { shorten } from "./bits.tsx";
 import { canAuthenticateWallet, isMobileAdapter, mobileAdapterName, registerMobileWallet, solanaWalletClients } from "./solana-wallet.ts";
+
+async function sessionRequest<T>(task: string, data?: unknown): Promise<T> {
+  const response = await fetch(
+    "/api/session/" + task,
+    data === undefined
+      ? { cache: "no-store" }
+      : {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(data),
+          cache: "no-store",
+        },
+  );
+  const payload = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) throw new Error(payload.error || "The wallet request failed.");
+  return payload as T;
+}
 
 export function WalletControl({
   wallet: signedInWallet,
@@ -66,18 +84,12 @@ export function WalletControl({
     const account = chainAccounts[0];
     if (!account) throw new Error(`Select an account that supports Solana ${cluster}.`);
     client.wallet.selectAccount(account);
-    const nonce = crypto.randomUUID().replaceAll("-", "");
-    const message = `${location.host} wants you to sign in with your Solana account:\n${account.address}\n\nSonnely workspace sign-in\n\nURI: ${location.origin}\nVersion: 1\nChain ID: ${cluster}\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}`;
-    const input: SolanaSignInInput = {
-      domain: location.host,
-      address: account.address,
-      statement: "Sonnely workspace sign-in",
-      uri: location.origin,
-      version: "1",
-      chainId: cluster,
-      nonce,
-      issuedAt: new Date().toISOString(),
-    };
+    const { input, message } = await sessionRequest<{ input: SolanaSignInInput; message: string }>("challenge", {
+      wallet: account.address,
+    });
+    let signature: readonly number[];
+    let signedMessage: readonly number[] | undefined;
+    let signedMessageFormat: SolanaSignInOutput["signedMessageFormat"];
     const nativeSignIn = wallet.features.includes(SolanaSignIn) && !isMobileAdapter(wallet.name);
     const offchainSignIn = nativeSignIn && supportsSignInWithOffchainMessage(wallet);
     const canSignOffchain = account.features.includes(SolanaSignOffchainMessage);
@@ -88,20 +100,28 @@ export function WalletControl({
         options,
       );
       if (output.account.address !== account.address) throw new Error("The wallet signed in with a different address.");
+      signature = [...output.signature];
+      signedMessage = [...output.signedMessage];
+      if (output.signedMessageFormat?.kind === "offchainMessage") signedMessageFormat = output.signedMessageFormat;
     } else {
       if (client.wallet.getState().connected?.account.address !== account.address) {
         throw new Error("The wallet changed while preparing this sign-in. Try again.");
       }
       if (canSignOffchain) {
         const envelope = await client.wallet.signOffchainMessage({ message, version: 1 }, options);
-        if (!envelope.signatures[address(account.address)]) throw new Error("The wallet did not return an off-chain signature.");
+        const detachedSignature = envelope.signatures[address(account.address)];
+        if (!detachedSignature) throw new Error("The wallet did not return an off-chain signature.");
+        signature = [...detachedSignature];
+        signedMessage = [...envelope.content];
+        signedMessageFormat = { kind: "offchainMessage", messageVersion: 1 };
       } else if (account.features.includes(SolanaSignMessage)) {
-        await client.wallet.signMessage(new TextEncoder().encode(message), options);
+        signature = [...(await client.wallet.signMessage(new TextEncoder().encode(message), options))];
       } else {
         throw new Error("This account does not support signing in.");
       }
     }
     abortSignal.throwIfAborted();
+    await sessionRequest("verify", { wallet: account.address, signature, signedMessage, signedMessageFormat });
     if (!(await onSignIn(account.address))) throw new Error("The workspace session refused this wallet.");
     closeWallet();
   });

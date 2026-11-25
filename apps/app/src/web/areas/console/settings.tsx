@@ -3,11 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield } from "lucide-react";
 import type { Console, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
-import type { Session } from "../../../../gen/app__session.ts";
 import { useRemote, type Remote } from "../../remote.ts";
 import type { Theme as BrowserTheme } from "../site/chrome.tsx";
 import { MotionSwitch } from "../site/motion.tsx";
-import { useConsoleShell } from "./frame.tsx";
+import { useConsoleShell, type WorkspaceSessionRemote } from "./frame.tsx";
 import { CopyButton, WorkspaceHeading, WorkspaceLegacy, shorten } from "../teams/legacy.tsx";
 
 const usernameHelp = "Use 3–24 letters, numbers, or underscores. Start with a letter.";
@@ -97,22 +96,9 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
   );
 }
 
-function SessionsPanel({ wallet }: { wallet?: string }) {
-  const [busy, setBusy] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
-  const opened = Date.now();
-  const sessions = wallet ? [{ id: "current", created: opened, expires: opened + 7 * 86_400_000, current: true }] : [];
-
-  function signOutOthers() {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    setSigningOut(false);
-    setNotice("No other sessions to sign out.");
-    setBusy(false);
-  }
+function SessionsPanel({ session }: { session: WorkspaceSessionRemote }) {
+  const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
+  const sessions = session.state?.tag === "SignedIn" ? (session.state.sessions ?? []).filter((item) => item.state === "LoginActive") : [];
 
   return (
     <section className="panel stack-panel settings-panel">
@@ -122,52 +108,27 @@ function SessionsPanel({ wallet }: { wallet?: string }) {
       </div>
       {wallet && sessions.length ? (
         sessions.map((item) => (
-          <div className="settings-row" key={item.id}>
+          <div className="settings-row" key={item.digest}>
             <div>
-              <strong>{item.current ? "This session" : "Signed in " + date(item.created)}</strong>
-              <p>Expires {date(item.expires)} UTC</p>
+              <strong>{item.current ? "This session" : "Signed in " + date(item.createdAt)}</strong>
+              <p>Expires {date(item.expiresAt)} UTC</p>
             </div>
             {item.current && <span className="pill">Current</span>}
           </div>
         ))
       ) : (
         <p className="caption" role="status">
-          {!wallet ? "Connect a wallet to see active sessions." : "Active sessions are unavailable."}
+          {!wallet ? "Connect a wallet to see active sessions." : "No active sessions."}
         </p>
       )}
-      {wallet &&
-        (signingOut ? (
-          <div className="settings-row">
-            <div>
-              <strong>Sign out other sessions?</strong>
-              <p>Other devices will need to sign in again.</p>
-            </div>
-            <div className="actions">
-              <button type="button" className="button quiet" disabled={busy} onClick={signOutOthers}>
-                Sign out others
-              </button>
-              <button type="button" className="button quiet" disabled={busy} onClick={() => setSigningOut(false)}>
-                Keep
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="actions">
-            <button type="button" className="button quiet" disabled={busy} onClick={() => setSigningOut(true)}>
-              Sign out other sessions
-            </button>
-          </div>
-        ))}
-      <Failure message={error} />
-      <p role="status" className={notice ? "status" : "visually-hidden"}>
-        {notice}
-      </p>
+      <p className="caption">Sign out this device from the wallet control in the console header.</p>
     </section>
   );
 }
 
 function SettingsContent() {
-  const session = useRemote<Session>("session");
+  const shell = useConsoleShell();
+  const session = shell.session;
   const settings = useRemote<Console>("console");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -245,7 +206,7 @@ function SettingsContent() {
         )}
       </section>
       <PreferencesPanel settings={settings} state={state} />
-      <SessionsPanel wallet={wallet} />
+      <SessionsPanel session={session} />
       <div className="actions">
         <a className="button quiet" href="/docs/attestation#data-handling">
           <FileText size={17} /> Data handling

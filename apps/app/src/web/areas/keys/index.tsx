@@ -109,7 +109,6 @@ function KeysConsole() {
         label: values.name || "Workspace key",
         prefix: full.slice(0, 20),
         hash,
-        wallet: session.state?.tag === "SignedIn" ? session.state.wallet : "",
         project: "",
         scopes: ["inference"],
         cap: values.cap,

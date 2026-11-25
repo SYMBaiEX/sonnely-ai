@@ -8,6 +8,7 @@ import type { PaymentOrder } from "./billing/solana.ts"
 import * as solana from "./billing/solana.ts"
 import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
+import { authenticatedWallet } from "./session.vibe"
 
 /** Solana checkout is not configured (treasury, RPC or cluster missing). */
 export error CheckoutUnavailable { reason: string }
@@ -93,7 +94,9 @@ effect function openDeposit() {
   }
   const raw = request.json catch () => undefined
   const input = raw as { wallet?: unknown; asset?: unknown; amount?: unknown } | undefined
-  const wallet = typeof input?.wallet == "string" ? input.wallet : ""
+  const sessionWallet = try authenticatedWallet()
+  if (sessionWallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
+  const wallet = sessionWallet
   const amount = typeof input?.amount == "number" ? input.amount : 0
   const asset = input?.asset == "SOL" ? "SOL" : input?.asset == "USDC" ? "USDC" : ""
   if (asset == "" || wallet == "" || solana.isValidAddress(wallet) == false || Number.isSafeInteger(amount) == false || amount <= 0) {
@@ -138,6 +141,8 @@ effect function confirmDeposit() {
   }
   const raw = request.json catch () => undefined
   const input = raw as { reference?: unknown; signature?: unknown } | undefined
+  const sessionWallet = try authenticatedWallet()
+  if (sessionWallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
   const reference = typeof input?.reference == "string" ? input.reference : ""
   const signature = typeof input?.signature == "string" ? input.signature : undefined
   if (reference == "") return try reply({ ok: false, error: "A payment reference is required." }, 400)
@@ -145,6 +150,7 @@ effect function confirmDeposit() {
   const state = try deposits.get()
   const intent = Deposits.findIntent(state, reference)[0]
   if (intent == undefined) return try reply({ ok: false, error: "Payment request unavailable." }, 404)
+  if (intent.wallet != sessionWallet) return try reply({ ok: false, error: "Payment request unavailable." }, 404)
   if (intent.status.tag == "Finalized") return try reply({ ok: true, signature: intent.status.signature })
   if (intent.status.tag == "Expired") return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
   const now = try Clock.currentTimeMillis

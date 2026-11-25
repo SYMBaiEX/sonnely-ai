@@ -1,12 +1,205 @@
-// spec/app/session.md, "Story: Sign in with a wallet"
-import { Machine, stored } from "../../gen/app__session.effect.vibe"
-import { machineApi } from "../machines.vibe"
+// spec/app/session.md, "Story: Sign in with a wallet": the HTTP shell around the signing-session
+// machine. The shell creates the exact message, verifies the wallet signature, and only then sends
+// the establishing event. Session cookies bear a random token; the machine stores only its digest.
+import * as Session from "../../gen/app__session.effect.vibe"
 import { store } from "../serve.vibe"
+import * as signin from "./session/signin.ts"
+
+const noStore = { "cache-control": "no-store" }
+const challengeMs = 300_000
+const sessionMs = 7 * 24 * 60 * 60_000
+const statement = "Sign in to Sonnely. This message does not move any funds."
+
+error VerifyUnavailable {}
+
+effect function reply(value: unknown, status: number = 200) {
+  return try HttpServerResponse.json(value, { status, headers: noStore })
+}
+
+function cookieOptions(secure: boolean, maxAge?: number) {
+  return { httpOnly: true, sameSite: "lax" as const, secure, path: "/", ...(maxAge === undefined ? {} : { maxAge }) }
+}
+
+function site(request: { headers: Record<string, string | undefined> }) {
+  const domain = request.headers["host"] ?? "localhost"
+  const protocol = request.headers["x-forwarded-proto"] ?? (domain.startsWith("localhost") || domain.startsWith("127.") ? "http" : "https")
+  return { domain, uri: `${protocol}://${domain}`, secure: protocol == "https" }
+}
+
+function sameSite(request: { headers: Record<string, string | undefined> }, uri: string): boolean {
+  const origin = request.headers["origin"]
+  if (origin == undefined || origin == "") return true
+  try {
+    return new URL(origin).host == new URL(uri).host
+  } catch {
+    return false
+  }
+}
+
+function tokenDigest(token: string | undefined): string {
+  return token == undefined || token == "" ? "" : signin.sessionDigest(token)
+}
+
+/** Expire due challenges and sessions, then answer the wallet this request's session token names. */
+effect function authenticatedWallet() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const sessions = try Session.Machine
+  const now = try Clock.currentTimeMillis
+  const current = try sessions.get()
+  if (Session.canExpire(current, now)) {
+    sessions.send({ type: "expire", now }) catch () => undefined
+  }
+  const state = try sessions.get()
+  return Session.activeWallet(state, tokenDigest(request.cookies["sonnely_session"]), now)
+}
+
+export { authenticatedWallet }
+
+function publicSession(state: Session.Sessions, digest: string, now: number) {
+  const wallet = Session.activeWallet(state, digest, now)
+  if (wallet == "") return { tag: "SignedOut" }
+  const sessions = state.logins
+    .filter((login) => login.wallet == wallet)
+    .map((login) => ({
+      digest: login.digest,
+      createdAt: login.createdAt,
+      expiresAt: login.expiresAt,
+      state: login.state,
+      current: login.digest == digest,
+    }))
+  return { tag: "SignedIn", wallet, sessions }
+}
+
+/** The session this request's cookie names, in the shape the console already understands. */
+effect function getSession() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const sessions = try Session.Machine
+  const now = try Clock.currentTimeMillis
+  const current = try sessions.get()
+  if (Session.canExpire(current, now)) {
+    sessions.send({ type: "expire", now }) catch () => undefined
+  }
+  return try reply(publicSession(try sessions.get(), tokenDigest(request.cookies["sonnely_session"]), now))
+}
+
+/** A per-cookie session stream: other wallets' signing state is never projected here. */
+effect function getSessionStream() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const sessions = try Session.Machine
+  const digest = tokenDigest(request.cookies["sonnely_session"])
+  const pushes = Stream.map(sessions.changes, (state) =>
+    `data: ${JSON.stringify(publicSession(state, digest, Date.now()))}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
+/** Issue a single-use challenge for the wallet, site and expiry it names. */
+effect function postChallenge() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const where = site(request)
+  if (!sameSite(request, where.uri)) return try reply({ ok: false, error: "The sign-in origin does not match this site." }, 403)
+  if (!request.headers["content-type"]?.startsWith("application/json")) return try reply({ error: "send application/json" }, 415)
+  const raw = request.json catch () => undefined
+  const input = raw as { wallet?: unknown } | undefined
+  const wallet = typeof input?.wallet == "string" ? input.wallet : ""
+  if (!signin.validWallet(wallet)) return try reply({ ok: false, error: "A Solana wallet is required." }, 400)
+  const now = try Clock.currentTimeMillis
+  const nonce = signin.newNonce()
+  const sessions = try Session.Machine
+  const issued = sessions.send({ type: "issue", nonce, wallet, domain: where.domain, uri: where.uri, issuedAt: now, expiresAt: now + challengeMs }) catch (e) => e
+  if (issued instanceof Session.Rejected) return try reply({ ok: false, error: "This challenge could not be issued." }, 409)
+  const messageInput = {
+    address: wallet,
+    domain: where.domain,
+    uri: where.uri,
+    statement,
+    version: "1",
+    nonce,
+    issuedAt: new Date(now).toISOString(),
+    expirationTime: new Date(now + challengeMs).toISOString(),
+  }
+  const response = try reply({ input: messageInput, message: signin.signInMessage(messageInput) })
+  return HttpServerResponse.setCookieUnsafe(response, "sonnely_challenge", nonce, cookieOptions(where.secure, challengeMs))
+}
+
+/** Verify the exact signed message, consume its challenge once, and issue the session cookie. */
+effect function postVerify() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const where = site(request)
+  if (!sameSite(request, where.uri)) return try reply({ ok: false, error: "The sign-in origin does not match this site." }, 403)
+  if (!request.headers["content-type"]?.startsWith("application/json")) return try reply({ error: "send application/json" }, 415)
+  const raw = request.json catch () => undefined
+  const input = raw as { wallet?: unknown; signature?: unknown; signedMessage?: unknown; signedMessageFormat?: unknown } | undefined
+  const wallet = typeof input?.wallet == "string" ? input.wallet : ""
+  if (!signin.validWallet(wallet)) return try reply({ ok: false, error: "A Solana wallet is required." }, 400)
+  const sessions = try Session.Machine
+  const now = try Clock.currentTimeMillis
+  const current = try sessions.get()
+  if (Session.canExpire(current, now)) {
+    sessions.send({ type: "expire", now }) catch () => undefined
+  }
+  const state = try sessions.get()
+  const nonce = request.cookies["sonnely_challenge"] ?? ""
+  const challenge = Session.challengeWithNonce(state, nonce)[0]
+  if (
+    challenge == undefined || challenge.state != "ChallengeOpen" || challenge.expiresAt <= now ||
+    challenge.wallet != wallet || challenge.domain != where.domain || challenge.uri != where.uri
+  ) {
+    return try reply({ ok: false, error: "Start a new sign-in challenge." }, 401)
+  }
+  const messageInput = {
+    address: wallet,
+    domain: challenge.domain,
+    uri: challenge.uri,
+    statement,
+    version: "1",
+    nonce: challenge.nonce,
+    issuedAt: new Date(challenge.issuedAt).toISOString(),
+    expirationTime: new Date(challenge.expiresAt).toISOString(),
+  }
+  const verified = try tryPromise({
+    try: () => signin.verifyWalletSignIn(messageInput, input?.signature, input?.signedMessage, input?.signedMessageFormat),
+    catch: () => new VerifyUnavailable(),
+  })
+  if (!verified) return try reply({ ok: false, error: "Wallet signature could not be verified." }, 401)
+  const token = signin.newSessionToken()
+  const digest = signin.sessionDigest(token)
+  const established = sessions.send({ type: "establish", nonce: challenge.nonce, digest, wallet: challenge.wallet, now, expiresAt: now + sessionMs }) catch (e) => e
+  if (established instanceof Session.Rejected) return try reply({ ok: false, error: "Start a new sign-in challenge." }, 401)
+  const response = try reply({ ok: true, wallet })
+  return HttpServerResponse.expireCookieUnsafe(
+    HttpServerResponse.setCookieUnsafe(response, "sonnely_session", token, cookieOptions(where.secure, sessionMs)),
+    "sonnely_challenge",
+    cookieOptions(where.secure),
+  )
+}
+
+/** End the active session named by this request's cookie. */
+effect function postSignOut() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const where = site(request)
+  if (!sameSite(request, where.uri)) return try reply({ ok: false, error: "The sign-out origin does not match this site." }, 403)
+  const sessions = try Session.Machine
+  const digest = tokenDigest(request.cookies["sonnely_session"])
+  if (digest != "") {
+    sessions.send({ type: "signOut", digest }) catch () => undefined
+  }
+  const response = try reply({ ok: true })
+  return HttpServerResponse.expireCookieUnsafe(response, "sonnely_session", cookieOptions(where.secure))
+}
 
 export const sessionApi = Layer.unwrap(effect {
-  return machineApi("session", try Machine)
+  return Layer.mergeAll(
+    HttpRouter.add("GET", "/api/session", getSession()),
+    HttpRouter.add("GET", "/api/session/stream", getSessionStream()),
+    HttpRouter.add("POST", "/api/session/challenge", provideService(postChallenge(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
+    HttpRouter.add("POST", "/api/session/verify", provideService(postVerify(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(32))),
+    HttpRouter.add("POST", "/api/session/signout", postSignOut()),
+  )
 })
 
 export function sessionState(dir: string) {
-  return Layer.provide(stored("session"), store(dir))
+  return Layer.provide(Session.stored("session"), store(dir))
 }

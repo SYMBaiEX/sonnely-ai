@@ -14,8 +14,23 @@ lemma rowWithIdAll(u: Usage, id: string)
   }
 }
 
+
+lemma ownedRowWithIdIs(u: Usage, id: string, wallet: string)
+  ensures ownedRowWithId(u, id, wallet) == ProofLib.Filter((r: Row) => ((r.id == id) && (r.wallet == wallet)), u.rows)
+{
+}
+
+lemma ownedRowWithIdAll(u: Usage, id: string, wallet: string)
+  ensures forall a :: (a in ownedRowWithId(u, id, wallet)) == (a in u.rows && (a.id == id) && (a.wallet == wallet))
+{
+  ownedRowWithIdIs(u, id, wallet);
+  forall a ensures (a in ownedRowWithId(u, id, wallet)) == (a in u.rows && (a.id == id) && (a.wallet == wallet)) {
+    ProofLib.FilterMember((r: Row) => ((r.id == id) && (r.wallet == wallet)), u.rows, a);
+  }
+}
+
 lemma wellP(u: Usage)
-  ensures alwaysRowsAreWellFormed(u) == (!(exists r :: r in u.rows && !((r.id != "") && (r.keyName != "") && (r.model != "") && (r.time >= 0) && (r.input >= 0) && (r.output >= 0) && (r.cost >= 0) && (r.cached >= -1) && (r.cached <= r.input) && (r.providerMs >= -1))) && !(exists r :: r in u.rows && !((|ProofLib.Filter((o: Row) => (o.id == r.id), u.rows)| == 1))))
+  ensures alwaysRowsAreWellFormed(u) == (!(exists r :: r in u.rows && !((r.id != "") && (r.wallet != "") && (r.keyName != "") && (r.model != "") && (r.time >= 0) && (r.input >= 0) && (r.output >= 0) && (r.cost >= 0) && (r.cached >= -1) && (r.cached <= r.input) && (r.providerMs >= -1))) && !(exists r :: r in u.rows && !((|ProofLib.Filter((o: Row) => (o.id == r.id), u.rows)| == 1))))
 {
 }
 
@@ -37,11 +52,11 @@ lemma sameIdIsSame(u: Usage, a: Row, b: Row)
 }
 
 lemma rowsWFFromElems(after: Usage)
-  requires forall i :: 0 <= i < |after.rows| ==> ((after.rows[i].id != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1))
-  ensures !(exists r :: r in after.rows && !((r.id != "") && (r.keyName != "") && (r.model != "") && (r.time >= 0) && (r.input >= 0) && (r.output >= 0) && (r.cost >= 0) && (r.cached >= -1) && (r.cached <= r.input) && (r.providerMs >= -1)))
+  requires forall i :: 0 <= i < |after.rows| ==> ((after.rows[i].id != "") && (after.rows[i].wallet != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1))
+  ensures !(exists r :: r in after.rows && !((r.id != "") && (r.wallet != "") && (r.keyName != "") && (r.model != "") && (r.time >= 0) && (r.input >= 0) && (r.output >= 0) && (r.cost >= 0) && (r.cached >= -1) && (r.cached <= r.input) && (r.providerMs >= -1)))
 {
   forall r | r in after.rows
-    ensures (r.id != "") && (r.keyName != "") && (r.model != "") && (r.time >= 0) && (r.input >= 0) && (r.output >= 0) && (r.cost >= 0) && (r.cached >= -1) && (r.cached <= r.input) && (r.providerMs >= -1)
+    ensures (r.id != "") && (r.wallet != "") && (r.keyName != "") && (r.model != "") && (r.time >= 0) && (r.input >= 0) && (r.output >= 0) && (r.cost >= 0) && (r.cached >= -1) && (r.cached <= r.input) && (r.providerMs >= -1)
   {
     var i :| 0 <= i < |after.rows| && after.rows[i] == r;
   }
@@ -181,14 +196,14 @@ lemma pendingSettlesMap(u: Usage, after: Usage)
   requires alwaysRowsAreWellFormed(u)
   requires |after.rows| == |u.rows|
   requires forall j :: 0 <= j < |u.rows| ==> (after.rows[j].id == u.rows[j].id)
-  requires forall j :: 0 <= j < |u.rows| ==> ((after.rows[j] == u.rows[j]) || ((!after.rows[j].status.Pending?) && (after.rows[j].id == u.rows[j].id) && (after.rows[j].time == u.rows[j].time) && (after.rows[j].keyName == u.rows[j].keyName) && (after.rows[j].keyId == u.rows[j].keyId) && (after.rows[j].project == u.rows[j].project) && (after.rows[j].model == u.rows[j].model) && (after.rows[j].provider == u.rows[j].provider)))
+  requires forall j :: 0 <= j < |u.rows| ==> ((after.rows[j] == u.rows[j]) || ((!after.rows[j].status.Pending?) && (after.rows[j].id == u.rows[j].id) && (after.rows[j].time == u.rows[j].time) && (after.rows[j].keyName == u.rows[j].keyName) && (after.rows[j].keyId == u.rows[j].keyId) && (after.rows[j].project == u.rows[j].project) && (after.rows[j].wallet == u.rows[j].wallet) && (after.rows[j].model == u.rows[j].model) && (after.rows[j].provider == u.rows[j].provider)))
   ensures stepPendingSettles(u, after)
 {
   forall r | r in u.rows && r.status.Pending?
-    ensures !(exists a :: a in rowWithId(after, r.id) && !((a == r) || ((!a.status.Pending?) && (a.id == r.id) && (a.time == r.time) && (a.keyName == r.keyName) && (a.keyId == r.keyId) && (a.project == r.project) && (a.model == r.model) && (a.provider == r.provider))))
+    ensures !(exists a :: a in rowWithId(after, r.id) && !((a == r) || ((!a.status.Pending?) && (a.id == r.id) && (a.time == r.time) && (a.keyName == r.keyName) && (a.keyId == r.keyId) && (a.project == r.project) && (a.wallet == r.wallet) && (a.model == r.model) && (a.provider == r.provider))))
   {
     forall a | a in rowWithId(after, r.id)
-      ensures (a == r) || ((!a.status.Pending?) && (a.id == r.id) && (a.time == r.time) && (a.keyName == r.keyName) && (a.keyId == r.keyId) && (a.project == r.project) && (a.model == r.model) && (a.provider == r.provider))
+      ensures (a == r) || ((!a.status.Pending?) && (a.id == r.id) && (a.time == r.time) && (a.keyName == r.keyName) && (a.keyId == r.keyId) && (a.project == r.project) && (a.wallet == r.wallet) && (a.model == r.model) && (a.provider == r.provider))
     {
       rowWithIdAll(after, r.id);
       var j :| 0 <= j < |after.rows| && after.rows[j] == a;
@@ -205,10 +220,10 @@ lemma pendingSettlesAppend(u: Usage, after: Usage, x: Row)
   ensures stepPendingSettles(u, after)
 {
   forall r | r in u.rows && r.status.Pending?
-    ensures !(exists a :: a in rowWithId(after, r.id) && !((a == r) || ((!a.status.Pending?) && (a.id == r.id) && (a.time == r.time) && (a.keyName == r.keyName) && (a.keyId == r.keyId) && (a.project == r.project) && (a.model == r.model) && (a.provider == r.provider))))
+    ensures !(exists a :: a in rowWithId(after, r.id) && !((a == r) || ((!a.status.Pending?) && (a.id == r.id) && (a.time == r.time) && (a.keyName == r.keyName) && (a.keyId == r.keyId) && (a.project == r.project) && (a.wallet == r.wallet) && (a.model == r.model) && (a.provider == r.provider))))
   {
     forall a | a in rowWithId(after, r.id)
-      ensures (a == r) || ((!a.status.Pending?) && (a.id == r.id) && (a.time == r.time) && (a.keyName == r.keyName) && (a.keyId == r.keyId) && (a.project == r.project) && (a.model == r.model) && (a.provider == r.provider))
+      ensures (a == r) || ((!a.status.Pending?) && (a.id == r.id) && (a.time == r.time) && (a.keyName == r.keyName) && (a.keyId == r.keyId) && (a.project == r.project) && (a.wallet == r.wallet) && (a.model == r.model) && (a.provider == r.provider))
     {
       rowWithIdAll(after, r.id);
       assert a.id != x.id;
@@ -267,21 +282,21 @@ lemma foldCountIsLen(f: (int, Row) -> int, init: int, xs: seq<Row>)
 
 // record: the log gains one pending row whose fields are clean.
 
-lemma record_ensures(u: Usage, id: string, time: int, keyName: string, keyId: string, project: string, model: string, provider: Provider, cost: int)
-  ensures (inv(u) ==> canRecord(u, id, time, keyName, keyId, project, model, provider, cost) ==> alwaysPendingIsClean(record(u, id, time, keyName, keyId, project, model, provider, cost)))
-  ensures (inv(u) ==> canRecord(u, id, time, keyName, keyId, project, model, provider, cost) ==> alwaysRowsAreWellFormed(record(u, id, time, keyName, keyId, project, model, provider, cost)))
-  ensures (inv(u) ==> canRecord(u, id, time, keyName, keyId, project, model, provider, cost) ==> stepRowsOnlyGrow(u, record(u, id, time, keyName, keyId, project, model, provider, cost)))
-  ensures (inv(u) ==> canRecord(u, id, time, keyName, keyId, project, model, provider, cost) ==> stepSettledRowsAreFixed(u, record(u, id, time, keyName, keyId, project, model, provider, cost)))
-  ensures (inv(u) ==> canRecord(u, id, time, keyName, keyId, project, model, provider, cost) ==> stepPendingSettles(u, record(u, id, time, keyName, keyId, project, model, provider, cost)))
+lemma record_ensures(u: Usage, by_: string, id: string, time: int, keyName: string, keyId: string, project: string, model: string, provider: Provider, cost: int)
+  ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> alwaysPendingIsClean(record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
+  ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> alwaysRowsAreWellFormed(record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
+  ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> stepRowsOnlyGrow(u, record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
+  ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> stepSettledRowsAreFixed(u, record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
+  ensures (inv(u) ==> canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) ==> stepPendingSettles(u, record(u, by_, id, time, keyName, keyId, project, model, provider, cost)))
 {
-  if inv(u) && canRecord(u, id, time, keyName, keyId, project, model, provider, cost) {
-    var after := record(u, id, time, keyName, keyId, project, model, provider, cost);
-    var x := Row(id, time, keyName, keyId, project, model, provider, 0, 0, -1, cost, -1, Status.Pending);
+  if inv(u) && canRecord(u, by_, id, time, keyName, keyId, project, model, provider, cost) {
+    var after := record(u, by_, id, time, keyName, keyId, project, model, provider, cost);
+    var x := Row(id, time, keyName, keyId, project, by_, model, provider, 0, 0, -1, cost, -1, Status.Pending);
     assert after.rows == u.rows + [x];
     wellP(u);
     pendingP(u);
     forall i | 0 <= i < |after.rows|
-      ensures (after.rows[i].id != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1)
+      ensures (after.rows[i].id != "") && (after.rows[i].wallet != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1)
       ensures (!after.rows[i].status.Pending?) || ((((after.rows[i].input == 0) && (after.rows[i].output == 0)) && (after.rows[i].cached == -1)) && (after.rows[i].providerMs == -1))
     {
       if after.rows[i] != x {
@@ -306,26 +321,26 @@ lemma record_ensures(u: Usage, id: string, time: int, keyName: string, keyId: st
 
 // charge: the pending row with the id becomes complete with the reported usage.
 
-lemma charge_ensures(u: Usage, id: string, input: int, output: int, cached: int, cost: int, providerMs: int)
-  ensures (inv(u) ==> canCharge(u, id, input, output, cached, cost, providerMs) ==> alwaysPendingIsClean(charge(u, id, input, output, cached, cost, providerMs)))
-  ensures (inv(u) ==> canCharge(u, id, input, output, cached, cost, providerMs) ==> alwaysRowsAreWellFormed(charge(u, id, input, output, cached, cost, providerMs)))
-  ensures (inv(u) ==> canCharge(u, id, input, output, cached, cost, providerMs) ==> stepRowsOnlyGrow(u, charge(u, id, input, output, cached, cost, providerMs)))
-  ensures (inv(u) ==> canCharge(u, id, input, output, cached, cost, providerMs) ==> stepSettledRowsAreFixed(u, charge(u, id, input, output, cached, cost, providerMs)))
-  ensures (inv(u) ==> canCharge(u, id, input, output, cached, cost, providerMs) ==> stepPendingSettles(u, charge(u, id, input, output, cached, cost, providerMs)))
+lemma charge_ensures(u: Usage, by_: string, id: string, input: int, output: int, cached: int, cost: int, providerMs: int)
+  ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> alwaysPendingIsClean(charge(u, by_, id, input, output, cached, cost, providerMs)))
+  ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> alwaysRowsAreWellFormed(charge(u, by_, id, input, output, cached, cost, providerMs)))
+  ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> stepRowsOnlyGrow(u, charge(u, by_, id, input, output, cached, cost, providerMs)))
+  ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> stepSettledRowsAreFixed(u, charge(u, by_, id, input, output, cached, cost, providerMs)))
+  ensures (inv(u) ==> canCharge(u, by_, id, input, output, cached, cost, providerMs) ==> stepPendingSettles(u, charge(u, by_, id, input, output, cached, cost, providerMs)))
 {
-  if inv(u) && canCharge(u, id, input, output, cached, cost, providerMs) {
-    var after := charge(u, id, input, output, cached, cost, providerMs);
-    var tr :| tr in rowWithId(u, id) && tr.status.Pending?;
-    rowWithIdAll(u, id);
-    assert tr in u.rows && tr.id == id;
+  if inv(u) && canCharge(u, by_, id, input, output, cached, cost, providerMs) {
+    var after := charge(u, by_, id, input, output, cached, cost, providerMs);
+    var tr :| tr in ownedRowWithId(u, id, by_) && tr.status.Pending?;
+    ownedRowWithIdAll(u, id, by_);
+    assert tr in u.rows && tr.id == id && tr.wallet == by_;
     wellP(u);
     pendingP(u);
     forall i | 0 <= i < |after.rows|
-      ensures (after.rows[i].id != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1)
+      ensures (after.rows[i].id != "") && (after.rows[i].wallet != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1)
       ensures (!after.rows[i].status.Pending?) || ((((after.rows[i].input == 0) && (after.rows[i].output == 0)) && (after.rows[i].cached == -1)) && (after.rows[i].providerMs == -1))
       ensures after.rows[i].id == u.rows[i].id
       ensures (u.rows[i].status.Pending? || (after.rows[i] == u.rows[i]))
-      ensures ((after.rows[i] == u.rows[i]) || ((!after.rows[i].status.Pending?) && (after.rows[i].id == u.rows[i].id) && (after.rows[i].time == u.rows[i].time) && (after.rows[i].keyName == u.rows[i].keyName) && (after.rows[i].keyId == u.rows[i].keyId) && (after.rows[i].project == u.rows[i].project) && (after.rows[i].model == u.rows[i].model) && (after.rows[i].provider == u.rows[i].provider)))
+      ensures ((after.rows[i] == u.rows[i]) || ((!after.rows[i].status.Pending?) && (after.rows[i].id == u.rows[i].id) && (after.rows[i].time == u.rows[i].time) && (after.rows[i].keyName == u.rows[i].keyName) && (after.rows[i].keyId == u.rows[i].keyId) && (after.rows[i].project == u.rows[i].project) && (after.rows[i].wallet == u.rows[i].wallet) && (after.rows[i].model == u.rows[i].model) && (after.rows[i].provider == u.rows[i].provider)))
     {
       if u.rows[i].id == id {
         var r := u.rows[i];
@@ -352,26 +367,26 @@ lemma charge_ensures(u: Usage, id: string, input: int, output: int, cached: int,
 
 // release: the pending row with the id becomes failed.
 
-lemma release_ensures(u: Usage, id: string)
-  ensures (inv(u) ==> canRelease(u, id) ==> alwaysPendingIsClean(release(u, id)))
-  ensures (inv(u) ==> canRelease(u, id) ==> alwaysRowsAreWellFormed(release(u, id)))
-  ensures (inv(u) ==> canRelease(u, id) ==> stepRowsOnlyGrow(u, release(u, id)))
-  ensures (inv(u) ==> canRelease(u, id) ==> stepSettledRowsAreFixed(u, release(u, id)))
-  ensures (inv(u) ==> canRelease(u, id) ==> stepPendingSettles(u, release(u, id)))
+lemma release_ensures(u: Usage, by_: string, id: string)
+  ensures (inv(u) ==> canRelease(u, by_, id) ==> alwaysPendingIsClean(release(u, by_, id)))
+  ensures (inv(u) ==> canRelease(u, by_, id) ==> alwaysRowsAreWellFormed(release(u, by_, id)))
+  ensures (inv(u) ==> canRelease(u, by_, id) ==> stepRowsOnlyGrow(u, release(u, by_, id)))
+  ensures (inv(u) ==> canRelease(u, by_, id) ==> stepSettledRowsAreFixed(u, release(u, by_, id)))
+  ensures (inv(u) ==> canRelease(u, by_, id) ==> stepPendingSettles(u, release(u, by_, id)))
 {
-  if inv(u) && canRelease(u, id) {
-    var after := release(u, id);
-    var tr :| tr in rowWithId(u, id) && tr.status.Pending?;
-    rowWithIdAll(u, id);
-    assert tr in u.rows && tr.id == id;
+  if inv(u) && canRelease(u, by_, id) {
+    var after := release(u, by_, id);
+    var tr :| tr in ownedRowWithId(u, id, by_) && tr.status.Pending?;
+    ownedRowWithIdAll(u, id, by_);
+    assert tr in u.rows && tr.id == id && tr.wallet == by_;
     wellP(u);
     pendingP(u);
     forall i | 0 <= i < |after.rows|
-      ensures (after.rows[i].id != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1)
+      ensures (after.rows[i].id != "") && (after.rows[i].wallet != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1)
       ensures (!after.rows[i].status.Pending?) || ((((after.rows[i].input == 0) && (after.rows[i].output == 0)) && (after.rows[i].cached == -1)) && (after.rows[i].providerMs == -1))
       ensures after.rows[i].id == u.rows[i].id
       ensures (u.rows[i].status.Pending? || (after.rows[i] == u.rows[i]))
-      ensures ((after.rows[i] == u.rows[i]) || ((!after.rows[i].status.Pending?) && (after.rows[i].id == u.rows[i].id) && (after.rows[i].time == u.rows[i].time) && (after.rows[i].keyName == u.rows[i].keyName) && (after.rows[i].keyId == u.rows[i].keyId) && (after.rows[i].project == u.rows[i].project) && (after.rows[i].model == u.rows[i].model) && (after.rows[i].provider == u.rows[i].provider)))
+      ensures ((after.rows[i] == u.rows[i]) || ((!after.rows[i].status.Pending?) && (after.rows[i].id == u.rows[i].id) && (after.rows[i].time == u.rows[i].time) && (after.rows[i].keyName == u.rows[i].keyName) && (after.rows[i].keyId == u.rows[i].keyId) && (after.rows[i].project == u.rows[i].project) && (after.rows[i].wallet == u.rows[i].wallet) && (after.rows[i].model == u.rows[i].model) && (after.rows[i].provider == u.rows[i].provider)))
     {
       if u.rows[i].id == id {
         var r := u.rows[i];
@@ -398,26 +413,26 @@ lemma release_ensures(u: Usage, id: string)
 
 // unreported: the pending row with the id becomes unreported.
 
-lemma unreported_ensures(u: Usage, id: string)
-  ensures (inv(u) ==> canUnreported(u, id) ==> alwaysPendingIsClean(unreported(u, id)))
-  ensures (inv(u) ==> canUnreported(u, id) ==> alwaysRowsAreWellFormed(unreported(u, id)))
-  ensures (inv(u) ==> canUnreported(u, id) ==> stepRowsOnlyGrow(u, unreported(u, id)))
-  ensures (inv(u) ==> canUnreported(u, id) ==> stepSettledRowsAreFixed(u, unreported(u, id)))
-  ensures (inv(u) ==> canUnreported(u, id) ==> stepPendingSettles(u, unreported(u, id)))
+lemma unreported_ensures(u: Usage, by_: string, id: string)
+  ensures (inv(u) ==> canUnreported(u, by_, id) ==> alwaysPendingIsClean(unreported(u, by_, id)))
+  ensures (inv(u) ==> canUnreported(u, by_, id) ==> alwaysRowsAreWellFormed(unreported(u, by_, id)))
+  ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepRowsOnlyGrow(u, unreported(u, by_, id)))
+  ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepSettledRowsAreFixed(u, unreported(u, by_, id)))
+  ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepPendingSettles(u, unreported(u, by_, id)))
 {
-  if inv(u) && canUnreported(u, id) {
-    var after := unreported(u, id);
-    var tr :| tr in rowWithId(u, id) && tr.status.Pending?;
-    rowWithIdAll(u, id);
-    assert tr in u.rows && tr.id == id;
+  if inv(u) && canUnreported(u, by_, id) {
+    var after := unreported(u, by_, id);
+    var tr :| tr in ownedRowWithId(u, id, by_) && tr.status.Pending?;
+    ownedRowWithIdAll(u, id, by_);
+    assert tr in u.rows && tr.id == id && tr.wallet == by_;
     wellP(u);
     pendingP(u);
     forall i | 0 <= i < |after.rows|
-      ensures (after.rows[i].id != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1)
+      ensures (after.rows[i].id != "") && (after.rows[i].wallet != "") && (after.rows[i].keyName != "") && (after.rows[i].model != "") && (after.rows[i].time >= 0) && (after.rows[i].input >= 0) && (after.rows[i].output >= 0) && (after.rows[i].cost >= 0) && (after.rows[i].cached >= -1) && (after.rows[i].cached <= after.rows[i].input) && (after.rows[i].providerMs >= -1)
       ensures (!after.rows[i].status.Pending?) || ((((after.rows[i].input == 0) && (after.rows[i].output == 0)) && (after.rows[i].cached == -1)) && (after.rows[i].providerMs == -1))
       ensures after.rows[i].id == u.rows[i].id
       ensures (u.rows[i].status.Pending? || (after.rows[i] == u.rows[i]))
-      ensures ((after.rows[i] == u.rows[i]) || ((!after.rows[i].status.Pending?) && (after.rows[i].id == u.rows[i].id) && (after.rows[i].time == u.rows[i].time) && (after.rows[i].keyName == u.rows[i].keyName) && (after.rows[i].keyId == u.rows[i].keyId) && (after.rows[i].project == u.rows[i].project) && (after.rows[i].model == u.rows[i].model) && (after.rows[i].provider == u.rows[i].provider)))
+      ensures ((after.rows[i] == u.rows[i]) || ((!after.rows[i].status.Pending?) && (after.rows[i].id == u.rows[i].id) && (after.rows[i].time == u.rows[i].time) && (after.rows[i].keyName == u.rows[i].keyName) && (after.rows[i].keyId == u.rows[i].keyId) && (after.rows[i].project == u.rows[i].project) && (after.rows[i].wallet == u.rows[i].wallet) && (after.rows[i].model == u.rows[i].model) && (after.rows[i].provider == u.rows[i].provider)))
     {
       if u.rows[i].id == id {
         var r := u.rows[i];

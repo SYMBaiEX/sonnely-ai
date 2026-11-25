@@ -32,6 +32,8 @@ type MachineFrame = z.infer<typeof frameSchema>;
 
 const machineSnapshots = new Map<string, MachineSnapshot>();
 const machineListeners = new Map<string, Set<() => void>>();
+const scopedSources = new Map<string, EventSource>();
+const scopedMachines = new Set(["workspace-keys", "usage"]);
 let source: EventSource | undefined;
 let streamError: string | undefined;
 
@@ -69,6 +71,28 @@ function publish(frame: MachineFrame) {
   updateMachine(frame.machine, { state: frame.state });
 }
 
+function openScopedStream(name: string) {
+  if (scopedSources.has(name)) return;
+  const next = new EventSource(`${base(name)}/stream`);
+  scopedSources.set(name, next);
+  next.onopen = () => updateMachine(name, { error: undefined });
+  next.onmessage = (message) => {
+    try {
+      updateMachine(name, { state: JSON.parse(String(message.data)) });
+    } catch {
+      // Ignore a malformed intermediary frame; the next snapshot replaces it.
+    }
+  };
+  next.onerror = () => {
+    if (scopedSources.get(name) === next) updateMachine(name, { error: "stream disconnected" });
+  };
+}
+
+function closeScopedStream(name: string) {
+  scopedSources.get(name)?.close();
+  scopedSources.delete(name);
+}
+
 function openStream() {
   if (source) return;
   const next = new EventSource("/api/machines/stream");
@@ -97,14 +121,19 @@ if (typeof window !== "undefined") {
 }
 
 function subscribeMachine(name: string, notify: () => void) {
+  const scoped = scopedMachines.has(name);
   const listeners = machineListeners.get(name) ?? new Set<() => void>();
   listeners.add(notify);
   machineListeners.set(name, listeners);
-  if (streamError !== undefined) updateMachine(name, { error: streamError });
-  openStream();
+  if (!scoped && streamError !== undefined) updateMachine(name, { error: streamError });
+  if (scoped) openScopedStream(name);
+  else openStream();
   return () => {
     listeners.delete(notify);
-    if (listeners.size === 0) machineListeners.delete(name);
+    if (listeners.size === 0) {
+      machineListeners.delete(name);
+      if (scoped) closeScopedStream(name);
+    }
     if (machineListeners.size === 0) closeStream();
   };
 }

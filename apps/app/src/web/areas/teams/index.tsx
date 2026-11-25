@@ -3,7 +3,7 @@
 import { UsersRound } from "lucide-react";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Page } from "../../../../gen/app__nav.ts";
-import type { Session } from "../../../../gen/app__session.ts";
+import { useSession } from "../../session.ts";
 import type { Project, Role, Team, Teams } from "../../../../gen/app__teams.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
@@ -782,7 +782,7 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
 }
 
 function TeamsSession() {
-  const session = useRemote<Session>("session");
+  const session = useSession();
   const [revision, setRevision] = useState(0);
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   return (

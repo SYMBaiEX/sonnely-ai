@@ -9,10 +9,10 @@ import { dispatch, keys } from "../../src/api/keys.vibe";
 
 const refused = () => Effect.succeed("refused" as const);
 /** A refusal by the rules or the decoder is "refused", any other failure stays one. */
-const receive = (_key: string, input: unknown) =>
-  dispatch(input).pipe(
+const receive = (_key: string, input: unknown, by?: unknown) =>
+  dispatch(input, by).pipe(
     Effect.map(() => "accepted" as const),
-    Effect.catchTags({ Rejected: refused, NotAnEvent: refused }),
+    Effect.catchTags({ Rejected: refused, NotAnEvent: refused, NotASender: refused }),
   );
 
 /** The registry as stored; an empty registry reads as "nothing kept". */

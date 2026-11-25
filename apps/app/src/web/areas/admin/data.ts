@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Registry, Account, Audit } from "../../../../gen/app__admin.ts";
 import type { Referrals, Signup } from "../../../../gen/app__admin__referrals.ts";
-import type { Session } from "../../../../gen/app__session.ts";
+import { useSession as useCookieSession, type WorkspaceSession as Session } from "../../session.ts";
 import type { Customer } from "../../../../gen/app__admin__crm.ts";
 import { useRemote } from "../../remote.ts";
 
@@ -18,7 +18,7 @@ export function useAdmin() {
 }
 
 export function useSession() {
-  return useRemote<Session>("session");
+  return useCookieSession();
 }
 
 export function useReferrals() {

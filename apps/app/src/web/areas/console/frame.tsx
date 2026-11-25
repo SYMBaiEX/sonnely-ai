@@ -24,12 +24,12 @@ import {
   Wallet,
 } from "lucide-react";
 import type { Section } from "../../../../gen/app__nav.ts";
-import type { Session as WorkspaceSession } from "../../../../gen/app__session.ts";
 import type { Console as ConsoleSettings, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
 import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Referrals as ReferralState } from "../../../../gen/app__admin__referrals.ts";
 import type { Registry as AdminRegistry } from "../../../../gen/app__admin.ts";
 import { useRemote, type Remote } from "../../remote.ts";
+import { useSession, type WorkspaceSession } from "../../session.ts";
 import { Brand, ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
 import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
@@ -97,8 +97,10 @@ export interface ConsoleProfile {
   role: "member" | "admin" | "support" | "finance";
 }
 
+export type WorkspaceSessionRemote = Remote<WorkspaceSession> & { refresh: () => Promise<void> };
+
 export interface ConsoleShell {
-  session: Remote<WorkspaceSession>;
+  session: WorkspaceSessionRemote;
   settings: Remote<ConsoleSettings>;
   ledger: Remote<Ledger>;
   referrals: Remote<ReferralState>;
@@ -121,7 +123,7 @@ export function useConsoleShell() {
 
 /** The console frame: section rail on the left, session-aware header, and the section's own content. */
 export function ConsoleFrame({ section, children }: { section: Section; children: ReactNode }) {
-  const session = useRemote<WorkspaceSession>("session");
+  const session = useSession();
   const settings = useRemote<ConsoleSettings>("console");
   const ledger = useRemote<Ledger>("billing-ledger");
   const referrals = useRemote<ReferralState>("admin-referrals");
@@ -185,8 +187,9 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     else setNavOpen(true);
   }
 
-  async function signIn(wallet: string) {
-    return session.send({ type: "signIn", wallet });
+  async function signIn(_wallet: string) {
+    await session.refresh();
+    return session.state?.tag === "SignedIn";
   }
 
   async function signOut() {
@@ -397,7 +400,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
 }
 
 /** The session remote, for sections that gate or personalize on it. */
-export const SessionContext = createContext<Remote<WorkspaceSession> | null>(null);
+export const SessionContext = createContext<WorkspaceSessionRemote | null>(null);
 
 /** The session remote of the frame a section renders inside. */
 export function useWorkspaceSession() {

@@ -4,7 +4,7 @@ import { Users } from "lucide-react";
 import { useState } from "react";
 import type { Console } from "../../../../gen/app__console.ts";
 import type { Referrals, Signup } from "../../../../gen/app__admin__referrals.ts";
-import type { Session } from "../../../../gen/app__session.ts";
+import { useSession } from "../../session.ts";
 import { useRemote } from "../../remote.ts";
 import { CopyButton, WorkspaceHeading, WorkspaceLegacy } from "../teams/legacy.tsx";
 
@@ -156,7 +156,7 @@ function ReferralBoard({ wallet, reload }: { wallet: string; reload: () => void 
 }
 
 function ReferralSession() {
-  const session = useRemote<Session>("session");
+  const session = useSession();
   const [revision, setRevision] = useState(0);
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   return (

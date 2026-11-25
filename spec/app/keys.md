@@ -65,8 +65,12 @@ pure val initial: Keys = { keys: List() }
 ```quint
 pure def keyWithId(s: Keys, id: str): List[Key] = s.keys.select(k => k.id == id)
 
+pure def ownedKeyWithId(s: Keys, id: str, wallet: str): List[Key] =
+  s.keys.select(k => k.id == id and k.wallet == wallet)
+
 pure def capOk(cap: int): bool = cap == 0 or cap >= 10000
 
+pure val byValues = Set("w1", "w2")
 pure val idValues = Set("k1", "k2")
 pure val labelValues = Set("CI key", "Workspace key")
 pure val prefixValues = Set("sonnely_live_aaaaaaa", "sonnely_live_bbbbbbb")
@@ -96,16 +100,16 @@ prefixes and hashes are unique across all keys ever registered; a key
 always carries at least one scope.
 
 ```quint
-pure def canCreate(s: Keys, id: str, label: str, prefix: str, hash: str, wallet: str, project: str, scopes: Set[str], cap: int, dailyCap: int, expiresAt: int, now: int): bool =
-  id != "" and label != ""
-  and prefix != "" and hash != "" and wallet != "" and scopes.size() >= 1
+pure def canCreate(s: Keys, by: str, id: str, label: str, prefix: str, hash: str, project: str, scopes: Set[str], cap: int, dailyCap: int, expiresAt: int, now: int): bool =
+  by != "" and id != "" and label != ""
+  and prefix != "" and hash != "" and scopes.size() >= 1
   and capOk(cap) and capOk(dailyCap) and now >= 0
   and (expiresAt == 0 or expiresAt > now)
   and s.keys.every(k => k.id != id and k.prefix != prefix and k.hash != hash)
 
-pure def create(s: Keys, id: str, label: str, prefix: str, hash: str, wallet: str, project: str, scopes: Set[str], cap: int, dailyCap: int, expiresAt: int, now: int): Keys =
+pure def create(s: Keys, by: str, id: str, label: str, prefix: str, hash: str, project: str, scopes: Set[str], cap: int, dailyCap: int, expiresAt: int, now: int): Keys =
   { keys: s.keys.append({
-      id: id, label: label, prefix: prefix, hash: hash, wallet: wallet, project: project, scopes: scopes,
+      id: id, label: label, prefix: prefix, hash: hash, wallet: by, project: project, scopes: scopes,
       cap: cap, dailyCap: dailyCap, expiresAt: expiresAt,
       status: Active, createdAt: now, lastUsedAt: 0, spent: 0, dayKey: "", daySpent: 0 }) }
 ```
@@ -116,16 +120,24 @@ An active workspace key — one not scoped to a project — can be relabelled
 and have its caps and expiry changed under the same rules as creation.
 
 ```quint
-pure def canUpdate(s: Keys, id: str, label: str, cap: int, dailyCap: int, expiresAt: int, now: int): bool =
-  keyWithId(s, id).some(k => k.status == Active and k.project == "")
+pure def canUpdate(s: Keys, by: str, id: str, label: str, cap: int, dailyCap: int, expiresAt: int, now: int): bool =
+  ownedKeyWithId(s, id, by).some(k => k.status == Active and k.project == "")
   and label != ""
   and capOk(cap) and capOk(dailyCap) and now >= 0
   and (expiresAt == 0 or expiresAt > now)
 
-pure def update(s: Keys, id: str, label: str, cap: int, dailyCap: int, expiresAt: int, now: int): Keys =
+pure def update(s: Keys, by: str, id: str, label: str, cap: int, dailyCap: int, expiresAt: int, now: int): Keys =
   { keys: s.keys.listMap(k =>
-      if (k.id == id) { ...k, label: label, cap: cap, dailyCap: dailyCap, expiresAt: expiresAt } else k) }
+      if (k.id == id and k.wallet == by) { ...k, label: label, cap: cap, dailyCap: dailyCap, expiresAt: expiresAt } else k) }
 ```
+
+### Every key belongs to the wallet that created it
+
+The wallet is part of the key record, not a filter added later. The trusted
+sender of every create, update, metering, refund or revocation event must be
+that wallet; the API derives it from the verified session, or inside the
+gateway from the already authenticated key, rather than accepting it from the
+client. Reads project only rows whose wallet matches.
 
 ### Every registered key is well formed
 
@@ -172,16 +184,16 @@ cap or the day's cap would be exceeded. The reserved amount counts against
 both caps while the request is in flight.
 
 ```quint
-pure def canRecordUse(s: Keys, id: str, cost: int, day: str, now: int): bool =
+pure def canRecordUse(s: Keys, by: str, id: str, cost: int, day: str, now: int): bool =
   cost >= 0 and day != "" and now > 0
-  and keyWithId(s, id).some(k => k.status == Active and now >= k.createdAt and now >= k.lastUsedAt
+  and ownedKeyWithId(s, id, by).some(k => k.status == Active and now >= k.createdAt and now >= k.lastUsedAt
     and (k.expiresAt == 0 or now < k.expiresAt))
-  and keyWithId(s, id).every(k => k.cap == 0 or k.spent + cost <= k.cap)
-  and keyWithId(s, id).every(k => k.dailyCap == 0 or (if (k.dayKey == day) k.daySpent else 0) + cost <= k.dailyCap)
+  and ownedKeyWithId(s, id, by).every(k => k.cap == 0 or k.spent + cost <= k.cap)
+  and ownedKeyWithId(s, id, by).every(k => k.dailyCap == 0 or (if (k.dayKey == day) k.daySpent else 0) + cost <= k.dailyCap)
 
-pure def recordUse(s: Keys, id: str, cost: int, day: str, now: int): Keys =
+pure def recordUse(s: Keys, by: str, id: str, cost: int, day: str, now: int): Keys =
   { keys: s.keys.listMap(k =>
-      if (k.id == id)
+      if (k.id == id and k.wallet == by)
         { ...k, lastUsedAt: now, spent: k.spent + cost,
                 dayKey: day, daySpent: (if (k.dayKey == day) k.daySpent else 0) + cost }
       else k) }
@@ -195,15 +207,15 @@ the reservation belongs to the day that tally still counts; an older day's
 tally no longer caps new use, so nothing is subtracted there.
 
 ```quint
-pure def canRefundUse(s: Keys, id: str, amount: int, day: str): bool =
+pure def canRefundUse(s: Keys, by: str, id: str, amount: int, day: str): bool =
   amount > 0 and day != ""
-  and keyWithId(s, id).some(k =>
+  and ownedKeyWithId(s, id, by).some(k =>
     k.spent >= amount and
     (if (k.dayKey == day) k.daySpent >= amount else k.spent - k.daySpent >= amount))
 
-pure def refundUse(s: Keys, id: str, amount: int, day: str): Keys =
+pure def refundUse(s: Keys, by: str, id: str, amount: int, day: str): Keys =
   { keys: s.keys.listMap(k =>
-      if (k.id == id)
+      if (k.id == id and k.wallet == by)
         { ...k, spent: k.spent - amount,
                 daySpent: if (k.dayKey == day) k.daySpent - amount else k.daySpent }
       else k) }
@@ -247,11 +259,11 @@ pure def sometimesMetered(s: Keys): bool = s.keys.some(k => k.lastUsedAt != 0)
 ### Only an active key can be revoked
 
 ```quint
-pure def canRevoke(s: Keys, id: str): bool =
-  keyWithId(s, id).some(k => k.status == Active)
+pure def canRevoke(s: Keys, by: str, id: str): bool =
+  ownedKeyWithId(s, id, by).some(k => k.status == Active)
 
-pure def revoke(s: Keys, id: str): Keys =
-  { keys: s.keys.listMap(k => if (k.id == id) { ...k, status: Revoked } else k) }
+pure def revoke(s: Keys, by: str, id: str): Keys =
+  { keys: s.keys.listMap(k => if (k.id == id and k.wallet == by) { ...k, status: Revoked } else k) }
 ```
 
 ### Revoked is final
@@ -271,10 +283,10 @@ pure def sometimesRevoked(s: Keys): bool = s.keys.some(k => k.status == Revoked)
 ### A revoked key takes no update and no metering
 
 ```quint
-pure def lawRevokedIsFinal(s: Keys, id: str, label: str, prefix: str, hash: str, wallet: str, project: str, scopes: Set[str], cap: int, dailyCap: int, expiresAt: int, now: int, cost: int, day: str): bool =
-  val after = revoke(create(s, id, label, prefix, hash, wallet, project, scopes, cap, dailyCap, expiresAt, now), id)
+pure def lawRevokedIsFinal(s: Keys, by: str, id: str, label: str, prefix: str, hash: str, project: str, scopes: Set[str], cap: int, dailyCap: int, expiresAt: int, now: int, cost: int, day: str): bool =
+  val after = revoke(create(s, by, id, label, prefix, hash, project, scopes, cap, dailyCap, expiresAt, now), by, id)
   keyWithId(s, id).length() != 0
   or (keyWithId(after, id).every(k => k.status == Revoked)
-      and not(canUpdate(after, id, label, cap, dailyCap, expiresAt, now))
-      and not(canRecordUse(after, id, cost, day, now)))
+      and not(canUpdate(after, by, id, label, cap, dailyCap, expiresAt, now))
+      and not(canRecordUse(after, by, id, cost, day, now)))
 ```
