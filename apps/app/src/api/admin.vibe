@@ -1,0 +1,110 @@
+// spec/app/admin/index.md, "Story: Moderate accounts": the admin machine behind its operator
+// boundary, the referrals machine, and the joined read the admin views make over shared state.
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
+import * as Admin from "../../gen/app__admin.effect.vibe"
+import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
+import { machineApi } from "../machines.vibe"
+import { store } from "../serve.vibe"
+
+const noStore = { "cache-control": "no-store" }
+
+export error BadJson { raw: string }
+
+interface SenderMachine {
+  get(): unknown!!
+  receive(input: unknown, by: string): any!any
+  changes: Stream.Stream<unknown>
+}
+
+effect function getState(m: SenderMachine) {
+  return try HttpServerResponse.json(try m.get(), { headers: noStore })
+}
+
+// The machine's POST reads the sender from the event's `by`: an event without a
+// `by` the decoder accepts is refused before the rules see it, and an event the
+// rules do not allow from that sender answers 409.
+effect function postSender(m: SenderMachine) {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
+  }
+  const input = request.json catch () => undefined
+  const body = input as { by?: unknown }
+  const sender = Admin.decodeSender(body === undefined || body === null ? undefined : body.by) catch () => undefined
+  if (sender === undefined) {
+    return try HttpServerResponse.json({ ok: false, error: "NotASender" }, { status: 400, headers: noStore })
+  }
+  const sent = m.receive(input, sender) catch (error) => error
+  const rejected = sent as { _tag?: string; state?: unknown }
+  if (rejected && typeof rejected === "object" && "_tag" in rejected) {
+    const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
+    return try HttpServerResponse.json({ ok: false, error: rejected._tag, state: rejected.state }, { status, headers: noStore })
+  }
+  return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
+}
+
+effect function getStream(m: SenderMachine) {
+  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
+/** The shared state the admin views join, held only for a listed operator. */
+effect function overview(admin: Admin.Machine.Shape) {
+  const request = try HttpServerRequest.HttpServerRequest
+  const by = new URL(request.url, "http://localhost").searchParams.get("by") ?? ""
+  const a = try admin.get()
+  if (!a.ops.roster.some((o) => o.wallet === by)) {
+    return try HttpServerResponse.json({ error: "operator access required" }, { status: 403, headers: noStore })
+  }
+  const kv = try KeyValueStore.KeyValueStore
+  const keys = ["session", "keys", "billing", "usage", "support", "teams"]
+  const states = {} as Record<string, unknown>
+  for (const key of keys) {
+    const found = kv.get(key) catch () => undefined
+    states[key] =
+      found === undefined
+        ? null
+        : (Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new BadJson({ raw: found }) }) catch () => null)
+  }
+  return try HttpServerResponse.json(states, { headers: noStore })
+}
+
+export const adminApi = Layer.unwrap(effect {
+  const admin = try Admin.Machine
+  const referrals = try Referrals.Machine
+  return Layer.mergeAll(
+    HttpRouter.add("GET", "/api/machines/admin", getState(admin)),
+    HttpRouter.add("POST", "/api/machines/admin", provideService(postSender(admin), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("GET", "/api/machines/admin/stream", getStream(admin)),
+    HttpRouter.add("GET", "/api/admin/overview", overview(admin)),
+    machineApi("admin-referrals", referrals),
+  )
+})
+
+export function adminState(dir: string) {
+  return Layer.mergeAll(
+    Layer.provide(Admin.stored("admin"), store(dir)),
+    Layer.provide(Referrals.stored("admin-referrals"), store(dir)),
+  )
+}
+
+/** The admin machine kept in the shared store under `admin`. */
+export const admin = Admin.stored("admin")
+
+/** The referrals machine kept in the shared store under `admin-referrals`. */
+export const referrals = Referrals.stored("admin-referrals")
+
+/** An event for the admin machine from anywhere untrusted, decoded before the rules see it. */
+export effect function dispatch(input: unknown, by: unknown) {
+  const machine = try Admin.Machine
+  return try machine.receive(input, try Admin.decodeSender(by))
+}
+
+/** An event for the referrals machine from anywhere untrusted. */
+export effect function dispatchReferral(input: unknown) {
+  const machine = try Referrals.Machine
+  return try machine.receive(input)
+}

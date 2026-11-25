@@ -1,9 +1,199 @@
 {
   "version": 1,
   "specs": {
+    "spec/app/admin/crm.md": {
+      "@document": [
+        "2a6fc1ee8417"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / Customer rows": [
+        "248091e336e7",
+        "f7702c5c2172"
+      ],
+      "Domain / Audit entries": [
+        "942bece4f7a3",
+        "4a9e2cd882e2"
+      ],
+      "## Story: Review customers": [
+        "9d7c4ca7b2f2"
+      ],
+      "Story: Review customers / A filtered list only shows matching customers": [
+        "43165dd9ac1d",
+        "4862bfefe2f9",
+        "18f8836bd86f"
+      ],
+      "Story: Review customers / The flag list answers the directory": [
+        "c9a60a65d44a",
+        "4aac3ff97128",
+        "964cb9fe83c6"
+      ],
+      "Story: Review customers / Filtering never adds a customer": [
+        "e3b0c44298fc",
+        "70c17e28c688",
+        "964cb9fe83c6"
+      ],
+      "## Story: Read the audit log": [
+        "c639351e0aa8"
+      ],
+      "Story: Read the audit log / The log answers its filters": [
+        "e3b0c44298fc",
+        "460b08d290b0",
+        "e3f0c9483fd0"
+      ]
+    },
+    "spec/app/admin/operators.md": {
+      "@document": [
+        "4855f1dc5c9c"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / Operator roles": [
+        "ea78895814de",
+        "41946fa75168"
+      ],
+      "## Story: Grant and revoke access": [
+        "1fa29cd043a2"
+      ],
+      "Story: Grant and revoke access / Only an operator can grant access": [
+        "edc613559230",
+        "2ee6d887b893",
+        "165d58aa8bc1"
+      ],
+      "Story: Grant and revoke access / The last operator cannot be revoked": [
+        "d2224ebcb954",
+        "21f27ac75ff9",
+        "165d58aa8bc1"
+      ],
+      "Story: Grant and revoke access / Granting keeps each wallet listed once": [
+        "a74687cac4d7",
+        "d68bbc3e6a1f",
+        "607aebeca027"
+      ],
+      "Story: Grant and revoke access / Every grant and revoke checks the sender": [
+        "effb43d5bb2c",
+        "f72d8e098c1b",
+        "689d10aec2e8"
+      ],
+      "Story: Grant and revoke access / A revoke removes exactly that wallet": [
+        "e3b0c44298fc",
+        "ad8b0c0b2704",
+        "cbb71b5d0612"
+      ]
+    },
     "spec/app/admin/index.md": {
       "@document": [
-        "bc91ee4f398d"
+        "c9c3e3e375a1"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / The admin machine": [
+        "53abf4fd4432",
+        "92d86af812b9",
+        "165d58aa8bc1"
+      ],
+      "Domain / What the admin reads elsewhere": [
+        "83bb3c0e5359",
+        "b78f2f28a405"
+      ],
+      "## Story: Grant and revoke access": [
+        "aecf7a50af58"
+      ],
+      "Story: Grant and revoke access / Only an operator can grant access": [
+        "d36a68b7f9d9",
+        "b1cebd354e7b",
+        "dbbfcbb2b773"
+      ],
+      "Story: Grant and revoke access / The last operator cannot be revoked": [
+        "e3b0c44298fc",
+        "ea4708073bb2",
+        "981d45cdf4fb"
+      ],
+      "## Story: Moderate accounts": [
+        "9805535b84b8"
+      ],
+      "Story: Moderate accounts / Every admin change checks the sender": [
+        "52b6209545d1",
+        "ef033bf23765",
+        "03412128c5bd"
+      ],
+      "Story: Moderate accounts / Accounts are registered once": [
+        "ef2f24af73be",
+        "fbf580cb859d",
+        "3569ac309440"
+      ],
+      "Story: Moderate accounts / Only an active account can be suspended": [
+        "9102c21ae21e",
+        "9c7663d710c1",
+        "3569ac309440"
+      ],
+      "Story: Moderate accounts / Only a suspended account can be reinstated": [
+        "e3b0c44298fc",
+        "bc8c8d411ae1",
+        "3569ac309440"
+      ],
+      "Story: Moderate accounts / A suspended account cannot accrue usage": [
+        "819968557889",
+        "63c68ce342bf",
+        "3569ac309440"
+      ],
+      "Story: Moderate accounts / Suspending leaves the account reinstatable": [
+        "093438365dc5",
+        "6ac3af563857",
+        "8f616d7b1633"
+      ],
+      "Story: Moderate accounts / An account can be suspended": [
+        "e3b0c44298fc",
+        "0cdc2cf92a7b",
+        "03412128c5bd"
+      ],
+      "Story: Moderate accounts / A suspended account can come back": [
+        "e3b0c44298fc",
+        "61acf0bf42e1",
+        "03412128c5bd"
+      ],
+      "Story: Moderate accounts / Operators can run the surface": [
+        "e3b0c44298fc",
+        "17b1f19676ee",
+        "03412128c5bd"
+      ]
+    },
+    "spec/app/admin/referrals.md": {
+      "@document": [
+        "933948203ae2"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / Codes, sign-ups and stages": [
+        "e3b0c44298fc",
+        "f4dc93e040d8"
+      ],
+      "## Story: Invite a wallet": [
+        "6ff5a7d7b230"
+      ],
+      "Story: Invite a wallet / Each wallet issues one code": [
+        "e3b0c44298fc",
+        "94c72f53cdef",
+        "e88bca810c89"
+      ],
+      "Story: Invite a wallet / A wallet cannot refer itself": [
+        "0a33b2d7f206",
+        "59b0015fd1f9",
+        "e88bca810c89"
+      ],
+      "Story: Invite a wallet / A referral's reward only moves forward": [
+        "9df3037b0bea",
+        "dc9ab778df2a",
+        "e88bca810c89"
+      ],
+      "Story: Invite a wallet / An invite can reach funding and activity": [
+        "e3b0c44298fc",
+        "08d075998513",
+        "e88bca810c89"
       ]
     },
     "spec/app/billing/deposits.md": {

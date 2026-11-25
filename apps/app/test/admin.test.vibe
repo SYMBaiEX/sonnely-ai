@@ -1,0 +1,82 @@
+// spec/app/admin/index.md: journeys over the stored admin machine — the bootstrap grant,
+// who may and may not act, and the suspend/reinstate cycle over a registered account.
+import { assert, layer } from "@effect/vitest"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
+import { stored } from "../gen/app__admin.effect.vibe"
+import type { Registry } from "../gen/app__admin.ts"
+import { stored as storedReferrals } from "../gen/app__admin__referrals.effect.vibe"
+import type { Referrals } from "../gen/app__admin__referrals.ts"
+import { dispatch, dispatchReferral } from "../src/api/admin.vibe"
+
+const aster = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+const blake = "DjVE6JNiYq52M37YLBjLvDSMaVG9eRQFRkPRCPwdJnn"
+const cara = "4vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2d"
+
+layer(KeyValueStore.layerMemory)((it) => {
+  // spec/app/admin/operators.md, "Only an operator can grant access"
+  it.effect("The first grant opens the surface; after that only a listed operator grants", () => effect {
+    provide stored("admin-j1") {
+      try dispatch({ type: "grant", wallet: aster, role: "Admin", at: 1 }, aster)
+      let failed = "accepted"
+      const outcome = dispatch({ type: "grant", wallet: blake, role: "Support", at: 2 }, cara) catch (error) =>
+        (error as { _tag: string })._tag
+      failed = typeof outcome === "string" ? outcome : "accepted"
+      try Effect.try(() => assert.strictEqual(failed, "Rejected"))
+      try dispatch({ type: "grant", wallet: blake, role: "Support", at: 3 }, aster)
+    }
+  })
+
+  // spec/app/admin/index.md, "The last operator cannot be revoked"
+  it.effect("The last operator cannot be revoked", () => effect {
+    provide stored("admin-j2") {
+      try dispatch({ type: "grant", wallet: aster, role: "Admin", at: 1 }, aster)
+      const outcome = dispatch({ type: "revoke", wallet: aster, at: 2 }, aster) catch (error) => (error as { _tag: string })._tag
+      const failed = typeof outcome === "string" ? outcome : "accepted"
+      try Effect.try(() => assert.strictEqual(failed, "Rejected"))
+      try dispatch({ type: "grant", wallet: blake, role: "Admin", at: 3 }, aster)
+      try dispatch({ type: "revoke", wallet: blake, at: 4 }, aster)
+    }
+  })
+
+  // spec/app/admin/index.md, "A suspended account cannot accrue usage"
+  it.effect("A suspended account cannot accrue usage until reinstated", () => effect {
+    provide stored("admin-j3") {
+      try dispatch({ type: "grant", wallet: aster, role: "Admin", at: 1 }, aster)
+      try dispatch({ type: "register", id: "acct-a", subject: "User", at: 2 }, aster)
+      try dispatch({ type: "accrueUsage", id: "acct-a", amount: 10 }, aster)
+      try dispatch({ type: "suspend", id: "acct-a", at: 3 }, aster)
+      const refused = dispatch({ type: "accrueUsage", id: "acct-a", amount: 5 }, aster) catch (error) => (error as { _tag: string })._tag
+      try Effect.try(() => assert.strictEqual(typeof refused === "string" ? refused : "accepted", "Rejected"))
+      try dispatch({ type: "reinstate", id: "acct-a", at: 4 }, aster)
+      const after = try dispatch({ type: "accrueUsage", id: "acct-a", amount: 5 }, aster) as Registry
+      const record = after.records.find((r) => r.id === "acct-a")
+      try Effect.try(() => assert.strictEqual(record?.usage, 15))
+    }
+  })
+
+  // spec/app/admin/index.md, "Every admin change checks the sender"
+  it.effect("A change with no sender the decoder accepts is refused", () => effect {
+    provide stored("admin-j4") {
+      const outcome = dispatch({ type: "grant", wallet: aster, role: "Admin", at: 1 }, { not: "a sender" }) catch (error) =>
+        (error as { _tag: string })._tag
+      try Effect.try(() => assert.strictEqual(typeof outcome === "string" ? outcome : "accepted", "NotASender"))
+    }
+  })
+
+  // spec/app/admin/referrals.md, "A wallet cannot refer itself"
+  it.effect("A wallet cannot refer itself, and a referral only moves forward", () => effect {
+    provide storedReferrals("admin-referrals") {
+      try dispatchReferral({ type: "issueCode", wallet: aster, code: "aster-invite" })
+      const selfReferral = dispatchReferral({ type: "signup", code: "aster-invite", wallet: aster, joined: 1 }) catch (error) =>
+        (error as { _tag: string })._tag
+      try Effect.try(() => assert.strictEqual(typeof selfReferral === "string" ? selfReferral : "accepted", "Rejected"))
+      try dispatchReferral({ type: "signup", code: "aster-invite", wallet: blake, joined: 2 })
+      const tooEarly = dispatchReferral({ type: "markActive", wallet: blake }) catch (error) => (error as { _tag: string })._tag
+      try Effect.try(() => assert.strictEqual(typeof tooEarly === "string" ? tooEarly : "accepted", "Rejected"))
+      try dispatchReferral({ type: "markFunded", wallet: blake })
+      const after = try dispatchReferral({ type: "markActive", wallet: blake }) as Referrals
+      const mine = after.signups.find((s) => s.wallet === blake)
+      try Effect.try(() => assert.strictEqual(mine?.stage, "Active"))
+    }
+  })
+})
