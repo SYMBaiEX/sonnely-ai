@@ -1,7 +1,7 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated batch class names and keeps the checkpoint workflow together */
 // spec/app/console/batch.md, "Story: Prepare and run a batch"
 import { ArrowUpRight, Download, Files, Pause, Play, RefreshCw, Upload } from "lucide-react";
-import { Suspense, use, useRef, useState, type ChangeEvent } from "react";
+import { Suspense, use, useCallback, useRef, useState, type ChangeEvent } from "react";
 import { z } from "zod";
 import type { Batch } from "../../../../gen/app__console__batch.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
@@ -238,6 +238,21 @@ async function withBatchWallet<T>(wallet: string, work: () => Promise<T>) {
   });
 }
 
+function waitForBatchSlot(lastSentAt: number | undefined, signal: AbortSignal) {
+  const delay = Math.max(0, (lastSentAt ?? 0) + batchLimits.delayMs - Date.now());
+  if (!delay || signal.aborted) return;
+  return new Promise<void>((resolve) => {
+    const slot = AbortSignal.timeout(delay);
+    const done = () => {
+      slot.removeEventListener("abort", done);
+      signal.removeEventListener("abort", done);
+      resolve();
+    };
+    slot.addEventListener("abort", done, { once: true });
+    signal.addEventListener("abort", done, { once: true });
+  });
+}
+
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -335,7 +350,7 @@ function batchExport(job: BatchJob, kind: "results" | "needs-attention") {
   return lines.length ? lines.join("\n") + "\n" : "";
 }
 
-async function sendBatchRow(wallet: string, jobId: string, index: number, row: BatchRow, signal: AbortSignal): Promise<BatchRow> {
+async function sendBatchRow(wallet: string, jobId: string, index: number, row: BatchRow): Promise<BatchRow> {
   try {
     const response = await fetch("/api/sonnely/batch/chat", {
       method: "POST",
@@ -345,7 +360,6 @@ async function sendBatchRow(wallet: string, jobId: string, index: number, row: B
         "x-sonnely-batch-wallet": wallet,
       },
       body: JSON.stringify(row.body),
-      signal,
     });
     const reference = response.headers.get("x-sonnely-request-id") ?? undefined;
     const validReference = reference && /^[a-z0-9]{20,80}$/.test(reference) ? reference : undefined;
@@ -366,17 +380,12 @@ async function sendBatchRow(wallet: string, jobId: string, index: number, row: B
       ? { ...row, status: "review", reference: validReference, httpStatus: response.status, detail: detail || "Check settlement in Request logs." }
       : { ...row, status: "interrupted", httpStatus: response.status, detail: detail || "The request outcome is unknown." };
   } catch (failure) {
-    if (signal.aborted) return { ...row, status: "sending" };
     return { ...row, status: "interrupted", detail: failure instanceof Error ? failure.message.slice(0, 240) : "The request outcome is unknown." };
   }
 }
 
 function workMessage(error: unknown) {
   return error instanceof Error ? error.message : "Batch could not continue.";
-}
-
-function focusHeading(node: HTMLHeadingElement | null) {
-  node?.focus();
 }
 
 export function BatchSection() {
@@ -436,7 +445,20 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
   const [issues, setIssues] = useState<{ count: number; lines: BatchIssue[] }>();
   const [scope, setScope] = useState<"all" | "remaining" | "attention" | "completed">("all");
   const taskRef = useRef<AbortController | undefined>(undefined);
-  const uploaderRef = useRef<HTMLInputElement>(null);
+  const focusUploaderRef = useRef(false);
+  const focusSummaryRef = useRef(false);
+  const noteUploader = useCallback((node: HTMLInputElement | null) => {
+    if (node && focusUploaderRef.current) {
+      focusUploaderRef.current = false;
+      node.focus();
+    }
+  }, []);
+  const noteSummary = useCallback((node: HTMLHeadingElement | null) => {
+    if (node && focusSummaryRef.current) {
+      focusSummaryRef.current = false;
+      node.focus();
+    }
+  }, []);
 
   async function reload() {
     if (taskRef.current) return;
@@ -487,6 +509,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
       await writeBatch(wallet, next);
       if (machine.state?.tag !== "Idle") await machine.send({ type: "clear" });
       await machine.send({ type: "submit", id: next.id, filename: next.filename, requests: next.rows.map((row) => ({ customId: row.customId, model: row.body.model })) });
+      focusSummaryRef.current = true;
       setSaved(next);
       setScope("all");
       setMessage(`${next.rows.length} ${next.rows.length === 1 ? "request" : "requests"} ready to run.`);
@@ -512,9 +535,9 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
       const selected = job.rows.flatMap((row, index) => (retryIndex === undefined ? row.status === "queued" || row.status === "blocked" : index === retryIndex && row.status === "interrupted") ? [index] : []);
       for (const index of selected) {
         if (signal.aborted) break;
+        await waitForBatchSlot(job.lastSentAt, signal);
+        if (signal.aborted) break;
         const previous = job.rows[index];
-        if (retryIndex === index) await machine.send({ type: "retry", index });
-        await machine.send({ type: "start", index });
         const row: BatchRow = { customId: previous.customId, body: previous.body, estimatedMaximum: previous.estimatedMaximum, status: "sending" };
         const started = { ...replaceRow(job, index, row), lastSentAt: Date.now() };
         await writeBatch(wallet, started);
@@ -522,8 +545,10 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
           await writeBatch(wallet, job);
           break;
         }
+        if (retryIndex === index) await machine.send({ type: "retry", index });
+        await machine.send({ type: "start", index });
         setSaved(started);
-        const result = await sendBatchRow(wallet, job.id, index, row, signal);
+        const result = await sendBatchRow(wallet, job.id, index, row);
         job = replaceRow(started, index, result);
         await writeBatch(wallet, job);
         await sendMachine(index, result);
@@ -546,10 +571,10 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
       if (signal.aborted) return;
       await writeBatch(wallet);
       await machine.send({ type: "clear" });
+      focusUploaderRef.current = true;
       setSaved(undefined);
       setConfirmClear(false);
       setMessage("Batch files and checkpoints were cleared from this device.");
-      uploaderRef.current?.focus();
     });
   }
 
@@ -588,7 +613,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
           <label className="batch-upload">
             <Upload size={18} aria-hidden="true" />
             <span><strong>Choose JSONL file</strong><span className="caption">Each line needs a custom ID, endpoint, and request body.</span></span>
-            <input ref={uploaderRef} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready || !machine.state} onChange={(event) => void importBatch(event)} />
+            <input ref={noteUploader} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready || !machine.state} onChange={(event) => void importBatch(event)} />
           </label>
           {issues && <div role="alert" className="error batch-issues"><strong>Found {issues.count} {issues.count === 1 ? "issue" : "issues"} in this file.</strong><ul>{issues.lines.map((issue) => <li key={issue.line}>{issue.line ? "Line " + issue.line + " · " : ""}{issue.detail}</li>)}</ul>{issues.count > issues.lines.length && <p>Showing the first {issues.lines.length} issues.</p>}</div>}
           {!ready && !error && <p role="status" className="caption">Opening this device’s batch storage…</p>}
@@ -598,7 +623,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
         <>
           <section className="panel batch-panel-section" aria-labelledby="batch-summary-title">
             <div className="batch-section-heading">
-              <div><h2 id="batch-summary-title" ref={focusHeading} tabIndex={-1}>{saved.filename}</h2><p className="caption">This batch and its checkpoints are stored in this browser for your wallet.</p></div>
+              <div><h2 id="batch-summary-title" ref={noteSummary} tabIndex={-1}>{saved.filename}</h2><p className="caption">This batch and its checkpoints are stored in this browser for your wallet.</p></div>
               <div className="batch-actions">
                 {activity === "running" ? <button className="button quiet" type="button" disabled={pausing} onClick={() => { taskRef.current?.abort(); setPausing(true); }}><Pause size={16} aria-hidden="true" /> {pausing ? "Pausing…" : "Pause batch"}</button> : <button className="button accent" type="button" disabled={busy || !remaining || confirmClear} onClick={() => void run(saved.id)}><Play size={16} aria-hidden="true" /> {rows.every((row) => row.status === "queued") ? "Run batch" : "Resume batch"}</button>}
                 <button className="button quiet" type="button" disabled={busy} onClick={() => void reload()}><RefreshCw size={16} aria-hidden="true" /> Refresh saved batch</button>
