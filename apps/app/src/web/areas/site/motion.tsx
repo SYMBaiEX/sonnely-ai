@@ -1,6 +1,6 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { AudioLines } from "lucide-react";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { motionKey, motionChangeEvent, reducedQuery, useAmbientMotion, setMotionPaused } from "./chrome.tsx";
 import type { Theme } from "./chrome.tsx";
 
@@ -57,13 +57,9 @@ export function MotionSwitch({ icon = false }: { icon?: boolean }) {
 const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const unit = (value: number) => Math.min(1, Math.max(0, value));
 
-export function AmbientVisualizer({ motion, theme }: { motion: boolean; theme: Theme }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
+function startVisualizer(canvas: HTMLCanvasElement, motion: boolean, theme: Theme) {
+    const context = canvas.getContext("2d");
+    if (!context) return;
     const field = canvas;
     const ctx = context;
     if (!motion || reduced()) {
@@ -240,7 +236,12 @@ export function AmbientVisualizer({ motion, theme }: { motion: boolean; theme: T
       contrast.removeEventListener("change", size);
       systemLight.removeEventListener("change", size);
     };
-  }, [motion, theme]);
+}
 
-  return <canvas ref={ref} className="ambient-visualizer" aria-hidden="true" />;
+export function AmbientVisualizer({ motion, theme }: { motion: boolean; theme: Theme }) {
+  const start = useCallback(
+    (canvas: HTMLCanvasElement | null) => (canvas ? startVisualizer(canvas, motion, theme) : undefined),
+    [motion, theme],
+  );
+  return <canvas ref={start} className="ambient-visualizer" aria-hidden="true" />;
 }
