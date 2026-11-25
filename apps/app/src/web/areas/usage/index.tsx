@@ -1,65 +1,87 @@
-// spec/app/usage.md, "Story: Roll usage up": stats, breakdowns and the request log the meter produces.
+/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated usage class names and keeps the analytics workflow together */
+// spec/app/usage.md, "Story: Roll usage up"
 import { ArrowUpRight, BarChart3, Download } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
-import { Button, Card, CardTitle, EmptyState } from "@repo/ui";
+import { catalog } from "../../../../gen/app__console__catalog.ts";
+import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
 import { useRemote } from "../../remote.ts";
+import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
+import {
+  CopyButton,
+  Failure,
+  WorkspaceHeading,
+  creditBalance,
+  creditDecimal,
+  date,
+  day,
+  providerIds,
+  providerNames,
+  shortDate,
+} from "../console/logs-shared.tsx";
+import "../console/logs.css";
+import "./usage.css";
 
-const usd = (micros: number) => "$" + (micros / 1_000_000).toLocaleString("en-US", { minimumFractionDigits: 2 });
-const count = new Intl.NumberFormat("en-US");
-const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
-const date = (time: number) =>
-  new Date(time).toLocaleString("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
-const day = (time: number) => new Date(time).toISOString().slice(0, 10);
+const usageCount = new Intl.NumberFormat("en-US");
+const usagePercent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
+const usageModelNames = new Map<string, string>(
+  catalog.flatMap((model) => model.routes.map((route) => [route.modelId, model.name])),
+);
+const usageModelName = (id: string) => usageModelNames.get(id) ?? id;
+const usageChartMetrics = ["Spend", "Requests", "Tokens", "Errors", "Cached input"] as const;
+const usageGroups = ["Model", "Provider", "Key"] as const;
+type UsageGroup = (typeof usageGroups)[number];
+type UsageMetric = (typeof usageChartMetrics)[number];
+const breakdownOrders = { spend: "Highest spend", requests: "Most requests", failed: "Most errors", held: "Most held credit", name: "Name" } as const;
+const noUsageFilters = { provider: "", model: "", key: "", status: "" };
+const usageStates: Record<Status, string> = { Complete: "Completed", Failed: "Failed", Pending: "Reserved", Unreported: "Under review" };
+const providerIdsByMachine: Record<Row["provider"], string> = { NearAI: "near-ai", Phala: "phala", Tinfoil: "tinfoil" };
+const statusValues: Record<string, Status> = { complete: "Complete", failed: "Failed", pending: "Pending", unreported: "Unreported" };
+const statusNames: Record<Status, string> = { Complete: "complete", Failed: "failed", Pending: "pending", Unreported: "unreported" };
 
-const usageStates: Record<Status, string> = {
-  Complete: "Charged",
-  Failed: "Released",
-  Pending: "Reserved",
-  Unreported: "Under review",
-};
-const providerNames: Record<Row["provider"], string> = { NearAI: "NEAR AI", Phala: "Phala", Tinfoil: "Tinfoil" };
+function usageKey(row: Row) {
+  return row.keyId ? "key:" + row.keyId : "label:" + row.keyName;
+}
 
-/** summarizeUsage from lib/usage-analytics.ts, over the machine's rows (spec/app/usage.md, "Totals are the sum of their rows"). */
-function totals(rows: readonly Row[]) {
-  const sums = { requests: rows.length, complete: 0, failed: 0, input: 0, output: 0, spend: 0, held: 0, cached: 0, cacheSamples: 0 };
+function summarize(rows: readonly Row[]) {
+  const totals = { requests: rows.length, complete: 0, failed: 0, input: 0, output: 0, spend: 0, held: 0, cached: 0, cacheSamples: 0 };
   for (const row of rows) {
-    sums.input += row.input;
-    sums.output += row.output;
+    totals.input += row.input;
+    totals.output += row.output;
     if (row.status === "Complete") {
-      sums.complete++;
-      sums.spend += row.cost;
+      totals.complete++;
+      totals.spend += row.cost;
     }
-    if (row.status === "Failed") sums.failed++;
-    if (row.status === "Pending" || row.status === "Unreported") sums.held += row.cost;
+    if (row.status === "Failed") totals.failed++;
+    if (row.status === "Pending" || row.status === "Unreported") totals.held += row.cost;
     if (row.cached >= 0) {
-      sums.cached += row.cached;
-      sums.cacheSamples++;
+      totals.cached += row.cached;
+      totals.cacheSamples++;
     }
   }
-  return sums;
+  return totals;
 }
+type UsageTotals = ReturnType<typeof summarize>;
 
 function providerP95(rows: readonly Row[]) {
   const durations = rows.flatMap(({ providerMs }) => (providerMs < 0 ? [] : [providerMs])).sort((a, b) => a - b);
   return { samples: durations.length, value: durations[Math.ceil(durations.length * 0.95) - 1] };
 }
 
-const groups = ["Model", "Provider", "Key"] as const;
-type Group = (typeof groups)[number];
-const orders = { spend: "Highest spend", requests: "Most requests", failed: "Most errors", held: "Most held credit", name: "Name" } as const;
-
-const noFilters = { provider: "", model: "", key: "", status: "" };
-
-function usageKey(row: Row) {
-  return row.keyId ? "key:" + row.keyId : "label:" + row.keyName;
+function usageMetricValue(totals: UsageTotals, metric: UsageMetric) {
+  switch (metric) {
+    case "Spend": return totals.spend;
+    case "Requests": return totals.requests;
+    case "Tokens": return totals.input + totals.output;
+    case "Errors": return totals.failed;
+    case "Cached input": return totals.cacheSamples ? totals.cached : undefined;
+  }
 }
 
 function csvCell(value: string | number) {
   const text = String(value);
-  const safe =
-    typeof value === "string" && /^(?:[\s-]*[=+@＝＋－＠]|[\t\r\n])/.test(text) ? "'" + text : text;
+  const safe = typeof value === "string" && /^[\s\uFEFF]*[=+\-@\t\r\n]/.test(text) ? "'" + text : text;
   return /[",\r\n]/.test(safe) ? '"' + safe.replaceAll('"', '""') + '"' : safe;
 }
 
@@ -71,16 +93,16 @@ function usageCsv(rows: readonly Row[]) {
         [
           new Date(row.time).toISOString(),
           row.id,
-          row.provider,
+          providerIdsByMachine[row.provider],
           row.model,
           row.keyName,
           row.keyId,
-          row.status,
+          statusNames[row.status],
           row.input,
           row.cached >= 0 ? row.cached : "",
           row.output,
-          row.status === "Complete" ? (row.cost / 1_000_000).toString() : "0",
-          row.status === "Pending" || row.status === "Unreported" ? (row.cost / 1_000_000).toString() : "0",
+          row.status === "Complete" ? creditDecimal(row.cost) : "0",
+          row.status === "Pending" || row.status === "Unreported" ? creditDecimal(row.cost) : "0",
           row.providerMs >= 0 ? row.providerMs : "",
         ]
           .map(csvCell)
@@ -90,82 +112,179 @@ function usageCsv(rows: readonly Row[]) {
   );
 }
 
-export function render(page: Page): ReactNode {
-  if (page.tag !== "Console" || page.section !== "Usage") return null;
-  return <UsageArea />;
+function UsageMax({ days, hasUsage }: { days: number; hasUsage: boolean }) {
+  const [device, setDevice] = useState("");
+  const [pending, setPending] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const deviceStorage = "sonnely.usagemax-device";
+
+  function installId() {
+    if (device) return;
+    try {
+      setDevice(localStorage.getItem(deviceStorage) ?? crypto.randomUUID());
+    } catch {
+      setDevice(crypto.randomUUID());
+    }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const collector = new FormData(form).get("collector");
+    const token = typeof collector === "string" ? collector : "";
+    setPending(true);
+    setNotice("");
+    setError("");
+    try {
+      const response = await fetch("/api/sonnely/usage-max", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token, device, days }),
+      });
+      if (!response.ok) throw new Error("Unable to export usage.");
+      const result = (await response.json()) as { sent?: number };
+      try {
+        localStorage.setItem(deviceStorage, device);
+      } catch {
+        setDevice(device);
+      }
+      setNotice(result.sent ? `UsageMax accepted the export of ${result.sent} settled requests.` : "There is no settled inference usage in this period.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Unable to export usage.");
+    } finally {
+      form.reset();
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="panel stack-panel usage-max" aria-labelledby="usagemax-heading">
+      <div className="between controls">
+        <div>
+          <h2 id="usagemax-heading">Export to UsageMax</h2>
+          <p className="caption">Take up to 100 settled requests from the selected date range into your UsageMax workspace.</p>
+        </div>
+        <a href="https://usagemax.com/docs" target="_blank" rel="noreferrer" className="button quiet">
+          UsageMax docs <ArrowUpRight size={15} aria-hidden />
+        </a>
+      </div>
+      {hasUsage ? (
+        <>
+          <div className="actions">
+            <a className="button secondary" href={"/api/sonnely/usage-max?days=" + days}>
+              <Download size={16} aria-hidden /> Download telemetry JSON
+            </a>
+          </div>
+          <details onToggle={(event) => event.currentTarget.open && installId()}>
+            <summary>Send to my UsageMax workspace</summary>
+            <form onSubmit={(event) => void submit(event)}>
+              <p className="caption">
+                Create an advanced collector key in UsageMax. Each send includes model and route names, token counts, timestamps, and settled Sonnely charges. Sonnely uses the collector key for this send and never saves it.
+              </p>
+              <div className="usage-max-fields">
+                <label className="control-label">
+                  UsageMax collector key
+                  <input type="password" name="collector" autoComplete="off" required minLength={16} maxLength={256} />
+                </label>
+                <label className="control-label">
+                  Installation ID
+                  <input name="device" value={device} onChange={(event) => setDevice(event.target.value)} required spellCheck={false} autoComplete="off" maxLength={36} />
+                </label>
+              </div>
+              <button type="submit" className="button primary" disabled={pending}>
+                {pending ? "Sending…" : "Send usage to UsageMax"}
+              </button>
+            </form>
+          </details>
+        </>
+      ) : (
+        <p className="caption">Completed inference requests will appear here when they settle.</p>
+      )}
+      {notice && <p role="status" className="status">{notice}</p>}
+      {error && <p role="alert" className="error">{error}</p>}
+    </section>
+  );
 }
 
-function UsageArea() {
+function UsageConsole() {
+  const session = useWorkspaceSession();
   const { state, error } = useRemote<Usage>("usage");
-  const [group, setGroup] = useState<Group>("Model");
-  const [order, setOrder] = useState<keyof typeof orders>("spend");
-  const [filters, setFilters] = useState(noFilters);
-
-  const source = useMemo(() => state?.rows ?? [], [state]);
+  const ledger = useRemote<Ledger>("billing-ledger");
+  const [range, setRange] = useState(30);
+  const [metric, setMetric] = useState<UsageMetric>("Spend");
+  const [group, setGroup] = useState<UsageGroup>("Model");
+  const [view, setView] = useState<"Chart" | "Table">("Chart");
+  const [order, setOrder] = useState<keyof typeof breakdownOrders>("spend");
+  const [filters, setFilters] = useState(noUsageFilters);
+  const providerFilterRef = useRef<HTMLSelectElement>(null);
+  const signedIn = session.state?.tag === "SignedIn";
+  const allRows = useMemo(() => state?.rows ?? [], [state]);
+  const [now] = useState(() => Date.now());
+  const ranged = useMemo(() => {
+    const start = now - range * 86_400_000;
+    return allRows.filter((row) => row.time >= start);
+  }, [allRows, now, range]);
+  const source = signedIn ? ranged : [];
   const filtered = Object.values(filters).some(Boolean);
-  const rows = useMemo(
-    () =>
-      filtered
-        ? source.filter(
-            (row) =>
-              (!filters.provider || row.provider === filters.provider) &&
-              (!filters.model || row.model === filters.model) &&
-              (!filters.key || usageKey(row) === filters.key) &&
-              (!filters.status || row.status === filters.status),
-          )
-        : source,
-    [source, filtered, filters],
-  );
+  const rows = filtered
+    ? source.filter((row) =>
+        (!filters.provider || providerIdsByMachine[row.provider] === filters.provider) &&
+        (!filters.model || row.model === filters.model) &&
+        (!filters.key || usageKey(row) === filters.key) &&
+        (!filters.status || row.status === statusValues[filters.status]),
+      )
+    : source;
+  const loading = signedIn && !state && !error;
+  const capped = source.length >= 1000;
+  const activityStatus = !signedIn ? "Connect a wallet to see request activity." : loading ? "Loading activity…" : state ? (filtered ? "No requests match these filters." : "No activity in this period.") : "Activity is unavailable.";
 
-  const summary = totals(rows);
-  const resolved = summary.complete + summary.failed;
-  const duration = providerP95(rows);
-  const stats: [string, string, string | undefined][] = [
-    ["Spend", state ? usd(summary.spend) : "—", "Settled charges"],
-    [
-      "Requests",
-      state ? count.format(summary.requests) : "—",
-      state ? `${count.format(summary.failed)} failed` : undefined,
-    ],
-    ["Tokens", state ? count.format(summary.input + summary.output) : "—", "Input and output combined"],
-    [
-      "Success rate",
-      resolved ? percent.format(summary.complete / resolved) : "—",
-      `${count.format(resolved)} resolved requests`,
-    ],
-    ["Held credits", state ? usd(summary.held) : "—", "Reserved or under review"],
-    [
-      "Cached input",
-      summary.cacheSamples ? count.format(summary.cached) : "—",
-      summary.cacheSamples ? `${count.format(summary.cacheSamples)} requests reporting cache` : "No cache measurements",
-    ],
-    [
-      "Provider duration p95",
-      duration.value === undefined
-        ? "—"
-        : duration.value < 1000
-          ? `${duration.value} ms`
-          : `${(duration.value / 1000).toFixed(2)} s`,
-      duration.samples ? `${count.format(duration.samples)} measured requests` : "No duration measurements",
-    ],
-  ];
-
+  const modelIds = [...new Set(source.map((row) => row.model))].sort((a, b) => usageModelName(a).localeCompare(usageModelName(b)) || a.localeCompare(b));
   const keyNames = new Map<string, string>();
   for (const row of source) if (!keyNames.has(usageKey(row))) keyNames.set(usageKey(row), row.keyName);
-  const keyOptions = Array.from(keyNames).sort((a, b) => a[1].localeCompare(b[1]));
+  const keyNameCounts = new Map<string, number>();
+  for (const label of keyNames.values()) keyNameCounts.set(label, (keyNameCounts.get(label) ?? 0) + 1);
+  const keyOptions = Array.from(keyNames, ([key, name]) => {
+    const label = (keyNameCounts.get(name) ?? 0) > 1 && key.startsWith("key:") ? `${name} · ${key.slice(-6)}` : name;
+    return [key, label] as const;
+  }).sort((left, right) => left[1].localeCompare(right[1]));
   const keyLabels = new Map(keyOptions);
-  const modelIds = [...new Set(source.map((row) => row.model))].sort();
+  const updateFilter = (field: keyof typeof filters, value: string) => setFilters((current) => ({ ...current, [field]: value }));
 
-  const grouped = Map.groupBy(rows, (row) =>
-    group === "Model" ? row.model : group === "Provider" ? row.provider : usageKey(row),
-  );
+  const displayState = signedIn ? state : undefined;
+  const totals = summarize(rows);
+  const resolved = totals.complete + totals.failed;
+  const providerDuration = providerP95(rows);
+  const balance = signedIn ? ledger.state?.entries.reduce((sum, entry) => sum + (entry.kind === "Charge" ? -entry.amount : entry.amount), 0) : undefined;
+  const stats: [string, string, string | undefined][] = [
+    ["Credit balance", balance === undefined ? "—" : creditBalance(balance), "Available workspace credits"],
+    ["Spend", displayState ? creditBalance(totals.spend) : "—", "Settled charges"],
+    ["Requests", displayState ? usageCount.format(totals.requests) : "—", displayState ? `${usageCount.format(totals.failed)} failed` : undefined],
+    ["Tokens", displayState ? usageCount.format(totals.input + totals.output) : "—", "Input and output combined"],
+    ["Success rate", resolved ? usagePercent.format(totals.complete / resolved) : "—", `${usageCount.format(resolved)} resolved requests`],
+    ["Held credits", displayState ? creditBalance(totals.held) : "—", "Reserved or under review"],
+    ["Cached input", totals.cacheSamples ? usageCount.format(totals.cached) : "—", totals.cacheSamples ? `${usageCount.format(totals.cacheSamples)} requests reporting cache` : "No cache measurements"],
+    ["Provider duration p95", providerDuration.value === undefined ? "—" : providerDuration.value < 1000 ? `${providerDuration.value} ms` : `${(providerDuration.value / 1000).toFixed(2)} s`, providerDuration.samples ? `${usageCount.format(providerDuration.samples)} measured requests` : "No duration measurements"],
+  ];
+  const grouped = Map.groupBy(rows, (row) => (group === "Model" ? row.model : group === "Provider" ? providerIdsByMachine[row.provider] : usageKey(row)));
   const breakdown = Array.from(grouped, ([id, entries]) => ({
     id,
-    label: group === "Provider" ? providerNames[id as Row["provider"]] : (keyLabels.get(id) ?? id),
-    ...totals(entries),
-  })).sort(
-    (a, b) => (order === "name" ? 0 : (b[order as "spend"] ?? 0) - (a[order as "spend"] ?? 0)) || a.label.localeCompare(b.label),
-  );
+    label: group === "Model" ? usageModelName(id) : group === "Provider" ? (providerNames[id] ?? id) : (keyLabels.get(id) ?? entries[0].keyName),
+    ...summarize(entries),
+  })).sort((a, b) => (order === "name" ? 0 : b[order] - a[order]) || a.label.localeCompare(b.label));
+
+  const daily = Map.groupBy(rows, (row) => day(row.time));
+  const firstSampleAt = capped && source.length ? source[source.length - 1].time : undefined;
+  const firstSampleDay = firstSampleAt === undefined ? undefined : day(firstSampleAt);
+  const series = Array.from({ length: range }, (_, index) => {
+    const time = now - (range - index - 1) * 86_400_000;
+    const dateKey = day(time);
+    const value = firstSampleDay && dateKey < firstSampleDay ? undefined : usageMetricValue(summarize(daily.get(dateKey) ?? []), metric);
+    return { time, value };
+  });
+  const high = Math.max(1, ...series.map((point) => point.value ?? 0));
+  const hasMetric = series.some((point) => point.value !== undefined);
+  const metricValue = (value: number | undefined) => (value === undefined ? "—" : metric === "Spend" ? creditBalance(value) : usageCount.format(value));
 
   function exportCsv() {
     const url = URL.createObjectURL(new Blob([usageCsv(rows)], { type: "text/csv;charset=utf-8" }));
@@ -173,227 +292,67 @@ function UsageArea() {
     link.href = url;
     link.download = "sonnely-usage-" + day(Date.now()) + ".csv";
     link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    URL.revokeObjectURL(url);
   }
 
-  const updateFilter = (field: keyof typeof filters, value: string) =>
-    setFilters((current) => ({ ...current, [field]: value }));
-
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <BarChart3 size={21} className="text-muted-foreground" aria-hidden />
-          <div>
-            <h1 className="font-serif text-3xl">Usage</h1>
-            <p className="text-sm text-muted-foreground">Track charges, tokens, and request performance. Dates use UTC.</p>
+    <div className="telemetry-legacy console usage-legacy">
+      <WorkspaceHeading icon={BarChart3} title="Usage" description="Track charges, tokens, and request performance. Dates use UTC.">
+        <button type="button" className="button quiet" disabled={!rows.length} onClick={exportCsv}>
+          <Download size={15} aria-hidden="true" /> Export CSV
+        </button>
+        <label className="control-label">
+          Date range
+          <select value={range} onChange={(event) => setRange(Number(event.target.value))}>
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+        </label>
+      </WorkspaceHeading>
+      {error && <div className="actions"><Failure message={error} /></div>}
+      {signedIn && (
+        <section className="panel usage-filters" aria-label="Usage filters">
+          <div className="usage-filter-grid">
+            <label className="control-label">Provider<select ref={providerFilterRef} value={filters.provider} onChange={(event) => updateFilter("provider", event.target.value)}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</select></label>
+            <label className="control-label">Model<select value={filters.model} onChange={(event) => updateFilter("model", event.target.value)}><option value="">All models</option>{filters.model && !modelIds.includes(filters.model) && <option value={filters.model}>{usageModelName(filters.model)}</option>}{modelIds.map((id) => <option key={id} value={id}>{usageModelName(id)}</option>)}</select></label>
+            <label className="control-label">API key<select value={filters.key} onChange={(event) => updateFilter("key", event.target.value)}><option value="">All keys</option>{filters.key && !keyLabels.has(filters.key) && <option value={filters.key}>Selected key</option>}{keyOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+            <label className="control-label">Status<select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}><option value="">All statuses</option>{Object.entries(statusValues).map(([value, status]) => <option key={value} value={value}>{usageStates[status]}</option>)}</select></label>
           </div>
-        </div>
-        <Button variant="secondary" size="sm" disabled={!rows.length} onClick={exportCsv}>
-          <Download size={15} aria-hidden /> Export CSV
-        </Button>
-      </header>
-
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      <section aria-label="Usage filters" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="flex flex-col gap-1 text-sm">
-          Provider
-          <select
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={filters.provider}
-            onChange={(event) => updateFilter("provider", event.target.value)}
-          >
-            <option value="">All providers</option>
-            {Object.entries(providerNames).map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Model
-          <select
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={filters.model}
-            onChange={(event) => updateFilter("model", event.target.value)}
-          >
-            <option value="">All models</option>
-            {modelIds.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          API key
-          <select
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={filters.key}
-            onChange={(event) => updateFilter("key", event.target.value)}
-          >
-            <option value="">All keys</option>
-            {keyOptions.map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Status
-          <select
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={filters.status}
-            onChange={(event) => updateFilter("status", event.target.value)}
-          >
-            <option value="">All statuses</option>
-            {Object.entries(usageStates).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      {state && (
-        <p className="text-xs text-muted-foreground" role="status">
-          {count.format(rows.length)} of {count.format(source.length)} requests shown.
-          {filtered && (
-            <Button variant="ghost" size="sm" className="ml-2" onClick={() => setFilters(noFilters)}>
-              Clear filters
-            </Button>
+          {state && (
+            <div className="usage-sample">
+              <p className="caption" role="status">{usageCount.format(rows.length)} of {usageCount.format(source.length)} requests shown.{capped && " Analytics and CSV cover the 1,000 most recent requests in this date range."}</p>
+              {filtered && <button type="button" className="button quiet small" onClick={() => { setFilters(noUsageFilters); providerFilterRef.current?.focus(); }}>Clear filters</button>}
+            </div>
           )}
-        </p>
+        </section>
       )}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" role="group" aria-label="Usage summary">
-        {stats.map(([label, value, description]) => (
-          <Card key={label} className="gap-1 p-4">
-            <span className="text-xs text-muted-foreground">{label}</span>
-            <strong className="text-xl">{value}</strong>
-            {description && <small className="text-xs text-muted-foreground">{description}</small>}
-          </Card>
-        ))}
+      <div className="stat-grid usage-stats" role="group" aria-label="Usage summary">
+        {stats.map(([label, value, description]) => <div className="panel stat" key={label}><span>{label}</span><strong>{value}</strong>{description && <small>{description}</small>}</div>)}
       </div>
-
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>Breakdown</CardTitle>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              Group
-              <select
-                className="rounded-md border border-input bg-background px-2 py-1 text-sm"
-                value={group}
-                onChange={(event) => setGroup(event.target.value as Group)}
-              >
-                {groups.map((value) => (
-                  <option key={value}>{value}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              Order
-              <select
-                className="rounded-md border border-input bg-background px-2 py-1 text-sm"
-                value={order}
-                onChange={(event) => setOrder(event.target.value as keyof typeof orders)}
-              >
-                {Object.entries(orders).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-        {breakdown.length ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                {[group, "Spend", "Requests", "Errors", "Held"].map((label) => (
-                  <th scope="col" className="py-2 font-medium" key={label}>
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {breakdown.map((row) => (
-                <tr className="border-b border-border last:border-0" key={row.id}>
-                  <th scope="row" className="py-2 text-left font-medium">
-                    {row.label}
-                  </th>
-                  <td className="py-2">{usd(row.spend)}</td>
-                  <td className="py-2">{count.format(row.requests)}</td>
-                  <td className="py-2">{count.format(row.failed)}</td>
-                  <td className="py-2">{usd(row.held)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nothing to break down yet.</p>
-        )}
-      </Card>
-
-      <Card className="p-0">
-        {rows.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" aria-label="Request activity">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  {["Request", "Tokens", "Billing"].map((label) => (
-                    <th scope="col" className="px-4 py-3 font-medium" key={label}>
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.slice(0, 25).map((row) => (
-                  <tr className="border-b border-border last:border-0" key={row.id}>
-                    <th scope="row" className="px-4 py-3 text-left font-medium">
-                      {row.model}
-                      <div className="text-xs font-normal text-muted-foreground">
-                        {date(row.time)} · {providerNames[row.provider]} · {row.keyName}
-                      </div>
-                    </th>
-                    <td className="px-4 py-3">{(row.input + row.output).toLocaleString()}</td>
-                    <td className="px-4 py-3">
-                      {row.status === "Complete"
-                        ? `Charged ${usd(row.cost)}`
-                        : row.status === "Failed"
-                          ? "Released"
-                          : `${usageStates[row.status]} · ${usd(row.cost)}`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyState
-            title={
-              state === undefined ? "Loading activity…" : filtered ? "No requests match these filters." : "No activity in this period."
-            }
-            icon={<BarChart3 size={23} />}
-          >
-            <a className="inline-flex items-center gap-1 text-sm underline" href="/contact">
-              Get help with a charge <ArrowUpRight size={15} />
-            </a>
-          </EmptyState>
-        )}
-      </Card>
-    </main>
+      <section className="panel chart-panel" aria-labelledby="usage-chart-heading">
+        <div className="between controls"><h2 id="usage-chart-heading">{metric} by day</h2><div className="actions"><label className="control-label">Chart metric<select value={metric} onChange={(event) => setMetric(event.target.value as UsageMetric)}>{usageChartMetrics.map((value) => <option key={value}>{value}</option>)}</select></label><div className="segmented" aria-label="Chart view">{(["Chart", "Table"] as const).map((value) => <button type="button" key={value} aria-pressed={value === view} onClick={() => setView(value)}>{value}</button>)}</div></div></div>
+        {firstSampleAt !== undefined && <p className="caption">Days before {date(firstSampleAt)} fall outside this sample.</p>}
+        {!rows.length || !hasMetric ? <div className="chart-empty"><BarChart3 size={23} aria-hidden="true" /><p role="status">{!rows.length ? activityStatus : "No cached input measurements in this view."}</p></div> : view === "Chart" ? <><div className="bars" role="img" aria-label={metric + " by day over the last " + range + " days"}>{series.map(({ time, value }) => <span key={time} title={shortDate(time) + " · " + metricValue(value)} data-empty={!value || undefined} style={{ height: value ? Math.max(1, (value / high) * 100) + "%" : "1px" }} />)}</div><div className="between caption"><span>{shortDate(series[0].time)}</span><span>{shortDate(series[range - 1].time)}</span></div></> : <div className="table-wrap compact-table"><table><thead><tr><th scope="col">Date (UTC)</th><th scope="col">{metric}</th></tr></thead><tbody>{series.map(({ time, value }) => <tr key={time}><th scope="row">{date(time)}</th><td>{metricValue(value)}</td></tr>)}</tbody></table></div>}
+      </section>
+      <section className="panel breakdown">
+        <div className="between controls"><h2 id="request-breakdown">Request breakdown</h2><div className="actions"><div className="segmented" aria-label="Group usage">{usageGroups.map((value) => <button type="button" key={value} aria-pressed={value === group} onClick={() => setGroup(value)}>By {value.toLowerCase()}</button>)}</div><label className="control-label">Sort groups<select value={order} onChange={(event) => setOrder(event.target.value as typeof order)}>{Object.entries(breakdownOrders).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></div>
+        {breakdown.length ? <div className="table-wrap workspace-data-table" role="region" aria-labelledby="request-breakdown" tabIndex={0}><table><thead><tr>{[group, "Requests", "Failed", "Input", "Cached input", "Output", "Spend", "Held"].map((value) => <th scope="col" key={value}>{value}</th>)}</tr></thead><tbody>{breakdown.map((entry) => <tr key={entry.id}><th scope="row">{entry.label}</th><td>{usageCount.format(entry.requests)}</td><td>{usageCount.format(entry.failed)}</td><td>{usageCount.format(entry.input)}</td><td>{entry.cacheSamples ? usageCount.format(entry.cached) : "—"}</td><td>{usageCount.format(entry.output)}</td><td>{creditBalance(entry.spend)}</td><td>{creditBalance(entry.held)}</td></tr>)}</tbody></table></div> : <p className="caption">{activityStatus}</p>}
+      </section>
+      {rows.length > 0 && (
+        <section className="panel breakdown">
+          <div className="between controls"><h2 id="recent-request-references">Recent requests</h2><a className="text-link" href="/console/logs">Open request logs <ArrowUpRight size={15} aria-hidden="true" /></a></div>
+          <div className="table-wrap workspace-data-table" role="region" aria-labelledby="recent-request-references" tabIndex={0}><table><thead><tr><th>Request</th><th>Tokens</th><th>Billing</th></tr></thead><tbody>{rows.slice(0, 25).map((row) => <tr key={row.id}><th scope="row">{usageModelName(row.model)}<div className="caption">{date(row.time)} · {providerNames[providerIdsByMachine[row.provider]]} · <CopyButton value={row.id} label="Copy request reference" /></div><a className="text-link" href={"/console/logs?request=" + encodeURIComponent(row.id)}>View request details</a></th><td>{(row.input + row.output).toLocaleString()}</td><td>{row.status === "Complete" ? `Charged ${creditBalance(row.cost)}` : row.status === "Failed" ? "Released" : `${row.status === "Unreported" ? "Under review" : "Reserved"} · ${creditBalance(row.cost)}`}</td></tr>)}</tbody></table></div>
+          <a className="text-link" href="/contact">Get help with a charge <ArrowUpRight size={15} /></a>
+        </section>
+      )}
+      {signedIn && displayState && <UsageMax days={range} hasUsage={source.some((row) => row.status === "Complete")} />}
+      <section className="panel workspace-compute-links" aria-label="Compute usage"><h2>Compute usage</h2><p className="caption">Blackboxes · Coming soon</p><p className="caption">Dry Docks · Coming soon</p></section>
+    </div>
   );
+}
+
+export function render(page: Page): ReactNode {
+  if (page.tag !== "Console" || page.section !== "Usage") return null;
+  return <ConsoleFrame section="Usage"><UsageConsole /></ConsoleFrame>;
 }

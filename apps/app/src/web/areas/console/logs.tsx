@@ -1,62 +1,89 @@
-// spec/app/console/logs.md, "Story: Review request activity": the request history page — the filters send events to
-// the logs machine, the table shows `visible` of its state, and a row opens the request detail dialog.
-import { useState, type FormEvent } from "react";
-import { Download, RefreshCw, Search } from "lucide-react";
+/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated request-log class names and keeps the drawer workflow together */
+// spec/app/console/logs.md, "Story: Review request activity"
+import { Activity, ArrowUpRight, Download, List, RefreshCw, Search, X } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
 import type { LogEntry, Logs, LogStatus, Window } from "../../../../gen/app__console__logs.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { visible } from "../../../../gen/app__console__logs.ts";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Input,
-  cn,
-} from "@repo/ui";
 import { useRemote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
 import { SignInGate } from "./gate.tsx";
-import { CopyButton, Detail, creditBalance, shorten } from "./bits.tsx";
+import {
+  CopyButton,
+  WorkspaceHeading,
+  amount,
+  creditBalance,
+  creditDecimal,
+  milliseconds,
+  providerIds,
+  providerNames,
+} from "./logs-shared.tsx";
+import "./logs.css";
 
-const providerNames: Record<string, string> = { "near-ai": "NEAR AI", phala: "Phala", tinfoil: "Tinfoil" };
-const providerIds = ["near-ai", "phala", "tinfoil"];
-
+const defaults = { days: "7", provider: "", model: "", keyName: "", status: "" };
 const statusLabels: Record<LogStatus, string> = {
   Pending: "In progress",
   Complete: "Completed",
   Failed: "Failed",
   Unreported: "Under review",
 };
-const statusTones: Record<LogStatus, string> = {
-  Pending: "bg-info/15 text-info",
-  Complete: "bg-ok/15 text-ok",
-  Failed: "bg-destructive/15 text-destructive",
-  Unreported: "bg-warn/15 text-warn",
+const lowerStatus: Record<string, LogStatus> = {
+  pending: "Pending",
+  complete: "Complete",
+  failed: "Failed",
+  unreported: "Unreported",
 };
-
-const windows: { id: Window; label: string }[] = [
-  { id: "Week", label: "Last 7 days" },
-  { id: "Month", label: "Last 30 days" },
-  { id: "Quarter", label: "Last 90 days" },
-  { id: "AllTime", label: "All time" },
-];
-const statuses: LogStatus[] = ["Pending", "Complete", "Failed", "Unreported"];
-
+const machineStatus: Record<LogStatus, string> = {
+  Pending: "pending",
+  Complete: "complete",
+  Failed: "failed",
+  Unreported: "unreported",
+};
+const formatTime = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  second: "2-digit",
+  timeZone: "UTC",
+});
+const time = (value: number) => formatTime.format(value) + " UTC";
 const modelNames = new Map(
   catalog.flatMap((entry) =>
     entry.routes.filter((route) => route.endpoint === "chat/completions").map((route) => [route.modelId, entry.name]),
   ),
 );
+const windows: Record<string, Window> = { "7": "Week", "30": "Month", "90": "Quarter", all: "AllTime" };
+const windowDays: Record<Window, string> = { Week: "7", Month: "30", Quarter: "90", AllTime: "all" };
+const logPath = "/console/logs";
+const pageSize = 50;
 
-const amount = (value: number) => value.toLocaleString("en");
-const milliseconds = (value: number) => amount(value) + " ms";
-const when = (ageDays: number) =>
-  ageDays === 0 ? "Today" : ageDays === 1 ? "Yesterday" : `${ageDays} days ago`;
+type LogRow = LogEntry & {
+  time?: number;
+  providerRejections?: { provider: string; model: string; startedAt: number; endedAt: number; httpStatus: 429 }[];
+  providerRequest?: string;
+  providerStatus?: number;
+  outcome?: string;
+  settledAt?: number;
+  providerDurationMs?: number;
+  timeToFirstTokenMs?: number;
+  cachedTokens?: number;
+  reasoningTokens?: number;
+  stream?: boolean;
+};
 
-function creditDecimal(micros: number) {
-  const whole = Math.floor(micros / 1_000_000);
-  const fraction = (micros % 1_000_000).toString().padStart(6, "0").replace(/0+$/, "");
-  return whole + (fraction ? "." + fraction : "");
+function detailPath(id: string) {
+  return logPath + "?" + new URLSearchParams({ request: id }).toString();
+}
+
+function rowTime(row: LogRow) {
+  return row.time ?? Date.now() - row.ageDays * 86_400_000;
+}
+
+function billing(row: LogRow) {
+  if (row.status === "Failed") return "Released";
+  return (row.status === "Complete" ? "Charged " : "Reserved ") + creditBalance(row.cost);
 }
 
 function csvCell(value: string | number) {
@@ -65,10 +92,10 @@ function csvCell(value: string | number) {
   return /[",\r\n]/.test(text) ? '"' + text.replaceAll('"', '""') + '"' : text;
 }
 
-/** The CSV export of the loaded rows, ported from the legacy console. */
-function requestLogCsv(rows: readonly LogEntry[]) {
+function requestLogCsv(rows: readonly LogRow[]) {
   const header = [
     "request_id",
+    "time_utc",
     "model",
     "provider",
     "endpoint",
@@ -76,10 +103,12 @@ function requestLogCsv(rows: readonly LogEntry[]) {
     "status",
     "input_tokens",
     "output_tokens",
+    "cached_tokens",
+    "reasoning_tokens",
     "duration_ms",
     "charged_usd",
     "reserved_usd",
-    "age_days",
+    "provider_status",
   ];
   return (
     [
@@ -87,17 +116,20 @@ function requestLogCsv(rows: readonly LogEntry[]) {
       ...rows.map((row) =>
         [
           row.id,
+          new Date(rowTime(row)).toISOString(),
           row.model,
           row.provider,
-          row.endpoint,
+          row.endpoint ?? "",
           row.keyName,
-          row.status.toLowerCase(),
+          machineStatus[row.status],
           row.input,
           row.output,
-          row.durationMs,
+          row.cachedTokens ?? "",
+          row.reasoningTokens ?? "",
+          row.durationMs ?? "",
           row.status === "Complete" ? creditDecimal(row.cost) : "",
           row.status === "Pending" || row.status === "Unreported" ? creditDecimal(row.cost) : "",
-          row.ageDays,
+          row.providerStatus ?? "",
         ]
           .map(csvCell)
           .join(","),
@@ -106,85 +138,138 @@ function requestLogCsv(rows: readonly LogEntry[]) {
   );
 }
 
-function billing(row: LogEntry) {
-  if (row.status === "Failed") return "Released";
-  return (row.status === "Complete" ? "Charged " : "Reserved ") + creditBalance(row.cost);
-}
-
-function RequestDetail({ row, onClose }: { row: LogEntry | undefined; onClose: () => void }) {
+function DetailList({ fields }: { fields: [string, string | number | undefined][] }) {
   return (
-    <Dialog open={row !== undefined} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent aria-labelledby="request-detail-heading" className="max-w-lg">
-        <DialogTitle>
-          <h2 id="request-detail-heading" className="text-base font-semibold">
-            Request details
-          </h2>
-        </DialogTitle>
-        {row && (
-          <div className="flex flex-col gap-4">
-            <div>
-              <p className="font-mono text-xs break-all">{row.id}</p>
-              <p className="text-xs text-muted-foreground">
-                {statusLabels[row.status]} · {when(row.ageDays)}
-              </p>
-              <div className="mt-2 flex gap-1">
-                <CopyButton text={row.id} label="Copy request reference" />
-              </div>
-            </div>
-            <div>
-              <h3 className="mb-2 text-sm font-semibold">Route and status</h3>
-              <dl className="grid grid-cols-2 gap-3">
-                <Detail label="Model">{modelNames.get(row.model) ?? row.model}</Detail>
-                <Detail label="Model ID" mono>{row.model}</Detail>
-                <Detail label="Provider">{providerNames[row.provider] ?? row.provider}</Detail>
-                <Detail label="Endpoint" mono>/{row.endpoint}</Detail>
-                <Detail label="Key">{row.keyName}</Detail>
-                <Detail label="Status">{statusLabels[row.status]}</Detail>
-              </dl>
-            </div>
-            <div>
-              <h3 className="mb-2 text-sm font-semibold">Usage and billing</h3>
-              <dl className="grid grid-cols-2 gap-3">
-                <Detail label="Input tokens">{amount(row.input)}</Detail>
-                <Detail label="Output tokens">{amount(row.output)}</Detail>
-                <Detail label="Billing">{billing(row)}</Detail>
-              </dl>
-            </div>
-            <div>
-              <h3 className="mb-2 text-sm font-semibold">Timing</h3>
-              <dl className="grid grid-cols-2 gap-3">
-                <Detail label="Total duration">{milliseconds(row.durationMs)}</Detail>
-                <Detail label="Recorded">{when(row.ageDays)}</Detail>
-              </dl>
-            </div>
+    <dl className="log-details">
+      {fields.map(([name, value]) =>
+        value === undefined ? null : (
+          <div key={name}>
+            <dt>{name}</dt>
+            <dd>{value}</dd>
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+        ),
+      )}
+    </dl>
   );
 }
 
-export function LogsSection() {
-  const session = useWorkspaceSession();
-  const logs = useRemote<Logs>("console__logs");
-  const [lookup, setLookup] = useState("");
-  const [detail, setDetail] = useState<string | null>(null);
-  const [limit, setLimit] = useState(50);
-  const state = logs.state;
+function RequestDetail({ id, row, close }: { id: string; row: LogRow | undefined; close: () => void }) {
+  const [error, setError] = useState("");
 
-  if (session.state?.tag !== "SignedIn") {
-    return <SignInGate message="Connect a wallet to see request activity." />;
-  }
+  return (
+    <dialog
+      ref={(node) => {
+        if (node && !node.open) node.showModal();
+      }}
+      className="log-drawer"
+      aria-labelledby="request-detail-heading"
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
+    >
+      <header>
+        <div>
+          <h2 id="request-detail-heading">Request details</h2>
+          {row && (
+            <p className="caption">
+              {statusLabels[row.status]} · {time(rowTime(row))}
+            </p>
+          )}
+        </div>
+        <button type="button" className="icon-button" onClick={close} aria-label="Close request details">
+          <X size={18} aria-hidden="true" />
+        </button>
+      </header>
+      <div className="log-drawer-body">
+        {error ? (
+          <>
+            <p className="error" role="alert">
+              {error}
+            </p>
+            <button type="button" className="button quiet" onClick={() => setError("")}>
+              Retry
+            </button>
+          </>
+        ) : !row ? (
+          <>
+            <p role="status" className="caption">
+              Loading request details…
+            </p>
+            <p className="caption">Reference {id} is not in the loaded workspace history.</p>
+          </>
+        ) : (
+          <>
+            <div className="log-actions">
+              <CopyButton value={row.id} label="Copy request reference" />
+              <CopyButton value={location.origin + detailPath(row.id)} label="Copy link to request" />
+            </div>
+            <h3>Route and status</h3>
+            {!!row.providerRejections?.length && (
+              <ol className="route-attempts" aria-label="Provider attempts">
+                {row.providerRejections.map((attempt) => (
+                  <li key={attempt.provider}>
+                    {providerNames[attempt.provider] ?? attempt.provider} · Rate limited (HTTP 429) ·{" "}
+                    {milliseconds(attempt.endedAt - attempt.startedAt)}
+                  </li>
+                ))}
+                <li>
+                  {providerNames[row.provider] ?? row.provider} · {statusLabels[row.status]}
+                </li>
+              </ol>
+            )}
+            <DetailList
+              fields={[
+                ["Request reference", row.id],
+                ["Model ID", row.model],
+                ["Provider", providerNames[row.provider] ?? row.provider],
+                ["Endpoint", row.endpoint ? "/" + row.endpoint : undefined],
+                ["Key", row.keyName],
+                ["Provider status", row.providerStatus],
+                ["Provider request", row.providerRequest],
+                ["Outcome", row.outcome],
+                ["Streaming", row.stream === undefined ? undefined : row.stream ? "Yes" : "No"],
+              ]}
+            />
+            <h3>Usage and billing</h3>
+            <DetailList
+              fields={[
+                ["Billing", billing(row)],
+                ["Input tokens", amount(row.input)],
+                ["Output tokens", amount(row.output)],
+                ["Cached input tokens", amount(row.cachedTokens)],
+                ["Reasoning output tokens", amount(row.reasoningTokens)],
+              ]}
+            />
+            <h3>Timing</h3>
+            <DetailList
+              fields={[
+                ["Started", time(rowTime(row))],
+                ["Settled", row.settledAt === undefined ? undefined : time(row.settledAt)],
+                ["Total duration", milliseconds(row.durationMs)],
+                ["Provider duration", milliseconds(row.providerDurationMs)],
+                ["Time to first token", milliseconds(row.timeToFirstTokenMs)],
+              ]}
+            />
+            {(row.endpoint === "chat/completions" || !row.endpoint) && (
+              <a className="text-link" href="/verify">
+                Inspect a completion receipt <ArrowUpRight size={15} aria-hidden="true" />
+              </a>
+            )}
+            <a className="text-link" href="/console/support">
+              Get help with a request <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+          </>
+        )}
+      </div>
+    </dialog>
+  );
+}
 
-  const rows = state ? visible(state) : [];
+function LogResults({ rows, error, open }: { rows: LogRow[]; error: string | undefined; open: (id: string) => void }) {
+  const [limit, setLimit] = useState(pageSize);
   const shown = rows.slice(0, limit);
-  const detailRow = detail ? rows.find((row) => row.id === detail) : undefined;
-  const window_ = state?.window ?? "Week";
-  const showing = state?.showing.tag === "One" ? state.showing.status : "";
-
-  function applyWindow(id: Window) {
-    void logs.send({ type: "setWindow", window: id });
-  }
+  const nextCursor = rows.length > limit;
 
   function exportRows() {
     if (!rows.length) return;
@@ -197,179 +282,252 @@ export function LogsSection() {
     URL.revokeObjectURL(url);
   }
 
-  function findRequest(event: FormEvent<HTMLFormElement>) {
+  return (
+    <section className="panel log-panel" aria-labelledby="request-log-table-heading">
+      <div className="between">
+        <h2 id="request-log-table-heading">Request history</h2>
+        <button type="button" className="button quiet" disabled={!rows.length} onClick={exportRows}>
+          <Download size={16} aria-hidden="true" /> Export loaded CSV
+        </button>
+      </div>
+      <p role="status" className="caption">
+        {!rows.length
+          ? error
+            ? "Request history unavailable."
+            : "No matching requests."
+          : `${rows.length} ${rows.length === 1 ? "request" : "requests"} loaded`}
+      </p>
+      {error && (
+        <div className="log-actions">
+          <p className="error" role="alert">
+            {error}
+          </p>
+        </div>
+      )}
+      {!!shown.length && (
+        <div className="table-wrap workspace-data-table" role="region" aria-labelledby="request-log-table-heading" tabIndex={0}>
+          <table aria-label="Request logs">
+            <thead>
+              <tr>
+                <th scope="col">Request</th>
+                <th scope="col">Provider</th>
+                <th scope="col">Status</th>
+                <th scope="col">Duration</th>
+                <th scope="col">Tokens</th>
+                <th scope="col">Billing</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((row) => (
+                <tr key={row.id}>
+                  <th scope="row">
+                    <div className="log-model">
+                      <a
+                        className="text-link"
+                        href={detailPath(row.id)}
+                        aria-label={`View ${modelNames.get(row.model) ?? row.model} request ${row.id}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          open(row.id);
+                        }}
+                      >
+                        {modelNames.get(row.model) ?? row.model}
+                      </a>
+                      <span className="caption">{time(rowTime(row))}</span>
+                      {row.endpoint && <code className="caption">/{row.endpoint}</code>}
+                    </div>
+                  </th>
+                  <td>{providerNames[row.provider] ?? row.provider}</td>
+                  <td>
+                    <span className="pill log-status">{statusLabels[row.status]}</span>
+                  </td>
+                  <td>{milliseconds(row.durationMs) ?? "—"}</td>
+                  <td>{amount(row.input + row.output)}</td>
+                  <td>{billing(row)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {nextCursor && (
+        <div className="log-pagination">
+          <button type="button" className="button quiet" onClick={() => setLimit((value) => value + pageSize)}>
+            Load older requests
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function LogsSection() {
+  const session = useWorkspaceSession();
+  const logs = useRemote<Logs>("console__logs");
+  const [lookup, setLookup] = useState("");
+  const [draft, setDraft] = useState(defaults);
+  const [requestId, setRequestId] = useState(() => new URLSearchParams(location.search).get("request"));
+  const state = logs.state;
+
+  const rows = useMemo(() => (state ? (visible(state) as LogRow[]) : []), [state]);
+  const allRows = useMemo(() => (state?.entries ?? []) as LogRow[], [state]);
+  const detailRow = requestId ? allRows.find((row) => row.id === requestId) : undefined;
+
+  if (session.state?.tag !== "SignedIn") {
+    return <SignInGate message="Connect a Solana wallet to view your request logs." />;
+  }
+
+  function closeDetail() {
+    window.history.replaceState(null, "", logPath);
+    setRequestId(null);
+  }
+
+  function openDetail(id: string) {
+    window.history.pushState(null, "", detailPath(id));
+    setRequestId(id);
+  }
+
+  async function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const id = lookup.trim();
-    if (rows.some((row) => row.id === id)) setDetail(id);
+    const applied = { ...draft, model: draft.model.trim(), keyName: draft.keyName.trim() };
+    setDraft(applied);
+    await logs.send({ type: "setWindow", window: windows[applied.days] ?? "Week" });
+    await logs.send({ type: "setProvider", provider: applied.provider });
+    await logs.send({
+      type: "setShowing",
+      showing: applied.status ? { tag: "One", status: lowerStatus[applied.status] } : { tag: "AnyStatus" },
+    });
+    await logs.send({ type: "setModel", model: applied.model });
+    await logs.send({ type: "setKeyName", keyName: applied.keyName });
+  }
+
+  function resetFilters() {
+    setDraft(defaults);
+    void logs.send({ type: "resetFilters" });
+  }
+
+  function refresh() {
+    if (!state) return;
+    void applyWindowlessFilters(draft);
+  }
+
+  async function applyWindowlessFilters(applied: typeof defaults) {
+    await logs.send({ type: "setWindow", window: windows[applied.days] ?? "Week" });
+    await logs.send({ type: "setProvider", provider: applied.provider });
+    await logs.send({
+      type: "setShowing",
+      showing: applied.status ? { tag: "One", status: lowerStatus[applied.status] } : { tag: "AnyStatus" },
+    });
+    await logs.send({ type: "setModel", model: applied.model.trim() });
+    await logs.send({ type: "setKeyName", keyName: applied.keyName.trim() });
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <section aria-label="Request log controls" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-        <form className="flex flex-wrap items-end gap-2" onSubmit={findRequest}>
-          <label className="flex min-w-64 flex-1 flex-col gap-1 text-xs text-muted-foreground">
+    <div className="telemetry-legacy console logs-legacy">
+      <WorkspaceHeading
+        icon={List}
+        title="Request logs"
+        description="Find inference requests and review routing, timing, token usage, and charges."
+      >
+        <a href="/console/usage" className="button quiet">
+          <Activity size={16} aria-hidden="true" /> View usage
+        </a>
+      </WorkspaceHeading>
+      <section className="panel log-filters" aria-label="Request log controls">
+        <form
+          className="log-lookup"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const id = lookup.trim().toLowerCase();
+            if (id) openDetail(id);
+          }}
+        >
+          <label>
             Find a request by reference
-            <Input
+            <input
               type="search"
               placeholder="Paste a request reference"
+              minLength={20}
+              maxLength={80}
+              pattern="[a-zA-Z0-9]{20,80}"
               spellCheck={false}
               autoComplete="off"
+              required
               value={lookup}
               onChange={(event) => setLookup(event.target.value)}
-              className="font-mono text-xs"
             />
           </label>
-          <Button type="submit" variant="outline" size="sm" disabled={!lookup.trim()}>
-            <Search size={15} aria-hidden /> Find request
-          </Button>
+          <button type="submit" className="button quiet">
+            <Search size={16} aria-hidden="true" /> Find request
+          </button>
         </form>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Date range
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-              value={window_}
-              onChange={(event) => applyWindow(event.target.value as Window)}
-            >
-              {windows.map(({ id, label }) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Provider
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-              value={state?.provider ?? ""}
-              onChange={(event) => void logs.send({ type: "setProvider", provider: event.target.value })}
-            >
-              <option value="">All providers</option>
-              {providerIds.map((id) => (
-                <option key={id} value={id}>
-                  {providerNames[id]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Status
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-              value={showing}
-              onChange={(event) =>
-                void logs.send({
-                  type: "setShowing",
-                  showing: event.target.value
-                    ? { tag: "One", status: event.target.value as LogStatus }
-                    : { tag: "AnyStatus" },
-                })
-              }
-            >
-              <option value="">All statuses</option>
-              {statuses.map((id) => (
-                <option key={id} value={id}>
-                  {statusLabels[id]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Model ID
-            <Input
-              value={state?.model ?? ""}
-              maxLength={100}
-              placeholder="Any model"
-              onChange={(event) => void logs.send({ type: "setModel", model: event.target.value })}
-              className="h-9 w-44 font-mono text-xs"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Key name
-            <Input
-              value={state?.keyName ?? ""}
-              maxLength={60}
-              placeholder="Any key"
-              onChange={(event) => void logs.send({ type: "setKeyName", keyName: event.target.value })}
-              className="h-9 w-36 font-mono text-xs"
-            />
-          </label>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => void logs.send({ type: "resetFilters" })}>
-              Reset
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section aria-labelledby="request-log-table-heading" className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h2 id="request-log-table-heading" className="text-base font-semibold">
-            Request history
-          </h2>
-          <Button variant="ghost" size="sm" disabled={!rows.length} onClick={exportRows}>
-            <Download size={15} aria-hidden /> Export loaded CSV
-          </Button>
-        </div>
-        <p role="status" className="text-xs text-muted-foreground">
-          {!state
-            ? "Loading request history…"
-            : rows.length
-              ? `${rows.length} ${rows.length === 1 ? "request" : "requests"} loaded`
-              : "No matching requests."}
-        </p>
-        {!!shown.length && (
-          <div className="overflow-x-auto rounded-lg border border-border" role="region" aria-labelledby="request-log-table-heading" tabIndex={0}>
-            <table aria-label="Request logs" className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th scope="col" className="p-3 font-medium">Request</th>
-                  <th scope="col" className="p-3 font-medium">Provider</th>
-                  <th scope="col" className="p-3 font-medium">Status</th>
-                  <th scope="col" className="p-3 font-medium">Duration</th>
-                  <th scope="col" className="p-3 font-medium">Tokens</th>
-                  <th scope="col" className="p-3 font-medium">Billing</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((row) => (
-                  <tr key={row.id} className="border-b border-border last:border-0">
-                    <th scope="row" className="p-3 text-left align-top font-normal">
-                      <button
-                        type="button"
-                        className="text-left hover:underline"
-                        aria-label={`View ${modelNames.get(row.model) ?? row.model} request ${row.id}`}
-                        onClick={() => setDetail(row.id)}
-                      >
-                        <span className="block text-sm font-medium">{modelNames.get(row.model) ?? row.model}</span>
-                        <span className="block font-mono text-xs text-muted-foreground">{shorten(row.id)}</span>
-                        <span className="block text-xs text-muted-foreground">{when(row.ageDays)}</span>
-                        <code className="block text-xs text-muted-foreground">/{row.endpoint}</code>
-                      </button>
-                    </th>
-                    <td className="p-3 align-top">{providerNames[row.provider] ?? row.provider}</td>
-                    <td className="p-3 align-top">
-                      <span className={cn("inline-flex rounded-full px-2 py-0.5 text-xs font-medium", statusTones[row.status])}>
-                        {statusLabels[row.status]}
-                      </span>
-                    </td>
-                    <td className="p-3 align-top whitespace-nowrap">{milliseconds(row.durationMs)}</td>
-                    <td className="p-3 align-top">{amount(row.input + row.output)}</td>
-                    <td className="p-3 align-top whitespace-nowrap">{billing(row)}</td>
-                  </tr>
+        <form className="log-filters-form" onSubmit={(event) => void applyFilters(event)}>
+          <div className="log-controls">
+            <label>
+              Date range
+              <select value={draft.days} onChange={(event) => setDraft({ ...draft, days: event.target.value })}>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+                <option value="all">All time</option>
+              </select>
+            </label>
+            <label>
+              Provider
+              <select value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })}>
+                <option value="">All providers</option>
+                {providerIds.map((id) => (
+                  <option key={id} value={id}>
+                    {providerNames[id]}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </label>
+            <label>
+              Status
+              <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
+                <option value="">All statuses</option>
+                {Object.keys(lowerStatus).map((id) => (
+                  <option key={id} value={id}>
+                    {statusLabels[lowerStatus[id]]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Model ID
+              <input
+                value={draft.model}
+                maxLength={100}
+                placeholder="Any model"
+                onChange={(event) => setDraft({ ...draft, model: event.target.value })}
+              />
+            </label>
+            <label>
+              Key name
+              <input
+                value={draft.keyName}
+                maxLength={60}
+                placeholder="Any key"
+                onChange={(event) => setDraft({ ...draft, keyName: event.target.value })}
+              />
+            </label>
           </div>
-        )}
-        {rows.length > shown.length && (
-          <Button variant="outline" size="sm" className="self-start" onClick={() => setLimit((n) => n + 50)}>
-            Load older requests
-          </Button>
-        )}
+          <div className="log-actions">
+            <button className="button accent" type="submit">
+              Apply filters
+            </button>
+            <button className="button quiet" type="button" onClick={resetFilters}>
+              Reset
+            </button>
+            <button className="button quiet" type="button" onClick={refresh}>
+              <RefreshCw size={15} aria-hidden="true" /> Refresh
+            </button>
+          </div>
+        </form>
       </section>
-      <RequestDetail row={detailRow} onClose={() => setDetail(null)} />
+      <LogResults key={state ? windowDays[state.window] + state.provider + state.model + state.keyName + state.showing.tag : "loading"} rows={rows} error={logs.error} open={openDetail} />
+      {requestId && <RequestDetail key={requestId} id={requestId} row={detailRow} close={closeDetail} />}
     </div>
   );
 }

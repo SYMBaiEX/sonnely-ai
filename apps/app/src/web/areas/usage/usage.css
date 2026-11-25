@@ -1,0 +1,106 @@
+.usage-legacy {
+  display: grid;
+  gap: 18px;
+}
+
+.usage-legacy .usage-filters {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.usage-legacy .usage-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 1fr));
+  gap: 10px 12px;
+}
+
+.usage-legacy .usage-filter-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.usage-legacy .usage-filter-grid select {
+  width: 100%;
+  min-width: 0;
+}
+
+.usage-legacy .usage-sample {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.usage-legacy .usage-sample p {
+  margin: 0;
+}
+
+.usage-legacy .usage-stats .stat {
+  align-content: start;
+  min-width: 0;
+}
+
+.usage-legacy .chart-panel .control-label,
+.usage-legacy .breakdown .control-label {
+  display: grid;
+  gap: 4px;
+}
+
+.usage-legacy .usage-max {
+  gap: 15px;
+}
+
+.usage-legacy .usage-max summary {
+  cursor: pointer;
+  font-weight: 620;
+  min-height: 44px;
+  align-content: center;
+}
+
+.usage-legacy .usage-max form {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.usage-legacy .usage-max form > .primary {
+  justify-self: start;
+  background: var(--action);
+  color: var(--accent-ink);
+}
+
+.usage-legacy .usage-max-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 12px;
+}
+
+.usage-legacy .usage-max-fields label {
+  display: grid;
+  gap: 5px;
+}
+
+.usage-legacy .button.secondary {
+  border-color: var(--line);
+  background: var(--raised);
+}
+
+.usage-legacy .workspace-compute-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 14px 18px;
+}
+
+.usage-legacy .workspace-compute-links h2 {
+  font-size: 15px;
+  margin-right: 10px;
+}
+
+.usage-legacy .workspace-compute-links p {
+  margin: 0;
+}

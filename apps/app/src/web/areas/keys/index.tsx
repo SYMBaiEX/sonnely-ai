@@ -1,23 +1,14 @@
-// spec/app/keys.md, "Story: Issue a key": the console's API key list, create, edit and revoke.
+/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated key-management class names and keeps the dialog workflow together */
+// spec/app/keys.md, "Story: Issue a key"
 import { ArrowUpRight, KeyRound, Plus } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
-import { Button, Card, CardTitle, EmptyState, Input, Label } from "@repo/ui";
 import { useRemote } from "../../remote.ts";
-
-const day = (time: number) => new Date(time).toISOString().slice(0, 10);
-const date = (time: number) => new Date(time).toLocaleDateString("en", { dateStyle: "medium", timeZone: "UTC" });
-const usd = (micros: number) => "$" + (micros / 1_000_000).toLocaleString("en-US", { minimumFractionDigits: 2 });
-
-/** Micro-USD from a USD field; "" means no cap, anything else must be at least $0.01. */
-const cap = (value: string) => {
-  if (!value.trim()) return 0;
-  const dollars = Number(value);
-  if (!Number.isFinite(dollars)) return 0;
-  const micros = Math.round(dollars * 1_000_000);
-  return micros >= 10_000 ? micros : -1;
-};
+import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
+import { CopyButton, Empty, Failure, WorkspaceHeading, creditBalance, date, day, parseCreditAmount } from "../console/logs-shared.tsx";
+import "../console/logs.css";
+import "./keys.css";
 
 const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
 function secret() {
@@ -30,311 +21,259 @@ async function sha256(text: string) {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function CapFields({ editing }: { editing?: Key }) {
+function capField(value: FormDataEntryValue | null) {
+  const text = (typeof value === "string" ? value : "").trim();
+  if (!text) return 0;
+  const parsed = parseCreditAmount(text);
+  return parsed === null ? -1 : parsed;
+}
+
+function formFields(form: HTMLFormElement) {
+  const fields = new FormData(form);
+  const expires = fields.get("expires");
+  return {
+    name: (() => { const value = fields.get("name"); return typeof value === "string" ? value.trim() : ""; })(),
+    cap: capField(fields.get("cap")),
+    dailyCap: capField(fields.get("daily")),
+    expiresAt: typeof expires === "string" && expires ? Date.parse(expires + "T23:59:59Z") : 0,
+  };
+}
+
+function CapFields({ editing, now }: { editing?: Key; now: number }) {
   return (
     <>
-      <Label className="flex flex-col gap-1 text-sm">
+      <label>
         Daily cap (USD)
-        <Input
-          name="daily"
-          type="number"
-          min="0.01"
-          step="0.01"
-          placeholder="Optional"
-          defaultValue={editing && editing.dailyCap !== 0 ? editing.dailyCap / 1_000_000 : ""}
-        />
-      </Label>
-      <Label className="flex flex-col gap-1 text-sm">
+        <input name="daily" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.dailyCap !== 0 ? editing.dailyCap / 1_000_000 : ""} />
+      </label>
+      <label>
         Lifetime cap (USD)
-        <Input
-          name="cap"
-          type="number"
-          min="0.01"
-          step="0.01"
-          placeholder="Optional"
-          defaultValue={editing && editing.cap !== 0 ? editing.cap / 1_000_000 : ""}
-        />
-      </Label>
-      <Label className="flex flex-col gap-1 text-sm">
+        <input name="cap" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.cap !== 0 ? editing.cap / 1_000_000 : ""} />
+      </label>
+      <label>
         Expires (UTC)
-        <Input
-          name="expires"
-          type="date"
-          min={day(Date.now())}
-          defaultValue={editing && editing.expiresAt !== 0 ? day(editing.expiresAt) : ""}
-        />
-      </Label>
+        <input name="expires" type="date" min={day(now)} defaultValue={editing && editing.expiresAt !== 0 ? day(editing.expiresAt) : ""} />
+      </label>
     </>
   );
 }
 
-function fields(form: HTMLFormElement) {
-  const data = new FormData(form);
-  const name = String(data.get("name") ?? "").trim();
-  const dailyCap = cap(String(data.get("daily") ?? ""));
-  const keyCap = cap(String(data.get("cap") ?? ""));
-  const dateValue = String(data.get("expires") ?? "");
-  const expiresAt = dateValue ? Date.parse(dateValue + "T23:59:59Z") : 0;
-  return { name, dailyCap, cap: keyCap, expiresAt };
-}
-
-export function render(page: Page): ReactNode {
-  if (page.tag !== "Console" || page.section !== "Keys") return null;
-  return <KeysArea />;
-}
-
-function KeysArea() {
-  const { state, send, error } = useRemote<Keys>("workspace-keys");
+function KeysConsole() {
+  const session = useWorkspaceSession();
+  const remote = useRemote<Keys>("workspace-keys");
+  const { state, error } = remote;
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Key>();
-  const [revoke, setRevoke] = useState<Key>();
-  const [shown, setShown] = useState<string>();
-  const [busy, setBusy] = useState(false);
+  const [key, setKey] = useState("");
   const [failure, setFailure] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [revoke, setRevoke] = useState<Key | null>(null);
+  const [editing, setEditing] = useState<Key | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const createButtonRef = useRef<HTMLButtonElement>(null);
+  const rowActionRef = useRef<HTMLButtonElement>(null);
+  const [status, setStatus] = useState("");
+  const signedIn = session.state?.tag === "SignedIn";
+  const data = state?.keys;
+  const [now] = useState(() => Date.now());
 
-  const keys = state?.keys ?? [];
-  const now = Date.now();
-  const today = day(now);
+  const focusHeading = (node: HTMLHeadingElement | null) => node?.focus();
 
-  async function run(event: object, success: () => void, message: string) {
+  function cancelRowAction() {
+    setEditing(null);
+    setRevoke(null);
+    rowActionRef.current?.focus();
+  }
+
+  function capInvalid(cap: number, dailyCap: number) {
+    return cap < 0 || dailyCap < 0;
+  }
+
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const values = formFields(event.currentTarget);
+    if (capInvalid(values.cap, values.dailyCap)) {
+      setFailure("Caps start at $0.01 and may use at most six decimal places.");
+      return;
+    }
     setBusy(true);
     setFailure("");
+    setKey("");
     try {
-      const ok = await send(event);
-      if (ok) success();
-      else setFailure(message);
+      const full = secret();
+      const hash = await sha256(full);
+      const ok = await remote.send({
+        type: "create",
+        id: crypto.randomUUID(),
+        label: values.name || "Workspace key",
+        prefix: full.slice(0, 20),
+        hash,
+        project: "",
+        scopes: ["inference"],
+        cap: values.cap,
+        dailyCap: values.dailyCap,
+        expiresAt: values.expiresAt,
+        now: Date.now(),
+      });
+      if (!ok) throw new Error("Could not create the key.");
+      setKey(full);
+      setOpen(false);
+      setStatus("");
+    } catch (cause) {
+      setFailure(cause instanceof Error ? cause.message : "Could not create the key.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const { name, dailyCap, cap: keyCap, expiresAt } = fields(event.currentTarget);
-    if (!name) return setFailure("Name the key."), undefined;
-    if (dailyCap < 0 || keyCap < 0) return setFailure("Caps start at $0.01."), undefined;
-    const full = secret();
-    const hash = await sha256(full);
-    await run(
-      {
-        type: "create",
-        id: crypto.randomUUID(),
-        label: name,
-        prefix: full.slice(0, 20),
-        hash,
-        project: "",
-        scopes: ["inference"],
-        cap: keyCap,
-        dailyCap,
-        expiresAt,
-        now: Date.now(),
-      },
-      () => {
-        setShown(full);
-        setOpen(false);
-      },
-      "Could not create the key.",
-    );
-  }
-
   async function update(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing) return;
-    const { name, dailyCap, cap: keyCap, expiresAt } = fields(event.currentTarget);
-    if (dailyCap < 0 || keyCap < 0) return setFailure("Caps start at $0.01."), undefined;
-    await run(
-      { type: "update", id: editing.id, label: name || editing.label, cap: keyCap, dailyCap, expiresAt, now: Date.now() },
-      () => setEditing(undefined),
-      "Could not update the key.",
-    );
+    const values = formFields(event.currentTarget);
+    if (capInvalid(values.cap, values.dailyCap)) {
+      setFailure("Caps start at $0.01 and may use at most six decimal places.");
+      return;
+    }
+    setBusy(true);
+    setFailure("");
+    try {
+      const ok = await remote.send({
+        type: "update",
+        id: editing.id,
+        label: values.name || editing.label,
+        cap: values.cap,
+        dailyCap: values.dailyCap,
+        expiresAt: values.expiresAt,
+        now: Date.now(),
+      });
+      if (!ok) throw new Error("Could not update the key.");
+      setEditing(null);
+      setStatus("API key updated.");
+      createButtonRef.current?.focus();
+    } catch (cause) {
+      setFailure(cause instanceof Error ? cause.message : "Could not update the key.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disable() {
+    if (!revoke) return;
+    setBusy(true);
+    setFailure("");
+    try {
+      const ok = await remote.send({ type: "revoke", id: revoke.id });
+      if (!ok) throw new Error("Could not revoke the key.");
+      setRevoke(null);
+      setStatus("API key revoked.");
+      createButtonRef.current?.focus();
+    } catch (cause) {
+      setFailure(cause instanceof Error ? cause.message : "Could not revoke the key.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6">
-      <header className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <KeyRound size={21} className="text-muted-foreground" aria-hidden />
-          <div>
-            <h1 className="font-serif text-3xl">API keys</h1>
-            <p className="text-sm text-muted-foreground">Issue keys, set spending limits, and revoke access.</p>
-          </div>
-        </div>
-        <Button
-          variant="primary"
-          size="sm"
+    <div className="telemetry-legacy console keys-legacy" key={attempt}>
+      <WorkspaceHeading icon={KeyRound} title="API keys" description="Issue keys, set spending limits, and revoke access.">
+        <button
+          type="button"
+          className="button accent"
+          ref={createButtonRef}
+          disabled={!signedIn || busy}
           aria-expanded={open}
-          disabled={busy}
           onClick={() => {
-            setEditing(undefined);
-            setRevoke(undefined);
-            setShown(undefined);
-            setOpen((current) => !current);
+            if (open) {
+              document.getElementById("key-form-heading")?.focus();
+              return;
+            }
+            setEditing(null);
+            setRevoke(null);
+            setStatus("");
+            setOpen(true);
+            setKey("");
+            setFailure("");
           }}
         >
-          <Plus size={15} aria-hidden /> Create key
-        </Button>
-      </header>
-
-      {(failure || error) && (
-        <p role="alert" className="text-sm text-destructive">
-          {failure || error}
-        </p>
-      )}
-
-      {shown && (
-        <Card aria-label="New API key">
-          <CardTitle>Save your new key</CardTitle>
-          <p className="text-sm text-muted-foreground">Store it securely. The full key is shown once.</p>
-          <code className="rounded-md border border-border bg-muted px-3 py-2 font-mono text-sm break-all">{shown}</code>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={() => void navigator.clipboard.writeText(shown)}>
-              Copy key
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShown(undefined)}>
-              Done
-            </Button>
+          <Plus size={17} /> Create key
+        </button>
+      </WorkspaceHeading>
+      <Failure message={failure || error || ""} />
+      {error && <button type="button" className="button quiet" onClick={() => setAttempt((value) => value + 1)}>Reload keys</button>}
+      <div role="status" className="visually-hidden">{status}</div>
+      {signedIn && !!key && (
+        <section className="panel callout" aria-label="New API key">
+          <div>
+            <h2 ref={focusHeading} tabIndex={-1}>Save your new key</h2>
+            <p>Store it securely. The full key is shown once.</p>
+            <code className="secret-code">{key}</code>
           </div>
-        </Card>
-      )}
-
-      {open && (
-        <Card asChild>
-          <form onSubmit={(event) => void create(event)} aria-label="Create an API key">
-            <CardTitle>Create an API key</CardTitle>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Label className="flex flex-col gap-1 text-sm">
-                Name
-                <Input name="name" maxLength={60} placeholder="CI, notebook, or app" required />
-              </Label>
-              <CapFields />
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" loading={busy}>
-                Create key
-              </Button>
-              <Button variant="ghost" size="sm" disabled={busy} onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {editing && (
-        <Card asChild>
-          <form onSubmit={(event) => void update(event)} aria-label={`Edit ${editing.label}`}>
-            <CardTitle>Edit {editing.label}</CardTitle>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Label className="flex flex-col gap-1 text-sm">
-                Name
-                <Input name="name" maxLength={60} defaultValue={editing.label} />
-              </Label>
-              <CapFields editing={editing} />
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" loading={busy}>
-                Save changes
-              </Button>
-              <Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(undefined)}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      {revoke && (
-        <Card>
-          <CardTitle>Revoke {revoke.label}?</CardTitle>
-          <p className="text-sm text-muted-foreground">Clients using this key will lose API access immediately.</p>
-          <div className="flex gap-2">
-            <Button
-              variant="destructive"
-              size="sm"
-              loading={busy}
-              onClick={() =>
-                void run({ type: "revoke", id: revoke.id }, () => setRevoke(undefined), "Could not revoke the key.")
-              }
-            >
-              Revoke key
-            </Button>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => setRevoke(undefined)}>
-              Cancel
-            </Button>
+          <div className="actions">
+            <CopyButton value={key} label="Copy key" />
+            <button type="button" className="button quiet" onClick={() => { setKey(""); createButtonRef.current?.focus(); }}>Done</button>
           </div>
-        </Card>
+        </section>
       )}
-
-      <Card className="p-0">
-        {keys.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" aria-label="Workspace API keys">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  {["Name", "Key", "Status", "Last used", "Created", "Daily / total", "Actions"].map((label) => (
-                    <th scope="col" className="px-4 py-3 font-medium" key={label}>
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {keys.map((item) => {
+      {signedIn && open && (
+        <form className="panel stack-panel" onSubmit={(event) => void create(event)}>
+          <h2 id="key-form-heading" ref={focusHeading} tabIndex={-1}>Create an API key</h2>
+          <div className="form-row">
+            <label>Name<input name="name" maxLength={60} placeholder="CI, notebook, or app" /></label>
+            <CapFields now={now} />
+          </div>
+          <div className="actions">
+            <button type="submit" className="button accent" disabled={busy}>{busy ? "Creating…" : "Create key"}</button>
+            <button type="button" className="button quiet" onClick={() => { setOpen(false); createButtonRef.current?.focus(); }} disabled={busy}>Cancel</button>
+          </div>
+        </form>
+      )}
+      {signedIn && editing && (
+        <form className="panel stack-panel" onSubmit={(event) => void update(event)} key={editing.id}>
+          <h2 id="key-form-heading" ref={focusHeading} tabIndex={-1}>Edit {editing.label}</h2>
+          <div className="form-row">
+            <label>Name<input name="name" maxLength={60} defaultValue={editing.label} /></label>
+            <CapFields editing={editing} now={now} />
+          </div>
+          <div className="actions">
+            <button type="submit" className="button accent" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
+            <button type="button" className="button quiet" onClick={cancelRowAction} disabled={busy}>Cancel</button>
+          </div>
+        </form>
+      )}
+      {signedIn && revoke && (
+        <div className="panel callout">
+          <div>
+            <h2 ref={focusHeading} tabIndex={-1}>Revoke {revoke.label}?</h2>
+            <p>Clients using this key will lose API access immediately.</p>
+          </div>
+          <div className="actions">
+            <button className="button danger" type="button" onClick={() => void disable()} disabled={busy}>Revoke key</button>
+            <button className="button quiet" type="button" onClick={cancelRowAction} disabled={busy}>Cancel</button>
+          </div>
+        </div>
+      )}
+      <div className="panel key-records">
+        {signedIn && data?.length ? (
+          <div className="table-wrap">
+            <table role="table" aria-label="Workspace API keys">
+              <thead role="rowgroup"><tr role="row">{["Name", "Key", "Status", "Last used", "Created", "Daily / total", "Actions"].map((label) => <th role="columnheader" scope="col" key={label}>{label}</th>)}</tr></thead>
+              <tbody role="rowgroup">
+                {data.map((item) => {
                   const expired = item.expiresAt !== 0 && item.expiresAt < now;
                   return (
-                    <tr className="border-b border-border last:border-0" key={item.id}>
-                      <th scope="row" className="px-4 py-3 text-left font-medium">
-                        {item.label}
-                      </th>
-                      <td className="px-4 py-3">
-                        <code className="font-mono text-xs">{item.prefix}…</code>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
-                          {item.status === "Revoked" ? "Revoked" : expired ? "Expired" : "Active"}
-                        </span>
-                        {item.expiresAt !== 0 && item.status === "Active" ? (
-                          <small className="block text-xs text-muted-foreground">Expires {date(item.expiresAt)} UTC</small>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3">{item.lastUsedAt !== 0 ? date(item.lastUsedAt) : "Never"}</td>
-                      <td className="px-4 py-3">{date(item.createdAt)}</td>
-                      <td className="px-4 py-3">
-                        {item.dailyCap !== 0 ? usd(item.dailyCap) : "—"} / {item.cap !== 0 ? usd(item.cap) : "—"}
-                        <small className="block text-xs text-muted-foreground">Today {usd(item.daySpent)}</small>
-                      </td>
-                      <td className="px-4 py-3">
+                    <tr role="row" key={item.id}>
+                      <th role="rowheader" scope="row">{item.label}</th>
+                      <td role="cell" className="key-record-prefix"><code>{item.prefix}…</code></td>
+                      <td role="cell"><span className="key-record-label" aria-hidden="true">Status</span><span className="pill">{item.status === "Revoked" ? "Revoked" : expired ? "Expired" : "Active"}</span>{item.expiresAt !== 0 && item.status === "Active" ? <small className="key-record-expiry">Expires {date(item.expiresAt)} UTC</small> : null}</td>
+                      <td role="cell"><span className="key-record-label" aria-hidden="true">Last used</span>{item.lastUsedAt !== 0 ? date(item.lastUsedAt) : "Never"}</td>
+                      <td role="cell"><span className="key-record-label" aria-hidden="true">Created</span>{date(item.createdAt)}</td>
+                      <td role="cell"><span className="key-record-label" aria-hidden="true">Daily / total cap</span>{item.dailyCap !== 0 ? creditBalance(item.dailyCap) : "—"} / {item.cap !== 0 ? creditBalance(item.cap) : "—"}<small className="key-record-expiry">Today {creditBalance(item.daySpent)}</small></td>
+                      <td role="cell" className="key-record-action">
                         {item.status === "Active" && item.project === "" && (
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              aria-label={`Edit ${item.label}`}
-                              disabled={busy}
-                              onClick={() => {
-                                setOpen(false);
-                                setShown(undefined);
-                                setRevoke(undefined);
-                                setEditing(item);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              aria-label={`Revoke ${item.label}`}
-                              disabled={busy}
-                              onClick={() => {
-                                setOpen(false);
-                                setShown(undefined);
-                                setEditing(undefined);
-                                setRevoke(item);
-                              }}
-                            >
-                              Revoke
-                            </Button>
-                          </div>
+                          <>
+                            <button type="button" className="button quiet small" aria-label={`Edit ${item.label}`} disabled={busy} onClick={(event) => { rowActionRef.current = event.currentTarget; setOpen(false); setKey(""); setRevoke(null); setStatus(""); setEditing(item); setFailure(""); }}>Edit</button>
+                            <button type="button" className="button quiet small" aria-label={`Revoke ${item.label}`} disabled={busy} onClick={(event) => { rowActionRef.current = event.currentTarget; setOpen(false); setKey(""); setEditing(null); setStatus(""); setRevoke(item); }}>Revoke</button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -344,16 +283,17 @@ function KeysArea() {
             </table>
           </div>
         ) : (
-          <EmptyState title={state === undefined ? "Loading keys…" : "No API keys to show"} icon={<KeyRound size={23} />}>
-            <p className="text-sm text-muted-foreground">
-              {state === undefined ? "Getting your workspace keys." : "Create a key to call the API from your own client."}
-            </p>
-            <a className="inline-flex items-center gap-1 text-sm underline" href="/docs/quickstart">
-              Read the quickstart <ArrowUpRight size={15} />
-            </a>
-          </EmptyState>
+          <Empty title={signedIn && error ? "API keys unavailable" : signedIn && !data ? "Loading keys…" : "No API keys to show"} icon={<KeyRound size={23} />}>
+            <p>{!signedIn ? "Connect a Solana wallet to open your workspace." : error ? "Try reloading the list." : data ? "Create a key to call the API from your own client." : "Getting your workspace keys."}</p>
+            {signedIn && error ? <button className="button quiet small" type="button" onClick={() => setAttempt((value) => value + 1)}>Reload keys</button> : <a className="text-link" href="/docs/quickstart">Read the quickstart <ArrowUpRight size={15} /></a>}
+          </Empty>
         )}
-      </Card>
-    </main>
+      </div>
+    </div>
   );
+}
+
+export function render(page: Page): ReactNode {
+  if (page.tag !== "Console" || page.section !== "Keys") return null;
+  return <ConsoleFrame section="Keys"><KeysConsole /></ConsoleFrame>;
 }

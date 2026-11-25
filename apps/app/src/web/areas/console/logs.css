@@ -1,0 +1,757 @@
+.telemetry-legacy {
+  --surface: #0c0b0e;
+  --card: #19171c;
+  --raised: #28232b;
+  --ink: #faf7f9;
+  --muted: #bcb3bf;
+  --line: #3c343f;
+  --accent: #ff515e;
+  --accent-ink: #fff;
+  --action: #cd2033;
+  --action-hover: #ae1324;
+  --active-fill: #421e2a;
+  --shadow: rgb(0 0 0 / 42%);
+  --focus-ring: #ff8592;
+  --control-edge: #7e7182;
+  --radius: 15px;
+  --font: var(--font-sans);
+  --mono: var(--font-mono);
+  --serif: var(--font-serif);
+  --console-control-size: 2.75rem;
+  --console-text: 1rem;
+  --console-caption: 0.875rem;
+  --console-selected: color-mix(in srgb, var(--active-fill) 82%, var(--surface));
+
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.telemetry-legacy,
+.telemetry-legacy * {
+  box-sizing: border-box;
+}
+
+.telemetry-legacy h1,
+.telemetry-legacy h2,
+.telemetry-legacy h3,
+.telemetry-legacy p,
+.telemetry-legacy dl,
+.telemetry-legacy dd,
+.telemetry-legacy pre {
+  margin: 0;
+}
+
+.telemetry-legacy h1,
+.telemetry-legacy h2,
+.telemetry-legacy h3 {
+  line-height: 1.12;
+  font-weight: 570;
+  letter-spacing: -0.035em;
+}
+
+.telemetry-legacy p {
+  line-height: 1.55;
+}
+
+.telemetry-legacy a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.telemetry-legacy button,
+.telemetry-legacy input,
+.telemetry-legacy textarea,
+.telemetry-legacy select {
+  font: inherit;
+  color: inherit;
+}
+
+.telemetry-legacy button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.telemetry-legacy button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.telemetry-legacy svg {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.telemetry-legacy :focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+}
+
+.telemetry-legacy code,
+.telemetry-legacy pre,
+.telemetry-legacy .mono {
+  font-family: var(--mono);
+}
+
+.telemetry-legacy input,
+.telemetry-legacy textarea,
+.telemetry-legacy select {
+  width: 100%;
+  border: 1px solid var(--control-edge);
+  background: var(--card);
+  border-radius: 9px;
+  padding: 10px 12px;
+  min-height: 42px;
+}
+
+.telemetry-legacy ::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.telemetry-legacy .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.telemetry-legacy .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 43px;
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-weight: 550;
+  font-size: 13px;
+  text-align: center;
+  white-space: nowrap;
+  transition: background 0.18s, border-color 0.18s, transform 0.18s;
+}
+
+.telemetry-legacy .button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.telemetry-legacy .button.accent {
+  background: var(--action);
+  color: var(--accent-ink);
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 6px 15px var(--shadow);
+}
+
+.telemetry-legacy .button.accent:not(:disabled):hover {
+  background: var(--action-hover);
+}
+
+.telemetry-legacy .button.quiet {
+  background: var(--card);
+  border-color: var(--line);
+}
+
+.telemetry-legacy .button.quiet:hover {
+  background: var(--raised);
+}
+
+.telemetry-legacy .button.small {
+  padding: 6px 9px;
+  min-height: 33px;
+  font-size: 12px;
+}
+
+.telemetry-legacy .button.danger {
+  background: #923b35;
+  color: white;
+}
+
+.telemetry-legacy .icon-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+}
+
+.telemetry-legacy .icon-button:hover {
+  background: var(--raised);
+}
+
+.telemetry-legacy .actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.telemetry-legacy .between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.telemetry-legacy .text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 560;
+  font-size: 13px;
+}
+
+.telemetry-legacy .text-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.telemetry-legacy .caption {
+  color: var(--muted);
+  font-size: var(--console-caption);
+}
+
+.telemetry-legacy .panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.telemetry-legacy .segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+}
+
+.telemetry-legacy .segmented button {
+  border: 0;
+  background: transparent;
+  padding: 6px 9px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  line-height: 1.45;
+}
+
+.telemetry-legacy .segmented button[aria-pressed="true"] {
+  background: var(--raised);
+  color: inherit;
+  font-weight: 600;
+}
+
+.telemetry-legacy .console-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  margin-block: 0 5px;
+  padding: 0 0 clamp(12px, 1.6vw, 21px);
+  border-bottom: 1px solid var(--line);
+}
+
+.telemetry-legacy .console-title-identity,
+.telemetry-legacy .console-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.telemetry-legacy .console-title-actions {
+  flex-wrap: wrap;
+}
+
+.telemetry-legacy .console-title-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  align-self: start;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--active-fill);
+}
+
+.telemetry-legacy .console-title h1 {
+  margin-bottom: 0.38rem;
+  font-size: clamp(1.75rem, 1.25rem + 1.6vw, 2.75rem);
+  font-weight: 630;
+  letter-spacing: -0.049em;
+  text-wrap: balance;
+}
+
+.telemetry-legacy .console-title p {
+  max-width: 65ch;
+  color: var(--muted);
+  font-size: var(--console-text);
+}
+
+.telemetry-legacy .console-title-actions .text-link {
+  min-height: 44px;
+}
+
+.telemetry-legacy .empty {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: clamp(18px, 4vw, 38px);
+  gap: 10px;
+}
+
+.telemetry-legacy .empty-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--accent);
+  background: var(--active-fill);
+}
+
+.telemetry-legacy .empty h2,
+.telemetry-legacy .callout h2,
+.telemetry-legacy .stack-panel h2,
+.telemetry-legacy .chart-panel h2,
+.telemetry-legacy .breakdown h2 {
+  font-size: 21px;
+}
+
+.telemetry-legacy .empty p,
+.telemetry-legacy .callout p {
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.telemetry-legacy .error,
+.telemetry-legacy .status {
+  border: 1px solid;
+  padding: 11px 14px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.telemetry-legacy .error {
+  color: #ffbbbf;
+  background: #391e28;
+  border-color: #7e3b4d;
+}
+
+.telemetry-legacy .status {
+  color: var(--ink);
+  background: var(--active-fill);
+  border-color: var(--line);
+}
+
+.telemetry-legacy .secret-code {
+  display: block;
+  overflow-wrap: anywhere;
+  background: var(--raised);
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.telemetry-legacy .stack-panel,
+.telemetry-legacy .callout,
+.telemetry-legacy .chart-panel,
+.telemetry-legacy .breakdown {
+  padding: 20px;
+}
+
+.telemetry-legacy .stack-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.telemetry-legacy .callout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+
+.telemetry-legacy .callout > div {
+  min-width: 0;
+}
+
+.telemetry-legacy .callout h2 {
+  margin: 4px 0 7px;
+}
+
+.telemetry-legacy .form-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.telemetry-legacy .form-row label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.telemetry-legacy .table-wrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.telemetry-legacy table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  text-align: left;
+}
+
+.telemetry-legacy th,
+.telemetry-legacy td {
+  padding: 13px 11px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+
+.telemetry-legacy thead th {
+  color: var(--muted);
+  font: 540 11px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.telemetry-legacy tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.telemetry-legacy .pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--muted);
+  font: 500 11px var(--mono);
+  white-space: nowrap;
+}
+
+.telemetry-legacy .bars span {
+  flex: 1;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+  min-width: 1px;
+}
+
+.telemetry-legacy .stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.telemetry-legacy .stat {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  min-width: 0;
+  background: var(--card);
+}
+
+.telemetry-legacy .stat > span:first-child {
+  font: 610 0.7rem/1.4 var(--mono);
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.telemetry-legacy .stat strong {
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  font-weight: 630;
+  letter-spacing: -0.042em;
+  font-size: clamp(20px, 2.7vw, 37px);
+  overflow-wrap: anywhere;
+}
+
+.telemetry-legacy .stat small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.telemetry-legacy .control-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.telemetry-legacy .chart-empty {
+  height: 235px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--muted);
+  text-align: center;
+  background: repeating-linear-gradient(to top, transparent 0 47px, var(--line) 48px 49px, transparent 50px);
+}
+
+.telemetry-legacy .chart-empty p,
+.telemetry-legacy .chart-empty svg {
+  background: var(--card);
+  padding: 2px;
+}
+
+.telemetry-legacy .chart-panel > .controls,
+.telemetry-legacy .breakdown > .controls {
+  margin-bottom: 16px;
+}
+
+.telemetry-legacy .bars {
+  height: 230px;
+  display: flex;
+  gap: 2px;
+  align-items: end;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.telemetry-legacy .compact-table {
+  max-height: 300px;
+  overflow: auto;
+}
+
+.telemetry-legacy .breakdown > .caption {
+  margin-top: 10px;
+}
+
+@media (width <= 920px) {
+  .telemetry-legacy .stat-grid,
+  .telemetry-legacy .form-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width <= 620px) {
+  .telemetry-legacy .stat-grid,
+  .telemetry-legacy .form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .telemetry-legacy .console-title,
+  .telemetry-legacy .between,
+  .telemetry-legacy .callout {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.logs-legacy {
+  display: grid;
+  gap: 18px;
+}
+
+.logs-legacy .log-filters {
+  display: grid;
+  gap: 16px;
+  padding: clamp(14px, 2.2vw, 22px);
+}
+
+.logs-legacy .log-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 12px;
+}
+
+.logs-legacy .log-controls label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.logs-legacy .log-controls :is(select, input) {
+  min-width: 0;
+  min-height: 44px;
+  width: 100%;
+}
+
+.logs-legacy .log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.logs-legacy .log-lookup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.logs-legacy .log-lookup label {
+  display: grid;
+  flex: 1 1 230px;
+  gap: 5px;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+
+.logs-legacy .log-lookup input {
+  min-width: 0;
+}
+
+.logs-legacy .log-panel {
+  margin-block-start: 0;
+  padding: clamp(14px, 2.2vw, 22px);
+}
+
+.logs-legacy .log-panel h2 {
+  font-size: 1.125rem;
+}
+
+.logs-legacy .log-panel table {
+  width: 100%;
+  text-align: start;
+}
+
+.logs-legacy .log-panel td,
+.logs-legacy .log-panel th {
+  vertical-align: middle;
+}
+
+.logs-legacy .log-model {
+  display: grid;
+  min-width: 13rem;
+  gap: 3px;
+  font-weight: 400;
+}
+
+.logs-legacy .log-status {
+  width: max-content;
+  white-space: nowrap;
+}
+
+.logs-legacy .log-pagination {
+  margin-block-start: 12px;
+}
+
+.logs-legacy .log-drawer {
+  width: min(39rem, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto 12px auto auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.logs-legacy .log-drawer::backdrop {
+  background: rgb(0 0 0 / 62%);
+}
+
+.logs-legacy .log-drawer header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.logs-legacy .log-drawer header h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.logs-legacy .log-drawer header button {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.logs-legacy .log-drawer-body {
+  padding: 16px 20px 22px;
+}
+
+.logs-legacy .log-drawer-body h3 {
+  margin-block: 18px 6px;
+  font-size: 0.95rem;
+}
+
+.logs-legacy .log-details {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.logs-legacy .log-details div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 10px;
+  padding-block: 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+.logs-legacy .log-details dt {
+  color: var(--muted);
+}
+
+.logs-legacy .log-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.logs-legacy .log-filters-form {
+  display: grid;
+  gap: 12px;
+}
+
+.logs-legacy .log-drawer-body > a {
+  display: inline-flex;
+  margin-top: 15px;
+  min-height: 44px;
+  align-items: center;
+}
+
+.logs-legacy .route-attempts {
+  display: grid;
+  gap: 5px;
+  padding-inline-start: 22px;
+  margin-block: 8px 12px;
+  color: var(--muted);
+}
+
+@media (width <= 460px) {
+  .logs-legacy .log-drawer {
+    margin: auto;
+  }
+
+  .logs-legacy .log-drawer header,
+  .logs-legacy .log-drawer-body {
+    padding-inline: 14px;
+  }
+}
