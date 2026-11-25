@@ -215,7 +215,13 @@ test("the API reference links endpoints and copies the canonical base URL", asyn
   await endpoints.getByRole("link", { name: /POST \/chat\/completions/ }).click();
   await expect(page).toHaveURL(/#create-a-completion$/);
   await expect(page.getByRole("heading", { name: "Create a completion" })).toBeVisible();
-  await expect(page.locator("pre").filter({ hasText: "SONNELY_API_KEY" })).toBeVisible();
+  const completionExample = page.getByRole("figure").filter({
+    has: page.getByText("Send a text completion", { exact: true }),
+  });
+  const completionCommand = completionExample.locator("pre");
+  await expect(completionCommand).toBeVisible();
+  await expect(completionCommand).toContainText("curl https://sonnely.com/api/sonnely/v1/chat/completions");
+  await expect(completionCommand).toContainText("Authorization: Bearer $SONNELY_API_KEY");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 });
 
