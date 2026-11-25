@@ -1,0 +1,279 @@
+.compute-legacy {
+  --surface: var(--background);
+  --ink: var(--foreground);
+  --card: var(--card);
+  --raised: var(--secondary);
+  --muted: var(--muted-foreground);
+  --line: var(--border);
+  --accent: var(--primary);
+  --accent-ink: var(--primary-foreground);
+  --action: var(--primary);
+  --action-hover: light-dark(#2036a5, #ae1324);
+  --active-fill: light-dark(#e0e7ff, #421e2a);
+  --glass: color-mix(in srgb, var(--popover) 84%, transparent);
+  --glass-solid: var(--popover);
+  --rim: light-dark(rgb(255 255 255 / 95%), rgb(255 231 239 / 13%));
+  --shadow: light-dark(rgb(26 38 94 / 12%), rgb(0 0 0 / 42%));
+  --haze: color-mix(in srgb, var(--primary) 22%, transparent);
+  --focus-ring: var(--ring);
+  --control-edge: var(--input);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --font: var(--font-sans);
+  --mono: var(--font-mono);
+  --serif: var(--font-serif);
+  --console-text: 1rem;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.compute-legacy,
+.compute-legacy * {
+  box-sizing: border-box;
+}
+
+.compute-legacy h1,
+.compute-legacy h2,
+.compute-legacy h3,
+.compute-legacy p,
+.compute-legacy dl,
+.compute-legacy dd,
+.compute-legacy pre {
+  margin: 0;
+}
+
+.compute-legacy h1,
+.compute-legacy h2,
+.compute-legacy h3 {
+  line-height: 1.12;
+  font-weight: 570;
+  letter-spacing: -0.035em;
+}
+
+.compute-legacy p {
+  line-height: 1.55;
+}
+
+.compute-legacy a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.compute-legacy button,
+.compute-legacy input,
+.compute-legacy textarea,
+.compute-legacy select {
+  font: inherit;
+  color: inherit;
+}
+
+.compute-legacy button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.compute-legacy button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.compute-legacy svg {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.compute-legacy :focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
+}
+
+.compute-legacy code,
+.compute-legacy pre,
+.compute-legacy .mono {
+  font-family: var(--mono);
+}
+
+.compute-legacy input,
+.compute-legacy textarea,
+.compute-legacy select {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--control-edge);
+  border-radius: 9px;
+  background: var(--card);
+}
+
+.compute-legacy ::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.compute-legacy .button {
+  display: inline-flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 550;
+  text-align: center;
+  white-space: nowrap;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    transform 0.18s;
+}
+
+.compute-legacy .button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.compute-legacy .button.ink,
+.compute-legacy .button.accent {
+  border-color: transparent;
+  background: var(--action);
+  color: var(--accent-ink);
+}
+
+.compute-legacy .button.ink:hover {
+  background: var(--action-hover);
+}
+
+.compute-legacy .button.accent {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    0 6px 15px var(--shadow);
+}
+
+.compute-legacy .button.accent:not(:disabled):hover {
+  background: var(--action-hover);
+}
+
+.compute-legacy .button.quiet {
+  border-color: var(--line);
+  background: var(--card);
+}
+
+.compute-legacy .button.quiet:hover {
+  background: var(--raised);
+}
+
+.compute-legacy .button.small {
+  min-height: 33px;
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.compute-legacy .button.danger {
+  background: #923b35;
+  color: white;
+}
+
+.compute-legacy .full {
+  width: 100%;
+}
+
+.compute-legacy .panel {
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--card);
+}
+
+.compute-legacy .workspace-feature {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--active-fill) 34%, var(--card)),
+    var(--card) 75%
+  );
+}
+
+.compute-legacy .console-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  margin-block: 0;
+  padding: 0 0 clamp(12px, 1.6vw, 21px);
+  border-bottom: 1px solid var(--line);
+}
+
+.compute-legacy .console-title-identity,
+.compute-legacy .console-title-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.compute-legacy .console-title-actions {
+  flex-wrap: wrap;
+}
+
+.compute-legacy .console-title-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  align-self: start;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--active-fill);
+  color: var(--accent);
+}
+
+.compute-legacy .console-title h1 {
+  margin-bottom: 0.38rem;
+  font-size: clamp(1.75rem, 1.25rem + 1.6vw, 2.75rem);
+  font-weight: 630;
+  letter-spacing: -0.049em;
+  text-wrap: balance;
+}
+
+.compute-legacy .console-title p {
+  max-width: 65ch;
+  color: var(--muted);
+  font-size: var(--console-text);
+}
+
+.compute-legacy .console-title,
+.compute-legacy .compute-workspace > * {
+  animation: compute-settle-in 0.42s var(--ease-out) both;
+}
+
+.compute-legacy .compute-workspace > :nth-child(n + 2) {
+  animation-delay: 0.04s;
+}
+
+.compute-legacy .compute-workspace > :nth-child(n + 3) {
+  animation-delay: 0.08s;
+}
+
+@keyframes compute-settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 680px) {
+  .compute-legacy .console-title-identity {
+    align-items: start;
+  }
+
+  .compute-legacy .console-title-icon {
+    width: 35px;
+    height: 35px;
+  }
+}
