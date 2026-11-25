@@ -1,0 +1,60 @@
+.admin-legacy-scope {
+  color: var(--ink);
+  font-family: var(--font);
+  min-width: 0;
+}
+
+.admin-legacy-scope input,
+.admin-legacy-scope textarea,
+.admin-legacy-scope select {
+  width: 100%;
+  border: 1px solid var(--control-edge);
+  background: var(--card);
+  border-radius: 9px;
+  padding: 10px 12px;
+  min-height: 42px;
+  font: inherit;
+  color: inherit;
+}
+
+.admin-legacy-scope textarea {
+  resize: vertical;
+}
+
+.admin-legacy-scope select {
+  appearance: none;
+  padding-inline-end: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 48%, var(--muted) 52%),
+    linear-gradient(135deg, var(--muted) 48%, transparent 52%);
+  background-position:
+    right 18px center,
+    right 13px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.admin-legacy-scope form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.admin-legacy-scope .admin-legacy-console .panel {
+  color: var(--ink);
+}
+
+.site .pill-ok {
+  color: #2f7d4f;
+  border-color: color-mix(in srgb, #2f7d4f 40%, var(--line));
+}
+
+.site .admin-nav-item.is-active {
+  color: var(--ink-1);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.admin-legacy-scope .admin-content {
+  min-width: 0;
+}
