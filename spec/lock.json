@@ -6,9 +6,165 @@
         "bc91ee4f398d"
       ]
     },
+    "spec/app/billing/deposits.md": {
+      "@document": [
+        "3e8f04d0edc8"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / An intent binds a transfer to the credit it buys": [
+        "cc58df745bbb",
+        "3e3d1f5faea1"
+      ],
+      "## Story: Open a payment intent": [
+        "70b5021559ef"
+      ],
+      "Story: Open a payment intent / Every intent's reference is unique": [
+        "2d35b3efaf84",
+        "b7240ea3fb2c",
+        "19a4fe6bf539"
+      ],
+      "Story: Open a payment intent / References are never reused": [
+        "e3b0c44298fc",
+        "d7ae2ccf48ac",
+        "19a4fe6bf539"
+      ],
+      "Story: Open a payment intent / Every open intent names a wallet and positive amounts": [
+        "e3b0c44298fc",
+        "2529919f130e",
+        "19a4fe6bf539"
+      ],
+      "## Story: Finalize a paid intent": [
+        "ff2e86621bc4"
+      ],
+      "Story: Finalize a paid intent / A finalized transfer is bound to wallet, asset, exact amounts and reference": [
+        "6898de617792",
+        "ec7eabef4d17",
+        "19a4fe6bf539"
+      ],
+      "Story: Finalize a paid intent / A signature finalizes at most one intent": [
+        "e3b0c44298fc",
+        "e40b866a6276",
+        "19a4fe6bf539"
+      ],
+      "Story: Finalize a paid intent / Once opened, an intent's terms never change and it never reopens": [
+        "e3b0c44298fc",
+        "e0f80b173886",
+        "19a4fe6bf539"
+      ],
+      "Story: Finalize a paid intent / An intent can be finalized": [
+        "e3b0c44298fc",
+        "3c536589e501",
+        "19a4fe6bf539"
+      ],
+      "## Story: Watch an intent expire": [
+        "6cb74813988a"
+      ],
+      "Story: Watch an intent expire / An expired intent can never be finalized": [
+        "bc16a90c1041",
+        "9905e8d86856",
+        "19a4fe6bf539"
+      ],
+      "Story: Watch an intent expire / An intent can expire": [
+        "e3b0c44298fc",
+        "f42805006275",
+        "19a4fe6bf539"
+      ],
+      "Story: Watch an intent expire / Finalizing is idempotent": [
+        "e3b0c44298fc",
+        "48c4d8226aa0",
+        "e678d0578c6f"
+      ],
+      "Story: Watch an intent expire / Expiring is idempotent": [
+        "e3b0c44298fc",
+        "cd61ad6d0a6f",
+        "9e7748e9f31b"
+      ]
+    },
     "spec/app/billing/index.md": {
       "@document": [
-        "b730eb4a02ea"
+        "8936235ddf26"
+      ]
+    },
+    "spec/app/billing/ledger.md": {
+      "@document": [
+        "3d8509d57dbd"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / The ledger is a balance over an append-only entry log": [
+        "ca5cbd1eb10a",
+        "88baf711c155"
+      ],
+      "## Story: Move credit": [
+        "484809cb5a8f"
+      ],
+      "Story: Move credit / A deposit credits the wallet once per reference": [
+        "e93afbc8869c",
+        "93f28f78393b",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / A charge spends only what the wallet holds": [
+        "e3b0c44298fc",
+        "e9ebc2f19f5a",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / A refund returns no more than its charge took": [
+        "e26012fa2c63",
+        "7eb16df52d54",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / The balance is always the sum of its entries": [
+        "e3b0c44298fc",
+        "d6ccc6097c50",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / The balance is never negative": [
+        "e3b0c44298fc",
+        "6d00ec953576",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / Entries are never rewritten or removed": [
+        "e3b0c44298fc",
+        "1dea09f362ca",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / A charge fires only while the balance covers it": [
+        "e3b0c44298fc",
+        "87a697c9ba7b",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / A reference appears as a credit at most once": [
+        "e3b0c44298fc",
+        "2d410e1717be",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / Credit can arrive": [
+        "e3b0c44298fc",
+        "f93cb6837b55",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / Inference can be charged": [
+        "e3b0c44298fc",
+        "a6333f18b6cb",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / A charge can be partly refunded": [
+        "e3b0c44298fc",
+        "5bccb298073e",
+        "1ce7c783cdb3"
+      ],
+      "Story: Move credit / Crediting a reference twice credits it once": [
+        "e3b0c44298fc",
+        "2ced7cf567a8",
+        "6df8bb49b5fa"
+      ],
+      "Story: Move credit / A charge debits exactly its amount": [
+        "e3b0c44298fc",
+        "53dd5f92f3a2",
+        "7c21f061130e"
       ]
     },
     "spec/app/compute/index.md": {

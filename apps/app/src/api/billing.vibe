@@ -1,0 +1,241 @@
+// spec/app/billing/index.md — the billing shell: the credit ledger and the deposit intents, stored
+// under "billing-ledger" and "billing-deposits", read-only over HTTP. The deposit endpoints quote,
+// bind and credit a transfer only after the configured cluster finalized it; the machines' own
+// guards decide what each event may do.
+import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
+import * as Deposits from "../../gen/app__billing__deposits.effect.vibe"
+import type { PaymentOrder } from "./billing/solana.ts"
+import * as solana from "./billing/solana.ts"
+import { store } from "../serve.vibe"
+
+/** Solana checkout is not configured (treasury, RPC or cluster missing). */
+export error CheckoutUnavailable { reason: string }
+/** The finalized transfer exists but does not bind this intent's terms. */
+export error PaymentMismatch { reason: string }
+/** The cluster could not be asked whether the transfer finalized. */
+export error VerificationUnavailable { reason: string }
+
+export interface BillingConfig {
+  cluster: string
+  rpc: string
+  recipient: string
+  mint: string
+}
+
+/** The on-chain verification the confirm endpoint trusts. */
+export service PaymentVerifier {
+  static readonly key = "@repo/app/billing/PaymentVerifier"
+  /** The signature of the transfer that finalized `order` from `wallet`, or null while none did. */
+  findFinalized(order: PaymentOrder, wallet: string, signature?: string): (string | null)!(PaymentMismatch | VerificationUnavailable)
+}
+
+const usdcWindow = 24 * 60 * 60_000
+const noStore = { "cache-control": "no-store" }
+
+effect function billingConfig(): BillingConfig!CheckoutUnavailable {
+  const cluster = Config.withDefault(Config.String("SOLANA_BILLING_CLUSTER"), "devnet") catch () => "devnet"
+  const rpc = Config.withDefault(Config.String("SOLANA_RPC_URL"), "") catch () => ""
+  const recipient = Config.withDefault(Config.String("SOLANA_TREASURY"), "") catch () => ""
+  const mint = solana.mints[cluster]
+  if (rpc == "" || mint == undefined || solana.isValidAddress(recipient) == false) {
+    throw new CheckoutUnavailable({ reason: "Checkout is unavailable." })
+  }
+  return { cluster, rpc, recipient, mint }
+}
+
+const paymentVerifier = Layer.effect(PaymentVerifier, effect {
+  const cluster = try Config.withDefault(Config.String("SOLANA_BILLING_CLUSTER"), "devnet")
+  const rpc = try Config.withDefault(Config.String("SOLANA_RPC_URL"), "")
+  return {
+    effect findFinalized(order: PaymentOrder, wallet: string, signature?: string) {
+      if (rpc == "" || solana.genesisHashes[cluster] == undefined) {
+        throw new VerificationUnavailable({ reason: "Payment verification is not configured." })
+      }
+      return try tryPromise({
+        try: () => solana.findFinalizedPayment(rpc, wallet, order, cluster, signature),
+        catch: (e) =>
+          e instanceof solana.PaymentRejected
+            ? new PaymentMismatch({ reason: e.message })
+            : new VerificationUnavailable({ reason: "Solana RPC could not verify the payment." }),
+      })
+    },
+  }
+})
+
+effect function reply(value: unknown, status: number = 200) {
+  return try HttpServerResponse.json(value, { status, headers: noStore })
+}
+
+interface ReadMachine {
+  get(): unknown!!
+  changes: Stream.Stream<unknown>
+}
+
+effect function getState(m: ReadMachine) {
+  return try reply(try m.get())
+}
+
+effect function getStream(m: ReadMachine) {
+  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
+// spec/app/billing/deposits.md, "Story: Open a payment intent": a fresh reference binds the wallet,
+// asset and exact on-chain amount of one intent; a SOL intent quotes its lamports at the live price.
+effect function openDeposit() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try reply({ error: "send application/json" }, 415)
+  }
+  const raw = request.json catch () => undefined
+  const input = raw as { wallet?: unknown; asset?: unknown; amount?: unknown } | undefined
+  const wallet = typeof input?.wallet == "string" ? input.wallet : ""
+  const amount = typeof input?.amount == "number" ? input.amount : 0
+  const asset = input?.asset == "SOL" ? "SOL" : input?.asset == "USDC" ? "USDC" : ""
+  if (asset == "" || wallet == "" || solana.isValidAddress(wallet) == false || Number.isSafeInteger(amount) == false || amount <= 0) {
+    return try reply({ ok: false, error: "A Solana wallet, an asset and a positive credit amount are required." }, 400)
+  }
+  const config = billingConfig() catch (e) => e
+  if (config instanceof CheckoutUnavailable) return try reply({ ok: false, error: config.reason }, 503)
+  if (config.recipient == wallet) return try reply({ ok: false, error: "Pay with a different wallet." }, 400)
+  const now = try Clock.currentTimeMillis
+  let atomic = amount
+  let expiresAt = now + usdcWindow
+  if (asset == "SOL") {
+    const quoted = try tryPromise({
+      try: () => solana.quoteSolPayment(amount),
+      catch: () => new CheckoutUnavailable({ reason: "SOL quote failed." }),
+    })
+    if (quoted == null) {
+      return try reply({ ok: false, error: "A fresh SOL/USD price is unavailable. Try again or pay with USDC." }, 503)
+    }
+    atomic = quoted.atomic
+    expiresAt = quoted.expiresAt
+  }
+  const reference = solana.newReference()
+  const deposits = try Deposits.Machine
+  const event: Deposits.Event = { type: "open", reference, wallet, asset, amount, atomic, createdAt: now, expiresAt }
+  const opened = deposits.send(event) catch (e) => e
+  if (opened instanceof Deposits.Rejected) return try reply({ ok: false, error: "This payment could not be opened." }, 409)
+  const order: PaymentOrder = { reference, recipient: config.recipient, mint: config.mint, asset, atomic }
+  const uri = solana.paymentUri(order)
+  const qr = tryPromise({ try: () => solana.paymentQr(uri), catch: () => new CheckoutUnavailable({ reason: "qr" }) }) catch () => null
+  const intent = { reference, wallet, asset, amount, atomic, createdAt: now, expiresAt, status: { tag: "Pending" } }
+  return try reply({ ok: true, intent, uri, qr })
+}
+
+// spec/app/billing/deposits.md, "Story: Finalize a paid intent": only a transfer the cluster finalized,
+// bound to the intent's wallet, asset, exact amount and reference, marks the intent Finalized; then the
+// ledger credits its wallet once per reference.
+effect function confirmDeposit() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try reply({ error: "send application/json" }, 415)
+  }
+  const raw = request.json catch () => undefined
+  const input = raw as { reference?: unknown; signature?: unknown } | undefined
+  const reference = typeof input?.reference == "string" ? input.reference : ""
+  const signature = typeof input?.signature == "string" ? input.signature : undefined
+  if (reference == "") return try reply({ ok: false, error: "A payment reference is required." }, 400)
+  const deposits = try Deposits.Machine
+  const state = try deposits.get()
+  const intent = Deposits.findIntent(state, reference)[0]
+  if (intent == undefined) return try reply({ ok: false, error: "Payment request unavailable." }, 404)
+  if (intent.status.tag == "Finalized") return try reply({ ok: true, signature: intent.status.signature })
+  if (intent.status.tag == "Expired") return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
+  const now = try Clock.currentTimeMillis
+  if (intent.expiresAt <= now) {
+    deposits.send({ type: "expire", reference, now }) catch () => undefined
+    return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
+  }
+  const config = billingConfig() catch (e) => e
+  if (config instanceof CheckoutUnavailable) return try reply({ ok: false, error: config.reason }, 503)
+  const order: PaymentOrder = {
+    reference: intent.reference,
+    recipient: config.recipient,
+    mint: config.mint,
+    asset: intent.asset,
+    atomic: intent.atomic,
+  }
+  const verifier = try PaymentVerifier
+  const verified = verifier.findFinalized(order, intent.wallet, signature) catch (e) => e
+  if (verified instanceof PaymentMismatch) return try reply({ ok: false, error: verified.reason }, 400)
+  if (verified instanceof VerificationUnavailable) return try reply({ ok: false, error: verified.reason }, 503)
+  const paid = verified as string | null
+  if (paid == null) return try reply({ ok: false, pending: true })
+  const event: Deposits.Event = {
+    type: "finalize",
+    reference,
+    signature: paid,
+    wallet: intent.wallet,
+    asset: intent.asset,
+    amount: intent.amount,
+    atomic: intent.atomic,
+    now,
+  }
+  const finalized = deposits.send(event) catch (e) => e
+  if (finalized instanceof Deposits.Rejected) {
+    return try reply({ ok: false, error: "This payment request is no longer open." }, 409)
+  }
+  const ledger = try Ledger.Machine
+  const credit: Ledger.Event = { type: "credit", wallet: intent.wallet, detail: reference, amount: intent.amount }
+  ledger.send(credit) catch () => undefined
+  return try reply({ ok: true, signature: paid })
+}
+
+/** What the console needs to build payment links: the treasury and cluster, or nothing when checkout is off. */
+effect function configRoute() {
+  const config = billingConfig() catch (e) => e
+  if (config instanceof CheckoutUnavailable) return try reply({ enabled: false }, 200)
+  return try reply({ enabled: true, cluster: config.cluster, recipient: config.recipient, mint: config.mint })
+}
+
+/** The ledger machine, stored under "billing-ledger". */
+export function ledgerMachine() {
+  return Ledger.stored("billing-ledger")
+}
+
+/** The deposit machine, stored under "billing-deposits". */
+export function depositsMachine() {
+  return Deposits.stored("billing-deposits")
+}
+
+/** An event from anywhere untrusted, decoded before the ledger's rules see it. */
+export effect function dispatchLedger(input: unknown) {
+  const machine = try Ledger.Machine
+  return try machine.receive(input)
+}
+
+/** An event from anywhere untrusted, decoded before the deposit rules see it. */
+export effect function dispatchDeposits(input: unknown) {
+  const machine = try Deposits.Machine
+  return try machine.receive(input)
+}
+
+// spec/app/billing/index.md — the API the console talks to: machine state and streams are read-only;
+// deposit opens and confirmations go through the guards above.
+export const billingApi = Layer.unwrap(effect {
+  const ledger = try Ledger.Machine
+  const deposits = try Deposits.Machine
+  return Layer.mergeAll(
+    HttpRouter.add("GET", "/api/billing/config", configRoute()),
+    HttpRouter.add("GET", "/api/machines/billing-ledger", getState(ledger)),
+    HttpRouter.add("GET", "/api/machines/billing-ledger/stream", getStream(ledger)),
+    HttpRouter.add("GET", "/api/machines/billing-deposits", getState(deposits)),
+    HttpRouter.add("GET", "/api/machines/billing-deposits/stream", getStream(deposits)),
+    HttpRouter.add("POST", "/api/billing/deposits", provideService(openDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("POST", "/api/billing/deposits/confirm", provideService(confirmDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    paymentVerifier,
+  )
+})
+
+/** The billing machines' state, kept under `dir`. */
+export function billingState(dir: string) {
+  return Layer.mergeAll(
+    Layer.provide(Ledger.stored("billing-ledger"), store(dir)),
+    Layer.provide(Deposits.stored("billing-deposits"), store(dir)),
+  )
+}
