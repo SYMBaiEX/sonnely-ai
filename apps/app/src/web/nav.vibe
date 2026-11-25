@@ -1,0 +1,24 @@
+// spec/app/nav.md, "Story: Move around": the pages a visitor moves over, kept in the browser's storage.
+import { Machine, stored } from "../../gen/app__nav.effect.vibe"
+import type { Page } from "../../gen/app__nav.ts"
+
+/** The navigator, kept under "nav". */
+export const nav = stored("nav")
+
+/** A page opened from a link in the page. */
+export effect function open(page: Page) {
+  const machine = try Machine
+  return try machine.send({ type: "open", page })
+}
+
+/** The browser's own back button. */
+export effect function back() {
+  const machine = try Machine
+  return try machine.send({ type: "back" })
+}
+
+/** An event from anywhere untrusted, decoded before the rules see it. */
+export effect function dispatch(input: unknown) {
+  const machine = try Machine
+  return try machine.receive(input)
+}

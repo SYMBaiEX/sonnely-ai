@@ -1,0 +1,5 @@
+effect function health() {
+  return try HttpServerResponse.json({ ok: true, service: "sonnely" }, { headers: { "cache-control": "no-store" } })
+}
+
+export const healthApi = HttpRouter.add("GET", "/api/health", health())

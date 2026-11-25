@@ -1,0 +1,73 @@
+// spec/app/nav.md, "Pages and console sections": the address a Page is shown at, and the Page an address opens.
+import type { Page, Section } from "../../gen/app__nav.ts";
+
+const sections: Record<string, Section> = {
+  chat: "Chat",
+  models: "Catalog",
+  keys: "Keys",
+  usage: "Usage",
+  logs: "Logs",
+  batch: "Batch",
+  blackboxes: "Consoles",
+  "dry-docks": "Docks",
+  billing: "Billing",
+  teams: "Teams",
+  referrals: "Referrals",
+  support: "Support",
+  settings: "Settings",
+  admin: "Admin",
+};
+
+const sectionPaths = Object.fromEntries(Object.entries(sections).map(([path, section]) => [section, path]));
+
+export function pathOf(page: Page): string {
+  switch (page.tag) {
+    case "Home": return "/";
+    case "Inference": return "/inference";
+    case "Observability": return "/observability";
+    case "Compute": return "/compute";
+    case "Blackboxes": return "/blackboxes";
+    case "DryDocks": return "/dry-docks";
+    case "Models": return "/models";
+    case "Model": return `/models/${page.provider}/${page.model}`;
+    case "Status": return "/status";
+    case "Post": return `/blog/${page.slug}`;
+    case "Privacy": return "/privacy";
+    case "Terms": return "/terms";
+    case "Verify": return "/verify";
+    case "Contact": return "/contact";
+    case "Docs": return "/docs";
+    case "Doc": return `/docs/${page.slug}`;
+    case "Console": return `/console/${sectionPaths[page.section] ?? "chat"}${page.section === "Admin" && page.area ? `/${page.area}` : ""}`;
+    case "Unknown": return "/404";
+  }
+}
+
+export function pageOf(path: string): Page {
+  const clean = path.replace(/\/+$/, "") || "/";
+  if (clean === "/") return { tag: "Home" };
+  const parts = clean.slice(1).split("/");
+  switch (parts[0]) {
+    case "inference": return { tag: "Inference" };
+    case "observability": return { tag: "Observability" };
+    case "compute": return { tag: "Compute" };
+    case "blackboxes": return { tag: "Blackboxes" };
+    case "dry-docks": return { tag: "DryDocks" };
+    case "models":
+      return parts.length > 2
+        ? { tag: "Model", provider: parts[1], model: parts.slice(2).join("/") }
+        : { tag: "Models" };
+    case "status": return { tag: "Status" };
+    case "blog": return parts[1] ? { tag: "Post", slug: parts.slice(1).join("/") } : { tag: "Home" };
+    case "privacy": return { tag: "Privacy" };
+    case "terms": return { tag: "Terms" };
+    case "verify": return { tag: "Verify" };
+    case "contact": return { tag: "Contact" };
+    case "docs": return parts[1] ? { tag: "Doc", slug: parts.slice(1).join("/") } : { tag: "Docs" };
+    case "console": {
+      const section = sections[parts[1] ?? "chat"] ?? "Chat";
+      return { tag: "Console", section, area: section === "Admin" ? (parts[2] ?? "") : "" };
+    }
+    default: return { tag: "Unknown" };
+  }
+}

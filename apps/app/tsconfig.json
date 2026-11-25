@@ -16,7 +16,11 @@
     "rootDirs": [
       ".",
       ".vibe/declarations"
-    ]
+    ],
+    "outDir": "dist",
+    "noEmit": false,
+    "noEmitOnError": true,
+    "rewriteRelativeImportExtensions": true
   },
   "include": [
     "src",

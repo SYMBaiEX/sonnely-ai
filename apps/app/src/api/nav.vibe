@@ -1,0 +1,12 @@
+// spec/app/nav.md, "Story: Move around"
+import { Machine, stored } from "../../gen/app__nav.effect.vibe"
+import { machineApi } from "../machines.vibe"
+import { store } from "../serve.vibe"
+
+export const navApi = Layer.unwrap(effect {
+  return machineApi("nav", try Machine)
+})
+
+export function navState(dir: string) {
+  return Layer.provide(stored("nav"), store(dir))
+}

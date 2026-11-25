@@ -1,0 +1,3 @@
+# teams
+
+The teams area.

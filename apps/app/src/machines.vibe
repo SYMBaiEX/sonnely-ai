@@ -1,0 +1,46 @@
+// A domain area (spec/app/<area>.md -> gen/app__<area>.ts) mounts `machineApi("<area>", try Machine)`
+// in its src/api/<area>.vibe, stored server-side as `Layer.provide(stored("<area>"), store(dir))`.
+
+export interface MachineLike {
+  get(): unknown!!
+  receive(input: unknown): any!any
+  changes: Stream.Stream<unknown>
+}
+
+const noStore = { "cache-control": "no-store" }
+
+effect function getState(m: MachineLike) {
+  return try HttpServerResponse.json(try m.get(), { headers: noStore })
+}
+
+effect function postEvent(m: MachineLike) {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
+  }
+  const input = request.json catch () => undefined
+  const sent = m.receive(input) catch (error) => error
+  const rejected = sent as { _tag?: string; state?: unknown }
+  if (rejected && typeof rejected === "object" && "_tag" in rejected) {
+    const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
+    return try HttpServerResponse.json({ ok: false, error: rejected._tag, state: rejected.state }, { status, headers: noStore })
+  }
+  return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
+}
+
+effect function getStream(m: MachineLike) {
+  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
+/** state, event and stream endpoints over one spec machine, mounted at /api/machines/<name>. */
+export function machineApi(name: string, m: MachineLike) {
+  return Layer.mergeAll(
+    HttpRouter.add("GET", `/api/machines/${name}`, getState(m)),
+    HttpRouter.add("POST", `/api/machines/${name}`, provideService(postEvent(m), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m)),
+  )
+}

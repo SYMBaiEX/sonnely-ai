@@ -1,0 +1,12 @@
+// spec/app/session.md, "Story: Sign in with a wallet"
+import { Machine, stored } from "../../gen/app__session.effect.vibe"
+import { machineApi } from "../machines.vibe"
+import { store } from "../serve.vibe"
+
+export const sessionApi = Layer.unwrap(effect {
+  return machineApi("session", try Machine)
+})
+
+export function sessionState(dir: string) {
+  return Layer.provide(stored("session"), store(dir))
+}
