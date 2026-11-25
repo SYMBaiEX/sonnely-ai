@@ -1,0 +1,47 @@
+// spec/app/docs/index.md, "Story: Serve the documentation as markdown"
+import { isDoc } from "../../gen/app__docs.effect.vibe"
+import { llmsFull, llmsIndex, pageMarkdown, searchDocs } from "../docs.ts"
+
+const markdown = { "content-type": "text/markdown; charset=utf-8" }
+const plain = { "content-type": "text/plain; charset=utf-8" }
+const noStore = { "cache-control": "no-store" }
+
+effect function llmsTxt() {
+  const text = try Effect.orDie(Effect.try(() => llmsIndex()))
+  return HttpServerResponse.text(text, { headers: plain })
+}
+
+effect function llmsFullTxt() {
+  const text = try Effect.orDie(Effect.try(() => llmsFull()))
+  return HttpServerResponse.text(text, { headers: plain })
+}
+
+effect function indexMd() {
+  const text = try Effect.orDie(Effect.try(() => pageMarkdown("index")))
+  return HttpServerResponse.text(text, { headers: markdown })
+}
+
+effect function docMd() {
+  const params = try HttpRouter.params
+  const slug = params.slug ?? ""
+  if (!isDoc(slug)) return HttpServerResponse.text("Not found", { status: 404, headers: plain })
+  const text = try Effect.orDie(Effect.try(() => pageMarkdown(slug)))
+  return HttpServerResponse.text(text, { headers: markdown })
+}
+
+effect function search() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const query = new URL(request.url, "http://docs").searchParams.get("query") ?? ""
+  const results = try Effect.orDie(Effect.try(() => searchDocs(query)))
+  return try HttpServerResponse.json(results, { headers: noStore })
+}
+
+/** The documentation feeds, the search endpoint and the api-reference redirect, all reading the same catalog. */
+export const docsApi = Layer.mergeAll(
+  HttpRouter.add("GET", "/llms.txt", llmsTxt()),
+  HttpRouter.add("GET", "/llms-full.txt", llmsFullTxt()),
+  HttpRouter.add("GET", "/llms.mdx/docs/content.md", indexMd()),
+  HttpRouter.add("GET", "/llms.mdx/docs/:slug/content.md", docMd()),
+  HttpRouter.add("GET", "/api/search", search()),
+  HttpRouter.add("GET", "/docs/api-reference", HttpServerResponse.redirect("/docs/api", { status: 308 })),
+)

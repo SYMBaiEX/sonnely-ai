@@ -369,7 +369,88 @@
     },
     "spec/app/docs/index.md": {
       "@document": [
-        "5c71da65d19c"
+        "d819ca20fc3a"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A doc is a page of the documentation": [
+        "2568eab7fcbf",
+        "7fe7b31df164"
+      ],
+      "Domain / The catalog lists every guide in sidebar order": [
+        "d5fc8b50213f",
+        "ad08a8c66eda",
+        "b2644373e008"
+      ],
+      "Domain / The docs a slug names are found in the catalog": [
+        "f6657d389203",
+        "d33b559b91da",
+        "30e7355a1a2c"
+      ],
+      "## Story: Read the documentation": [
+        "857732ca033e"
+      ],
+      "Story: Read the documentation / Every guide is listed once": [
+        "1deed32c5101",
+        "07cdc09c1c1a",
+        "6f133c4d45a7"
+      ],
+      "Story: Read the documentation / The sidebar leads with the overview": [
+        "e3b0c44298fc",
+        "641d2b553d05",
+        "6f133c4d45a7"
+      ],
+      "Story: Read the documentation / Every guide sits in a named section": [
+        "0baaf63e6497",
+        "068e26040bf6",
+        "6f133c4d45a7"
+      ],
+      "Story: Read the documentation / Each section lists its guides": [
+        "bd9579bf4101",
+        "2164593c4d2c",
+        "6f133c4d45a7"
+      ],
+      "Story: Read the documentation / A guide is found by its slug": [
+        "e3b0c44298fc",
+        "1fc12c476627",
+        "6f133c4d45a7"
+      ],
+      "## Story: Move between guides": [
+        "7e59cb118b33"
+      ],
+      "Story: Move between guides / Previous and next follow the catalog order": [
+        "dd17af011d87",
+        "70aa77234e30",
+        "6f133c4d45a7"
+      ],
+      "Story: Move between guides / The ends of the catalog have no neighbour": [
+        "e3b0c44298fc",
+        "9f64180365d3",
+        "30e7355a1a2c"
+      ],
+      "Story: Move between guides / A guide's neighbours are guides": [
+        "e3b0c44298fc",
+        "db17aa7f1252",
+        "6f133c4d45a7"
+      ],
+      "## Story: Serve the documentation as markdown": [
+        "ecd86e492de8"
+      ],
+      "Story: Serve the documentation as markdown / The catalog holds the guides the product ships": [
+        "14f7b80cbcf6",
+        "6ada5d8c56fd",
+        "30e7355a1a2c"
+      ],
+      "Story: Serve the documentation as markdown / Every doc a feed serves is readable": [
+        "9b5bc8b27cbd",
+        "75575e7bfa1c",
+        "6f133c4d45a7"
+      ],
+      "Story: Serve the documentation as markdown / Every endpoint the reference lists is documented": [
+        "9315137d3e66",
+        "da9dc41d0c1b",
+        "6f133c4d45a7"
       ]
     },
     "spec/app/gateway/index.md": {
