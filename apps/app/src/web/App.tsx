@@ -6,6 +6,7 @@ import { useMachine } from "../../gen/app__nav.react.ts";
 import type { Page } from "../../gen/app__nav.ts";
 import { back, open } from "./nav.vibe";
 import { pageOf, pathOf } from "./routes.ts";
+import { titleOf } from "./titles.ts";
 
 export interface AreaModule {
   /** The page this area renders, or null to leave it to another area. */
@@ -40,15 +41,24 @@ export function App({ runtime, path }: AppProps) {
   }, [runtime]);
 
   if (!state) return null;
+  let shown: React.ReactNode;
   for (const key of Object.keys(areas)) {
-    const shown = areas[key].render(state.page);
-    if (shown !== null && shown !== undefined) return shown as React.ReactElement;
+    const rendered = areas[key].render(state.page);
+    if (rendered !== null && rendered !== undefined) {
+      shown = rendered;
+      break;
+    }
   }
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-      <h1 className="text-2xl font-semibold">Page not found</h1>
-      <p className="text-muted-foreground">Nothing is at this address.</p>
-    </main>
+    <>
+      <title>{titleOf(state.page)}</title>
+      {shown ?? (
+        <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
+          <h1 className="text-2xl font-semibold">Page not found</h1>
+          <p className="text-muted-foreground">Nothing is at this address.</p>
+        </main>
+      )}
+    </>
   );
 }
 
