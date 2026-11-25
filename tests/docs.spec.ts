@@ -6,12 +6,14 @@ test("the Platform menu exposes the enabled product pages on desktop and mobile"
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main navigation" });
     const headerMenu = page.getByRole("button", { name: "Open navigation", exact: true });
+    const trigger = nav.locator("summary");
     if (width === 320) {
       await expect(nav).toBeHidden();
-      await headerMenu.click();
+      await headerMenu.press("Enter");
+    } else {
+      await trigger.focus();
     }
-    const trigger = nav.locator("summary");
-    await trigger.focus();
+    await expect(trigger).toBeFocused();
     await page.keyboard.press("Enter");
     const panel = nav.getByRole("list", { name: "Platform pages" });
     const routes = await panel
@@ -19,8 +21,13 @@ test("the Platform menu exposes the enabled product pages on desktop and mobile"
       .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
     expect(routes).toEqual(["/inference", "/observability", "/compute"]);
 
+    const firstLink = panel.getByRole("link", { name: /^Confidential inference/ });
     await page.keyboard.press("Tab");
-    await expect(panel.getByRole("link", { name: /Confidential inference/ })).toBeFocused();
+    await expect(firstLink).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(panel.getByRole("link", { name: /^Observability/ })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(firstLink).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(panel).toBeHidden();
     await expect(trigger).toBeFocused();
@@ -215,7 +222,13 @@ test("the API reference links endpoints and copies the canonical base URL", asyn
   await endpoints.getByRole("link", { name: /POST \/chat\/completions/ }).click();
   await expect(page).toHaveURL(/#create-a-completion$/);
   await expect(page.getByRole("heading", { name: "Create a completion" })).toBeVisible();
-  await expect(page.locator("pre").filter({ hasText: "SONNELY_API_KEY" })).toBeVisible();
+  const completionExample = page.getByRole("figure").filter({
+    has: page.getByText("Send a text completion", { exact: true }),
+  });
+  const completionCommand = completionExample.locator("pre");
+  await expect(completionCommand).toBeVisible();
+  await expect(completionCommand).toContainText("curl https://sonnely.com/api/sonnely/v1/chat/completions");
+  await expect(completionCommand).toContainText("Authorization: Bearer $SONNELY_API_KEY");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
 });
 
