@@ -1,4 +1,4 @@
-// spec/app/nav.md, "Story: Move around": the page the navigator is on, rendered by the area that owns it.
+// spec/app/nav.md, "Story: Move around"
 import { Exit, type ManagedRuntime } from "effect";
 import { useEffect } from "react";
 import type { Machine } from "../../gen/app__nav.effect.vibe";
@@ -12,7 +12,7 @@ export interface AreaModule {
   render(page: Page): React.ReactNode;
 }
 
-const areas = import.meta.glob("./areas/*/index.tsx", { eager: true }) as Record<string, AreaModule>;
+const areas = import.meta.glob<AreaModule>("./areas/*/index.tsx", { eager: true });
 
 export interface AppProps {
   /** Provides the navigator: `nav` of nav.vibe over a store. */
@@ -57,6 +57,6 @@ export async function navigate(runtime: ManagedRuntime.ManagedRuntime<Machine, u
   if (Exit.isSuccess(exit)) history.pushState(null, "", pathOf(page));
   return exit;
 }
-export function useNavigate(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>) {
+export function navigateWith(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>) {
   return (page: Page) => navigate(runtime, page);
 }

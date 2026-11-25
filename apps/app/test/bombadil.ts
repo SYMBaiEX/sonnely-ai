@@ -5,7 +5,11 @@ import { always, now } from "@antithesishq/bombadil";
 import { extract } from "@antithesishq/bombadil/browser";
 export * from "@antithesishq/bombadil/browser/defaults";
 
-const landmark = extract(({ document }) => document.querySelector("main, [role='main'], header, nav") !== null);
+const landmark = extract(
+  ({ document }) =>
+    document.contentType !== "text/html" ||
+    document.querySelector("main, [role='main'], header, nav") !== null,
+);
 
-/** A page always shows a landmark element. */
+/** An HTML page always shows a landmark element. */
 export const alwaysShowsALandmark = always(now(() => landmark.current));

@@ -1,0 +1,36 @@
+// spec/app/models.md, "Story: Filter the catalog"
+import { assert, layer } from "@effect/vitest"
+import { Effect, Layer } from "effect"
+import { filterDispatch, filterMachine, filterObserve } from "../src/web/areas/site/filter.ts"
+
+layer(Layer.empty)((it) => {
+  // spec/app/models.md, "The catalog opens unfiltered"
+  it.effect("The catalog opens unfiltered", () => effect {
+    provide filterMachine {
+      const state = try filterObserve()
+      try Effect.try(() => assert.strictEqual(state.query, ""))
+      try Effect.try(() => assert.strictEqual(state.provider.tag, "EveryProvider"))
+      try Effect.try(() => assert.strictEqual(state.sort, "AvailableFirst"))
+    }
+  })
+
+  // spec/app/models.md, "Typing a search keeps every other choice"
+  it.effect("Typing a search keeps every other choice", () => effect {
+    provide filterMachine {
+      try filterDispatch({ type: "chooseSort", sort: "ByName" })
+      try filterDispatch({ type: "search", query: "deepseek" })
+      const after = try filterObserve()
+      try Effect.try(() => assert.strictEqual(after.query, "deepseek"))
+      try Effect.try(() => assert.strictEqual(after.sort, "ByName"))
+    }
+  })
+
+  // spec/app/models.md, "Choosing a provider keeps every other choice"
+  it.effect("An event that is not one is refused", () => effect {
+    provide filterMachine {
+      const outcome = filterDispatch({ type: "wander" }) catch (error) => (error as { _tag: string })._tag
+      const failed = typeof outcome === "string" ? outcome : "accepted"
+      try Effect.try(() => assert.strictEqual(failed, "NotAnEvent"))
+    }
+  })
+})

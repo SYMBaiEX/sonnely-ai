@@ -1,0 +1,55 @@
+// spec/app/site/index.md, "Story: Check the service status"
+import { assert, layer } from "@effect/vitest"
+import { Effect, Layer } from "effect"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
+import type { Report } from "../gen/app__site.ts"
+import { board, dispatch, site } from "../src/api/site.vibe"
+
+const storedSite = () => Layer.provide(site, KeyValueStore.layerMemory)
+
+const okReport: Report = {
+  accountUp: true,
+  mainnetUp: true,
+  recoveryUp: true,
+  probes: [{ provider: "near-ai", label: "NEAR AI", state: "Ok" }],
+}
+
+layer(Layer.empty)((it) => {
+  // spec/app/site/index.md, "A report can come in"
+  it.effect("The board waits, then stands on a report", () => effect {
+    provide storedSite() {
+      const before = try board()
+      try Effect.try(() => assert.strictEqual(before.tag, "Waiting"))
+      try dispatch({ type: "report", found: okReport })
+      const after = try board()
+      try Effect.try(() => assert.strictEqual(after.tag, "Live"))
+      try Effect.try(() => assert.strictEqual(after.tag === "Live" ? after.report.accountUp : false, true))
+    }
+  })
+
+  // spec/app/site/index.md, "A report counts only when every probe names what it watches"
+  it.effect("A report with an unnamed probe is refused", () => effect {
+    provide storedSite() {
+      const bad: Report = {
+        accountUp: true,
+        mainnetUp: true,
+        recoveryUp: true,
+        probes: [{ provider: "", label: "NEAR AI", state: "Ok" }],
+      }
+      const outcome = dispatch({ type: "report", found: bad }) catch (error) => (error as { _tag: string })._tag
+      const failed = typeof outcome === "string" ? outcome : "accepted"
+      try Effect.try(() => assert.strictEqual(failed, "Rejected"))
+      const after = try board()
+      try Effect.try(() => assert.strictEqual(after.tag, "Waiting"))
+    }
+  })
+
+  // spec/app/site/index.md, "The board only ever waits or stands on a report"
+  it.effect("An event that is not one is refused", () => effect {
+    provide storedSite() {
+      const outcome = dispatch({ type: "jump" }) catch (error) => (error as { _tag: string })._tag
+      const failed = typeof outcome === "string" ? outcome : "accepted"
+      try Effect.try(() => assert.strictEqual(failed, "NotAnEvent"))
+    }
+  })
+})

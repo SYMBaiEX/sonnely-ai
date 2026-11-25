@@ -1,4 +1,4 @@
-// spec/app/nav.md, "Story: Move around": the pages a visitor moves over, kept in the browser's storage.
+// spec/app/nav.md, "Story: Move around"
 import { Machine, stored } from "../../gen/app__nav.effect.vibe"
 import type { Page } from "../../gen/app__nav.ts"
 

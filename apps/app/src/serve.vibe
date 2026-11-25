@@ -1,12 +1,15 @@
 module node {
   import { createServer } from "node:http"
+  import { readFileSync } from "node:fs"
   import { NodeHttpServer } from "@effect/platform-node"
-  /** An HTTP server on `port` (0 picks a free one). */
   export function listening(port: number, create = createServer) {
     return NodeHttpServer.layer(create, { port, gracefulShutdownTimeout: 0 })
   }
+  export function indexHtml(web: string) {
+    return readFileSync(web + "/index.html")
+  }
 }
-import { listening } from node
+import { indexHtml, listening } from node
 
 export { listening }
 
@@ -14,7 +17,6 @@ module kv {
   import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
   import { Layer } from "effect"
   import * as KeyValueStore from "effect/persistence/KeyValueStore"
-  /** The KeyValueStore the machines are kept in, under `dir`. */
   export function store(dir: string) {
     return Layer.provide(KeyValueStore.layerFileSystem(dir), NodeFileSystem.layer)
   }
@@ -23,8 +25,36 @@ import { store } from kv
 
 export { store }
 
-/** The API routers and the page's files in `web`, on `listener`, over `machines`. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- layers are composed opaquely here
+const staticFiles = (web: string): Layer.Layer<any, unknown, never> => {
+  let index: Buffer | undefined
+  return Layer.unwrap(
+    Effect.map(HttpStaticServer.make({ root: web, spa: true }), (app) =>
+      HttpRouter.add(
+        "GET",
+        "/*",
+        HttpEffect.withPreResponseHandler(
+          app.pipe(Effect.catch(HttpServerRespondable.toResponse)),
+          (request, response) =>
+            response.status === 404 &&
+            !request.url.startsWith("/api/") &&
+            (request.headers["accept"] ?? "").includes("text/html")
+              ? Effect.try(() => (index ??= indexHtml(web))).pipe(
+                  Effect.map((body) =>
+                    HttpServerResponse.uint8Array(body, { contentType: "text/html" })
+                  ),
+                  Effect.catch(() => Effect.succeed(response)),
+                )
+              : Effect.succeed(response),
+        ),
+      ),
+    ) as never,
+  )
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- layers are composed opaquely here
 export function serve(web: string, listener: any, api: any, machines: any): Layer.Layer<any, unknown, never> {
-  const app = Layer.provideMerge(HttpStaticServer.layer({ root: web, spa: true }), api)
+  const app = Layer.provideMerge(staticFiles(web), api)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- layers are composed opaquely here
   return Layer.provideMerge(HttpRouter.serve(app, { disableLogger: true, disableListenLog: true }), Layer.provideMerge(machines, listener)) as Layer.Layer<any, unknown, never>
 }

@@ -1,0 +1,124 @@
+// spec/app/site/index.md, "Story: Check the service status"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
+import { Machine, stored } from "../../gen/app__site.effect.vibe"
+import type { Probe, Report } from "../../gen/app__site.ts"
+import { store } from "../serve.vibe"
+
+module upstream {
+  // spec/app/site/index.md, "A probe watches one dependency"
+  export async function reachable(url: string, key: string): Promise<boolean> {
+    try {
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${key}` },
+        cache: "no-store",
+        redirect: "error",
+        signal: AbortSignal.timeout(4_000),
+      })
+      await response.body?.cancel().catch(() => undefined)
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+}
+import { reachable } from upstream
+
+interface ProviderProbe {
+  provider: string
+  label: string
+  url: string
+  keyEnv: string
+}
+
+const providerProbes: ProviderProbe[] = [
+  { provider: "near-ai", label: "NEAR AI", url: "https://cloud-api.near.ai/v1/models", keyEnv: "NEAR_AI_API_KEY" },
+  { provider: "phala", label: "Phala", url: "https://inference.phala.com/v1/models", keyEnv: "PHALA_AI_API_KEY" },
+  { provider: "tinfoil", label: "Tinfoil", url: "https://inference.tinfoil.sh/v1/models", keyEnv: "TINFOIL_API_KEY" },
+]
+
+const noStore = { "cache-control": "no-store" }
+
+function setting(name: string) {
+  return Config.withDefault(Config.String(name), "")
+}
+
+effect function probe(entry: ProviderProbe, paused: string[]): Probe!! {
+  const key = setting(entry.keyEnv) catch () => ""
+  if (key === "" || paused.includes(entry.provider)) {
+    return { provider: entry.provider, label: entry.label, state: "Disabled" }
+  }
+  const up = tryPromise(() => reachable(entry.url, key)) catch () => false
+  return { provider: entry.provider, label: entry.label, state: up ? "Ok" : "Down" }
+}
+
+// spec/app/site/index.md, "A report is one health check"
+export effect function check() {
+  const kv = try KeyValueStore.KeyValueStore
+  const accountUp = effect {
+    try kv.get("site")
+    return true
+  } catch () => false
+  const cluster = try setting("SOLANA_BILLING_CLUSTER")
+  const treasury = try setting("SOLANA_TREASURY")
+  const rpc = try setting("SOLANA_RPC_URL")
+  const mainnetUp = cluster === "mainnet" && treasury !== "" && rpc !== ""
+  const recoveryUp = (try setting("SONNELY_DEPOSIT_RECOVERY")) === "true"
+  const paused = (try setting("SONNELY_PAUSED_PROVIDERS"))
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item !== "")
+  const probes: Probe[] = try all(providerProbes.map<Probe!!>((entry) => probe(entry, paused)), {
+    concurrency: "unbounded",
+  })
+  const found: Report = { accountUp, mainnetUp, recoveryUp, probes }
+  return found
+}
+
+effect function getState(m: Machine.Shape) {
+  return try HttpServerResponse.json(try m.get(), { headers: noStore })
+}
+
+effect function getStream(m: Machine.Shape) {
+  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
+effect function postReport(m: Machine.Shape) {
+  const found = try check()
+  const outcome = m.send({ type: "report", found }) catch () => undefined
+  const state = outcome ?? (try m.get())
+  return try HttpServerResponse.json(state, { headers: noStore })
+}
+
+// spec/app/site/index.md, "The board waits for its first report, then shows the latest"
+export const siteApi = Layer.unwrap(effect {
+  const machine = try Machine
+  postReport(machine) catch () => undefined
+  return Layer.mergeAll(
+    HttpRouter.add("GET", "/api/machines/site", getState(machine)),
+    HttpRouter.add("GET", "/api/machines/site/stream", getStream(machine)),
+    HttpRouter.add("POST", "/api/site/status", postReport(machine)),
+  )
+})
+
+export function siteState(dir: string) {
+  return Layer.provideMerge(site, store(dir))
+}
+
+// spec/app/site/index.md, "The board waits for its first report, then shows the latest"
+export const site = stored("site")
+
+// spec/app/site/index.md, "A report counts only when every probe names what it watches"
+export effect function dispatch(input: unknown) {
+  const machine = try Machine
+  return try machine.receive(input)
+}
+
+// spec/app/site/index.md, "The board waits for its first report, then shows the latest"
+export effect function board() {
+  const machine = try Machine
+  return try machine.get()
+}

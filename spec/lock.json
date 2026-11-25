@@ -389,7 +389,77 @@
     },
     "spec/app/models.md": {
       "@document": [
-        "af5fd5b6a9e9"
+        "4089384107e0"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / Providers, privacy routes and endpoints": [
+        "bc509d31d90a",
+        "26644be37604"
+      ],
+      "Domain / Rates are upstream micro-dollars": [
+        "ebc275a842bf",
+        "47b06f551fe0",
+        "2ec615ab1a96"
+      ],
+      "Domain / A catalog entry is one provider model": [
+        "c07beb1be869",
+        "a974c8b83092",
+        "522b5b80738b"
+      ],
+      "Domain / The catalog": [
+        "98d9aeab3a48",
+        "5aab69d95f65",
+        "a3bbc115a49e"
+      ],
+      "## Story: Filter the catalog": [
+        "3473f4b45d51"
+      ],
+      "Story: Filter the catalog / The catalog opens unfiltered": [
+        "01448947d403",
+        "2090c361a157",
+        "2ec615ab1a96"
+      ],
+      "Story: Filter the catalog / Typing a search keeps every other choice": [
+        "e3b0c44298fc",
+        "72fa7f7b967b",
+        "f7e01435dc10"
+      ],
+      "Story: Filter the catalog / Choosing a provider keeps every other choice": [
+        "e3b0c44298fc",
+        "63e339eac158",
+        "f7e01435dc10"
+      ],
+      "Story: Filter the catalog / Choosing a workload keeps every other choice": [
+        "e3b0c44298fc",
+        "59ecaa7f68b7",
+        "f7e01435dc10"
+      ],
+      "Story: Filter the catalog / Choosing availability keeps every other choice": [
+        "e3b0c44298fc",
+        "d599cdca2178",
+        "f7e01435dc10"
+      ],
+      "Story: Filter the catalog / Choosing a sort keeps every other choice": [
+        "e3b0c44298fc",
+        "f9ba3602ad0b",
+        "f7e01435dc10"
+      ],
+      "Story: Filter the catalog / Each choice moves only its own field": [
+        "e3b0c44298fc",
+        "e35e7dc8bad4",
+        "f7e01435dc10"
+      ],
+      "Story: Filter the catalog / A filter can be narrowed": [
+        "e3b0c44298fc",
+        "7f37b40f19c6",
+        "f7e01435dc10"
+      ],
+      "Story: Filter the catalog / The markup never lowers a positive rate": [
+        "e3b0c44298fc",
+        "6c1b3fc6ac3a",
+        "1e514a4780c6"
       ]
     },
     "spec/app/nav.md": {
@@ -480,7 +550,52 @@
     },
     "spec/app/site/index.md": {
       "@document": [
-        "b876d58d1f14"
+        "da454dafb97c"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A probe watches one dependency": [
+        "99486b02925e",
+        "4cdd319a4fb9"
+      ],
+      "Domain / A report is one health check": [
+        "e9095a5d07fd",
+        "2b29c3ec402f",
+        "0bce5916be93"
+      ],
+      "Domain / The board waits for its first report, then shows the latest": [
+        "e3b0c44298fc",
+        "8e5f46319ef5",
+        "d4f46e15caf0"
+      ],
+      "## Story: Check the service status": [
+        "ca5daf13a87b"
+      ],
+      "Story: Check the service status / A report counts only when every probe names what it watches": [
+        "e3b0c44298fc",
+        "0fdca71619dd",
+        "d72c090b1878"
+      ],
+      "Story: Check the service status / The board only ever waits or stands on a report": [
+        "e3b0c44298fc",
+        "6ccfc9c31ce4",
+        "3a9e0b082dd5"
+      ],
+      "Story: Check the service status / Routing is up when every configured probe is ok or disabled": [
+        "e3b0c44298fc",
+        "db0d0a7de7a0",
+        "707b2d066596"
+      ],
+      "Story: Check the service status / The board is healthy only when every check is up": [
+        "e3b0c44298fc",
+        "64bcdd841a1b",
+        "fed6abd72f0c"
+      ],
+      "Story: Check the service status / A report can come in": [
+        "e3b0c44298fc",
+        "64c98a112cfe",
+        "3a9e0b082dd5"
       ]
     },
     "spec/app/support.md": {

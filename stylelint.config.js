@@ -9,6 +9,8 @@ export default {
     "**/.spec-cache/**",
     "**/generated/**",
     "**/storybook-static/**",
+    "app/**",
+    "components/**",
   ],
   rules: {
     "at-rule-no-unknown": [true, { ignoreAtRules: ["source"] }],

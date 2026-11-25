@@ -3,6 +3,7 @@
 
 export interface MachineLike {
   get(): unknown!!
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the channel payload type is erased at the protocol boundary
   receive(input: unknown): any!any
   changes: Stream.Stream<unknown>
 }

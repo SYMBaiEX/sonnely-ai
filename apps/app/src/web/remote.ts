@@ -18,7 +18,7 @@ export function useRemote<T>(name: string): Remote<T> {
 
   useEffect(() => {
     const source = new EventSource(`${base(name)}/stream`);
-    source.onmessage = (message) => setState(JSON.parse(message.data) as T);
+    source.onmessage = (message) => setState(JSON.parse(String(message.data)) as T);
     source.onerror = () => setError("stream disconnected");
     return () => source.close();
   }, [name]);

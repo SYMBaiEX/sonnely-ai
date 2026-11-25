@@ -1,0 +1,8 @@
+/* spec/app/site/index.md, "Site": element defaults that utility classes cannot express. */
+[data-area="site"] summary::-webkit-details-marker {
+  display: none;
+}
+
+[data-area="site"] summary::marker {
+  content: none;
+}

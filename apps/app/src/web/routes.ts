@@ -1,4 +1,4 @@
-// spec/app/nav.md, "Pages and console sections": the address a Page is shown at, and the Page an address opens.
+// spec/app/nav.md, "Pages and console sections"
 import type { Page, Section } from "../../gen/app__nav.ts";
 
 const sections: Record<string, Section> = {
@@ -55,15 +55,15 @@ export function pageOf(path: string): Page {
     case "dry-docks": return { tag: "DryDocks" };
     case "models":
       return parts.length > 2
-        ? { tag: "Model", provider: parts[1], model: parts.slice(2).join("/") }
+        ? { tag: "Model", provider: decodeURIComponent(parts[1]), model: parts.slice(2).map(decodeURIComponent).join("/") }
         : { tag: "Models" };
     case "status": return { tag: "Status" };
-    case "blog": return parts[1] ? { tag: "Post", slug: parts.slice(1).join("/") } : { tag: "Home" };
+    case "blog": return parts[1] ? { tag: "Post", slug: parts.slice(1).map(decodeURIComponent).join("/") } : { tag: "Home" };
     case "privacy": return { tag: "Privacy" };
     case "terms": return { tag: "Terms" };
     case "verify": return { tag: "Verify" };
     case "contact": return { tag: "Contact" };
-    case "docs": return parts[1] ? { tag: "Doc", slug: parts.slice(1).join("/") } : { tag: "Docs" };
+    case "docs": return parts[1] ? { tag: "Doc", slug: parts.slice(1).map(decodeURIComponent).join("/") } : { tag: "Docs" };
     case "console": {
       const section = sections[parts[1] ?? "chat"] ?? "Chat";
       return { tag: "Console", section, area: section === "Admin" ? (parts[2] ?? "") : "" };
