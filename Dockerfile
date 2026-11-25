@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM node:26-bookworm AS build
 WORKDIR /repo
-RUN corepack enable
+RUN npm install -g pnpm@10.24.0
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm gen
