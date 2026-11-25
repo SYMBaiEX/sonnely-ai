@@ -31,9 +31,9 @@ export function WorkspaceHeading({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="workspace-heading">
-      <div>
-        <span className="workspace-heading-icon">
+    <header className="console-title">
+      <div className="console-title-identity">
+        <span className="console-title-icon">
           <Icon size={21} aria-hidden="true" />
         </span>
         <div>
@@ -41,7 +41,7 @@ export function WorkspaceHeading({
           <p>{description}</p>
         </div>
       </div>
-      {children && <div className="workspace-heading-actions">{children}</div>}
+      {children && <div className="console-title-actions">{children}</div>}
     </header>
   );
 }
@@ -52,7 +52,7 @@ export function CopyButton({ text, label = "Copy", quiet = true, className = "" 
   return (
     <button
       type="button"
-      className={`button ${quiet ? "quiet" : ""} ${className}`}
+      className={`button ${quiet ? "quiet" : ""} small ${className}`}
       aria-label={label}
       onClick={async () => {
         try {

@@ -1,5 +1,5 @@
 /** spec/app/console/index.md — scoped legacy console chrome and workspace design. */
-.console {
+.theme-root.site .console {
   --console-control-size: 2.75rem;
   --console-text: 1rem;
   --console-caption: 0.875rem;
@@ -7,31 +7,31 @@
   --workspace-scene-opacity: 0.46;
 }
 
-.console .workspace-scene {
+.theme-root.site .console .workspace-scene {
   mask-image: radial-gradient(ellipse 96% 85% at 77% 12%, #000 18%, transparent 91%);
 }
 
-.console :is(.rail, .console-bar, .mobile-dock) {
+.theme-root.site .console :is(.rail, .console-bar, .mobile-dock) {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
 }
 
-.console .rail {
+.theme-root.site .console .rail {
   background: var(--surface);
   border-radius: 0;
 }
 
-.console .rail-top {
+.theme-root.site .console .rail-top {
   padding-bottom: 0.9rem;
   border-bottom: 1px solid var(--line);
 }
 
-.console .rail-nav {
+.theme-root.site .console .rail-nav {
   margin-top: 0.3rem;
 }
 
-.console .rail-identity {
+.theme-root.site .console .rail-identity {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
   gap: 9px;
@@ -44,11 +44,11 @@
   background: color-mix(in srgb, var(--card) 78%, var(--surface));
 }
 
-.console .rail-identity:hover {
+.theme-root.site .console .rail-identity:hover {
   background: var(--raised);
 }
 
-.console .rail-identity-icon {
+.theme-root.site .console .rail-identity-icon {
   display: grid;
   place-items: center;
   aspect-ratio: 1;
@@ -57,64 +57,64 @@
   background: var(--active-fill);
 }
 
-.console .rail-identity :is(strong, small) {
+.theme-root.site .console .rail-identity :is(strong, small) {
   display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.console .rail-identity strong {
+.theme-root.site .console .rail-identity strong {
   font-size: 0.83rem;
   font-weight: 630;
 }
 
-.console .rail-identity small {
+.theme-root.site .console .rail-identity small {
   color: var(--muted);
   font-size: 0.7rem;
 }
 
-.console .rail-nav p {
+.theme-root.site .console .rail-nav p {
   margin-top: 9px;
   padding-block: 8px 5px;
 }
 
-.console .rail-nav a {
+.theme-root.site .console .rail-nav a {
   margin-block: 1px;
   border-radius: 7px;
 }
 
-.console .rail-nav a[aria-current="page"],
-.console .dock-item[aria-current="page"] {
+.theme-root.site .console .rail-nav a[aria-current="page"],
+.theme-root.site .console .dock-item[aria-current="page"] {
   background: var(--console-selected);
   border-color: transparent;
 }
 
-.console .rail-nav a[aria-current="page"] svg,
-.console .crumb-page svg {
+.theme-root.site .console .rail-nav a[aria-current="page"] svg,
+.theme-root.site .console .crumb-page svg {
   color: var(--accent);
 }
 
-.console .console-bar {
+.theme-root.site .console .console-bar {
   background: color-mix(in srgb, var(--surface) 78%, transparent);
 }
 
-.console .console-menu-toggle {
+.theme-root.site .console .console-menu-toggle {
   display: none;
 }
 
-.console .console-bar .crumb,
-.console .crumb-page {
+.theme-root.site .console .console-bar .crumb,
+.theme-root.site .console .crumb-page {
   min-width: 0;
 }
 
-.console .crumb-page {
+.theme-root.site .console .crumb-page {
   display: inline-flex;
   align-items: center;
   gap: 7px;
 }
 
-.console .crumb-page svg {
+.theme-root.site .console .crumb-page svg {
   flex: none;
 }
 
@@ -139,15 +139,15 @@
   font-variant-numeric: tabular-nums;
 }
 
-.console .rail-bottom .balance {
+.theme-root.site .console .rail-bottom .balance {
   background: var(--card);
 }
 
-.console .console-content {
+.theme-root.site .console .console-content {
   max-width: 1580px;
 }
 
-.console .console-title {
+.theme-root.site .console .console-title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -187,7 +187,7 @@
   min-height: 44px;
 }
 
-.console .console-title h1 {
+.theme-root.site .console .console-title h1 {
   margin-bottom: 0.38rem;
   font-size: clamp(1.75rem, 1.25rem + 1.6vw, 2.75rem);
   font-weight: 630;
@@ -195,16 +195,16 @@
   text-wrap: balance;
 }
 
-.console .console-title p {
+.theme-root.site .console .console-title p {
   max-width: 65ch;
   font-size: var(--console-text);
 }
 
-.console :is(.panel, .composer) {
+.theme-root.site .console :is(.panel, .composer) {
   box-shadow: none;
 }
 
-.console :is(.billing-balance, .referral-invite, .workspace-feature) {
+.theme-root.site .console :is(.billing-balance, .referral-invite, .workspace-feature) {
   background: linear-gradient(
     145deg,
     color-mix(in srgb, var(--active-fill) 34%, var(--card)),
@@ -212,110 +212,110 @@
   );
 }
 
-.console :is(.admin-access, .settings-panel, .billing-balance) svg {
+.theme-root.site .console :is(.admin-access, .settings-panel, .billing-balance) svg {
   flex-shrink: 0;
   color: var(--accent);
 }
 
-.console .settings-panel .settings-row {
+.theme-root.site .console .settings-panel .settings-row {
   padding-block: 10px;
   border-top: 1px solid var(--line);
 }
 
-.console .referral-invite .empty-icon {
+.theme-root.site .console .referral-invite .empty-icon {
   color: var(--accent);
   background: var(--active-fill);
   margin-bottom: 0.55rem;
 }
 
-.console .key-record-label {
+.theme-root.site .console .key-record-label {
   display: none;
 }
 
-.console .key-record-expiry {
+.theme-root.site .console .key-record-expiry {
   display: block;
   margin-top: 4px;
   color: var(--muted);
   font-size: 0.72rem;
 }
 
-.console .key-records th[scope="row"] {
+.theme-root.site .console .key-records th[scope="row"] {
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.console .key-record-action {
+.theme-root.site .console .key-record-action {
   text-align: right;
 }
 
-.console .stat {
+.theme-root.site .console .stat {
   min-width: 0;
   background: var(--card);
 }
 
-.console .stat > span:first-child {
+.theme-root.site .console .stat > span:first-child {
   font: 610 0.7rem/1.4 var(--mono);
   letter-spacing: 0.075em;
   text-transform: uppercase;
 }
 
-.console .stat :is(strong, b) {
+.theme-root.site .console .stat :is(strong, b) {
   overflow-wrap: anywhere;
 }
 
-.console .stat strong {
+.theme-root.site .console .stat strong {
   font-family: var(--font);
   font-variant-numeric: tabular-nums;
   font-weight: 630;
   letter-spacing: -0.042em;
 }
 
-.console .empty {
+.theme-root.site .console .empty {
   padding: clamp(18px, 4vw, 38px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--card);
 }
 
-.console .panel > .empty {
+.theme-root.site .console .panel > .empty {
   border: 0;
   background: transparent;
 }
 
-.console .catalog-tools {
+.theme-root.site .console .catalog-tools {
   padding: 7px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--card);
 }
 
-.console .catalog-tools :is(select, .search) {
+.theme-root.site .console .catalog-tools :is(select, .search) {
   min-height: 44px;
 }
 
-.console :is(.chart-panel, .breakdown) .controls h2 {
+.theme-root.site .console :is(.chart-panel, .breakdown) .controls h2 {
   font-size: 1.12rem;
   letter-spacing: -0.015em;
 }
 
-.console .workspace-data-table:focus-visible {
+.theme-root.site .console .workspace-data-table:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-.console .payment-status {
+.theme-root.site .console .payment-status {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0 10px;
 }
 
-.console .payment-history .text-link {
+.theme-root.site .console .payment-history .text-link {
   min-height: 44px;
 }
 
-.console .payment-status button {
+.theme-root.site .console .payment-status button {
   padding: 0;
   background: transparent;
   border: 0;
@@ -323,45 +323,45 @@
   cursor: pointer;
 }
 
-.console .payment-status button:disabled {
+.theme-root.site .console .payment-status button:disabled {
   opacity: 0.56;
   cursor: default;
 }
 
-.console .chart-panel .bars {
+.theme-root.site .console .chart-panel .bars {
   background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--line) 25%);
 }
 
-.console .chart-panel .bars span {
+.theme-root.site .console .chart-panel .bars span {
   border-radius: 3px 3px 0 0;
   background: var(--accent);
 }
 
-.console .chart-panel .bars span[data-empty] {
+.theme-root.site .console .chart-panel .bars span[data-empty] {
   background: var(--line);
 }
 
-.console .chat-layout {
+.theme-root.site .console .chat-layout {
   background: color-mix(in srgb, var(--surface) 36%, transparent);
   border-radius: var(--radius);
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .console :is(.console-bar, .chat-layout) {
+  .theme-root.site .console :is(.console-bar, .chat-layout) {
     background: var(--surface);
   }
 }
 
-.console .sessions {
+.theme-root.site .console .sessions {
   background: color-mix(in srgb, var(--card) 58%, var(--surface));
 }
 
-.console .command-dialog {
+.theme-root.site .console .command-dialog {
   background: var(--glass-solid);
   box-shadow: 0 22px 70px var(--shadow);
 }
 
-.console[data-motion="on"] :is(.console-title, .console-content > *, .chat-welcome, .playground-entry) {
+.theme-root.site .console[data-motion="on"] :is(.console-title, .console-content > *, .chat-welcome, .playground-entry) {
   animation-name: workspace-content-in;
   animation-duration: 280ms;
 }
@@ -377,18 +377,18 @@
   }
 }
 
-.console[data-motion="off"]
+.theme-root.site .console[data-motion="off"]
   :is(.console-title, .console-content > *, .chat-welcome, .playground-entry, .chart-panel .bars span) {
   animation: none;
 }
 
 @media (width > 720px) {
-  .console {
+  .theme-root.site .console {
     gap: 0;
     padding: 8px;
   }
 
-  .console .rail {
+  .theme-root.site .console .rail {
     top: 8px;
     height: calc(100dvh - 16px);
     padding: 15px 12px 12px;
@@ -396,16 +396,16 @@
     background: transparent;
   }
 
-  .console .rail-bottom .balance {
+  .theme-root.site .console .rail-bottom .balance {
     display: none;
   }
 
-  .console .console-stage {
+  .theme-root.site .console .console-stage {
     border: 1px solid var(--line);
     border-radius: 15px;
   }
 
-  .console .console-bar {
+  .theme-root.site .console .console-bar {
     top: 8px;
     height: 55px;
     border: 0;
@@ -420,26 +420,26 @@
     display: none;
   }
 
-  .console .rail-bottom .balance {
+  .theme-root.site .console .rail-bottom .balance {
     display: grid;
   }
 }
 
 @media (max-width: 720px) {
-  .console .console-bar {
+  .theme-root.site .console .console-bar {
     gap: 8px;
     padding-inline: 9px;
   }
 
-  .console .console-bar .crumb-page {
+  .theme-root.site .console .console-bar .crumb-page {
     display: none;
   }
 
-  .console .console-bar .bar-controls {
+  .theme-root.site .console .console-bar .bar-controls {
     gap: 5px;
   }
 
-  .console .console-bar :is(.console-menu-toggle, .command-toggle) {
+  .theme-root.site .console .console-bar :is(.console-menu-toggle, .command-toggle) {
     display: grid;
     place-items: center;
     width: 44px;
@@ -447,46 +447,46 @@
     padding: 0;
   }
 
-  .console .rail-top {
+  .theme-root.site .console .rail-top {
     display: none;
   }
 
-  .console .rail-identity {
+  .theme-root.site .console .rail-identity {
     margin-top: 2px;
   }
 
-  .console .mobile-dock {
+  .theme-root.site .console .mobile-dock {
     background: var(--surface);
   }
 
-  .console .rail-nav a {
+  .theme-root.site .console .rail-nav a {
     min-height: 44px;
   }
 }
 
 @media (max-width: 440px) {
-  .console .console-bar .wallet-button {
+  .theme-root.site .console .console-bar .wallet-button {
     width: 44px;
     min-height: 44px;
     padding: 0;
   }
 
-  .console .wallet-button :is(.wallet-button-label, .wallet-button-chevron) {
+  .theme-root.site .console .wallet-button :is(.wallet-button-label, .wallet-button-chevron) {
     display: none;
   }
 }
 
 @media (max-width: 920px) {
-  .console .key-records:has(table) {
+  .theme-root.site .console .key-records:has(table) {
     border: 0;
     background: transparent;
   }
 
-  .console .key-records .table-wrap {
+  .theme-root.site .console .key-records .table-wrap {
     overflow: visible;
   }
 
-  .console .key-records thead {
+  .theme-root.site .console .key-records thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -495,12 +495,12 @@
     white-space: nowrap;
   }
 
-  .console .key-records :is(table, tbody) {
+  .theme-root.site .console .key-records :is(table, tbody) {
     display: grid;
     gap: 10px;
   }
 
-  .console .key-records tbody tr {
+  .theme-root.site .console .key-records tbody tr {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
@@ -510,68 +510,68 @@
     background: var(--card);
   }
 
-  .console .key-records tbody :is(th, td) {
+  .theme-root.site .console .key-records tbody :is(th, td) {
     padding: 0;
     border: 0;
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  .console .key-records th[scope="row"] {
+  .theme-root.site .console .key-records th[scope="row"] {
     font-size: 0.95rem;
   }
 
-  .console .key-records :is(th[scope="row"], .key-record-prefix, .key-record-action) {
+  .theme-root.site .console .key-records :is(th[scope="row"], .key-record-prefix, .key-record-action) {
     grid-column: 1 / -1;
   }
 
-  .console .key-record-prefix {
+  .theme-root.site .console .key-record-prefix {
     margin-top: -7px;
     color: var(--muted);
   }
 
-  .console .key-record-label {
+  .theme-root.site .console .key-record-label {
     display: block;
     margin-bottom: 4px;
     color: var(--muted);
     font-size: 0.75rem;
   }
 
-  .console .key-record-action:empty {
+  .theme-root.site .console .key-record-action:empty {
     display: none;
   }
 
-  .console .key-record-action .button {
+  .theme-root.site .console .key-record-action .button {
     min-height: 44px;
   }
 }
 
 @media (max-width: 600px) {
-  .console .workspace-data-table :is(th, td) {
+  .theme-root.site .console .workspace-data-table :is(th, td) {
     padding-inline: 7px;
   }
 
-  .console .workspace-data-table:not(.payment-history) th:first-child {
+  .theme-root.site .console .workspace-data-table:not(.payment-history) th:first-child {
     position: sticky;
     left: 0;
     background: var(--card);
   }
 
-  .console .workspace-data-table th[scope="row"] {
+  .theme-root.site .console .workspace-data-table th[scope="row"] {
     min-width: 7rem;
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  .console .payment-history :is(th, td) {
+  .theme-root.site .console .payment-history :is(th, td) {
     white-space: normal;
   }
 
-  .console .payment-history :is(td:nth-child(2), td:nth-child(3)) {
+  .theme-root.site .console .payment-history :is(td:nth-child(2), td:nth-child(3)) {
     white-space: nowrap;
   }
 
-  .console .payment-status {
+  .theme-root.site .console .payment-status {
     display: grid;
     justify-items: start;
   }
@@ -585,30 +585,30 @@
     height: 35px;
   }
 
-  .console .crumb-page svg {
+  .theme-root.site .console .crumb-page svg {
     display: none;
   }
 }
 
 @media (max-width: 420px) {
-  .console .crm-navigation {
+  .theme-root.site .console .crm-navigation {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     width: 100%;
   }
 
-  .console .crm-navigation > button {
+  .theme-root.site .console .crm-navigation > button {
     grid-column: span 2;
     min-height: 44px;
   }
 
-  .console .crm-navigation > button:nth-last-child(-n + 2) {
+  .theme-root.site .console .crm-navigation > button:nth-last-child(-n + 2) {
     grid-column: span 3;
   }
 }
 
 @media (max-width: 360px) {
-  .console .stat {
+  .theme-root.site .console .stat {
     padding-inline: 13px;
   }
 }
@@ -778,23 +778,23 @@
 }
 
 
-.console :is(input:not([type="radio"], [type="checkbox"]), select, textarea) {
+.theme-root.site .console :is(input:not([type="radio"], [type="checkbox"]), select, textarea) {
   font-size: var(--console-text);
 }
 
-.console :is(form label, .caption) {
+.theme-root.site .console :is(form label, .caption) {
   font-size: var(--console-caption);
 }
 
-.console :is(.console-content, .console-chat) :is(.button, .icon-button) {
+.theme-root.site .console :is(.console-content, .console-chat) :is(.button, .icon-button) {
   min-block-size: var(--console-control-size);
 }
 
-.console :is(.console-content, .console-chat) .icon-button {
+.theme-root.site .console :is(.console-content, .console-chat) .icon-button {
   min-inline-size: var(--console-control-size);
 }
 
-.console :is(.console-content, .console-chat) .button:not(.icon-button) {
+.theme-root.site .console :is(.console-content, .console-chat) .button:not(.icon-button) {
   font-size: var(--console-caption);
   line-height: 1.35;
   white-space: normal;
@@ -865,28 +865,28 @@
   font-size: var(--console-caption);
 }
 
-.console .usage-filters {
+.theme-root.site .console .usage-filters {
   display: grid;
   gap: 12px;
   padding: 14px;
 }
 
-.console .usage-filter-grid {
+.theme-root.site .console .usage-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 1fr));
   gap: 10px 12px;
 }
 
-.console .usage-filter-grid label {
+.theme-root.site .console .usage-filter-grid label {
   min-width: 0;
 }
 
-.console .usage-filter-grid select {
+.theme-root.site .console .usage-filter-grid select {
   width: 100%;
   min-width: 0;
 }
 
-.console .usage-sample {
+.theme-root.site .console .usage-sample {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -894,21 +894,21 @@
   gap: 10px;
 }
 
-.console .usage-sample p {
+.theme-root.site .console .usage-sample p {
   margin: 0;
 }
 
-.console .usage-stats .stat {
+.theme-root.site .console .usage-stats .stat {
   align-content: start;
   min-width: 0;
 }
 
-.console .usage-stats .stat small {
+.theme-root.site .console .usage-stats .stat small {
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 
-.console :is(.chart-panel, .breakdown) .control-label select {
+.theme-root.site .console :is(.chart-panel, .breakdown) .control-label select {
   min-width: 0;
 }
 
@@ -1277,4 +1277,248 @@
     height: 42px;
     margin-right: 0;
   }
+}
+
+/** Legacy mobile console chrome, scoped to the console root. */
+.theme-root.site .console .mobile-menu-control {
+  display: none;
+}
+@media (max-width: 820px) {
+  .theme-root.site .console .console-theme {
+    display: none;
+  }
+  .theme-root.site .console .rail-theme {
+    display: inline-flex;
+  }
+  .theme-root.site .console .compact-brand .brand-wordmark {
+    width: 70px;
+  }
+  .theme-root.site .console .mobile-menu-control {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: linear-gradient(160deg, var(--raised), var(--card) 70%);
+    color: var(--ink);
+    box-shadow: inset 0 1px 0 var(--rim), 0 1px 2px var(--shadow);
+  }
+  .theme-root.site .console .mobile-menu-control[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+    background: linear-gradient(160deg, var(--active-fill), var(--card) 85%);
+    color: var(--accent);
+  }
+  .theme-root.site .console .mobile-menu-control:active {
+    background: var(--active-fill);
+  }
+  .theme-root.site .console .mobile-menu-glyph {
+    position: relative;
+    width: 20px;
+    height: 16px;
+  }
+  .theme-root.site .console .mobile-menu-glyph::before,
+  .theme-root.site .console .mobile-menu-glyph::after,
+  .theme-root.site .console .mobile-menu-glyph > span {
+    content: "";
+    position: absolute;
+    inset: 7px 1px auto;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    forced-color-adjust: none;
+  }
+  .theme-root.site .console .mobile-menu-glyph::before {
+    transform: translateY(-5px);
+  }
+  .theme-root.site .console .mobile-menu-glyph::after {
+    transform: translateY(5px);
+  }
+  .theme-root.site .console .mobile-menu-glyph > span {
+    inset-inline: 3px;
+  }
+  .theme-root.site .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph::before {
+    transform: rotate(45deg);
+  }
+  .theme-root.site .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph::after {
+    transform: rotate(-45deg);
+  }
+  .theme-root.site .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph > span {
+    opacity: 0;
+    transform: scaleX(0.5);
+  }
+}
+@media (max-width: 820px) and (prefers-reduced-motion: no-preference) {
+  .theme-root.site .console .mobile-menu-glyph::before,
+  .theme-root.site .console .mobile-menu-glyph::after,
+  .theme-root.site .console .mobile-menu-glyph > span {
+    transition: transform 180ms var(--ease-out), opacity 120ms ease;
+  }
+}
+@media (max-width: 720px) {
+  .theme-root.site .console {
+    display: block;
+    padding: 8px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+  .theme-root.site .console .rail {
+    display: none;
+    position: fixed;
+    z-index: 10;
+    inset: auto 10px calc(80px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: 460px;
+    height: auto;
+    max-height: calc(100dvh - 158px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    margin-inline: auto;
+    background: var(--glass-solid);
+  }
+  .theme-root.site .console .rail.rail-open {
+    display: flex;
+  }
+  .theme-root.site .console .rail-nav {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .theme-root.site .console .rail-nav p {
+    grid-column: 1 / -1;
+  }
+  .theme-root.site .console .rail-bottom {
+    padding-top: 8px;
+  }
+  .theme-root.site .console .console-bar {
+    padding-inline: 11px;
+    height: 58px;
+    top: 8px;
+  }
+  .theme-root.site .console .crumb > span:not(.compact-brand) {
+    display: none;
+  }
+  .theme-root.site .console .crumb .compact-brand {
+    display: inline-flex;
+  }
+  .theme-root.site .console .compact-brand .brand-icon {
+    display: grid;
+    width: 29px;
+    height: 29px;
+  }
+  .theme-root.site .console .compact-brand .brand {
+    gap: 6px;
+    font-size: 17px;
+  }
+  .theme-root.site .console .crumb strong {
+    display: none;
+  }
+  .theme-root.site .console .console-content {
+    padding: 24px 8px;
+  }
+  .theme-root.site .console .nav-scrim {
+    display: block;
+    position: fixed;
+    z-index: 5;
+    inset: 0;
+    border: none;
+    background: rgb(8 6 12 / 54%);
+  }
+  .theme-root.site .console .workspace-scene {
+    background-position: 64% 22%;
+  }
+  .theme-root.site .console .mobile-dock {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    position: fixed;
+    z-index: 11;
+    inset: auto 9px calc(9px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: 460px;
+    margin-inline: auto;
+    padding: 5px;
+    border-radius: 20px;
+  }
+  .theme-root.site .console .dock-item {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 2px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    background: transparent;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .theme-root.site .console .dock-item[aria-current],
+  .theme-root.site .console .dock-item[aria-expanded="true"] {
+    color: var(--ink);
+    background: var(--active-fill);
+    border-color: var(--line);
+  }
+}
+.theme-root.site .console .command-dialog {
+  margin: auto;
+}
+
+@media (max-width: 720px) {
+  .theme-root.site .console .console-bar .command-toggle {
+    display: grid;
+    width: 42px;
+    min-height: 44px;
+    padding: 0;
+    place-items: center;
+  }
+  .theme-root.site .console .console-bar .command-toggle > :not(svg) {
+    display: none;
+  }
+}
+
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) :is(button, input, textarea, select) {
+  font: inherit;
+  color: inherit;
+}
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) button {
+  cursor: pointer;
+}
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) :is(input, textarea, select) {
+  width: 100%;
+  border: 1px solid var(--control-edge);
+  background: var(--card);
+  border-radius: 9px;
+  padding: 10px 12px;
+  min-height: 42px;
+}
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) textarea {
+  resize: vertical;
+}
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) ::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) select {
+  appearance: none;
+  padding-inline-end: 34px;
+}
+.theme-root.site .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item) {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.theme-root.site .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item):disabled {
+  cursor: not-allowed;
+}
+.theme-root.site .console .command-search input {
+  font: inherit;
+  color: inherit;
 }

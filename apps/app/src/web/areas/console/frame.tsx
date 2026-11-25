@@ -1,6 +1,7 @@
 // spec/app/console/index.md: the frame every console section shares — the section rail, the session-aware
 // header and the sign-in state the sections gate themselves on.
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -87,6 +88,9 @@ function walletBalance(ledger: Ledger | undefined, wallet: string) {
     0,
   );
 }
+
+const winterStart = Date.parse("2026-11-20T06:00:00Z");
+const winterEnd = Date.parse("2027-01-01T06:00:00Z");
 
 function machineTheme(theme: Theme): ConsoleTheme {
   return theme === "light" ? "Light" : theme === "system" ? "System" : "Dark";
@@ -213,6 +217,15 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     saveProfile,
     chooseTheme,
   };
+  const winter = Date.now() >= winterStart && Date.now() < winterEnd;
+  const seasonalArt = (winter
+    ? { "--art-day": 'url("/winter-day.webp")', "--art-night": 'url("/winter-night.webp")' }
+    : {}) as CSSProperties;
+  const visibleGroups = groups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.id !== "admin" || Boolean(profile)),
+  }));
+  const visibleItems = visibleGroups.flatMap((group) => group.items);
   const PageIcon = selected.Icon;
   const inviteUrl = profile?.referral ? `${window.location.origin}/console?ref=${profile.referral}` : undefined;
   const sidebar = (items: typeof all) =>
@@ -224,7 +237,8 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     ));
 
   return (
-    <div className="theme-root site console" data-area="console" data-theme={theme} data-motion={motion ? "on" : "off"}>
+    <div className="theme-root site" data-area="console" data-theme={theme} data-motion={motion ? "on" : "off"} style={seasonalArt}>
+      <div className="console">
       <a href="#console-content" className="skip">
         Skip to workspace
       </a>
@@ -244,11 +258,11 @@ export function ConsoleFrame({ section, children }: { section: Section; children
           </span>
         </a>
         <nav aria-label="Workspace navigation" className="rail-nav">
-          {groups.map((group) => (
-            <div key={group.label}>
+          {visibleGroups.map((group) => (
+            <Fragment key={group.label}>
               <p className="mono">{group.label}</p>
               {sidebar(group.items)}
-            </div>
+            </Fragment>
           ))}
         </nav>
         <div className="rail-bottom">
@@ -323,7 +337,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
         <CommandMenu
           open={palette}
           onClose={() => setPalette(false)}
-          pages={all}
+          pages={visibleItems}
           onToggleTheme={() => {
             const cycle: Theme[] = ["light", "dark", "system"];
             void chooseTheme(cycle[(cycle.indexOf(theme) + 1) % cycle.length]);
@@ -331,15 +345,6 @@ export function ConsoleFrame({ section, children }: { section: Section; children
           inviteUrl={inviteUrl}
         />
         <main id="console-content" tabIndex={-1} className={selected.id === "chat" ? "console-chat" : "console-content"}>
-          {!profile && selected.id === "chat" && (
-            <div className="workspace-setup-invite">
-              <Sparkles size={16} aria-hidden />
-              <span>New to Sonnely?</span>
-              <button type="button" className="text-link" onClick={() => setSetupOpen(true)}>
-                Set up your workspace <ArrowUpRight size={14} aria-hidden />
-              </button>
-            </div>
-          )}
           {setupOpen && (
             <Onboarding
               wallet={signedIn || undefined}
@@ -371,6 +376,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
           <span>All pages</span>
         </button>
       </nav>
+      </div>
     </div>
   );
 }

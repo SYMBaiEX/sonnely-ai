@@ -1,4 +1,4 @@
-// spec/app/admin/referrals.md, "Story: Referral owners can follow attribution"
+// spec/app/admin/referrals.md, "Story: Invite a wallet"
 import { Users } from "lucide-react";
 import { useConsoleShell } from "./frame.tsx";
 import { CopyButton, WorkspaceHeading } from "./bits.tsx";

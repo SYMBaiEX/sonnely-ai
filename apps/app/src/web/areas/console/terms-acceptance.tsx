@@ -1,4 +1,3 @@
-// spec/app/docs/index.md, "Story: Read the workspace guide"
 import { ArrowRight, FileCheck2 } from "lucide-react";
 import { useState } from "react";
 
