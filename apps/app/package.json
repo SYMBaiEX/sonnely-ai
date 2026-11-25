@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vibelang && vite build",
+    "build": "vibelang && pnpm -s tokens && vite build",
     "typecheck": "vibelang --noEmit -p .",
-    "test": "vitest run",
+    "test": "pnpm -s tokens && vite build --logLevel error && vitest run",
     "test:browser": "vitest run --project browser",
     "start": "pnpm -s build && node dist/src/main.js"
   },
