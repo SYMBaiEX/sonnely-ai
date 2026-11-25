@@ -6,5 +6,6 @@ import { defineConfig } from "vite";
 export default defineConfig({
   root: "src/web",
   plugins: [vibelang(), react(), tailwindcss()],
+  server: { proxy: { "/api": "http://localhost:3010" } },
   build: { outDir: "../../dist/web", emptyOutDir: true },
 });
