@@ -1,28 +1,39 @@
 // spec/app/console/index.md: the frame every console section shares — the section rail, the session-aware
 // header and the sign-in state the sections gate themselves on.
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
   ArrowUpRight,
   BookOpen,
   Box,
+  CircleHelp,
   Container,
   Cpu,
   Files,
   KeyRound,
   LifeBuoy,
   List,
+  Menu,
   MessageSquare,
+  Search,
   Settings,
   ShieldCheck,
+  Sparkles,
   Users,
   Wallet,
 } from "lucide-react";
 import type { Section } from "../../../../gen/app__nav.ts";
 import type { Session as WorkspaceSession } from "../../../../gen/app__session.ts";
-import { Button, Input, cn } from "@repo/ui";
+import type { Console as ConsoleSettings, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
+import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
+import type { Referrals as ReferralState } from "../../../../gen/app__admin__referrals.ts";
 import { useRemote, type Remote } from "../../remote.ts";
-import { shorten } from "./bits.tsx";
+import { ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
+import { creditBalance, shorten } from "./bits.tsx";
+import { CommandMenu } from "./command-menu.tsx";
+import { Onboarding } from "./onboarding.tsx";
+import { WalletControl } from "./wallet.tsx";
+import "./console.css";
 
 export type { WorkspaceSession };
 
@@ -31,176 +42,335 @@ const groups = [
   {
     label: "Inference",
     items: [
-      { section: "Chat" as Section, title: "Playground", path: "/console/chat", Icon: MessageSquare },
-      { section: "Catalog" as Section, title: "Models", path: "/console/models", Icon: Cpu },
-      { section: "Keys" as Section, title: "API keys", path: "/console/keys", Icon: KeyRound },
-      { section: "Usage" as Section, title: "Usage", path: "/console/usage", Icon: Activity },
-      { section: "Logs" as Section, title: "Request logs", path: "/console/logs", Icon: List },
-      { section: "Batch" as Section, title: "Batch", path: "/console/batch", Icon: Files },
+      { section: "Chat" as Section, id: "chat", title: "Playground", path: "/console/chat", Icon: MessageSquare },
+      { section: "Catalog" as Section, id: "models", title: "Models", path: "/console/models", Icon: Cpu },
+      { section: "Keys" as Section, id: "keys", title: "API keys", path: "/console/keys", Icon: KeyRound },
+      { section: "Usage" as Section, id: "usage", title: "Usage", path: "/console/usage", Icon: Activity },
+      { section: "Logs" as Section, id: "logs", title: "Request logs", path: "/console/logs", Icon: List },
+      { section: "Batch" as Section, id: "batch", title: "Batch", path: "/console/batch", Icon: Files },
     ],
   },
   {
     label: "Compute",
     items: [
-      { section: "Consoles" as Section, title: "Blackboxes", path: "/console/blackboxes", Icon: Box },
-      { section: "Docks" as Section, title: "Dry Docks", path: "/console/dry-docks", Icon: Container },
+      { section: "Consoles" as Section, id: "blackboxes", title: "Blackboxes", path: "/console/blackboxes", Icon: Box },
+      { section: "Docks" as Section, id: "dry-docks", title: "Dry Docks", path: "/console/dry-docks", Icon: Container },
     ],
   },
   {
     label: "Workspace",
     items: [
-      { section: "Billing" as Section, title: "Billing", path: "/console/billing", Icon: Wallet },
-      { section: "Teams" as Section, title: "Teams", path: "/console/teams", Icon: Users },
-      { section: "Referrals" as Section, title: "Referrals", path: "/console/referrals", Icon: Users },
-      { section: "Support" as Section, title: "Support", path: "/console/support", Icon: LifeBuoy },
-      { section: "Admin" as Section, title: "Admin", path: "/console/admin", Icon: ShieldCheck },
-      { section: "Settings" as Section, title: "Settings", path: "/console/settings", Icon: Settings },
+      { section: "Billing" as Section, id: "billing", title: "Billing", path: "/console/billing", Icon: Wallet },
+      { section: "Teams" as Section, id: "teams", title: "Teams", path: "/console/teams", Icon: Users },
+      { section: "Referrals" as Section, id: "referrals", title: "Referrals", path: "/console/referrals", Icon: Users },
+      { section: "Support" as Section, id: "support", title: "Support", path: "/console/support", Icon: LifeBuoy },
+      { section: "Admin" as Section, id: "admin", title: "Admin", path: "/console/admin", Icon: ShieldCheck },
+      { section: "Settings" as Section, id: "settings", title: "Settings", path: "/console/settings", Icon: Settings },
     ],
   },
 ];
 
 const all = groups.flatMap((group) => group.items);
 
-/** Sign in or out with a Solana wallet: the header's session control. */
-function WalletControl({ session, send }: { session: WorkspaceSession | undefined; send: (input: unknown) => Promise<boolean> }) {
-  const [wallet, setWallet] = useState("");
-  const [open, setOpen] = useState(false);
-  if (session?.tag === "SignedIn") {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="rounded-md border border-border bg-card px-2.5 py-1.5 font-mono text-xs" title={session.wallet}>
-          {shorten(session.wallet)}
-        </span>
-        <Button variant="outline" size="sm" onClick={() => void send({ type: "signOut" })}>
-          Sign out
-        </Button>
-      </div>
-    );
-  }
-  if (!open) {
-    return (
-      <Button variant="primary" size="sm" onClick={() => setOpen(true)}>
-        <Wallet size={15} aria-hidden /> Connect wallet
-      </Button>
-    );
-  }
+function Brand() {
   return (
-    <form
-      className="flex items-center gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (wallet.trim()) void send({ type: "signIn", wallet: wallet.trim() });
-      }}
-    >
-      <Input
-        aria-label="Solana wallet address"
-        placeholder="Solana wallet address"
-        className="h-8 w-56 font-mono text-xs"
-        value={wallet}
-        onChange={(event) => setWallet(event.target.value)}
-        autoFocus
-      />
-      <Button variant="primary" size="sm" type="submit" disabled={!wallet.trim()}>
-        Sign in
-      </Button>
-    </form>
+    <a href="/" className="brand" aria-label="Sonnely">
+      <span className="brand-icon" aria-hidden="true" />
+      <span className="brand-wordmark" aria-hidden="true" />
+    </a>
   );
+}
+
+function walletBalance(ledger: Ledger | undefined, wallet: string) {
+  return (ledger?.entries ?? []).reduce(
+    (total, entry) => (entry.wallet === wallet ? total + (entry.kind === "Charge" ? -entry.amount : entry.amount) : total),
+    0,
+  );
+}
+
+function machineTheme(theme: Theme): ConsoleTheme {
+  return theme === "light" ? "Light" : theme === "system" ? "System" : "Dark";
+}
+
+export interface ConsoleProfile {
+  wallet: string;
+  name: string;
+  username: string;
+  balance: number;
+  referral: string;
+  role: "member" | "admin";
+}
+
+export interface ConsoleShell {
+  session: Remote<WorkspaceSession>;
+  settings: Remote<ConsoleSettings>;
+  ledger: Remote<Ledger>;
+  referrals: Remote<ReferralState>;
+  profile: ConsoleProfile | null;
+  theme: Theme;
+  motion: boolean;
+  signIn: (wallet: string) => Promise<boolean>;
+  signOut: () => Promise<boolean>;
+  saveProfile: (name: string, username: string) => Promise<boolean>;
+  chooseTheme: (theme: Theme) => Promise<boolean>;
+}
+
+export const ConsoleShellContext = createContext<ConsoleShell | null>(null);
+
+export function useConsoleShell() {
+  const shell = useContext(ConsoleShellContext);
+  if (!shell) throw new Error("console shell surfaces render inside ConsoleFrame");
+  return shell;
 }
 
 /** The console frame: section rail on the left, session-aware header, and the section's own content. */
 export function ConsoleFrame({ section, children }: { section: Section; children: ReactNode }) {
   const session = useRemote<WorkspaceSession>("session");
+  const settings = useRemote<ConsoleSettings>("console");
+  const ledger = useRemote<Ledger>("billing-ledger");
+  const referrals = useRemote<ReferralState>("admin-referrals");
+  const theme = useTheme();
+  const motion = useAmbientMotion();
+  const [palette, setPalette] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const navToggle = useRef<HTMLButtonElement>(null);
+  const navPanel = useRef<HTMLElement>(null);
   const selected = all.find((item) => item.section === section) ?? all[0];
+  const signedIn = session.state?.tag === "SignedIn" ? session.state.wallet : "";
+  const referral = signedIn ? referrals.state?.codes.find((code) => code.owner === signedIn)?.code ?? "" : "";
+  const profile: ConsoleProfile | null = signedIn
+    ? {
+        wallet: signedIn,
+        name: settings.state?.name ?? "",
+        username: settings.state?.username ?? "",
+        balance: walletBalance(ledger.state, signedIn),
+        referral,
+        role: "member",
+      }
+    : null;
+
+  useEffect(() => {
+    function shortcut(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      setPalette(true);
+    }
+    document.addEventListener("keydown", shortcut);
+    return () => document.removeEventListener("keydown", shortcut);
+  }, []);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const panel = navPanel.current;
+    (panel?.querySelector<HTMLAnchorElement>("[aria-current='page']") ?? panel?.querySelector<HTMLAnchorElement>("nav a"))?.focus();
+    function dismiss(event: KeyboardEvent) {
+      if (event.key === "Escape") closeNavigation();
+    }
+    document.addEventListener("keydown", dismiss);
+    return () => document.removeEventListener("keydown", dismiss);
+  }, [navOpen]);
+
+  function closeNavigation() {
+    setNavOpen(false);
+    navToggle.current?.focus();
+  }
+
+  function toggleNavigation(trigger: HTMLButtonElement) {
+    navToggle.current = trigger;
+    if (navOpen) closeNavigation();
+    else setNavOpen(true);
+  }
+
+  async function signIn(wallet: string) {
+    return session.send({ type: "signIn", wallet });
+  }
+
+  async function signOut() {
+    return session.send({ type: "signOut" });
+  }
+
+  async function saveProfile(name: string, username: string) {
+    return settings.send({ type: "saveProfile", name, username });
+  }
+
+  async function chooseTheme(next: Theme) {
+    applyTheme(next);
+    const changed = settings.state?.theme !== machineTheme(next);
+    return !changed || settings.send({ type: "chooseTheme", theme: machineTheme(next) });
+  }
+
+  const shell: ConsoleShell = {
+    session,
+    settings,
+    ledger,
+    referrals,
+    profile,
+    theme,
+    motion,
+    signIn,
+    signOut,
+    saveProfile,
+    chooseTheme,
+  };
+  const PageIcon = selected.Icon;
+  const inviteUrl = profile?.referral ? `${window.location.origin}/console?ref=${profile.referral}` : undefined;
+  const sidebar = (items: typeof all) =>
+    items.map(({ id, title, path, Icon }) => (
+      <a key={id} href={path} onClick={() => setNavOpen(false)} aria-current={id === selected.id ? "page" : undefined}>
+        <Icon size={18} aria-hidden="true" />
+        <span>{title}</span>
+      </a>
+    ));
+
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-card md:flex">
-        <div className="flex flex-col gap-1 border-b border-border p-4">
-          <a href="/" className="font-serif text-xl">
-            Sonnely
-          </a>
-          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Developer console</p>
+    <div className="theme-root site console" data-area="console" data-theme={theme} data-motion={motion ? "on" : "off"}>
+      <a href="#console-content" className="skip">
+        Skip to workspace
+      </a>
+      <div className="workspace-scene" aria-hidden="true" />
+      <aside ref={navPanel} id="console-navigation" className={"rail glass" + (navOpen ? " rail-open" : "")}>
+        <div className="rail-top">
+          <Brand />
+          <p className="mono rail-caption">Developer console</p>
         </div>
-        <a href="/console/settings" className="flex items-center gap-3 border-b border-border p-4 hover:bg-accent">
-          <span className="flex size-8 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
-            <Wallet size={16} aria-hidden="true" />
+        <a className="rail-identity" href="/console/settings" onClick={() => setNavOpen(false)}>
+          <span className="rail-identity-icon">
+            <Wallet size={17} aria-hidden="true" />
           </span>
-          <span className="min-w-0">
-            <strong className="block truncate text-sm">
-              {session.state?.tag === "SignedIn" ? shorten(session.state.wallet) : "Your workspace"}
-            </strong>
-            <small className="text-xs text-muted-foreground">
-              {session.state?.tag === "SignedIn" ? "Solana wallet connected" : "Solana wallet access"}
-            </small>
+          <span>
+            <strong>{profile ? profile.name || shorten(profile.wallet) : "Your workspace"}</strong>
+            <small>{profile ? "Solana wallet connected" : "Solana wallet access"}</small>
           </span>
         </a>
-        <nav aria-label="Workspace navigation" className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
+        <nav aria-label="Workspace navigation" className="rail-nav">
           {groups.map((group) => (
-            <div key={group.label} className="flex flex-col gap-0.5">
-              <p className="px-2 pb-1 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                {group.label}
-              </p>
-              {group.items.map(({ section: item, title, path, Icon }) => (
-                <a
-                  key={item}
-                  href={path}
-                  aria-current={item === section ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground",
-                    item === section && "bg-accent font-medium text-foreground",
-                  )}
-                >
-                  <Icon size={17} aria-hidden="true" />
-                  <span>{title}</span>
-                </a>
-              ))}
+            <div key={group.label}>
+              <p className="mono">{group.label}</p>
+              {sidebar(group.items)}
             </div>
           ))}
         </nav>
-        <div className="border-t border-border p-3">
-          <a
-            href="/docs"
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <BookOpen size={16} aria-hidden /> Documentation <ArrowUpRight size={13} aria-hidden />
+        <div className="rail-bottom">
+          <span className="rail-theme">
+            <ThemeSwitch />
+          </span>
+          <button type="button" className="button quiet small" onClick={() => setSetupOpen(true)}>
+            <Sparkles size={16} aria-hidden /> Workspace setup
+          </button>
+          <a href="/docs">
+            <BookOpen size={17} /> Documentation <ArrowUpRight size={13} />
+          </a>
+          <a href="/contact">
+            <CircleHelp size={17} /> Support <ArrowUpRight size={13} />
+          </a>
+          <a className="balance" href="/console/billing">
+            <span>Credit balance</span>
+            <b>{profile ? creditBalance(profile.balance) : "—"}</b>
           </a>
         </div>
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 items-center justify-between gap-4 border-b border-border px-4 md:px-6">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted-foreground">
-            <a href="/console/chat" className="hover:text-foreground">
-              Console
-            </a>
-            <span aria-hidden>/</span>
-            <span className="flex items-center gap-1.5 text-foreground">
-              <selected.Icon size={15} aria-hidden />
-              {selected.title}
+      {navOpen && <button type="button" className="nav-scrim" tabIndex={-1} aria-label="Close navigation" onClick={closeNavigation} />}
+      <div className="console-stage">
+        <header className="console-bar glass">
+          <div className="crumb">
+            <span className="compact-brand">
+              <Brand />
             </span>
-          </nav>
-          <WalletControl session={session.state} send={session.send} />
-        </header>
-        <nav
-          aria-label="Workspace navigation"
-          className="flex gap-1 overflow-x-auto border-b border-border px-3 py-2 md:hidden"
-        >
-          {all.map(({ section: item, title, path }) => (
-            <a
-              key={item}
-              href={path}
-              aria-current={item === section ? "page" : undefined}
-              className={cn(
-                "rounded-md px-2 py-1 text-sm whitespace-nowrap text-muted-foreground",
-                item === section && "bg-accent text-foreground",
-              )}
+            <span>Workspace</span>
+            <span className="slash">/</span>
+            <strong className="crumb-page">
+              <PageIcon size={15} aria-hidden="true" /> {selected.title}
+            </strong>
+          </div>
+          <div className="bar-controls">
+            {profile && (
+              <a href="/console/billing" className="console-credit">
+                <Wallet size={16} aria-hidden="true" />
+                <span>Credits</span>
+                <strong>{creditBalance(profile.balance)}</strong>
+              </a>
+            )}
+            <button
+              type="button"
+              className="button quiet small command-toggle"
+              onClick={() => setPalette(true)}
+              aria-label="Jump to ⌘ K"
+              aria-keyshortcuts="Meta+K Control+K"
             >
-              {title}
-            </a>
-          ))}
-        </nav>
-        <main id="console-content" className="flex-1 p-4 md:p-6">
-          <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
+              <Search size={16} />
+              <span>Jump to</span>
+              <kbd aria-hidden="true">⌘ K</kbd>
+            </button>
+            <span className="console-theme">
+              <ThemeSwitch />
+            </span>
+            <WalletControl wallet={signedIn || undefined} cluster="mainnet" onSignIn={signIn} onSignOut={signOut} />
+            <button
+              type="button"
+              className="mobile-menu-control console-menu-toggle"
+              aria-expanded={navOpen}
+              aria-controls="console-navigation"
+              aria-label={navOpen ? "Close workspace menu" : "Open workspace menu"}
+              onClick={(event) => toggleNavigation(event.currentTarget)}
+            >
+              <span className="mobile-menu-glyph" aria-hidden="true">
+                <span />
+              </span>
+            </button>
+          </div>
+        </header>
+        <CommandMenu
+          open={palette}
+          onClose={() => setPalette(false)}
+          pages={all}
+          onToggleTheme={() => {
+            const cycle: Theme[] = ["light", "dark", "system"];
+            void chooseTheme(cycle[(cycle.indexOf(theme) + 1) % cycle.length]);
+          }}
+          inviteUrl={inviteUrl}
+        />
+        <main id="console-content" tabIndex={-1} className={selected.id === "chat" ? "console-chat" : "console-content"}>
+          {!profile && selected.id === "chat" && (
+            <div className="workspace-setup-invite">
+              <Sparkles size={16} aria-hidden />
+              <span>New to Sonnely?</span>
+              <button type="button" className="text-link" onClick={() => setSetupOpen(true)}>
+                Set up your workspace <ArrowUpRight size={14} aria-hidden />
+              </button>
+            </div>
+          )}
+          {setupOpen && (
+            <Onboarding
+              wallet={signedIn || undefined}
+              settings={settings.state}
+              cluster="mainnet"
+              canFund
+              onSignIn={signIn}
+              onSignOut={signOut}
+              onSaveProfile={saveProfile}
+              close={() => setSetupOpen(false)}
+            />
+          )}
+          <ConsoleShellContext.Provider value={shell}>
+            <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
+          </ConsoleShellContext.Provider>
         </main>
       </div>
+      <nav className="mobile-dock glass" aria-label="Quick workspace navigation">
+        {all
+          .filter(({ id }) => ["chat", "models", "usage"].includes(id))
+          .map(({ id, path, Icon, title }) => (
+            <a key={id} href={path} className="dock-item" aria-current={section === selected.section && id === selected.id ? "page" : undefined} onClick={() => setNavOpen(false)}>
+              <Icon size={20} aria-hidden />
+              <span>{title}</span>
+            </a>
+          ))}
+        <button className="dock-item" type="button" aria-expanded={navOpen} aria-controls="console-navigation" onClick={(event) => toggleNavigation(event.currentTarget)}>
+          <Menu size={20} aria-hidden />
+          <span>All pages</span>
+        </button>
+      </nav>
     </div>
   );
 }

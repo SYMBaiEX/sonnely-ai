@@ -6,6 +6,7 @@ import { BatchSection } from "./batch.tsx";
 import { CatalogSection } from "./catalog.tsx";
 import { ChatSection } from "./chat.tsx";
 import { LogsSection } from "./logs.tsx";
+import { Referrals } from "./referrals.tsx";
 import { SettingsSection } from "./settings.tsx";
 
 export function render(page: Page): React.ReactNode {
@@ -33,6 +34,12 @@ export function render(page: Page): React.ReactNode {
       return (
         <ConsoleFrame section={page.section}>
           <BatchSection />
+        </ConsoleFrame>
+      );
+    case "Referrals":
+      return (
+        <ConsoleFrame section={page.section}>
+          <Referrals />
         </ConsoleFrame>
       );
     case "Settings":

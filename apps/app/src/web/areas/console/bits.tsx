@@ -2,7 +2,6 @@
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Check, Copy } from "lucide-react";
-import { Button, cn } from "@repo/ui";
 
 /** A wallet or key id shortened for display, as the legacy console shows it. */
 export const shorten = (wallet: string) => wallet.slice(0, 4) + "…" + wallet.slice(-4);
@@ -32,29 +31,28 @@ export function WorkspaceHeading({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex items-center gap-4">
-        <span className="flex size-11 items-center justify-center rounded-lg border border-border bg-card text-foreground">
+    <header className="workspace-heading">
+      <div>
+        <span className="workspace-heading-icon">
           <Icon size={21} aria-hidden="true" />
         </span>
         <div>
-          <h1 className="text-xl font-semibold">{title}</h1>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <h1>{title}</h1>
+          <p>{description}</p>
         </div>
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="workspace-heading-actions">{children}</div>}
     </header>
   );
 }
 
 /** Copies `text` to the clipboard; confirms for a moment. */
-export function CopyButton({ text, label = "Copy", className }: { text: string; label?: string; className?: string }) {
+export function CopyButton({ text, label = "Copy", quiet = true, className = "" }: { text: string; label?: string; quiet?: boolean; className?: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className={className}
+    <button
+      type="button"
+      className={`button ${quiet ? "quiet" : ""} ${className}`}
       aria-label={label}
       onClick={async () => {
         try {
@@ -62,22 +60,22 @@ export function CopyButton({ text, label = "Copy", className }: { text: string; 
           setCopied(true);
           setTimeout(() => setCopied(false), 1600);
         } catch {
-          /* Clipboard unavailable; the control stays quiet. */
+          setCopied(false);
         }
       }}
     >
       {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
       {copied ? "Copied" : label}
-    </Button>
+    </button>
   );
 }
 
 /** A small labeled value, as the console's detail grids show it. */
 export function Detail({ label, children, mono = false }: { label: string; children: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className={cn("text-sm break-all", mono && "font-mono")}>{children}</dd>
+    <div className="detail">
+      <dt>{label}</dt>
+      <dd className={mono ? "mono" : undefined}>{children}</dd>
     </div>
   );
 }

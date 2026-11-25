@@ -10,7 +10,12 @@ import { ConsoleFrame } from "../console/frame.tsx";
 export function AdminPage({ area }: { area: string }) {
   const session = useSession();
   const admin = useAdmin();
-  if (area === "referrals") return <ReferralsPage />;
+  if (area === "referrals")
+    return (
+      <ConsoleFrame section="Admin">
+        <ReferralsPage />
+      </ConsoleFrame>
+    );
   const signedIn = session.state?.tag === "SignedIn" ? session.state : undefined;
   const wallet = signedIn?.wallet ?? "";
   const roster = admin.state?.ops.roster ?? [];
@@ -20,33 +25,30 @@ export function AdminPage({ area }: { area: string }) {
 
   return (
     <ConsoleFrame section="Admin">
-      <div className="theme-root site admin-legacy-scope" data-motion="on">
-        <div className="workspace-scene" aria-hidden="true" />
-        <div className="console-content admin-legacy-console">
-          <Admin
-            key={wallet || "signed-out"}
-                       session={{
-              profile: wallet
-                ? {
-                    wallet,
-                    name: "",
-                    username: "",
-                    balance: 0,
-                    referral: "",
-                    role,
-                    onboarding: "later",
-                  }
-                : null,
-              enabled: true,
-              termsRequired: false,
-              billingEnabled: true,
-              paymentVerificationEnabled: true,
-              inferenceEnabled: true,
-              cluster: "mainnet",
-            }}
-            features={{ blackboxes: true, "dry-docks": true }}
-          />
-        </div>
+      <div className="admin-legacy-scope" data-motion="on">
+        <Admin
+          key={wallet || "signed-out"}
+          session={{
+            profile: wallet
+              ? {
+                  wallet,
+                  name: "",
+                  username: "",
+                  balance: 0,
+                  referral: "",
+                  role,
+                  onboarding: "later",
+                }
+              : null,
+            enabled: true,
+            termsRequired: false,
+            billingEnabled: true,
+            paymentVerificationEnabled: true,
+            inferenceEnabled: true,
+            cluster: "mainnet",
+          }}
+          features={{ blackboxes: true, "dry-docks": true }}
+        />
       </div>
     </ConsoleFrame>
   );

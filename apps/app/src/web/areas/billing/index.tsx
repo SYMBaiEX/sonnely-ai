@@ -439,7 +439,7 @@ function BillingConsole() {
   const historyError = deposits.error;
 
   return (
-    <div className="billing-legacy console">
+    <div className="billing-legacy">
       <WorkspaceHeading title="Billing" description="Add compute credits, check your balance, and track wallet payments." />
       <Failure message={failure && !["deposit", "pay", "confirm"].includes(failure.action) ? failure.message : historyError} />
       <p role="status" className={status ? "status" : "visually-hidden"}>
@@ -973,7 +973,7 @@ function BillingConsole() {
 
 function BillingFallback() {
   return (
-    <div className="billing-legacy console">
+    <div className="billing-legacy">
       <WorkspaceHeading title="Billing" description="Add compute credits, check your balance, and track wallet payments." />
       <div className="billing-grid">
         <section className="panel stack-panel billing-balance">
