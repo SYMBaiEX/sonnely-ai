@@ -1,7 +1,0 @@
-README.md
-pyproject.toml
-src/sonnely/__init__.py
-src/sonnely_sdk.egg-info/PKG-INFO
-src/sonnely_sdk.egg-info/SOURCES.txt
-src/sonnely_sdk.egg-info/dependency_links.txt
-src/sonnely_sdk.egg-info/top_level.txt
