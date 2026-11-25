@@ -1,0 +1,81 @@
+import fs from "node:fs";
+import path from "node:path";
+import { entry, executableDigest, installedProgram, inSteadyCheck, recall, stableInstallation, store, steady, dafnyLauncher, verifierIdentity } from "./cache.js";
+import { NEEDS_DAFNY, exec, stamp } from "./run.js";
+import { SIMULATOR, TABLE } from "./simulator.js";
+/** Whether Quint ended a simulation by finding a state that breaks the invariant: its last word, never its output. */
+export const violated = (r) => r.status === 1 && /(?:^|\n)error: Invariant violated$/.test(r.stderr.trimEnd());
+/** Whether a simulation reached its answer: the invariant held or broke, and its traces are written. */
+export const completed = (r) => (r.ok || violated(r)) && Object.keys(r.files).some((f) => f.endsWith(".itf.json"));
+/** Dafny's closing line, with the failures it counts beside its errors. */
+const DAFNY_SUMMARY = /^Dafny program verifier finished with \d+ verified, \d+ errors?((?:, \d+ [a-z ]+)*)$/m;
+/** Whether Dafny refused a file it could not parse or resolve, which it does again for the same file. */
+const refused = (r) => r.status === 2 && /^\d+ (?:resolution\/type|parse) errors? detected in /m.test(r.out);
+/** Whether LemmaScript refused its input, as it does again for the same input: an error of its own, not of the system it runs on. */
+const declined = (r) => r.status === 1 && /^(?:ERROR|WARNING): /m.test(r.stderr) && !/\bE[A-Z]{2,}: |could not run `git diff`/.test(r.stderr);
+const TOOLS = {
+    quint: {
+        launcher: "quint",
+        answered: (args, r) => args[0] === "typecheck" ? r.ok && Object.keys(r.files).length > 0 : completed(r),
+    },
+    simulator: {
+        launcher: "quint",
+        script: SIMULATOR,
+        answered: (args, r) => args[0] === "compile" ? r.ok && Object.hasOwn(r.files, TABLE) : completed(r),
+    },
+    lsc: {
+        launcher: "lsc",
+        answered: (_args, r) => declined(r) || (r.ok && Object.keys(r.files).some((f) => f.endsWith(".dfy.gen"))),
+    },
+    dafny: {
+        answered: (args, r) => refused(r) || (args[0] === "audit" ? /Dafny auditor completed/.test(r.out)
+            : (r.status === 0 || r.status === 4) && !/timed out|out of memory|solver exception|inconclusive/i.test(r.out)
+                && (r.out.match(DAFNY_SUMMARY)?.[1].split(", ").filter(Boolean).every((counted) => counted.endsWith(" out of resource")) ?? false)),
+    },
+};
+/**
+ * Run a tool with `args` in `dir`, a directory of the project or an absolute one, made anew with only `files` in it, or
+ * say what the same run said before. A run is remembered under the program, the arguments and what decides each file,
+ * and the code of this file and run.ts: a change elsewhere in these tools runs the tool again only where it changes
+ * what the tool reads, and a file left out of `files` is one the tool cannot find. Only a run that reached its answer
+ * is remembered, and not when the program was installed again during the run; a process that outlives a reinstall
+ * names the program installed now.
+ */
+export async function act(memory, tool, args, dir, files) {
+    if (tool === "dafny" && !inSteadyCheck())
+        return steady(() => act(memory, tool, args, dir, files));
+    const { launcher, script, answered } = TOOLS[tool];
+    const installed = launcher && installedProgram(memory.root, launcher);
+    if (launcher && !installed)
+        throw new Error(`${launcher} is not installed; run pnpm install`);
+    const exe = installed?.exe ?? dafnyLauncher();
+    const since = script && stamp([script]);
+    const id = installed ? installed.id && installed.id + (script ? ` ${executableDigest(script)}` : "") : await verifierIdentity();
+    const at = await entry(memory.root, "action", [id, JSON.stringify(args), ...Object.keys(files).sort().flatMap((f) => [f, files[f].key])], (tool === "quint" || tool === "simulator") && args[0] === "run");
+    const known = recall(memory, at);
+    if (known)
+        return known;
+    const where = path.resolve(memory.root, dir);
+    fs.rmSync(where, { recursive: true, force: true });
+    fs.mkdirSync(where, { recursive: true });
+    for (const [f, { text }] of Object.entries(files))
+        fs.writeFileSync(path.join(where, f), text);
+    const began = performance.now();
+    const isolated = installed?.isolated;
+    const selected = script ? isolated?.script ?? script : isolated?.entry;
+    const env = isolated ? { ...process.env, NODE_PATH: undefined, NODE_OPTIONS: undefined, NODE_PRESERVE_SYMLINKS: undefined, NODE_PRESERVE_SYMLINKS_MAIN: undefined } : undefined;
+    const priority = tool === "quint" || tool === "simulator" ? 0 : 2;
+    const r = await exec(selected ? process.execPath : exe, selected ? [...isolated ? ["--no-global-search-paths"] : [], selected, ...args] : args, where, env, undefined, memory.actionSignal, priority).catch((e) => { throw new Error(`${tool} could not be run (${exe}): ${e.message}; ${tool === "dafny" ? NEEDS_DAFNY : "run pnpm install"}`); });
+    const written = fs.readdirSync(where, { withFileTypes: true }).filter((f) => f.isFile() && !Object.hasOwn(files, f.name)).map((f) => f.name).sort();
+    const ran = { ok: r.status === 0 && !r.stopped, status: r.status, out: `${r.stdout}${r.stderr}${r.stopped ? `\n${r.stopped}\n` : ""}`, stderr: r.stderr, stopped: r.stopped,
+        files: Object.fromEntries(written.map((f) => [f, fs.readFileSync(path.join(where, f), "utf8")])) };
+    if (!ran.stopped && answered(args, ran)) {
+        if (installed) {
+            if (stableInstallation(!script || stamp([script]) === since))
+                store(memory, at, ran, { program: installed, began });
+        }
+        else
+            store(memory, at, ran, "dafny");
+    }
+    return ran;
+}
