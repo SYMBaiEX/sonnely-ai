@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "tokens": "pnpm -C ../../packages/design-system build",
     "build": "vibelang && pnpm -s tokens && vite build",
     "typecheck": "vibelang --noEmit -p .",
     "test": "pnpm -s tokens && vite build --logLevel error && vitest run",

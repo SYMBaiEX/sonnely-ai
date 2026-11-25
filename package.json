@@ -8,6 +8,8 @@
   "packageManager": "pnpm@10.24.0",
   "scripts": {
     "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "pnpm -C apps/app start",
     "studio": "spec studio",
     "check": "spec check",
     "gen": "spec gen",
