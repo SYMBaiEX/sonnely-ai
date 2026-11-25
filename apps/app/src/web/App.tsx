@@ -30,11 +30,11 @@ export function App({ runtime, path }: AppProps) {
   const { state } = useMachine(runtime);
 
   useEffect(() => {
-    void runtime.runPromise(open(pageOf(path)));
+    void runtime.runPromiseExit(open(pageOf(path)));
   }, [runtime, path]);
 
   useEffect(() => {
-    const onPop = () => void runtime.runPromise(back());
+    const onPop = () => void runtime.runPromiseExit(back());
     addEventListener("popstate", onPop);
     return () => removeEventListener("popstate", onPop);
   }, [runtime]);
