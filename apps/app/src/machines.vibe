@@ -8,6 +8,43 @@ export interface MachineLike {
   changes: Stream.Stream<unknown>
 }
 
+export interface MachineReader {
+  changes: Stream.Stream<unknown>
+}
+
+service MachineRegistry {
+  static readonly key = "@repo/app/machines/MachineRegistry"
+  register(name: string, machine: MachineReader): void!!
+  entries(): Array<readonly [string, MachineReader]>!!
+}
+
+const machineRegistry = Layer.effect(MachineRegistry, effect {
+  const machines = try Ref.make(new Map<string, MachineReader>())
+  return {
+    effect register(name: string, machine: MachineReader) {
+      try Ref.update(machines, (current) => {
+        const next = new Map(current)
+        next.set(name, machine)
+        return next
+      })
+    },
+    effect entries() {
+      return Array.from((try Ref.get(machines)).entries())
+    },
+  }
+})
+
+function registrationLayer(name: string, machine: MachineReader) {
+  return Layer.effectDiscard(effect {
+    const registry = try MachineRegistry
+    try registry.register(name, machine)
+  })
+}
+
+export function machineRegistration(name: string, machine: MachineReader) {
+  return Layer.provideMerge(registrationLayer(name, machine), machineRegistry)
+}
+
 const noStore = { "cache-control": "no-store" }
 
 effect function getState(m: MachineLike) {
@@ -37,11 +74,30 @@ effect function getStream(m: MachineLike) {
   })
 }
 
+effect function getMultiplexedStream(registry: MachineRegistry.Shape) {
+  const machines = try registry.entries()
+  const streams = machines.map(([name, machine]) => Stream.map(machine.changes, (state) => `data: ${JSON.stringify({ machine: name, state })}\n\n`))
+  return HttpServerResponse.stream(Stream.encodeText(Stream.mergeAll(streams, { concurrency: "unbounded" })), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
+const multiplexedMachines = Layer.provideMerge(
+  Layer.unwrap(effect {
+    const registry = try MachineRegistry
+    return HttpRouter.add("GET", "/api/machines/stream", getMultiplexedStream(registry))
+  }),
+  machineRegistry,
+)
+
 /** state, event and stream endpoints over one spec machine, mounted at /api/machines/<name>. */
 export function machineApi(name: string, m: MachineLike) {
   return Layer.mergeAll(
     HttpRouter.add("GET", `/api/machines/${name}`, getState(m)),
     HttpRouter.add("POST", `/api/machines/${name}`, provideService(postEvent(m), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m)),
+    machineRegistration(name, m),
+    multiplexedMachines,
   )
 }

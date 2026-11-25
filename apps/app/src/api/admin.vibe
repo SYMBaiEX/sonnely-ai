@@ -3,7 +3,7 @@
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
-import { machineApi } from "../machines.vibe"
+import { machineApi, machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
 const noStore = { "cache-control": "no-store" }
@@ -79,6 +79,7 @@ export const adminApi = Layer.unwrap(effect {
     HttpRouter.add("GET", "/api/machines/admin", getState(admin)),
     HttpRouter.add("POST", "/api/machines/admin", provideService(postSender(admin), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("GET", "/api/machines/admin/stream", getStream(admin)),
+    machineRegistration("admin", admin),
     HttpRouter.add("GET", "/api/admin/overview", overview(admin)),
     machineApi("admin-referrals", referrals),
   )

@@ -2,6 +2,7 @@
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import { Machine, stored } from "../../gen/app__site.effect.vibe"
 import type { Probe, Report } from "../../gen/app__site.ts"
+import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
 module upstream {
@@ -100,6 +101,7 @@ export const siteApi = Layer.unwrap(effect {
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/machines/site", getState(machine)),
     HttpRouter.add("GET", "/api/machines/site/stream", getStream(machine)),
+    machineRegistration("site", machine),
     HttpRouter.add("POST", "/api/site/status", postReport(machine)),
   )
 })

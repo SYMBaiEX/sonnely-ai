@@ -5,6 +5,7 @@
 import * as Keyring from "../../gen/app__gateway__keyring.effect.vibe"
 import * as Requests from "../../gen/app__gateway__requests.effect.vibe"
 import * as Batch from "../../gen/app__gateway__batch.effect.vibe"
+import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
 module node {
@@ -358,10 +359,13 @@ export const gatewayApi = Layer.unwrap(effect {
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/machines/keys", getState(keyring)),
     HttpRouter.add("GET", "/api/machines/keys/stream", getStream(keyring)),
+    machineRegistration("keys", keyring),
     HttpRouter.add("GET", "/api/machines/gateway-requests", getState(requests)),
     HttpRouter.add("GET", "/api/machines/gateway-requests/stream", getStream(requests)),
+    machineRegistration("gateway-requests", requests),
     HttpRouter.add("GET", "/api/machines/gateway-batch", getState(batch)),
     HttpRouter.add("GET", "/api/machines/gateway-batch/stream", getStream(batch)),
+    machineRegistration("gateway-batch", batch),
     HttpRouter.add("GET", "/api/sonnely/v1/models", listModels()),
     HttpRouter.add("GET", "/api/sonnely/v1/provider-models", providerModels()),
     HttpRouter.add("GET", "/api/sonnely/v1/key", keyStatus()),

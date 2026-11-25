@@ -6,6 +6,7 @@ import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Deposits from "../../gen/app__billing__deposits.effect.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
 import * as solana from "./billing/solana.ts"
+import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
 /** Solana checkout is not configured (treasury, RPC or cluster missing). */
@@ -224,8 +225,10 @@ export const billingApi = Layer.unwrap(effect {
     HttpRouter.add("GET", "/api/billing/config", configRoute()),
     HttpRouter.add("GET", "/api/machines/billing-ledger", getState(ledger)),
     HttpRouter.add("GET", "/api/machines/billing-ledger/stream", getStream(ledger)),
+    machineRegistration("billing-ledger", ledger),
     HttpRouter.add("GET", "/api/machines/billing-deposits", getState(deposits)),
     HttpRouter.add("GET", "/api/machines/billing-deposits/stream", getStream(deposits)),
+    machineRegistration("billing-deposits", deposits),
     HttpRouter.add("POST", "/api/billing/deposits", provideService(openDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("POST", "/api/billing/deposits/confirm", provideService(confirmDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     paymentVerifier,
