@@ -1,13 +1,12 @@
 // spec/app/console/index.md, "Story: Set up the workspace profile" and "Story: Choose how this device shows the
-// console": the workspace identity form, the theme segmented control and the device toggles, over the settings machine.
+// console"; spec/app/session.md, "Story: Sign in with a wallet": workspace identity, preferences and sessions.
 import { useState, type FormEvent } from "react";
-import { Code2, MonitorSmartphone, Settings, Shield } from "lucide-react";
+import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield } from "lucide-react";
 import type { Console, Theme } from "../../../../gen/app__console.ts";
-import { Button, Card, Checkbox, Input, cn } from "@repo/ui";
-import { useRemote } from "../../remote.ts";
-import { useWorkspaceSession } from "./frame.tsx";
-import { SignInGate } from "./gate.tsx";
-import { CopyButton, WorkspaceHeading, shorten } from "./bits.tsx";
+import type { Session } from "../../../../gen/app__session.ts";
+import { useRemote, type Remote } from "../../remote.ts";
+import { MotionSwitch } from "../site/motion.tsx";
+import { CopyButton, WorkspaceHeading, WorkspaceLegacy, shorten } from "../teams/legacy.tsx";
 
 const usernameHelp = "Use 3–24 letters, numbers, or underscores. Start with a letter.";
 const themes: { id: Theme; label: string }[] = [
@@ -15,183 +14,250 @@ const themes: { id: Theme; label: string }[] = [
   { id: "Light", label: "light" },
   { id: "Dark", label: "dark" },
 ];
+const date = (time: number) =>
+  new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(time);
 
-/** A labelled switch row, as the preferences panel shows it. */
-function PrefRow({
-  name,
-  hint,
-  checked,
-  onToggle,
-}: {
-  name: string;
-  hint: string;
-  checked: boolean;
-  onToggle: () => void;
-}) {
+function Failure({ message }: { message: string }) {
+  return message ? (
+    <p className="error" role="alert">
+      {message}
+    </p>
+  ) : null;
+}
+
+function PreferencesPanel({ settings, state }: { settings: Remote<Console>; state?: Console }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-0">
-      <div>
-        <strong className="text-sm">{name}</strong>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+    <section className="panel stack-panel settings-panel">
+      <div className="between">
+        <h2>Preferences</h2>
+        <Code2 size={20} />
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-label={name}
-        aria-checked={checked}
-        onClick={onToggle}
-        className={cn(
-          "relative h-6 w-10 shrink-0 rounded-full transition-colors",
-          checked ? "bg-primary" : "bg-input",
-        )}
-      >
-        <span
-          className={cn(
-            "absolute top-0.5 left-0.5 size-5 rounded-full bg-background transition-transform",
-            checked && "translate-x-4",
-          )}
-        />
-      </button>
-    </div>
+      <div className="settings-row">
+        <div>
+          <strong>Appearance</strong>
+          <p>Choose the console theme.</p>
+        </div>
+        <div className="segmented">
+          {themes.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={(state?.theme ?? "Dark") === id}
+              onClick={() => void settings.send({ type: "chooseTheme", theme: id })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="settings-row">
+        <div>
+          <strong>Ambient motion</strong>
+          <p>Animate the background and the homepage request trace.</p>
+        </div>
+        <MotionSwitch />
+      </div>
+      <div className="settings-row">
+        <div>
+          <strong>Plain writing</strong>
+          <p>Ask the chat model for concise, clear language.</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          className="toggle"
+          aria-label="Plain writing"
+          aria-checked={state?.plain ?? true}
+          onClick={() => void settings.send({ type: "setPlain", on: !(state?.plain ?? true) })}
+        >
+          <span />
+        </button>
+      </div>
+      <div className="settings-row">
+        <div>
+          <strong>Save on this device</strong>
+          <p>Turning this off clears saved Sonnely chats from this browser.</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          className="toggle"
+          aria-label="Save on this device"
+          aria-checked={state?.saveOnDevice ?? false}
+          onClick={() => void settings.send({ type: "setSaveOnDevice", on: !(state?.saveOnDevice ?? false) })}
+        >
+          <span />
+        </button>
+      </div>
+    </section>
   );
 }
 
-export function SettingsSection() {
-  const session = useWorkspaceSession();
-  const settings = useRemote<Console>("console");
+function SessionsPanel({ wallet }: { wallet?: string }) {
+  const [busy, setBusy] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const state = settings.state;
+  const opened = Date.now();
+  const sessions = wallet ? [{ id: "current", created: opened, expires: opened + 7 * 86_400_000, current: true }] : [];
 
-  if (session.state?.tag !== "SignedIn") {
-    return <SignInGate message="Connect a Solana wallet to manage your account." />;
-  }
-  const wallet = session.state.wallet;
-
-  async function rename(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setNotice("");
+  function signOutOthers() {
+    setBusy(true);
     setError("");
-    const fields = new FormData(event.currentTarget);
-    const sent = await settings.send({
-      type: "saveProfile",
-      name: String(fields.get("name") ?? ""),
-      username: String(fields.get("username") ?? ""),
-    });
-    if (sent) setNotice("Profile saved.");
-    else setError("Nothing changed to save.");
+    setNotice("");
+    setSigningOut(false);
+    setNotice("No other sessions to sign out.");
+    setBusy(false);
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-4">
+    <section className="panel stack-panel settings-panel">
+      <div className="between">
+        <h2>Active sessions</h2>
+        <MonitorSmartphone size={20} />
+      </div>
+      {wallet && sessions.length ? (
+        sessions.map((item) => (
+          <div className="settings-row" key={item.id}>
+            <div>
+              <strong>{item.current ? "This session" : "Signed in " + date(item.created)}</strong>
+              <p>Expires {date(item.expires)} UTC</p>
+            </div>
+            {item.current && <span className="pill">Current</span>}
+          </div>
+        ))
+      ) : (
+        <p className="caption" role="status">
+          {!wallet ? "Connect a wallet to see active sessions." : "Active sessions are unavailable."}
+        </p>
+      )}
+      {wallet &&
+        (signingOut ? (
+          <div className="settings-row">
+            <div>
+              <strong>Sign out other sessions?</strong>
+              <p>Other devices will need to sign in again.</p>
+            </div>
+            <div className="actions">
+              <button type="button" className="button quiet" disabled={busy} onClick={signOutOthers}>
+                Sign out others
+              </button>
+              <button type="button" className="button quiet" disabled={busy} onClick={() => setSigningOut(false)}>
+                Keep
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="actions">
+            <button type="button" className="button quiet" disabled={busy} onClick={() => setSigningOut(true)}>
+              Sign out other sessions
+            </button>
+          </div>
+        ))}
+      <Failure message={error} />
+      <p role="status" className={notice ? "status" : "visually-hidden"}>
+        {notice}
+      </p>
+    </section>
+  );
+}
+
+function SettingsContent() {
+  const session = useRemote<Session>("session");
+  const settings = useRemote<Console>("console");
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const state = settings.state;
+  const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
+
+  async function rename(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const fields = new FormData(event.currentTarget);
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const ok = await settings.send({
+        type: "saveProfile",
+        name: String(fields.get("name") ?? ""),
+        username: String(fields.get("username") ?? ""),
+      });
+      if (ok) setNotice("Profile saved.");
+      else setError("Nothing changed to save.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
       <WorkspaceHeading
         icon={Settings}
         title="Settings"
         description="Edit your profile and choose how this device displays the console."
       />
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <p role="status" className={notice ? "text-sm text-ok" : "sr-only"}>
-        {notice || "No updates."}
+      <Failure message={error || settings.error || session.error || ""} />
+      <p role="status" className={notice ? "status" : "visually-hidden"}>
+        {notice}
       </p>
-      <Card aria-label="Workspace identity" className="gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">Workspace identity</h2>
-          <Shield size={18} aria-hidden className="text-muted-foreground" />
+      <section className="panel stack-panel settings-panel">
+        <div className="between">
+          <h2>Workspace identity</h2>
+          <Shield size={20} />
         </div>
-        <div className="flex items-center justify-between gap-4 border-b border-border py-3">
-          <div className="min-w-0">
-            <strong className="text-sm">Solana wallet</strong>
-            <p className="truncate font-mono text-xs text-muted-foreground">{shorten(wallet)}</p>
-          </div>
-          <CopyButton text={wallet} label="Copy address" />
-        </div>
-        <form className="flex flex-col gap-3 py-2" onSubmit={rename} key={wallet + (state?.name ?? "") + (state?.username ?? "")}>
-          <label className="flex flex-col gap-1 text-sm">
-            Display name
-            <Input name="name" maxLength={60} defaultValue={state?.name ?? ""} placeholder="Your name" />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Username
-            <Input
-              name="username"
-              aria-describedby="username-help"
-              maxLength={24}
-              defaultValue={state?.username ?? ""}
-              placeholder="your_username"
-              autoCapitalize="none"
-              spellCheck={false}
-            />
-            <span id="username-help" className="text-xs text-muted-foreground">
-              {usernameHelp} Shown in referral activity.
-            </span>
-          </label>
+        <div className="settings-row">
           <div>
-            <Button type="submit" variant="outline" size="sm">
+            <strong>Solana wallet</strong>
+            <p>{wallet ? shorten(wallet) : "Connect a wallet to manage your account."}</p>
+          </div>
+          {wallet && <CopyButton value={wallet} label="Copy address" />}
+        </div>
+        {wallet && (
+          <form className="settings-row" onSubmit={(event) => void rename(event)} key={wallet + (state?.name ?? "") + (state?.username ?? "")}>
+            <label>
+              Display name
+              <input name="name" maxLength={60} defaultValue={state?.name ?? ""} placeholder="Your name" />
+            </label>
+            <label>
+              Username
+              <input
+                name="username"
+                aria-describedby="username-help"
+                maxLength={24}
+                defaultValue={state?.username ?? ""}
+                placeholder="your_username"
+                autoCapitalize="none"
+                spellCheck={false}
+              />
+              <span id="username-help" className="caption">
+                {usernameHelp} Shown in referral activity.
+              </span>
+            </label>
+            <button className="button quiet" type="submit" disabled={busy}>
               Save profile
-            </Button>
-          </div>
-        </form>
-      </Card>
-      <Card aria-label="Preferences" className="gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">Preferences</h2>
-          <Code2 size={18} aria-hidden className="text-muted-foreground" />
-        </div>
-        <div className="flex items-center justify-between gap-4 border-b border-border py-3">
-          <div>
-            <strong className="text-sm">Appearance</strong>
-            <p className="text-xs text-muted-foreground">Choose the console theme.</p>
-          </div>
-          <div className="flex rounded-md border border-border bg-muted p-0.5" role="group" aria-label="Theme">
-            {themes.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={state?.theme === id}
-                onClick={() => void settings.send({ type: "chooseTheme", theme: id })}
-                className={cn(
-                  "rounded-[5px] px-3 py-1 text-xs text-muted-foreground capitalize",
-                  state?.theme === id && "bg-background text-foreground shadow-sm",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <PrefRow
-          name="Plain writing"
-          hint="Ask the chat model for concise, clear language."
-          checked={state?.plain ?? true}
-          onToggle={() => void settings.send({ type: "setPlain", on: !(state?.plain ?? true) })}
-        />
-        <PrefRow
-          name="Save on this device"
-          hint="Keep playground chat history in this browser."
-          checked={state?.saveOnDevice ?? false}
-          onToggle={() => void settings.send({ type: "setSaveOnDevice", on: !(state?.saveOnDevice ?? false) })}
-        />
-      </Card>
-      <Card aria-label="Active sessions" className="gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">Active sessions</h2>
-          <MonitorSmartphone size={18} aria-hidden className="text-muted-foreground" />
-        </div>
-        <div className="flex items-center justify-between gap-4 py-3">
-          <div>
-            <strong className="text-sm">This session</strong>
-            <p className="text-xs text-muted-foreground">Signed in as {shorten(wallet)}</p>
-          </div>
-          <span className="rounded-full bg-ok/15 px-2 py-0.5 text-xs font-medium text-ok">Current</span>
-        </div>
-        <Button variant="outline" size="sm" className="self-start" onClick={() => void session.send({ type: "signOut" })}>
-          Sign out of this session
-        </Button>
-      </Card>
-    </div>
+            </button>
+          </form>
+        )}
+      </section>
+      <PreferencesPanel settings={settings} state={state} />
+      <SessionsPanel wallet={wallet} />
+      <div className="actions">
+        <a className="button quiet" href="/docs/attestation#data-handling">
+          <FileText size={17} /> Data handling
+        </a>
+        <a className="button quiet" href="/contact">
+          <CircleHelp size={17} /> Account support
+        </a>
+      </div>
+    </>
+  );
+}
+
+export function SettingsSection() {
+  return (
+    <WorkspaceLegacy>
+      <SettingsContent />
+    </WorkspaceLegacy>
   );
 }
