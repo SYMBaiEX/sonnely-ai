@@ -38,7 +38,7 @@ export function StatusPage() {
   const report = state?.tag === "Live" ? state.report : undefined;
   const healthy = report ? overall(report) === "Healthy" : undefined;
   return (
-    <div className={wrap + " pt-6"}>
+    <div className={wrap + " inner-page market-page"}>
       <SiteLead
         title="Service status"
         status={

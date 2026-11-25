@@ -362,7 +362,7 @@ function ReceiptInspector() {
 
 export function VerifyPage() {
   return (
-    <div className={wrap + " pt-6"}>
+    <div className={wrap + " inner-page market-page"}>
       <SiteLead
         title="Verify an inference receipt"
         description="Review what the serving route reported and check supported signatures and file hashes on this device."

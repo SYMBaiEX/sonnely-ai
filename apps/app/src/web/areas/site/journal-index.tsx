@@ -28,7 +28,7 @@ export function JournalIndex() {
   );
   const featured = topic === "All" && !term ? entries[0] : undefined;
   return (
-    <section className="my-18" id="journal-articles" aria-labelledby="journal-heading">
+    <section className="journal-index" id="journal-articles" aria-labelledby="journal-heading">
       <div className={sectionHead}>
         <div>
           <p className={eyebrow}>Field notes</p>
@@ -41,8 +41,8 @@ export function JournalIndex() {
           </h2>
         </div>
       </div>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by topic">
+      <div className="journal-tools">
+        <div className="journal-filters" role="group" aria-label="Filter by topic">
           {topics.map((item) => (
             <button
               key={item}
@@ -55,7 +55,7 @@ export function JournalIndex() {
             </button>
           ))}
         </div>
-        <label className={searchBox}>
+        <label className="search journal-search">
           <Search size={17} aria-hidden="true" />
           <Input
             type="search"
@@ -69,7 +69,7 @@ export function JournalIndex() {
       </div>
       {featured && (
         <a
-          className="mb-3.5 grid items-center gap-6 rounded-lg border border-border bg-card p-7 hover:border-ring min-[900px]:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]"
+          className="panel journal-feature"
           href={"/blog/" + featured.slug}
         >
           <div>
@@ -92,21 +92,18 @@ export function JournalIndex() {
         </a>
       )}
       {entries.length ? (
-        <ul className="grid gap-3 min-[900px]:grid-cols-3" role="list">
+        <ul className="journal-list journal-tiles" role="list">
           {entries
             .filter((entry) => entry !== featured)
             .map((item) => (
               <li key={item.slug}>
-                <a
-                  href={"/blog/" + item.slug}
-                  className="flex h-full flex-col gap-3.5 rounded-md border border-border bg-card p-5 hover:border-ring"
-                >
-                  <span className={pill}>{item.category}</span>
+                <a href={"/blog/" + item.slug}>
+                  <span className="market-status">{item.category}</span>
                   <div>
                     <h3 className="text-base font-medium">{item.title}</h3>
                     <p className="mt-1 text-[13px] text-muted-foreground">{item.summary}</p>
                   </div>
-                  <span className={textLink + " mt-auto"}>
+                  <span className="text-link">
                     Read article <ArrowUpRight size={15} aria-hidden="true" />
                   </span>
                 </a>
@@ -114,7 +111,7 @@ export function JournalIndex() {
             ))}
         </ul>
       ) : (
-        <p className="p-8 text-center text-muted-foreground" role="status">
+        <p className="empty" role="status">
           No articles match this search.
         </p>
       )}

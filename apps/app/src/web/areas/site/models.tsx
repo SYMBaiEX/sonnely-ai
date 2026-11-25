@@ -541,7 +541,7 @@ export function ModelsPage() {
     catalog.flatMap((model) => model.routes.map((route) => route.modelId)),
   ).size;
   return (
-    <div className={wrap + " pt-6"}>
+    <div className={wrap + " inner-page market-page"}>
       <SiteLead
         title={title}
         description={description}

@@ -24,7 +24,7 @@ export function PostPage({ slug }: { slug: string }) {
     typeof item === "string" ? [] : ([[sectionId(item.heading), item.heading]] as const),
   );
   return (
-    <article className={wrap + " pt-6"}>
+    <article className={wrap + " inner-page market-page"}>
       <SiteLead
         title={article.title}
         description={article.summary}

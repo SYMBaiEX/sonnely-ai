@@ -1,4 +1,6 @@
 /* spec/app/site/index.md, "Site": element defaults that utility classes cannot express. */
+@import "./site-legacy.css";
+
 [data-area="site"] summary::-webkit-details-marker {
   display: none;
 }

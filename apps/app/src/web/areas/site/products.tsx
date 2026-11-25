@@ -503,7 +503,7 @@ export function ProductPage({ page }: { page: ProductPageId }) {
   const sections = pageSections[page];
   const Content = pageContent[page];
   return (
-    <div className={wrap + " pt-6"}>
+    <div className={wrap + " inner-page market-page"}>
       <SiteLead
         title={title}
         description={description}

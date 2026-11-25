@@ -13,7 +13,7 @@ const privacySections = [
 
 export function PrivacyPage() {
   return (
-    <div className={wrap + " pt-6"}>
+    <div className={wrap + " inner-page market-page"}>
       <SiteLead title="Privacy Notice" description={"Version " + termsVersion} />
       <div className={readerGrid}>
         <ReaderNavigation sections={privacySections} />
@@ -87,7 +87,7 @@ const termsSections = [
 
 export function TermsPage() {
   return (
-    <div className={wrap + " pt-6"}>
+    <div className={wrap + " inner-page market-page"}>
       <SiteLead title="Terms of Service" description={"Version " + termsVersion} />
       <div className={readerGrid}>
         <ReaderNavigation sections={termsSections} />

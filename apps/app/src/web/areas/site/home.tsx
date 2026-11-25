@@ -9,16 +9,19 @@ import {
   FileText,
   Fingerprint,
   KeyRound,
+  Pause,
+  Play,
   Plus,
   ScanLine,
   Server,
   Terminal,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, Route } from "../../../../gen/app__models.ts";
-import { CopyButton } from "./chrome.tsx";
+import { CopyButton, useAmbientMotion } from "./chrome.tsx";
+import { Scene } from "./scene.tsx";
 import {
   apiBasePath,
   featuredTypes,
@@ -44,17 +47,12 @@ import { ProductIcon } from "./icons.tsx";
 import {
   buttonAccent,
   buttonQuiet,
-  buttonSmall,
-  cardLink,
   cardLinkArrow,
   eyebrow,
-  featureIcon,
   markColors,
   modelMark,
-  monoSm,
   sectionHead,
   sectionIntro,
-  serif,
   textLink,
   wrap,
 } from "./ui.ts";
@@ -69,44 +67,109 @@ const featuredEntries = featuredUpstreamIds
 const demoModels = featuredEntries.slice(0, 3);
 const codeToken = /("(?:\\.|[^"\\])*"|\b(?:curl|import|from|const|new|await)\b|-(?:H|d)(?=\s))/g;
 
+const track = `polygon(${[
+  ...requestPathPoints.map(([x, y]) => `${x}% ${y}%`),
+  ...[...requestPathPoints].reverse().map(([x, y]) => `${x}% calc(${y}% + 1.5px)`),
+].join(", ")})`;
+
 function RequestPath() {
   const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const motion = useAmbientMotion();
+  const map = useRef<HTMLElement>(null);
+  const looping = motion && !paused;
+  const previous = useRef(0);
+  const pulse = useRef<HTMLSpanElement>(null);
   const step = requestPathSteps[active];
   const [x, y] = requestPathPoints[step.point];
-  const trail = requestPathPoints.map(([px, py]) => `${px},${py}`).join(" ");
-  const done = requestPathPoints
-    .slice(0, step.point + 1)
-    .map(([px, py]) => `${px},${py}`)
-    .join(" ");
+
+  useEffect(() => {
+    const element = map.current;
+    if (!looping || !element) return;
+    let visible = false;
+    let timer = 0;
+
+    function sync() {
+      window.clearInterval(timer);
+      if (visible && !document.hidden) {
+        timer = window.setInterval(
+          () => setActive((step) => (step + 1) % requestPathSteps.length),
+          3600,
+        );
+      }
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      sync();
+    });
+    observer.observe(element);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      observer.disconnect();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [looping]);
+
+  useEffect(() => {
+    const from = requestPathSteps[previous.current].point;
+    const to = requestPathSteps[active].point;
+    previous.current = active;
+    if (!motion || from === to) return;
+    const path =
+      from < to
+        ? requestPathPoints.slice(from, to + 1)
+        : requestPathPoints.slice(to, from + 1).reverse();
+    const frames = path.map(([x, y]) => ({ left: `${x}%`, top: `${y}%`, opacity: 1 }));
+    frames[0].opacity = 0;
+    frames[frames.length - 1].opacity = 0;
+    const animation = pulse.current?.animate(frames, {
+      duration: 185 * Math.abs(to - from),
+      easing: "linear",
+    });
+    return () => animation?.cancel();
+  }, [active, motion]);
+
+  function select(index: number) {
+    setPaused(true);
+    setActive(index);
+  }
 
   return (
-    <section className="mt-12 grid items-stretch gap-8 min-[900px]:grid-cols-[minmax(0,1fr)_340px]" aria-labelledby="request-path-title">
-      <div className="relative min-h-80 overflow-hidden rounded-lg border border-border bg-card">
-        <svg className="absolute inset-0 size-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <polyline
-            points={trail}
-            fill="none"
-            stroke="var(--border)"
-            strokeWidth="1.5"
-            strokeDasharray="1 5"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-          <polyline
-            points={done}
-            fill="none"
-            stroke="var(--primary)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-          />
-          <circle cx={x} cy={y} r="1.4" fill="var(--primary)" />
-        </svg>
-        <div className="absolute inset-0" role="group" aria-labelledby="request-path-title">
+    <section
+      ref={map}
+      className="request-landscape"
+      id="request-path"
+      aria-labelledby="request-path-title"
+    >
+      <div
+        className="request-stage"
+        data-step={active}
+        style={
+          {
+            "--route-shape": track,
+            "--track-remaining": `${100 - x}%`,
+            "--station-x": `${x}%`,
+            "--station-y": `${y}%`,
+          } as CSSProperties
+        }
+      >
+        <div role="img" aria-label="Illustration of a Japanese forest village">
+          <Scene variant="hero" />
+        </div>
+        <div className="request-track" aria-hidden="true">
+          <div className="request-track-line" />
+          <div className="request-track-progress">
+            <div className="request-track-line" />
+          </div>
+          <span className="request-pulse" ref={pulse} />
+        </div>
+        <div className="request-stations" role="group" aria-labelledby="request-path-title">
           {requestPathSteps.map(({ point, label, short, icon }, index) => (
             <button
               type="button"
-              className="absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center gap-1"
+              className="request-station"
               key={label}
               style={{
                 left: `${requestPathPoints[point][0]}%`,
@@ -115,43 +178,50 @@ function RequestPath() {
               aria-label={`${short}: ${label}`}
               aria-pressed={active === index}
               aria-controls="request-path-detail"
-              onClick={() => setActive(index)}
+              onClick={() => select(index)}
             >
-              <span
-                className={
-                  "grid size-9.5 place-items-center rounded-full border bg-card shadow-sm transition-colors duration-base " +
-                  (active === index
-                    ? "border-ring text-primary"
-                    : "border-border text-muted-foreground")
-                }
-              >
+              <span className="request-station-icon">
                 <ProductIcon name={icon} size={16} />
               </span>
-              <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                {short}
-              </span>
+              <span className="request-station-label">{short}</span>
             </button>
           ))}
         </div>
       </div>
-      <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5.5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 style={serif} className="text-2xl font-normal">
-            Follow the request
-          </h2>
-          <span className="text-xs text-muted-foreground">
+      <div className="request-caption">
+        <div className="request-caption-heading">
+          <h2 id="request-path-title">Follow the request</h2>
+          <span className="request-step-count">
             Step {active + 1} of {requestPathSteps.length}
           </span>
         </div>
-        <div id="request-path-detail" aria-live="polite" aria-atomic="true">
-          <p key={step.label} className="text-sm leading-relaxed text-muted-foreground">
-            <strong className="text-foreground">{step.label}.</strong> {step.description}
-          </p>
+        <div className="request-caption-copy">
+          <div className="request-caption-measure" aria-hidden="true">
+            {requestPathSteps.map(({ label, description }) => (
+              <p key={label}>
+                <strong>{label}.</strong> {description}
+              </p>
+            ))}
+          </div>
+          <div id="request-path-detail" aria-live={looping ? "off" : "polite"} aria-atomic="true">
+            <p key={step.label}>
+              <strong>{step.label}.</strong> {step.description}
+            </p>
+          </div>
         </div>
-        <div className="mt-auto">
-          <a href={step.link} className={textLink}>
-            <span>{step.action}</span> <ArrowUpRight size={15} aria-hidden="true" />
+        <div className="request-caption-actions">
+          <a href={step.link} className="text-link">
+            <span>{step.action}</span> <ArrowUpRight size={15} />
           </a>
+          <button
+            type="button"
+            className="button quiet request-tour-button"
+            disabled={!motion}
+            onClick={() => setPaused(!paused)}
+          >
+            {looping ? <Pause size={15} /> : <Play size={15} />}
+            {!motion ? "Motion off" : looping ? "Pause trace" : "Resume trace"}
+          </button>
         </div>
       </div>
     </section>
@@ -170,35 +240,32 @@ function HomeDemo() {
     model: modelId,
     choices: [{ index: 0, message: { role: "assistant", content: example.output } }],
   };
-  const segments =
-    "inline-flex gap-0.5 rounded-sm border border-border bg-secondary p-0.75 [&>button]:rounded-[calc(var(--radius-sm)-3px)] [&>button]:px-3 [&>button]:py-1 [&>button]:text-[13px] [&>button]:text-muted-foreground [&>button[aria-pressed=true]]:bg-accent [&>button[aria-pressed=true]]:text-accent-foreground";
 
   return (
-    <section id="quickstart" className="mt-18 grid items-start gap-8 min-[900px]:grid-cols-[300px_minmax(0,1fr)]" aria-labelledby="home-quickstart-heading">
-      <div>
-        <h2 style={serif} className="mb-2.5 text-3xl font-normal">
-          Your first API request.
-        </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          <a href="/console/keys" className="text-foreground underline underline-offset-3">
-            Create an API key
-          </a>{" "}
-          and export it as <code className={monoSm}>SONNELY_API_KEY</code>. Pick a language, then copy
-          the example into your terminal or app.
+    <section className="home-quickstart" id="quickstart" aria-labelledby="home-quickstart-heading">
+      <div className="home-quickstart-intro" data-reveal="rise">
+        <h2 id="home-quickstart-heading">Your first API request.</h2>
+        <p>
+          <a href="/console/keys">Create an API key</a> and export it as{" "}
+          <code>SONNELY_API_KEY</code>. Pick a language, then copy the example into your terminal or
+          app.
         </p>
-        <div className="mt-4 flex gap-4">
-          <a href="/docs/quickstart" className={textLink}>
+        <div className="home-quickstart-links">
+          <a href="/docs/quickstart" className="text-link">
             Read the quickstart <ArrowRight size={16} aria-hidden="true" />
           </a>
-          <a href="/docs/sdks" className={textLink}>
+          <a href="/docs/sdks" className="text-link">
             SDKs <ArrowUpRight size={14} aria-hidden="true" />
           </a>
         </div>
-        <div className="mt-6">
-          <p id="home-api-example-label" className="mb-2 text-xs text-muted-foreground">
-            Example
-          </p>
-          <div className={segments} role="group" aria-labelledby="home-api-example-label">
+        <div className="home-api-samples">
+          <p id="home-api-example-label">Example</p>
+          <div
+            className="home-api-segments"
+            role="group"
+            aria-labelledby="home-api-example-label"
+            style={{ "--segment": active } as CSSProperties}
+          >
             {demoExamples.map(({ label }, index) => (
               <button
                 type="button"
@@ -212,17 +279,20 @@ function HomeDemo() {
           </div>
         </div>
       </div>
-      <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        <div className="flex items-center gap-2.5 border-b border-border px-4.5 py-3 font-mono text-[13px]">
-          <span className="rounded bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
-            POST
-          </span>
+      <div className="home-api" data-reveal="fade">
+        <div className="home-api-endpoint">
+          <span className="home-api-method">POST</span>
           <code>{apiBasePath}/chat/completions</code>
         </div>
-        <div className="grid min-[900px]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <div className="border-b border-border min-[900px]:border-b-0 min-[900px]:border-e">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-3.5 py-2.5">
-              <div className={segments} role="group" aria-label="Request language">
+        <div className="home-api-panes">
+          <div className="home-api-request">
+            <div className="home-api-pane-head">
+              <div
+                className="home-api-segments"
+                role="group"
+                aria-label="Request language"
+                style={{ "--segment": demoLanguages.indexOf(language) } as CSSProperties}
+              >
                 {demoLanguages.map((option) => (
                   <button
                     type="button"
@@ -236,21 +306,19 @@ function HomeDemo() {
               </div>
               <CopyButton key={language + active} value={lines.join("\n")} label="Copy request" />
             </div>
-            <pre className="min-h-65 overflow-auto p-3.5 font-mono text-xs leading-relaxed" aria-label={language + " request"}>
+            <pre className="home-api-code" aria-label={language + " request"}>
               <code>
                 {lines.map((line, index) => (
                   // eslint-disable-next-line @eslint-react/no-array-index-key -- source lines never reorder
-                  <span className="grid grid-cols-[28px_minmax(0,1fr)]" key={index}>
-                    <span aria-hidden="true" className="pe-3 text-end text-muted-foreground opacity-60 select-none">
-                      {index + 1}
-                    </span>
+                  <span className="home-api-line" key={index}>
+                    <span aria-hidden="true">{index + 1}</span>
                     <span>
                       {line.split(codeToken).map((token, index) =>
                         index % 2 === 0 ? (
                           token
                         ) : (
                           <span
-                            className={token.startsWith('"') ? "text-ok" : "text-info"}
+                            className={token.startsWith('"') ? "home-api-string" : "home-api-keyword"}
                             /* eslint-disable-next-line @eslint-react/no-array-index-key -- code tokens never reorder */
                             key={index}
                           >
@@ -264,13 +332,11 @@ function HomeDemo() {
               </code>
             </pre>
           </div>
-          <div aria-labelledby="home-api-response-title">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-3.5 py-2.5">
-              <h3 id="home-api-response-title" className="text-[13px] font-medium">
-                Sample response
-              </h3>
+          <div className="home-api-response" aria-labelledby="home-api-response-title">
+            <div className="home-api-pane-head">
+              <h3 id="home-api-response-title">Sample response</h3>
               <button
-                className={buttonSmall}
+                className="button quiet small"
                 type="button"
                 aria-pressed={showJson}
                 onClick={() => setShowJson(!showJson)}
@@ -278,22 +344,22 @@ function HomeDemo() {
                 JSON
               </button>
             </div>
-            <div className="min-h-50 p-4 text-sm leading-relaxed" aria-live="polite">
+            <div className="home-api-result" aria-live="polite">
               {showJson ? (
-                <pre key={active} aria-label="Sample response JSON" className={monoSm + " overflow-auto"}>
+                <pre key={active} aria-label="Sample response JSON">
                   <code>{JSON.stringify(sampleResponse, null, 2)}</code>
                 </pre>
               ) : (
-                <p key={active} className={active === 1 ? "font-mono" : undefined}>
+                <p key={active} className={active === 1 ? "mono" : undefined}>
                   {example.output}
                 </p>
               )}
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5 text-[13px] text-muted-foreground">
+            <div className="home-api-response-footer">
               <span>{model?.name}</span>
               {model && (
                 <a
-                  className={textLink}
+                  className="text-link"
                   href={modelPlaygroundHref(modelId, model.provider)}
                   aria-label={"Open in playground: " + model.name}
                 >
@@ -308,16 +374,14 @@ function HomeDemo() {
   );
 }
 
-const sampleBox = "grid gap-2 rounded-sm border border-dashed border-border p-3.5 text-[13px] text-muted-foreground";
-
 function RouteSample() {
   return (
-    <div className={sampleBox}>
+    <div className="gateway-sample gateway-route">
       <p>Example route</p>
       <ul>
-        <li className="flex items-center gap-2 text-foreground">
+        <li>
           <Server size={15} aria-hidden="true" /> <strong>Confidential TEE</strong>
-          <span className="ms-auto inline-flex items-center gap-1 text-xs text-ok">
+          <span>
             <Check size={13} aria-hidden="true" /> Selected
           </span>
         </li>
@@ -328,11 +392,9 @@ function RouteSample() {
 
 function EndpointSample() {
   return (
-    <div className={sampleBox + " grid-flow-col items-center justify-start gap-3"}>
-      <span className="rounded bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
-        POST
-      </span>
-      <code className="font-mono text-[13px]">
+    <div className="gateway-sample gateway-endpoint">
+      <span>POST</span>
+      <code>
         {apiBasePath}/chat/
         <wbr />
         completions
@@ -343,14 +405,14 @@ function EndpointSample() {
 
 function BudgetSample() {
   return (
-    <div className={sampleBox}>
+    <div className="gateway-sample gateway-budget">
       <p>Example key budget</p>
-      <dl className="grid gap-1.5">
-        <div className="flex justify-between">
+      <dl>
+        <div>
           <dt>Daily limit</dt>
           <dd>$5.00</dd>
         </div>
-        <div className="flex justify-between">
+        <div>
           <dt>Lifetime limit</dt>
           <dd>$75.00</dd>
         </div>
@@ -361,7 +423,7 @@ function BudgetSample() {
 
 function FundingPath() {
   return (
-    <div className={sampleBox + " grid-flow-col items-center justify-center gap-3.5 font-mono"}>
+    <div className="gateway-sample gateway-funding">
       <span>USDC or SOL</span>
       <ArrowRight size={16} aria-hidden="true" />
       <span>Compute credits</span>
@@ -410,30 +472,28 @@ const capabilities = [
 
 function HomeCapabilities() {
   return (
-    <section className="my-18" aria-labelledby="capabilities-heading">
+    <section className="home-capabilities" aria-labelledby="capabilities-heading">
       <header className={sectionHead}>
         <div>
           <p className={eyebrow}>The gateway</p>
-          <h2 style={serif} className="max-w-160 text-[clamp(26px,4vw,38px)] font-normal leading-tight" id="capabilities-heading">
-            From request to receipt.
-          </h2>
+          <h2 id="capabilities-heading">From request to receipt.</h2>
         </div>
         <p className={sectionIntro}>Send a request, set a limit, and see what you were charged.</p>
       </header>
-      <ul className="grid gap-3.5 min-[800px]:grid-cols-2" role="list">
+      <ul className="gateway-grid" role="list">
         {capabilities.map(({ id, icon: Icon, title, body, href, action, Sample }) => (
-          <li key={id} className="flex flex-col gap-4.5 rounded-lg border border-border bg-card p-5.5">
-            <div className="flex gap-3.5">
-              <span className={featureIcon}>
+          <li key={id} className="gateway-tile">
+            <div className="gateway-tile-copy">
+              <span className="home-feature-icon">
                 <Icon size={19} aria-hidden="true" />
               </span>
               <div>
-                <h3 className="mb-1.5 text-[17px] font-medium">{title}</h3>
-                <p className="text-sm text-muted-foreground">{body}</p>
+                <h3>{title}</h3>
+                <p>{body}</p>
               </div>
             </div>
             <Sample />
-            <a href={href} className={textLink + " mt-auto"}>
+            <a href={href} className="text-link">
               {action} <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           </li>
@@ -445,17 +505,15 @@ function HomeCapabilities() {
 
 function HomeModelList() {
   return (
-    <section className="my-18" aria-labelledby="home-models-heading">
+    <section className="home-model-list" aria-labelledby="home-models-heading">
       <div className={sectionHead}>
-        <h2 style={serif} className="max-w-160 text-[clamp(26px,4vw,38px)] font-normal leading-tight" id="home-models-heading">
-          Choose your model.
-        </h2>
+        <h2 id="home-models-heading">Choose your model.</h2>
         <a href="/models#available-models" className={textLink}>
           Compare models and pricing <ArrowRight size={16} aria-hidden="true" />
         </a>
       </div>
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="hidden grid-cols-[minmax(0,2.2fr)_0.9fr_0.8fr_1.2fr_60px] gap-4 border-b border-border px-5 py-3 text-[11px] uppercase tracking-wider text-muted-foreground min-[900px]:grid" aria-hidden="true">
+      <div className="panel home-model-catalog">
+        <div className="home-model-columns" aria-hidden="true">
           <span>Model</span>
           <span>Privacy route</span>
           <span>Context window</span>
@@ -467,32 +525,32 @@ function HomeModelList() {
             const rates = route ? routeRates(route) : {};
             const featuredType = featuredTypes[model.upstreamId];
             return (
-              <li key={model.upstreamId} className="border-b border-border last:border-b-0">
+              <li key={model.upstreamId}>
                 <a
                   href={route ? modelPlaygroundHref(route.modelId, model.provider) : "/console/chat"}
-                  className="grid items-center gap-2.5 px-5 py-4.5 hover:bg-accent min-[900px]:grid-cols-[minmax(0,2.2fr)_0.9fr_0.8fr_1.2fr_60px] min-[900px]:gap-4"
+                  className="home-model-row"
                 >
-                  <div className="flex min-w-0 items-center gap-3.5">
-                    <span className={modelMark + " " + (markColors[model.color] ?? markColors.smoke)} aria-hidden="true">
+                  <div className="home-model-identity">
+                    <span
+                      className={modelMark + " " + (markColors[model.color] ?? markColors.smoke)}
+                      aria-hidden="true"
+                    >
                       {model.mark || (model.name.match(/[a-z0-9]/i)?.[0].toUpperCase() ?? "•")}
                     </span>
                     <div>
-                      <h3 className="text-[15px] font-medium">{model.name}</h3>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{model.summary}</p>
+                      <h3>{model.name}</h3>
+                      <p>{model.summary}</p>
                     </div>
                   </div>
-                  <span className="text-[13px] text-muted-foreground">{routeLabels[model.privacy]}</span>
-                  <span className="text-sm">
-                    {featuredType?.context ?? "—"} <span className="text-xs text-muted-foreground">tokens</span>
+                  <span className="home-model-route">{routeLabels[model.privacy]}</span>
+                  <span className="home-model-context">
+                    {featuredType?.context ?? "—"} <small>tokens</small>
                   </span>
-                  <span className="text-sm">
-                    {formatRate(rates.Input ?? 0)} <span className="px-1 text-muted-foreground">/</span>{" "}
-                    {formatRate(rates.Output ?? 0)}
-                    <small className="block text-[11px] text-muted-foreground">
-                      input / output per 1M
-                    </small>
+                  <span className="home-model-rates">
+                    {formatRate(rates.Input ?? 0)} <span>/</span> {formatRate(rates.Output ?? 0)}
+                    <small>input / output per 1M</small>
                   </span>
-                  <span className="inline-flex items-center gap-1 text-[13px] font-medium text-primary">
+                  <span className="home-model-action">
                     Try <ArrowUpRight size={15} aria-hidden="true" />
                   </span>
                 </a>
@@ -528,25 +586,23 @@ const workloads = [
 
 function HomeWorkloads() {
   return (
-    <section className="my-18" aria-labelledby="workloads-heading">
+    <section className="home-workloads" aria-labelledby="workloads-heading">
       <div className={sectionHead}>
-        <h2 style={serif} className="max-w-160 text-[clamp(26px,4vw,38px)] font-normal leading-tight" id="workloads-heading">
-          Start with a real task.
-        </h2>
+        <h2 id="workloads-heading">Start with a real task.</h2>
       </div>
-      <div className="grid gap-3.5 min-[800px]:grid-cols-3">
+      <div className="home-workload-grid">
         {workloads.map(({ icon: Icon, title, prompt, model }) => {
           const entry = featuredEntries[model];
           const route = entry ? chatRoute(entry) : undefined;
           return (
-            <article className="flex flex-col gap-3.5 rounded-lg border border-border bg-card p-5.5" key={title}>
-              <span className={featureIcon}>
+            <article key={title}>
+              <span className="home-feature-icon">
                 <Icon size={20} aria-hidden="true" />
               </span>
-              <h3 className="text-[17px] font-medium">{title}</h3>
-              <blockquote className="text-sm italic text-muted-foreground">“{prompt}”</blockquote>
+              <h3>{title}</h3>
+              <blockquote>“{prompt}”</blockquote>
               {entry && route && (
-                <a className={textLink + " mt-auto"} href={modelPlaygroundHref(route.modelId, entry.provider)}>
+                <a className="text-link" href={modelPlaygroundHref(route.modelId, entry.provider)}>
                   Try {entry.name} <ArrowUpRight size={14} aria-hidden="true" />
                 </a>
               )}
@@ -558,13 +614,11 @@ function HomeWorkloads() {
   );
 }
 
-const previewFacts = "grid gap-1 text-xs [&>div]:flex [&>div]:justify-between [&>div]:gap-4 [&_dt]:text-muted-foreground";
-
 function KeyPreview() {
   return (
     <>
-      <p className={monoSm + " mb-1.5"}>docs-assistant</p>
-      <dl className={previewFacts}>
+      <p className="preview-name">docs-assistant</p>
+      <dl className="preview-data">
         <div>
           <dt>Daily cap</dt>
           <dd>$5.00</dd>
@@ -585,12 +639,12 @@ function KeyPreview() {
 function UsagePreview() {
   return (
     <>
-      <p className={monoSm + " mb-1.5"}>GLM 5.3 Flash</p>
-      <div className="my-2 flex gap-1" aria-hidden="true">
-        <span className="h-1.5 w-3/5 rounded bg-primary" />
-        <span className="h-1.5 w-1/4 rounded bg-secondary" />
+      <p className="preview-name">GLM 5.3 Flash</p>
+      <div className="preview-usage-bar" aria-hidden="true">
+        <span />
+        <span />
       </div>
-      <dl className={previewFacts}>
+      <dl className="preview-data">
         <div>
           <dt>Input tokens</dt>
           <dd>1,240</dd>
@@ -611,8 +665,8 @@ function UsagePreview() {
 function PaymentPreview() {
   return (
     <>
-      <p className={monoSm + " mb-1.5"}>5.00 USDC</p>
-      <dl className={previewFacts}>
+      <p className="preview-name">5.00 USDC</p>
+      <dl className="preview-data">
         <div>
           <dt>Network</dt>
           <dd>Solana mainnet</dd>
@@ -671,18 +725,17 @@ const workspaceCards = [
 
 function WorkspacePreview() {
   const [active, setActive] = useState(0);
+  const card = workspaceCards[active];
   return (
-    <section className="my-18" aria-labelledby="workspace-title">
+    <section className="home-split" aria-labelledby="workspace-title">
       <div className={sectionHead}>
-        <h2 style={serif} className="max-w-160 text-[clamp(26px,4vw,38px)] font-normal leading-tight" id="workspace-title">
-          Keys, usage, and credits.
-        </h2>
+        <h2 id="workspace-title">Keys, usage, and credits.</h2>
         <a className={textLink} href="/models#billing">
           See pricing <ArrowUpRight size={16} aria-hidden="true" />
         </a>
       </div>
-      <div className="grid gap-4.5 rounded-lg border border-border bg-card p-4.5 min-[900px]:grid-cols-[180px_minmax(0,1fr)]">
-        <div className="grid grid-flow-col content-start gap-1 min-[900px]:grid-flow-row" role="tablist" aria-label="Workspace preview">
+      <div className="workspace-switch">
+        <div role="tablist" aria-label="Workspace preview">
           {workspaceCards.map(({ id, label, icon: Icon }, index) => (
             <button
               type="button"
@@ -690,46 +743,36 @@ function WorkspacePreview() {
               key={id}
               aria-selected={active === index}
               onClick={() => setActive(index)}
-              className={
-                "flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-start text-sm " +
-                (active === index ? "bg-accent text-accent-foreground" : "text-muted-foreground")
-              }
             >
               <Icon size={18} aria-hidden="true" /> {label}
             </button>
           ))}
         </div>
-        {workspaceCards.map(
-          ({ id, previewTitle, icon: Icon, title, description, link, action, Preview }, index) =>
-            index === active && (
-              <div className="grid items-center gap-6 min-[900px]:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]" role="tabpanel" key={id}>
-                <div className="relative">
-                  <img
-                    src={"/homepage/" + id + ".webp"}
-                    alt=""
-                    width={840}
-                    height={560}
-                    loading="lazy"
-                    className="w-full rounded-md border border-border"
-                  />
-                  <figure className="absolute end-3 bottom-3 min-w-55 rounded-sm border border-border bg-popover p-3 text-xs text-popover-foreground shadow-md">
-                    <figcaption className="mb-2 flex items-center gap-1.5">
-                      <Icon size={15} aria-hidden="true" /> <strong>{previewTitle}</strong>
-                      <small className="ms-auto text-muted-foreground">Example</small>
-                    </figcaption>
-                    <Preview />
-                  </figure>
-                </div>
-                <div>
-                  <h3 className="mb-2 text-[19px] font-medium">{title}</h3>
-                  <p className="mb-3.5 text-sm text-muted-foreground">{description}</p>
-                  <a className={textLink} href={link}>
-                    {action} <ArrowUpRight size={16} aria-hidden="true" />
-                  </a>
-                </div>
-              </div>
-            ),
-        )}
+        <div className="workspace-card" role="tabpanel" key={card.id}>
+          <div className="workspace-shot">
+            <img
+              src={"/homepage/" + card.id + ".webp"}
+              alt=""
+              width={840}
+              height={560}
+              loading="lazy"
+            />
+            <figure className="workspace-callout">
+              <figcaption>
+                <card.icon size={15} aria-hidden="true" /> <strong>{card.previewTitle}</strong>
+                <small>Example</small>
+              </figcaption>
+              <card.Preview />
+            </figure>
+          </div>
+          <div className="workspace-copy">
+            <h3>{card.title}</h3>
+            <p>{card.description}</p>
+            <a className={textLink} href={card.link}>
+              {card.action} <ArrowUpRight size={16} aria-hidden="true" />
+            </a>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -740,30 +783,22 @@ const featuredArticles = ["read-a-gateway-trace", "choose-a-model", "credits-and
 function HomeResources() {
   return (
     <>
-      <section className="my-18" aria-labelledby="guides-heading">
+      <section className="home-resources home-guides" aria-labelledby="guides-heading">
         <div className={sectionHead}>
-          <h2 style={serif} className="max-w-160 text-[clamp(26px,4vw,38px)] font-normal leading-tight" id="guides-heading">
-            Practical guides.
-          </h2>
+          <h2 id="guides-heading">Practical guides.</h2>
           <a className={textLink} href="/#journal-articles">
             Read the journal <ArrowRight size={16} aria-hidden="true" />
           </a>
         </div>
-        <div className="grid gap-2">
+        <div className="home-guide-list">
           {featuredArticles.map((slug) => {
             const article = articles.find((item) => item.slug === slug)!;
             return (
-              <a
-                href={"/blog/" + slug}
-                className="grid items-center gap-4.5 rounded-md border border-border bg-card px-5 py-4.5 hover:border-ring min-[800px]:grid-cols-[110px_minmax(0,1fr)_24px]"
-                key={slug}
-              >
-                <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {article.category}
-                </span>
+              <a href={"/blog/" + slug} key={slug}>
+                <span>{article.category}</span>
                 <div>
-                  <h3 className="text-base font-medium">{article.title}</h3>
-                  <p className="mt-1 text-[13px] text-muted-foreground">{article.summary}</p>
+                  <h3>{article.title}</h3>
+                  <p>{article.summary}</p>
                 </div>
                 <ArrowUpRight size={18} aria-hidden="true" />
               </a>
@@ -771,63 +806,51 @@ function HomeResources() {
           })}
         </div>
       </section>
-      <section className="my-18" aria-labelledby="questions-heading">
+      <section className="home-resources home-faq" aria-labelledby="questions-heading">
         <div className={sectionHead}>
-          <h2 style={serif} className="max-w-160 text-[clamp(26px,4vw,38px)] font-normal leading-tight" id="questions-heading">
-            Good to know.
-          </h2>
+          <h2 id="questions-heading">Good to know.</h2>
           <a className={textLink} href="/contact">
             Contact Sonnely <ArrowUpRight size={16} aria-hidden="true" />
           </a>
         </div>
-        <div className="grid gap-2">
-          <details name="home-questions" className="rounded-md border border-border bg-card px-5 py-4">
-            <summary className="flex cursor-pointer items-center justify-between gap-3 font-medium">
+        <div className="faq">
+          <details name="home-questions">
+            <summary>
               What can I try without a wallet? <Plus size={17} aria-hidden="true" />
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            <p>
               Explore the model catalog or try a sample in the playground. To send a live request,
               connect an eligible wallet and add credits.
             </p>
           </details>
-          <details name="home-questions" className="rounded-md border border-border bg-card px-5 py-4">
-            <summary className="flex cursor-pointer items-center justify-between gap-3 font-medium">
+          <details name="home-questions">
+            <summary>
               What can I send through the API? <Plus size={17} aria-hidden="true" />
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            <p>
               Send text Chat Completions requests with up to {limits.messages} messages and request
               up to {limits.maxOutputTokens.toLocaleString("en-US")} output tokens. See{" "}
-              <a href="/docs/api#request-limits" className="text-foreground underline underline-offset-3">
-                request limits
-              </a>{" "}
-              for the JSON size cap.
+              <a href="/docs/api#request-limits">request limits</a> for the JSON size cap.
             </p>
           </details>
-          <details name="home-questions" className="rounded-md border border-border bg-card px-5 py-4">
-            <summary className="flex cursor-pointer items-center justify-between gap-3 font-medium">
+          <details name="home-questions">
+            <summary>
               What does the usage ledger store? <Plus size={17} aria-hidden="true" />
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            <p>
               It records the model, key label, token counts, request status, and charge. The gateway
               reads prompt text during forwarding. Optional chat history lives in your browser.{" "}
-              <a href="/docs/attestation#data-handling" className="text-foreground underline underline-offset-3">
-                Read about data handling
-              </a>
-              .
+              <a href="/docs/attestation#data-handling">Read about data handling</a>.
             </p>
           </details>
-          <details name="home-questions" className="rounded-md border border-border bg-card px-5 py-4">
-            <summary className="flex cursor-pointer items-center justify-between gap-3 font-medium">
+          <details name="home-questions">
+            <summary>
               Can I use a Solana Seeker? <Plus size={17} aria-hidden="true" />
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            <p>
               Open Sonnely in Chrome on Seeker and choose Solana mobile wallet when connecting. At
               checkout, you can also open a Solana Pay link or scan its QR code with a compatible
-              wallet.{" "}
-              <a href="/docs/billing" className="text-foreground underline underline-offset-3">
-                See the mobile checkout steps
-              </a>
-              .
+              wallet. <a href="/docs/billing">See the mobile checkout steps</a>.
             </p>
           </details>
         </div>
@@ -839,16 +862,16 @@ function HomeResources() {
 export function Home() {
   return (
     <>
-      <section className="pt-6" aria-labelledby="home-hero-heading">
-        <div className={wrap}>
-          <h1 id="home-hero-heading" style={serif} className="text-[clamp(56px,10vw,128px)] font-normal leading-[0.95]">
-            Private AI<span className="text-primary">.</span>
+      <section className="hero" aria-labelledby="home-hero-heading">
+        <div className="wrap hero-intro">
+          <h1 id="home-hero-heading">
+            Private AI<span>.</span>
           </h1>
-          <div className="mt-4.5 flex flex-wrap items-center justify-between gap-6">
-            <p className="max-w-130 text-[clamp(17px,2.4vw,22px)] text-muted-foreground">
+          <div className="hero-content">
+            <p className="hero-description">
               Confidential inference for your apps through one OpenAI-compatible API.
             </p>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="actions">
               <a href="/console/chat" className={buttonAccent}>
                 Open console <ArrowUpRight size={17} aria-hidden="true" />
               </a>
@@ -858,40 +881,38 @@ export function Home() {
             </div>
           </div>
         </div>
-        <div className={wrap}>
-          <RequestPath />
-        </div>
+        <RequestPath />
       </section>
       <div className={wrap}>
         <HomeDemo />
-        <nav className="mt-12 grid gap-3 min-[800px]:grid-cols-3" aria-label="Platform integrations">
-          <a href="/docs/billing" className={cardLink}>
-            <span className="grid size-9.5 place-items-center rounded-sm bg-secondary">
+        <nav className="home-platform" aria-label="Platform integrations">
+          <a href="/docs/billing">
+            <span className="home-platform-icon">
               <Wallet size={18} aria-hidden="true" />
             </span>
             <span>
-              <strong className="block text-sm font-medium">Solana</strong>
-              <small className="text-xs text-muted-foreground">Wallet sign-in and USDC funding</small>
+              <strong>Solana</strong>
+              <small>Wallet sign-in and USDC funding</small>
             </span>
             <ArrowUpRight size={14} aria-hidden="true" className={cardLinkArrow} />
           </a>
-          <a href="/inference#routing" className={cardLink}>
-            <span className="grid size-9.5 place-items-center rounded-sm bg-secondary">
+          <a href="/inference#routing">
+            <span className="home-platform-icon">
               <Fingerprint size={18} aria-hidden="true" />
             </span>
             <span>
-              <strong className="block text-sm font-medium">Confidential compute</strong>
-              <small className="text-xs text-muted-foreground">Hardware-isolated execution</small>
+              <strong>Confidential compute</strong>
+              <small>Hardware-isolated execution</small>
             </span>
             <ArrowUpRight size={14} aria-hidden="true" className={cardLinkArrow} />
           </a>
-          <a href="/docs/api" className={cardLink}>
-            <span className="grid size-9.5 place-items-center rounded-sm bg-secondary">
+          <a href="/docs/api">
+            <span className="home-platform-icon">
               <Terminal size={18} aria-hidden="true" />
             </span>
             <span>
-              <strong className="block text-sm font-medium">OpenAI-compatible API</strong>
-              <small className="text-xs text-muted-foreground">Chat Completions</small>
+              <strong>OpenAI-compatible API</strong>
+              <small>Chat Completions</small>
             </span>
             <ArrowUpRight size={14} aria-hidden="true" className={cardLinkArrow} />
           </a>
@@ -903,17 +924,16 @@ export function Home() {
         <PlatformLinks />
         <HomeResources />
         <JournalIndex />
-        <section className="my-20 flex flex-wrap items-center justify-between gap-6 rounded-lg border border-border bg-card p-9" aria-labelledby="home-closing-heading">
+        <section className="closing home-closing" aria-labelledby="home-closing-heading">
+          <Scene />
           <div>
-            <h2 id="home-closing-heading" style={serif} className="text-[clamp(26px,4vw,36px)] font-normal">
-              Start in the console.
-            </h2>
-            <p className="mt-2 max-w-120 text-muted-foreground">
+            <h2 id="home-closing-heading">Start in the console.</h2>
+            <p>
               Try a sample in the playground. When you’re ready to run a live request, connect your
               Solana wallet.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="actions">
             <a className={buttonAccent} href="/console/chat">
               Open console <ArrowUpRight size={16} aria-hidden="true" />
             </a>

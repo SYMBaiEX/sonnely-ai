@@ -139,7 +139,7 @@ export function ContactPage() {
   const [title, description] = pages.contact;
   const entry = entryActions.contact;
   return (
-    <div className={wrap + " pt-6"}>
+    <div className={wrap + " inner-page market-page"}>
       <SiteLead
         title={title}
         description={description}

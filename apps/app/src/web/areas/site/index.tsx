@@ -60,7 +60,7 @@ export function render(page: Page): React.ReactNode {
       break;
     case "Unknown":
       body = (
-        <div className={wrap + " pt-6"}>
+        <div className={wrap + " inner-page market-page"}>
           <h1 style={serif} className="text-[clamp(34px,5vw,56px)] leading-[1.05] font-normal">
             Page not found
           </h1>
