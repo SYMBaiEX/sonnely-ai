@@ -691,9 +691,288 @@
         "6f133c4d45a7"
       ]
     },
+    "spec/app/gateway/batch.md": {
+      "@document": [
+        "2d57c147bcdd"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A batch job and its rows": [
+        "f70107cdc5f5",
+        "3d74b896c8e5"
+      ],
+      "Domain / Values the checks sample": [
+        "e3b0c44298fc",
+        "edd1a1b30f8f",
+        "a152a8de5d97"
+      ],
+      "## Story: Run a resumable batch": [
+        "a10e55765b93"
+      ],
+      "Story: Run a resumable batch / A new batch starts all of its rows queued": [
+        "5e04b172946f",
+        "0411c6812dd8",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / Rows are sent one at a time": [
+        "7ee3b7c57de9",
+        "3dea1f2eef6f",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / A sent row reaches a terminal verdict": [
+        "e3b0c44298fc",
+        "535c113fe8b1",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / A row in flight can be interrupted and sent again": [
+        "377f8528cfc3",
+        "c191db2a19d0",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / Clearing removes the stored job": [
+        "e3b0c44298fc",
+        "c1b2b53f6d44",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / A job holds between one and two hundred rows": [
+        "e3b0c44298fc",
+        "7eeec3a6f422",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / No row carries an empty custom_id": [
+        "e3b0c44298fc",
+        "5350370e7bc3",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / Every custom_id in a job is unique": [
+        "9eaac03727e1",
+        "dc046e9426ff",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / The remembered row is the only one in flight": [
+        "a61d35be98cb",
+        "833f5b204593",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / A terminal row never moves": [
+        "37ad46845de9",
+        "dfe918fd0148",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / Rows are never added to or removed from an open job": [
+        "0198e57c9ea0",
+        "38274e2088c8",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / An interrupted row can be sent again": [
+        "e3b0c44298fc",
+        "57fdea65ec94",
+        "a4625b3efc2d"
+      ],
+      "Story: Run a resumable batch / Every row of a batch can settle": [
+        "e3b0c44298fc",
+        "ba9d7a7b4a4f",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / A row can be interrupted": [
+        "e3b0c44298fc",
+        "328488d6f9d3",
+        "a152a8de5d97"
+      ],
+      "Story: Run a resumable batch / A row can land in review": [
+        "e3b0c44298fc",
+        "7e68ca653158",
+        "a152a8de5d97"
+      ]
+    },
     "spec/app/gateway/index.md": {
       "@document": [
-        "1da726787aba"
+        "147eac551356"
+      ]
+    },
+    "spec/app/gateway/keyring.md": {
+      "@document": [
+        "ae09bccbca97"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / The stored keyring": [
+        "a8df09597bfd",
+        "9704b8372551"
+      ],
+      "Domain / A key may serve while it is active and under its limit": [
+        "c0cc0019575c",
+        "2992adfeab0a",
+        "e3f350bc04a1"
+      ],
+      "Domain / Values the checks sample": [
+        "e3b0c44298fc",
+        "a10c399788aa"
+      ],
+      "## Story: Authorize and meter a bearer key": [
+        "2279acde22bc"
+      ],
+      "Story: Authorize and meter a bearer key / A key appears when the workspace enrolls it": [
+        "fe4701946d41",
+        "36fda79556d6",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / The workspace revokes a live key": [
+        "e3b0c44298fc",
+        "c16d32d071fe",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / Metered spend lands on the key exactly as charged": [
+        "2e5c6e5b5408",
+        "0220908f67e2",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / Every enrolled id is unique": [
+        "c1c5e9940225",
+        "d2735f1e3a21",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / Spend never exceeds a key's limit": [
+        "e3b0c44298fc",
+        "76088ffc532f",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / Spend never becomes negative": [
+        "e3b0c44298fc",
+        "26b7427f5ccc",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / Spend accumulates monotonically": [
+        "22df43653b76",
+        "ab710664645a",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / Revocation is permanent": [
+        "685efa319237",
+        "3170ef87da8f",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / A revoked key can never be charged": [
+        "e3b0c44298fc",
+        "3a086a8fb662",
+        "f692be58a5b8"
+      ],
+      "Story: Authorize and meter a bearer key / A charge never crosses the limit": [
+        "e3b0c44298fc",
+        "1c58620b1c71",
+        "f692be58a5b8"
+      ],
+      "Story: Authorize and meter a bearer key / Spend can be recorded": [
+        "e3b0c44298fc",
+        "27b876cc52d5",
+        "e3f350bc04a1"
+      ],
+      "Story: Authorize and meter a bearer key / A key can be revoked": [
+        "e3b0c44298fc",
+        "bc0c823811e5",
+        "e3f350bc04a1"
+      ]
+    },
+    "spec/app/gateway/requests.md": {
+      "@document": [
+        "a37a0e40a897"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / The endpoints and the model registry": [
+        "d23b72dec690",
+        "d400a819c209"
+      ],
+      "Domain / A served request": [
+        "25ab86368ffe",
+        "dff7b62722e9",
+        "a5ead755efaa"
+      ],
+      "Domain / Values the checks sample": [
+        "e3b0c44298fc",
+        "4a22b4a9d022",
+        "e3f350bc04a1"
+      ],
+      "## Story: Serve a metered completion": [
+        "6ce38eb48002"
+      ],
+      "Story: Serve a metered completion / A request opens only for a serving key and a registered model": [
+        "a95c4f3776dc",
+        "7fc819a12596",
+        "823f245c8529"
+      ],
+      "Story: Serve a metered completion / A streamed request emits tokens while it is open": [
+        "d96cfd273fa1",
+        "d688c2fae567",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / Finishing records the request's spend exactly once": [
+        "7cd2a709a2bb",
+        "0e48ef24b941",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / A request that cannot be served fails without a charge": [
+        "e3b0c44298fc",
+        "157b8dc7510b",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / Every request reference is unique": [
+        "57729515808e",
+        "1a44c54c22aa",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / Unauthorized keys never serve": [
+        "516d43fcd5b5",
+        "2b15e06455f9",
+        "823f245c8529"
+      ],
+      "Story: Serve a metered completion / Every request names a registered model": [
+        "e3b0c44298fc",
+        "e4a9093f9fb5",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / Charge is recorded exactly on completion": [
+        "4f728734005b",
+        "ac446a7cc143",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / Emitted tokens never go back": [
+        "e3b0c44298fc",
+        "e3956d3b7f91",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / A recorded charge never changes": [
+        "7d31fd3a3eb8",
+        "10595b4256b0",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / A closed request never reopens": [
+        "e2acc54fefa2",
+        "3ea8d70dff70",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / A settled request cannot emit, settle or fail again": [
+        "e3b0c44298fc",
+        "7d714a20bc31",
+        "c6bf3c829e7e"
+      ],
+      "Story: Serve a metered completion / A request can complete": [
+        "e3b0c44298fc",
+        "b5a903f25bbd",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / A request can fail": [
+        "e3b0c44298fc",
+        "582739e0b3e8",
+        "443944274f7b"
+      ],
+      "Story: Serve a metered completion / A stream can emit tokens and terminate": [
+        "e3b0c44298fc",
+        "5c78ee32020f",
+        "443944274f7b"
       ]
     },
     "spec/app/index.md": {

@@ -3,6 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import { adminApi, adminState } from "./api/admin.vibe"
 import { billingApi, billingState } from "./api/billing.vibe"
 import { docsApi } from "./api/docs.vibe"
+import { gatewayApi, gatewayState } from "./api/gateway.vibe"
 import { healthApi } from "./api/health.vibe"
 import { navApi, navState } from "./api/nav.vibe"
 import { sessionApi, sessionState } from "./api/session.vibe"
@@ -13,8 +14,8 @@ effect function main() {
   const path = try Path.Path
   const web = try path.fromFileUrl(new URL("../web", import.meta.url))
   const dir = (try path.fromFileUrl(new URL("../data", import.meta.url)))
-  const port = try Config.withDefault(Config.Number("PORT"), 3010)
-  const server = try Effect.try(() => serve(web, listening(port), Layer.mergeAll(healthApi, navApi, sessionApi, adminApi, billingApi, siteApi, docsApi), Layer.mergeAll(navState(dir), sessionState(dir), adminState(dir), billingState(dir), siteState(dir))))
+  const port = try Config.withDefault(Config.Number("PORT"), 0)
+  const server = try Effect.try(() => serve(web, listening(port), Layer.mergeAll(healthApi, navApi, sessionApi, adminApi, billingApi, siteApi, docsApi, gatewayApi), Layer.mergeAll(navState(dir), sessionState(dir), adminState(dir), billingState(dir), siteState(dir), gatewayState(dir))))
   provide server {
     const { address } = try HttpServer.HttpServer
     if ("port" in address) try Console.log(`http://localhost:${address.port}`)
