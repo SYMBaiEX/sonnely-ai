@@ -2,6 +2,7 @@
 // boundary, the referrals machine, and the joined read the admin views make over shared state.
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Admin from "../../gen/app__admin.effect.vibe"
+import * as Crm from "../../gen/app__admin__crm.effect.vibe"
 import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
 import { machineApi, machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
@@ -74,6 +75,7 @@ effect function overview(admin: Admin.Machine.Shape) {
 
 export const adminApi = Layer.unwrap(effect {
   const admin = try Admin.Machine
+  const crm = try Crm.Machine
   const referrals = try Referrals.Machine
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/machines/admin", getState(admin)),
@@ -81,6 +83,7 @@ export const adminApi = Layer.unwrap(effect {
     HttpRouter.add("GET", "/api/machines/admin/stream", getStream(admin)),
     machineRegistration("admin", admin),
     HttpRouter.add("GET", "/api/admin/overview", overview(admin)),
+    machineApi("admin-crm", crm),
     machineApi("admin-referrals", referrals),
   )
 })
@@ -88,6 +91,7 @@ export const adminApi = Layer.unwrap(effect {
 export function adminState(dir: string) {
   return Layer.mergeAll(
     Layer.provide(Admin.stored("admin"), store(dir)),
+    Layer.provide(Crm.stored("admin-crm"), store(dir)),
     Layer.provide(Referrals.stored("admin-referrals"), store(dir)),
   )
 }

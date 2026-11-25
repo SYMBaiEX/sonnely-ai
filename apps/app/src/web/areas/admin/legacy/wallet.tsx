@@ -18,44 +18,39 @@ export type Session = {
 };
 
 const pageSize = 25;
-const overlayKey = "sonnely.admin.crm-overlay";
+const emptyCrm = () => ({ profiles: [], activities: [], tasks: [], flags: [], segments: [], adjustments: [] });
 
-type Overlay = {
-  flags: Record<string, string[]>;
-  notes: Record<string, any[]>;
-  tasks: any[];
-  segments: any[];
-  assignments: Record<string, string>;
-  adjustments: Record<string, any[]>;
-};
-
-const emptyOverlay = (): Overlay => ({ flags: {}, notes: {}, tasks: [], segments: [], assignments: {}, adjustments: {} });
-
-function overlay(): Overlay {
-  try {
-    return { ...emptyOverlay(), ...JSON.parse(localStorage.getItem(overlayKey) ?? "{}") };
-  } catch {
-    return emptyOverlay();
-  }
+function crmOf(states: Record<string, any>) {
+  return { ...emptyCrm(), ...(states["admin-crm"] ?? {}) };
 }
 
-function keepOverlay(next: Overlay) {
-  localStorage.setItem(overlayKey, JSON.stringify(next));
+function operatorWallet(states: Record<string, any>) {
+  return states.session?.tag === "SignedIn" ? states.session.wallet : states.admin?.ops?.roster?.[0]?.wallet ?? "operator";
 }
 
-function mutateOverlay(change: (draft: Overlay) => void) {
-  const draft = overlay();
-  change(draft);
-  keepOverlay(draft);
+async function actingOperator() {
+  const session = await readMachine("session");
+  return session?.tag === "SignedIn" ? session.wallet : "operator";
+}
+
+function taskRow(task: any, customers: any[]) {
+  const customer = customers.find((row) => row.id === task.account);
+  return { ...task, dueAt: task.dueAt || undefined, doneAt: task.doneAt || undefined, wallet: task.account, name: customer?.name ?? "" };
+}
+
+function customerBalance(states: Record<string, any>, wallet: string) {
+  const ledgerBalance = (states["billing-ledger"]?.entries ?? []).reduce((sum: number, entry: any) => sum + (entry.wallet === wallet ? (entry.kind === "Charge" ? -entry.amount : entry.amount) : 0), 0);
+  return ledgerBalance + crmOf(states).adjustments.filter((row) => row.account === wallet).reduce((sum: number, row) => sum + row.delta, 0);
 }
 
 async function readMachine(name: string) {
-  const response = await fetch("/api/machines/" + name, { cache: "no-store" });
+  const path = name === "session" ? "/api/session" : "/api/machines/" + name;
+  const response = await fetch(path, { cache: "no-store" });
   return response.ok ? await response.json() : undefined;
 }
 
 async function readMachines() {
-  const names = ["session", "admin", "usage", "support", "workspace-keys", "billing-ledger", "billing-deposits", "teams", "console", "console__logs"];
+  const names = ["session", "admin", "admin-crm", "usage", "support", "workspace-keys", "billing-ledger", "billing-deposits", "teams", "console", "console__logs"];
   const entries = await Promise.all(names.map(async (name) => [name, await readMachine(name)]));
   return Object.fromEntries(entries) as Record<string, any>;
 }
@@ -89,7 +84,6 @@ const lowerStatus = (status: string) => status.toLowerCase();
 const providerId = (provider: string) => (provider === "NearAI" ? "near-ai" : provider.toLowerCase());
 
 function ticketRow(ticket: any, account = "") {
-  const o = overlay();
   return {
     id: ticket.id,
     account,
@@ -100,7 +94,7 @@ function ticketRow(ticket: any, account = "") {
     opened: ticket.openedAt,
     updated: ticket.updatedAt,
     replyCount: ticket.replies.length,
-    assignedWallet: o.assignments[ticket.id],
+    assignedWallet: ticket.assignedTo || undefined,
   };
 }
 
@@ -117,7 +111,7 @@ function thread(ticket: any, customers: any[]) {
     customer,
     replies: ticket.replies.map((reply: any, index: number) => ({
       id: ticket.id + "-reply-" + index,
-      author: reply.author === "Staff" ? "Unavailable" : reply.author,
+      author: reply.author === "Staff" ? reply.authorWallet || "Unavailable" : reply.author,
       visibility: reply.visibility.toLowerCase(),
       body: reply.body,
       time: reply.time,
@@ -148,25 +142,28 @@ function traceRow(row: any, account: string) {
 
 function customersFrom(states: Record<string, any>) {
   const admin = states.admin;
-  const ledger = states["billing-ledger"];
-  const o = overlay();
+  const crm = crmOf(states);
   const records = [...(admin?.records ?? [])];
   const wallet = states.session?.tag === "SignedIn" ? states.session.wallet : undefined;
   if (wallet && !records.some((row) => row.id === wallet)) {
     records.push({ id: wallet, subject: "User", status: "Active", usage: 0 });
   }
+  for (const profile of crm.profiles) {
+    if (!records.some((row) => row.id === profile.wallet)) records.push({ id: profile.wallet, subject: "User", status: "Active", usage: 0 });
+  }
   return records.map((record: any, index: number) => {
+    const profile = crm.profiles.find((row) => row.wallet === record.id);
     const usageRows = (states.usage?.rows ?? []).filter((row: any) => index === 0 || row.keyId === record.id);
-    const balance = (ledger?.entries ?? []).reduce((sum: number, entry: any) => sum + (entry.wallet === record.id ? (entry.kind === "Charge" ? -entry.amount : entry.amount) : 0), 0);
-    const flags = new Set(o.flags[record.id] ?? []);
+    const balance = customerBalance(states, record.id);
+    const flags = new Set(crm.flags.filter((row) => row.account === record.id).map((row) => row.flag));
     if (record.status === "Suspended") flags.add("suspended");
     if (balance > 0) flags.add("funded");
     return {
       id: record.id,
       wallet: record.id,
-      name: index === 0 && states.console?.name ? states.console.name : "",
-      username: index === 0 && states.console?.username ? states.console.username : "",
-      joined: Date.now() - (index + 4) * 86_400_000,
+      name: profile?.name || (index === 0 && states.console?.name ? states.console.name : ""),
+      username: profile?.username || (index === 0 && states.console?.username ? states.console.username : ""),
+      joined: profile?.joined || Date.now() - (index + 4) * 86_400_000,
       balance,
       role: record.subject === "Org" ? "organization" : "owner",
       funded: balance > 0,
@@ -182,7 +179,8 @@ function customerDetail(id: string, states: Record<string, any>) {
   const customers = customersFrom(states);
   const customer = customers.find((row) => row.id === id);
   if (!customer) return null;
-  const o = overlay();
+  const crm = crmOf(states);
+  const profile = crm.profiles.find((row) => row.wallet === id);
   const traces = (states.usage?.rows ?? []).map((row: any) => traceRow(row, id));
   const tickets = supportRows(states.support, customers);
   const keys = (states["workspace-keys"]?.keys ?? []).map((key: any) => ({
@@ -200,18 +198,20 @@ function customerDetail(id: string, states: Record<string, any>) {
     amount: item.amount,
     signature: item.status?.tag === "Finalized" ? item.status.signature : undefined,
   }));
-  const notes = o.notes[id] ?? [];
-  const tasks = o.tasks.filter((task) => task.account === id);
+  const activity = crm.activities.filter((row) => row.account === id).sort((a, b) => b.time - a.time);
+  const tasks = crm.tasks.filter((task) => task.account === id).map((task) => taskRow(task, customers));
   const audit = (states.admin?.audit ?? []).filter((entry: any) => entry.target === id);
+  const inviterRow = profile?.inviter ? customers.find((row) => row.id === profile.inviter) : undefined;
+  const inviter = profile?.inviter ? inviterRow ?? { id: profile.inviter, wallet: profile.inviter, name: "", username: undefined, joined: 0, balance: 0, role: "owner", funded: false, active: false, flags: [] } : undefined;
   return {
-    customer: { ...customer, onboarding: undefined },
+    customer: { ...customer, onboarding: profile?.onboarding || undefined },
     suspended: customer.status === "Suspended",
     flags: customer.flags,
     active: customer.active,
     funded: customer.funded,
-    acceptedTerms: undefined,
-    acceptedAt: undefined,
-    inviter: undefined,
+    acceptedTerms: profile?.termsVersion || undefined,
+    acceptedAt: profile?.termsAcceptedAt || undefined,
+    inviter,
     stats: {
       totalSpend: traces.reduce((sum: number, row: any) => sum + row.cost, 0),
       totalDeposits: deposits.reduce((sum: number, row: any) => sum + row.amount, 0),
@@ -221,15 +221,15 @@ function customerDetail(id: string, states: Record<string, any>) {
     },
     keys,
     deposits,
-    adjustments: o.adjustments[id] ?? [],
+    adjustments: crm.adjustments.filter((row) => row.account === id).map((row) => ({ ...row, adminWallet: row.admin })).sort((a, b) => b.time - a.time),
     tickets,
     traces,
     referrals: [],
     tasks,
-    activity: notes,
+    activity,
     timeline: [
       ...audit.map((entry: any) => ({ id: "audit-" + entry.at + entry.act, kind: entry.act, summary: entry.summary, actor: entry.actor, time: entry.at })),
-      ...notes.map((note: any) => ({ ...note, kind: "note", summary: note.note })),
+      ...activity.map((row: any) => ({ ...row, summary: row.note })),
     ].sort((a, b) => b.time - a.time),
   };
 }
@@ -287,10 +287,10 @@ async function crmRead(task: string) {
   if (view === "nav-badges") {
     const openTickets = (states.support?.tickets ?? []).filter((row: any) => row.state !== "Resolved").length;
     const now = Date.now();
-    return { openTickets, overdueTasks: overlay().tasks.filter((row) => row.doneAt === undefined && row.dueAt !== undefined && row.dueAt < now).length };
+    return { openTickets, overdueTasks: crmOf(states).tasks.filter((row) => row.doneAt === 0 && row.dueAt !== 0 && row.dueAt < now).length };
   }
-  if (view === "tasks") return overlay().tasks.filter((row) => row.doneAt === undefined);
-  if (view === "segments") return overlay().segments;
+  if (view === "tasks") return crmOf(states).tasks.filter((row) => row.doneAt === 0 && row.assignee === operatorWallet(states)).map((row) => taskRow(row, customers));
+  if (view === "segments") return crmOf(states).segments.filter((row) => row.admin === operatorWallet(states));
   if (view === "flags") return [...new Set(customers.flatMap((row) => row.flags))].sort();
   if (view === "operators" || view === "operator-list") {
     return (states.admin?.ops?.roster ?? []).map((row: any) => ({
@@ -299,8 +299,8 @@ async function crmRead(task: string) {
       name: "",
       role: row.role.toLowerCase(),
       lastActiveAt: undefined,
-      openTickets: 0,
-      openTasks: overlay().tasks.filter((task) => task.assignee === row.wallet && task.doneAt === undefined).length,
+      openTickets: (states.support?.tickets ?? []).filter((ticket) => ticket.assignedTo === row.wallet && ticket.state !== "Resolved").length,
+      openTasks: crmOf(states).tasks.filter((task) => task.assignee === row.wallet && task.doneAt === 0).length,
     }));
   }
   if (view === "customer-flags") return customers.find((row) => row.id === params.get("id"))?.flags ?? [];
@@ -399,71 +399,71 @@ export async function request<T>(task: string, data?: unknown): Promise<T> {
   if (task === "admin-invoice-preview" || task === "admin-invoice-record") return [] as T;
   if (task === "admin-suspend") return (await postAdmin({ type: body.suspended ? "suspend" : "reinstate", id: body.account, at: Date.now() })) as T;
   if (task === "admin-revoke-key") return (await postMachine("workspace-keys", { type: "revoke", id: body.id })) as T;
-  if (task === "admin-reply") return (await postMachine("support", { type: "staffReply", id: body.id, body: String(body.body ?? ""), visibility: body.visibility === "internal" ? "Internal" : "Public", now: Date.now() })) as T;
+  if (task === "admin-reply") {
+    const author = await actingOperator();
+    return (await postMachine("support", { type: "staffReply", id: body.id, body: String(body.body ?? ""), visibility: body.visibility === "internal" ? "Internal" : "Public", author, now: Date.now() })) as T;
+  }
   if (task === "admin-ticket") {
+    const now = Date.now();
     if (body.assignment && body.assignment !== "keep") {
-      const states = await readMachines();
-      const operator = states.admin?.ops?.roster?.[0]?.wallet ?? "";
-      mutateOverlay((draft) => {
-        if (body.assignment === "unassign") delete draft.assignments[body.id];
-        else if (body.assignment === "claim") draft.assignments[body.id] = operator;
-        else draft.assignments[body.id] = body.assignment === "assign" ? body.assignTo : operator;
-      });
+      const operator = await actingOperator();
+      const wallet = body.assignment === "unassign" ? "" : body.assignment === "assign" ? String(body.assignTo ?? "") : operator;
+      await postMachine("support", { type: "assignOwner", id: body.id, wallet, now });
     }
-    return (await postMachine("support", { type: "setState", id: body.id, status: upperTicketState(String(body.state ?? "open")), now: Date.now() })) as T;
+    return (await postMachine("support", { type: "setState", id: body.id, status: upperTicketState(String(body.state ?? "open")), now })) as T;
   }
   if (task === "admin-ticket-bulk") {
     let applied = 0;
+    const operator = await actingOperator();
     for (const id of body.ids ?? []) {
-      if (body.op === "resolve") await postMachine("support", { type: "setState", id, status: "Resolved", now: Date.now() });
-      if (body.op !== "resolve") mutateOverlay((draft) => {
-        if (body.op === "unassign") delete draft.assignments[id];
-        if (body.op === "claim") draft.assignments[id] = "operator";
-      });
+      const now = Date.now();
+      if (body.op === "resolve") await postMachine("support", { type: "setState", id, status: "Resolved", now });
+      if (body.op === "unassign") await postMachine("support", { type: "assignOwner", id, wallet: "", now });
+      if (body.op === "claim") await postMachine("support", { type: "assignOwner", id, wallet: operator, now });
       applied += 1;
     }
     return { applied, skipped: 0 } as T;
   }
   if (task === "admin-note") {
-    mutateOverlay((draft) => {
-      const note = { id: crypto.randomUUID(), note: String(body.note ?? ""), actor: "operator", time: Date.now() };
-      (draft.notes[body.account] ??= []).unshift(note);
-    });
+    const actor = await actingOperator();
+    await postMachine("admin-crm", { type: "addNote", id: crypto.randomUUID(), account: body.account, actor, note: String(body.note ?? ""), now: Date.now() });
     return { ok: true } as T;
   }
   if (task === "admin-task-create") {
-    mutateOverlay((draft) => draft.tasks.push({ id: crypto.randomUUID(), account: body.account, title: String(body.title ?? ""), dueAt: body.dueAt, assignee: "operator", wallet: body.account, name: "" }));
+    const creator = await actingOperator();
+    const title = String(body.title ?? "");
+    await postMachine("admin-crm", { type: "createTask", id: crypto.randomUUID(), activityId: crypto.randomUUID(), account: body.account, assignee: creator, creator, title, dueAt: body.dueAt ?? 0, summary: "Follow-up created: " + title, now: Date.now() });
     return { ok: true } as T;
   }
   if (task === "admin-task-done" || task === "admin-task-reopen") {
-    mutateOverlay((draft) => {
-      const row = draft.tasks.find((taskRow) => taskRow.id === body.id);
-      if (row) row.doneAt = task === "admin-task-done" ? Date.now() : undefined;
-    });
+    await postMachine("admin-crm", task === "admin-task-done" ? { type: "completeTask", id: body.id, now: Date.now() } : { type: "reopenTask", id: body.id });
     return { ok: true } as T;
   }
   if (task === "admin-flag" || task === "admin-unflag") {
-    mutateOverlay((draft) => {
-      const flags = new Set(draft.flags[body.account] ?? []);
-      if (task === "admin-flag") flags.add(String(body.flag)); else flags.delete(String(body.flag));
-      draft.flags[body.account] = [...flags];
-    });
+    const admin = await actingOperator();
+    const flag = String(body.flag ?? "");
+    const event = task === "admin-flag"
+      ? { type: "setFlag", activityId: crypto.randomUUID(), account: body.account, flag, note: "", admin, summary: "Flag '" + flag + "' added", now: Date.now() }
+      : { type: "removeFlag", activityId: crypto.randomUUID(), account: body.account, flag, admin, summary: "Flag '" + flag + "' removed", now: Date.now() };
+    await postMachine("admin-crm", event);
     return { ok: true } as T;
   }
   if (task === "admin-segment-save") {
+    const admin = await actingOperator();
     const segment = { id: crypto.randomUUID(), name: String(body.name ?? ""), definition: String(body.definition ?? "{}") };
-    mutateOverlay((draft) => draft.segments.push(segment));
+    await postMachine("admin-crm", { type: "saveSegment", ...segment, admin, now: Date.now() });
     return segment as T;
   }
   if (task === "admin-segment-delete") {
-    mutateOverlay((draft) => { draft.segments = draft.segments.filter((segment) => segment.id !== body.id); });
+    await postMachine("admin-crm", { type: "deleteSegment", id: body.id, admin: await actingOperator() });
     return { ok: true } as T;
   }
   if (task === "admin-adjust-balance") {
-    mutateOverlay((draft) => {
-      const balance = 0;
-      (draft.adjustments[body.account] ??= []).unshift({ id: crypto.randomUUID(), delta: Number(body.delta), balanceAfter: balance + Number(body.delta), reason: String(body.reason ?? ""), adminWallet: "operator", time: Date.now() });
-    });
+    const admin = await actingOperator();
+    const ledger = await readMachine("billing-ledger");
+    const balanceBefore = customerBalance({ "billing-ledger": ledger, "admin-crm": await readMachine("admin-crm") }, body.account);
+    const delta = Number(body.delta);
+    await postMachine("admin-crm", { type: "recordAdjustment", id: crypto.randomUUID(), activityId: crypto.randomUUID(), account: body.account, admin, delta, reason: String(body.reason ?? ""), balanceBefore, summary: "Balance adjusted by " + delta, now: Date.now() });
     return { ok: true } as T;
   }
   if (task === "admin-reset-sessions" || task === "admin-resolve-credit") return { ok: true } as T;

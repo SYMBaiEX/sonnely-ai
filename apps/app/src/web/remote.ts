@@ -113,11 +113,20 @@ function closeStream() {
   streamError = undefined;
 }
 
+function closeStreams() {
+  closeStream();
+  for (const name of [...scopedSources.keys()]) closeScopedStream(name);
+}
+
+function openStreams() {
+  if (machineListeners.size === 0) return;
+  if ([...machineListeners.keys()].some((name) => !scopedMachines.has(name))) openStream();
+  for (const name of machineListeners.keys()) if (scopedMachines.has(name)) openScopedStream(name);
+}
+
 if (typeof window !== "undefined") {
-  window.addEventListener("pagehide", closeStream);
-  window.addEventListener("pageshow", () => {
-    if (machineListeners.size > 0) openStream();
-  });
+  window.addEventListener("pagehide", closeStreams);
+  window.addEventListener("pageshow", openStreams);
 }
 
 function subscribeMachine(name: string, notify: () => void) {

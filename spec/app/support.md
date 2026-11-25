@@ -5,8 +5,9 @@ opens it with an email, a topic and a message, and either side replies in the
 open. Its state is `open`, `in_progress` or `resolved` (the legacy labels):
 a staff reply on an open request moves it to `in_progress`, the customer
 replying on a resolved request reopens it to `open`, and staff set the state
-directly. Replies are `public` — shown to the customer — or `internal`,
-staff notes only.
+directly. A ticket carries its assigned operator's wallet, empty while
+unassigned. Replies are `public` — shown to the customer — or `internal`,
+staff notes only; a staff reply carries its author's wallet.
 
 ## Domain
 
@@ -22,7 +23,7 @@ type Author = Customer | Staff
 
 type Visibility = Public | Internal
 
-type Reply = { author: Author, visibility: Visibility, body: str, time: int }
+type Reply = { author: Author, authorWallet: str, visibility: Visibility, body: str, time: int }
 
 type Ticket = {
   id: str,
@@ -32,6 +33,7 @@ type Ticket = {
   state: TicketState,
   openedAt: int,
   updatedAt: int,
+  assignedTo: str,
   replies: List[Reply],
 }
 
@@ -55,6 +57,8 @@ pure val bodyValues = Set("More details", "Thanks")
 pure val nowValues = Set(0, 1000, 5000)
 pure val visibilityValues = Set(Public, Internal)
 pure val statusValues = Set(Open, InProgress, Resolved)
+pure val authorValues = Set("operator", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM")
+pure val walletValues = Set("", "operator", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM")
 ```
 
 ## Story: Open a request
@@ -74,7 +78,7 @@ pure def canOpen(s: Tickets, id: str, email: str, topic: str, message: str, now:
 pure def open(s: Tickets, id: str, email: str, topic: str, message: str, now: int): Tickets =
   { tickets: s.tickets.append({
       id: id, email: email, topic: topic, message: message,
-      state: Open, openedAt: now, updatedAt: now, replies: List() }) }
+      state: Open, openedAt: now, updatedAt: now, assignedTo: "", replies: List() }) }
 ```
 
 ### Every ticket stays well formed and uniquely identified
@@ -114,7 +118,7 @@ pure def reply(s: Tickets, id: str, body: str, now: int): Tickets =
       if (t.id == id)
         { ...t, updatedAt: now,
                 state: if (t.state == Resolved) Open else t.state,
-                replies: t.replies.append({ author: Customer, visibility: Public, body: body, time: now }) }
+                replies: t.replies.append({ author: Customer, authorWallet: "", visibility: Public, body: body, time: now }) }
       else t) }
 ```
 
@@ -124,16 +128,16 @@ A public reply — nonempty, like the customer's — is what the customer sees
 of the team's side; an internal note stays with staff. A staff reply on an open request starts progress.
 
 ```quint
-pure def canStaffReply(s: Tickets, id: str, body: str, visibility: Visibility, now: int): bool =
-  body != "" and now >= 0
+pure def canStaffReply(s: Tickets, id: str, body: str, visibility: Visibility, author: str, now: int): bool =
+  body != "" and author != "" and now >= 0
   and findTicket(s, id).length() == 1
 
-pure def staffReply(s: Tickets, id: str, body: str, visibility: Visibility, now: int): Tickets =
+pure def staffReply(s: Tickets, id: str, body: str, visibility: Visibility, author: str, now: int): Tickets =
   { tickets: s.tickets.listMap(t =>
       if (t.id == id)
         { ...t, updatedAt: now,
                 state: if (t.state == Open) InProgress else t.state,
-                replies: t.replies.append({ author: Staff, visibility: visibility, body: body, time: now }) }
+                replies: t.replies.append({ author: Staff, authorWallet: author, visibility: visibility, body: body, time: now }) }
       else t) }
 ```
 
@@ -212,8 +216,33 @@ pure def lawCustomerReplyReopensResolved(s: Tickets, id: str, email: str, topic:
   val t3 = reply(t2, id, body, now)
   findTicket(s, id).length() != 0 or findTicket(t3, id).every(t => t.state == Open)
 
-pure def lawStaffReplyStartsProgress(s: Tickets, id: str, email: str, topic: str, message: str, now: int, body: str, visibility: Visibility): bool =
+pure def lawStaffReplyStartsProgress(s: Tickets, id: str, email: str, topic: str, message: str, now: int, body: str, visibility: Visibility, author: str): bool =
   val t1 = open(s, id, email, topic, message, now)
-  val t2 = staffReply(t1, id, body, visibility, now)
+  val t2 = staffReply(t1, id, body, visibility, author, now)
   findTicket(s, id).length() != 0 or findTicket(t2, id).every(t => t.state == InProgress)
+```
+
+## Story: Assign ownership
+
+> As a support operator, I want a request to carry the operator wallet that
+> owns it, so that triage and bulk assignment survive every browser.
+
+### Staff assign, claim or unassign a request
+
+The machine records only the resulting owner: a nonempty wallet assigns or
+moves ownership, and the empty wallet unassigns the request. The shell
+decides whether a claim means the acting operator or a named one.
+
+```quint
+pure def canAssignOwner(s: Tickets, id: str, wallet: str, now: int): bool =
+  now >= 0 and findTicket(s, id).length() == 1
+
+pure def assignOwner(s: Tickets, id: str, wallet: str, now: int): Tickets =
+  { tickets: s.tickets.listMap(t => if (t.id == id) { ...t, assignedTo: wallet, updatedAt: now } else t) }
+```
+
+### A request can have an owner
+
+```quint
+pure def sometimesAssigned(s: Tickets): bool = s.tickets.some(t => t.assignedTo != "")
 ```

@@ -40,6 +40,21 @@ export function App({ runtime, path }: AppProps) {
     return () => removeEventListener("popstate", onPop);
   }, [runtime]);
 
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!anchor || anchor.target || anchor.hasAttribute("download")) return;
+      const url = new URL(anchor.href, location.href);
+      if (url.origin !== location.origin || url.search) return;
+      if (url.pathname === location.pathname && url.hash) return;
+      event.preventDefault();
+      void navigate(runtime, pageOf(url.pathname));
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [runtime]);
+
   if (!state) return null;
   let shown: React.ReactNode;
   for (const key of Object.keys(areas)) {
