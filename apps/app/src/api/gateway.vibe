@@ -1,0 +1,390 @@
+// spec/app/gateway/index.md — the staging gateway: bearer-key authorization and metered spend on the
+// shared "keys" store, the served-request ledger under "gateway-requests" and the resumable batch job
+// under "gateway-batch". There is no upstream provider here: each endpoint answers a deterministic
+// completion in the OpenAI wire shape, after the keyring and ledger machines rule on the request.
+import * as Keyring from "../../gen/app__gateway__keyring.effect.vibe"
+import * as Requests from "../../gen/app__gateway__requests.effect.vibe"
+import * as Batch from "../../gen/app__gateway__batch.effect.vibe"
+import { store } from "../serve.vibe"
+
+module node {
+  import { createHash, randomUUID } from "node:crypto"
+  /** The keyring id a bearer token resolves to: the record never holds the token itself. */
+  export function hashToken(token: string) {
+    return createHash("sha256").update(token).digest("hex")
+  }
+  /** A fresh request reference. */
+  export function newRef() {
+    return randomUUID()
+  }
+}
+import { hashToken, newRef } from node
+
+const noStore = { "cache-control": "no-store" }
+
+effect function reply(value: unknown, status: number = 200) {
+  return try HttpServerResponse.json(value, { status, headers: noStore })
+}
+
+/** An error in the OpenAI shape. */
+effect function oops(message: string, status: number, type: string = "invalid_request_error") {
+  return try reply({ error: { message, type } }, status)
+}
+
+/** The id the bearer token resolves to, or "" when none was sent. */
+function bearerId(request: { headers: Record<string, string | undefined> }): string {
+  const auth = request.headers["authorization"] ?? ""
+  return auth.startsWith("Bearer ") ? hashToken(auth.slice(7)) : ""
+}
+
+/** The key the request's bearer names, or the refusal in the OpenAI shape. */
+effect function authorized(endpoint: Requests.Endpoint, model: string) {
+  const request = try HttpServerRequest.HttpServerRequest
+  const id = bearerId(request)
+  if (id == "") return { refused: { error: { message: "A valid bearer key is required.", type: "invalid_request_error" }, status: 401 } }
+  const keyring = try Keyring.Machine
+  const state = try keyring.get()
+  const key = state.keys.find((k) => k.id == id)
+  if (key == undefined || key.status != "Active") {
+    return { refused: { error: { message: "The key is missing or revoked.", type: "invalid_request_error" }, status: 401 } }
+  }
+  if (!Keyring.mayServe(key)) {
+    return { refused: { error: { message: "The key's spend limit is reached.", type: "insufficient_quota" }, status: 402 } }
+  }
+  if (!Requests.registered(endpoint, model)) {
+    return { refused: { error: { message: "Choose a model from the catalog.", type: "invalid_request_error" }, status: 404 } }
+  }
+  return { key }
+}
+
+/** What one deterministic answer costs: one micro-USD per hundred input bytes, at least one. */
+function stagedCost(bytes: number): number {
+  return Math.max(1, Math.ceil(bytes / 100))
+}
+
+/**
+ * Record the served request and its charge: open on the ledger, the emits a stream asks for, finish
+ * with the settled cost, then the same amount on the keyring. Where the ledger or keyring refuses the
+ * request faults rather than reporting spend that was not recorded.
+ */
+effect function meter(ref: string, key: Keyring.KeyRecord, endpoint: Requests.Endpoint, model: string, stream: boolean, emits: number[], cost: number) {
+  const requests = try Requests.Machine
+  const opened = requests.send({ type: "open", ref, key, endpoint, model, stream }) catch (e) => e
+  if (opened instanceof Requests.Rejected) return { refused: { error: { message: "A request with this reference is already open.", type: "invalid_request_error" }, status: 409 } }
+  for (const tokens of emits) {
+    const emitted = requests.send({ type: "emit", ref, tokens }) catch (e) => e
+    if (emitted instanceof Requests.Rejected) {
+      requests.send({ type: "fault", ref }) catch () => undefined
+      return { refused: { error: { message: "The request could not emit.", type: "server_error" }, status: 500 } }
+    }
+  }
+  const keyring = try Keyring.Machine
+  const charged = keyring.send({ type: "charge", id: key.id, amount: cost }) catch (e) => e
+  const finished = requests.send({ type: "finish", ref, cost }) catch (e) => e
+  if (charged instanceof Keyring.Rejected || finished instanceof Requests.Rejected) {
+    requests.send({ type: "fault", ref }) catch () => undefined
+    return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
+  }
+  return { served: true }
+}
+
+const chatBody = (input: unknown): { model: string; stream: boolean; bytes: number } => {
+  const b = input as { model?: unknown; stream?: unknown } | undefined
+  return { model: typeof b?.model == "string" ? b.model : "", stream: b?.stream === true, bytes: JSON.stringify(input ?? {}).length }
+}
+
+const staged = "Sonnely staging: this endpoint answers deterministic completions; no provider is upstream."
+
+function completionShape(ref: string, model: string, cost: number) {
+  const chunk = { role: "assistant", content: staged, refusal: null }
+  return {
+    id: `chatcmpl-${ref}`,
+    object: "chat.completion",
+    created: 0,
+    model,
+    choices: [{ index: 0, message: chunk, finish_reason: "stop" }],
+    usage: { prompt_tokens: 0, completion_tokens: 8, total_tokens: 8 },
+    sonnely_request_id: ref,
+    sonnely_cost_microusd: cost,
+  }
+}
+
+function completionChunk(ref: string, model: string, delta: object, finish: string | null) {
+  return { id: `chatcmpl-${ref}`, object: "chat.completion.chunk", created: 0, model, choices: [{ index: 0, delta, finish_reason: finish }] }
+}
+
+interface ReadMachine {
+  get(): unknown!!
+  changes: Stream.Stream<unknown>
+}
+
+effect function getState(m: ReadMachine) {
+  return try reply(try m.get())
+}
+
+effect function getStream(m: ReadMachine) {
+  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
+// spec/app/gateway/requests.md, "Story: Serve a metered completion": a chat completion opens on a live
+// key and a registered model, emits only while it streams, then settles exactly one charge.
+effect function chatCompletions() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
+  const raw = request.json catch () => undefined
+  const body = chatBody(raw)
+  const auth = try authorized("ChatCompletions", body.model)
+  if ("refused" in auth) {
+    const r = auth.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
+  const ref = try Effect.try(() => newRef())
+  const cost = stagedCost(body.bytes)
+  if (!body.stream) {
+    const settled = try meter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
+    if ("refused" in settled) {
+      const r = settled.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    const response = try reply(completionShape(ref, body.model, cost))
+    return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
+  }
+  const emits = [4, 4]
+  const settled = try meter(ref, auth.key, "ChatCompletions", body.model, true, emits, cost)
+  if ("refused" in settled) {
+    const r = settled.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
+  const chunks = Stream.fromIterable([
+    `data: ${JSON.stringify(completionChunk(ref, body.model, { role: "assistant" }, null))}\n\n`,
+    `data: ${JSON.stringify(completionChunk(ref, body.model, { content: staged }, null))}\n\n`,
+    `data: ${JSON.stringify(completionChunk(ref, body.model, {}, "stop"))}\n\n`,
+    "data: [DONE]\n\n",
+  ])
+  return HttpServerResponse.stream(Stream.encodeText(chunks), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive", "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" },
+  })
+}
+
+// spec/app/gateway/index.md — every other v1 endpoint shares the same lifecycle: a live key, a
+// registered model, one open and one settled charge; only the wire shape differs.
+const endpoints: { path: string; endpoint: Requests.Endpoint; model: (input: unknown) => string; shape: (ref: string, model: string, cost: number) => unknown }[] = [
+  { path: "embeddings", endpoint: "Embeddings", model: (i) => (i as any)?.model ?? "", shape: (ref, model) => ({ object: "list", data: [{ object: "embedding", embedding: [0.5, 0.5], index: 0 }], model, usage: { prompt_tokens: 0, total_tokens: 0 }, sonnely_request_id: ref }) },
+  { path: "rerank", endpoint: "Rerank", model: (i) => (i as any)?.model ?? "", shape: (ref, model) => ({ object: "list", results: [{ index: 0, relevance_score: 0.5, document: { text: staged } }], model, sonnely_request_id: ref }) },
+  { path: "responses", endpoint: "ResponsesApi", model: (i) => (i as any)?.model ?? "", shape: (ref, model) => ({ id: `resp-${ref}`, object: "response", created: 0, model, output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: staged }] }], status: "completed", sonnely_request_id: ref }) },
+  { path: "redact", endpoint: "Redact", model: (i) => (i as any)?.model ?? "pii-filter", shape: (ref) => ({ redacted: staged, sonnely_request_id: ref }) },
+  { path: "systemone", endpoint: "Systemone", model: (i) => (i as any)?.model ?? "levanto/sage-2", shape: (ref, model) => ({ id: `sys1-${ref}`, object: "systemone.completion", created: 0, model, output_text: staged, sonnely_request_id: ref }) },
+  { path: "images/generations", endpoint: "ImageGenerations", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ created: 0, data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }], sonnely_request_id: ref }) },
+  { path: "images/edits", endpoint: "ImageEdits", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ created: 0, data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }], sonnely_request_id: ref }) },
+  { path: "audio/speech", endpoint: "AudioSpeech", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ audio: staged, format: "wav", sonnely_request_id: ref }) },
+  { path: "audio/transcriptions", endpoint: "AudioTranscriptions", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ text: staged, sonnely_request_id: ref }) },
+  { path: "audio/translations", endpoint: "AudioTranslations", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ text: staged, sonnely_request_id: ref }) },
+  { path: "convert/file", endpoint: "ConvertFile", model: (i) => (i as any)?.model ?? "doc-upload", shape: (ref) => ({ text: staged, sonnely_request_id: ref }) },
+]
+
+function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[number]) {
+  const handler = effect {
+    const request = try HttpServerRequest.HttpServerRequest
+    if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
+    const raw = request.json catch () => undefined
+    const named = model(raw)
+    const auth = try authorized(endpoint, named)
+    if ("refused" in auth) {
+      const r = auth.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    const ref = try Effect.try(() => newRef())
+    const cost = stagedCost(JSON.stringify(raw ?? {}).length)
+    const settled = try meter(ref, auth.key, endpoint, named, false, [], cost)
+    if ("refused" in settled) {
+      const r = settled.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    const response = try reply(shape(ref, named, cost))
+    return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
+  }
+  return HttpRouter.add("POST", `/api/sonnely/v1/${path}`, provideService(handler, HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256)))
+}
+
+/** The model catalog in the OpenAI list shape. */
+effect function listModels() {
+  const data = Requests.chatModels.map((id) => ({ id, object: "model", created: 0, owned_by: id.split("/")[0] }))
+  return try reply({ object: "list", data })
+}
+
+/** The provider inventory staging routes over. */
+effect function providerModels() {
+  const providers = ["near-ai", "phala", "tinfoil"].map((provider) => ({ id: provider, models: Requests.chatModels.filter((id) => id.startsWith(`${provider}/`)) }))
+  return try reply({ object: "list", data: providers })
+}
+
+/** The authenticated key's own status. */
+effect function keyStatus() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const id = bearerId(request)
+  const keyring = try Keyring.Machine
+  const state = try keyring.get()
+  const key = id == "" ? undefined : state.keys.find((k) => k.id == id)
+  if (key == undefined) return try oops("A valid bearer key is required.", 401)
+  return try reply({ data: { prefix: key.prefix, status: key.status, spendLimit: key.spendLimit, spent: key.spent } })
+}
+
+// spec/app/gateway/batch.md, "Story: Run a resumable batch": the job is created once, sent row by row
+// and cleared by the wallet that owns it; the machine rules on each step.
+effect function batchCreate() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
+  const raw = request.json catch () => undefined
+  const input = raw as { id?: unknown; filename?: unknown; customIds?: unknown } | undefined
+  const id = typeof input?.id == "string" ? input.id : ""
+  const filename = typeof input?.filename == "string" ? input.filename : ""
+  const customIds = Array.isArray(input?.customIds) ? input!.customIds.filter((c): c is string => typeof c == "string") : []
+  const batch = try Batch.Machine
+  const now = try Clock.currentTimeMillis
+  const created = batch.send({ type: "create", id, filename, customIds, createdAt: now }) catch (e) => e
+  if (created instanceof Batch.Rejected) return try oops("A different batch job is running, or these rows do not fit (1-200 non-empty unique custom ids).", 409)
+  return try reply({ ok: true, job: id })
+}
+
+effect function batchShow() {
+  const batch = try Batch.Machine
+  return try reply(try batch.get())
+}
+
+effect function batchClear() {
+  const batch = try Batch.Machine
+  const cleared = batch.send({ type: "clear" }) catch (e) => e
+  if (cleared instanceof Batch.Rejected) return try oops("No batch job is running.", 409)
+  return try reply({ ok: true })
+}
+
+effect function batchInterrupt() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
+  const raw = request.json catch () => undefined
+  const customId = typeof (raw as any)?.customId == "string" ? (raw as any).customId : ""
+  const batch = try Batch.Machine
+  const cut = batch.send({ type: "interrupt", customId }) catch (e) => e
+  if (cut instanceof Batch.Rejected) return try oops("That row is not in flight.", 409)
+  return try reply({ ok: true })
+}
+
+// spec/app/gateway/batch.md — one row of the job: begun, served as a non-streaming chat completion,
+// resolved Succeeded; a repeated row resolves Review rather than charging twice.
+effect function batchChat() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
+  const raw = request.json catch () => undefined
+  const input = raw as { custom_id?: unknown; body?: unknown } | undefined
+  const customId = typeof input?.custom_id == "string" ? input.custom_id : ""
+  const batch = try Batch.Machine
+  const now = try Clock.currentTimeMillis
+  const began = batch.send({ type: "begin", customId, at: now }) catch (e) => e
+  if (began instanceof Batch.Rejected) {
+    // A row sent twice asks for review rather than a second charge.
+    const reviewed = batch.send({ type: "resolve", customId, verdict: "Review" }) catch (e) => e
+    if (reviewed instanceof Batch.Rejected) return try oops("That row is not queued for this job.", 409)
+    return try reply({ ok: false, verdict: "Review", customId })
+  }
+  const body = chatBody(input?.body)
+  const auth = try authorized("ChatCompletions", body.model)
+  if ("refused" in auth) {
+    batch.send({ type: "resolve", customId, verdict: "Blocked" }) catch () => undefined
+    const r = auth.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
+  const ref = try Effect.try(() => newRef())
+  const cost = stagedCost(body.bytes)
+  const settled = try meter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
+  if ("refused" in settled) {
+    batch.send({ type: "resolve", customId, verdict: "Failed" }) catch () => undefined
+    const r = settled.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
+  batch.send({ type: "resolve", customId, verdict: "Succeeded" }) catch () => undefined
+  const response = try reply(completionShape(ref, body.model, cost))
+  return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref })
+}
+
+/** /api/v1 is retired: every method answers 410. */
+effect function gone() {
+  return try reply({ error: { message: "/api/v1 is retired; use /api/sonnely/v1.", type: "gone" } }, 410)
+}
+
+/** The keyring machine, stored under "keys" — the workspace shares the key. */
+export function keyringMachine() {
+  return Keyring.stored("keys")
+}
+
+/** The request ledger, stored under "gateway-requests". */
+export function requestsMachine() {
+  return Requests.stored("gateway-requests")
+}
+
+/** The batch job, stored under "gateway-batch". */
+export function batchMachine() {
+  return Batch.stored("gateway-batch")
+}
+
+/** An event from anywhere untrusted, decoded before the keyring's rules see it. */
+export effect function dispatchKeyring(input: unknown) {
+  const machine = try Keyring.Machine
+  return try machine.receive(input)
+}
+
+/** An event from anywhere untrusted, decoded before the ledger's rules see it. */
+export effect function dispatchRequests(input: unknown) {
+  const machine = try Requests.Machine
+  return try machine.receive(input)
+}
+
+/** An event from anywhere untrusted, decoded before the batch rules see it. */
+export effect function dispatchBatch(input: unknown) {
+  const machine = try Batch.Machine
+  return try machine.receive(input)
+}
+
+// spec/app/gateway/index.md — the API surface: machine state and streams are read-only; every write
+// goes through the guards above.
+export const gatewayApi = Layer.unwrap(effect {
+  const keyring = try Keyring.Machine
+  const requests = try Requests.Machine
+  const batch = try Batch.Machine
+  return Layer.mergeAll(
+    HttpRouter.add("GET", "/api/machines/keys", getState(keyring)),
+    HttpRouter.add("GET", "/api/machines/keys/stream", getStream(keyring)),
+    HttpRouter.add("GET", "/api/machines/gateway-requests", getState(requests)),
+    HttpRouter.add("GET", "/api/machines/gateway-requests/stream", getStream(requests)),
+    HttpRouter.add("GET", "/api/machines/gateway-batch", getState(batch)),
+    HttpRouter.add("GET", "/api/machines/gateway-batch/stream", getStream(batch)),
+    HttpRouter.add("GET", "/api/sonnely/v1/models", listModels()),
+    HttpRouter.add("GET", "/api/sonnely/v1/provider-models", providerModels()),
+    HttpRouter.add("GET", "/api/sonnely/v1/key", keyStatus()),
+    HttpRouter.add("POST", "/api/sonnely/v1/chat/completions", provideService(chatCompletions(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    ...endpoints.map(endpointRoute),
+    HttpRouter.add("POST", "/api/sonnely/batch", provideService(batchCreate(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("GET", "/api/sonnely/batch", batchShow()),
+    HttpRouter.add("DELETE", "/api/sonnely/batch", batchClear()),
+    HttpRouter.add("POST", "/api/sonnely/batch/interrupt", provideService(batchInterrupt(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("POST", "/api/sonnely/batch/chat", provideService(batchChat(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("GET", "/api/v1/*", gone()),
+    HttpRouter.add("POST", "/api/v1/*", gone()),
+    HttpRouter.add("PUT", "/api/v1/*", gone()),
+    HttpRouter.add("PATCH", "/api/v1/*", gone()),
+    HttpRouter.add("DELETE", "/api/v1/*", gone()),
+  )
+})
+
+/** The gateway machines' state, kept under `dir`. */
+export function gatewayState(dir: string) {
+  return Layer.mergeAll(
+    Layer.provide(Keyring.stored("keys"), store(dir)),
+    Layer.provide(Requests.stored("gateway-requests"), store(dir)),
+    Layer.provide(Batch.stored("gateway-batch"), store(dir)),
+  )
+}
