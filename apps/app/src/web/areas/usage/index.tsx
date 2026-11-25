@@ -296,7 +296,7 @@ function UsageConsole() {
   }
 
   return (
-    <div className="telemetry-legacy console usage-legacy">
+    <div className="telemetry-legacy usage-legacy">
       <WorkspaceHeading icon={BarChart3} title="Usage" description="Track charges, tokens, and request performance. Dates use UTC.">
         <button type="button" className="button quiet" disabled={!rows.length} onClick={exportCsv}>
           <Download size={15} aria-hidden="true" /> Export CSV

@@ -447,7 +447,7 @@ export function LogsSection() {
   }
 
   return (
-    <div className="telemetry-legacy console logs-legacy">
+    <div className="telemetry-legacy logs-legacy">
       <WorkspaceHeading
         icon={List}
         title="Request logs"

@@ -103,7 +103,7 @@ function subscribeSystemLight(update: () => void) {
   return () => media.removeEventListener("change", update);
 }
 
-export function ThemeSwitch() {
+export function ThemeSwitch({ choose = setTheme }: { choose?: (theme: Theme) => void }) {
   const theme = useTheme();
   const light = useSyncExternalStore(subscribeSystemLight, systemLight, () => false);
   const on = theme === "light" || (theme === "system" && light);
@@ -115,7 +115,7 @@ export function ThemeSwitch() {
       aria-label="Switch color theme"
       aria-checked={on}
       data-light={on}
-      onClick={() => setTheme(on ? "dark" : "light")}
+      onClick={() => choose(on ? "dark" : "light")}
     >
       <span className="theme-switch-thumb" aria-hidden="true" />
       <span className="theme-switch-icon theme-switch-moon" aria-hidden="true">

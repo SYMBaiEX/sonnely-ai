@@ -1,8 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Check, Copy } from "lucide-react";
-import type { Console } from "../../../../gen/app__console.ts";
-import { useRemote } from "../../remote.ts";
 import "../site/site.css";
 import "./workspace-legacy.css";
 
@@ -26,13 +24,7 @@ export function parseCreditAmount(value: string) {
 }
 
 export function WorkspaceLegacy({ children }: { children: ReactNode }) {
-  const settings = useRemote<Console>("console");
-  const theme = (settings.state?.theme ?? "Dark").toLowerCase();
-  return (
-    <div className="theme-root site workspace-legacy" data-theme={theme} data-motion="on">
-      <div className="console-content">{children}</div>
-    </div>
-  );
+  return <div className="workspace-legacy">{children}</div>;
 }
 
 export function WorkspaceHeading({

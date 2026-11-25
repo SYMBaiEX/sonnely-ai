@@ -8,6 +8,7 @@ import type { Project, Role, Team, Teams } from "../../../../gen/app__teams.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import type { LogEntry, Logs, LogStatus } from "../../../../gen/app__console__logs.ts";
 import { useRemote } from "../../remote.ts";
+import { ConsoleFrame } from "../console/frame.tsx";
 import { CopyButton, WorkspaceHeading, WorkspaceLegacy, creditBalance, creditDecimal, parseCreditAmount, shorten } from "./legacy.tsx";
 
 const roles: Record<Role, string> = { Owner: "Owner", Admin: "Admin", Member: "Member" };
@@ -27,7 +28,11 @@ type RunAction = (send: SendEvent, event: object, success?: () => void, message?
 
 export function render(page: Page): ReactNode {
   if (page.tag !== "Console" || page.section !== "Teams") return null;
-  return <TeamsWorkspace />;
+  return (
+    <ConsoleFrame section="Teams">
+      <TeamsWorkspace />
+    </ConsoleFrame>
+  );
 }
 
 function field(data: FormData, name: string) {

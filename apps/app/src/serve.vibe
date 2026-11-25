@@ -38,7 +38,7 @@ const staticFiles = (web: string): Layer.Layer<any, unknown, never> => {
           (request, response) =>
             response.status === 404 &&
             !request.url.startsWith("/api/") &&
-            (request.headers["accept"] ?? "").includes("text/html")
+            ((request.headers["accept"] ?? "").includes("text/html") || !/\.[A-Za-z0-9]+(?:[?#]|$)/.test(request.url))
               ? Effect.try(() => (index ??= indexHtml(web))).pipe(
                   Effect.map((body) =>
                     HttpServerResponse.uint8Array(body, { contentType: "text/html" })

@@ -176,7 +176,7 @@ function KeysConsole() {
   }
 
   return (
-    <div className="telemetry-legacy console keys-legacy" key={attempt}>
+    <div className="telemetry-legacy keys-legacy" key={attempt}>
       <WorkspaceHeading icon={KeyRound} title="API keys" description="Issue keys, set spending limits, and revoke access.">
         <button
           type="button"

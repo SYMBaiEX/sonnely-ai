@@ -394,7 +394,7 @@ export function BatchSection() {
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   if (!wallet) {
     return (
-      <div className="telemetry-legacy console batch-legacy">
+      <div className="telemetry-legacy batch-legacy">
         <WorkspaceHeading icon={Files} title="Batch" description="Run a JSONL file through private inference and save the results on this device.">
           <a className="button quiet" href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a>
         </WorkspaceHeading>
@@ -598,7 +598,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
   });
 
   return (
-    <div className="telemetry-legacy console batch-legacy">
+    <div className="telemetry-legacy batch-legacy">
       <WorkspaceHeading icon={Files} title="Batch" description="Run a JSONL file through private inference and save the results on this device.">
         <a className="button quiet" href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a>
       </WorkspaceHeading>

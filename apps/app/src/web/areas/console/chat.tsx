@@ -640,11 +640,9 @@ export function ChatSection() {
   const session = useWorkspaceSession();
   return (
     <div className="console-playground">
-      <div className="console">
-        <Playground signedIn={session.state?.tag === "SignedIn"}>
-          <ChatPlayground />
-        </Playground>
-      </div>
+      <Playground signedIn={session.state?.tag === "SignedIn"}>
+        <ChatPlayground />
+      </Playground>
     </div>
   );
 }

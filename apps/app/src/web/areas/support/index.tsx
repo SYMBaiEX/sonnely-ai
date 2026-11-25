@@ -6,6 +6,7 @@ import type { Page } from "../../../../gen/app__nav.ts";
 import type { Session } from "../../../../gen/app__session.ts";
 import type { Ticket, TicketState, Tickets } from "../../../../gen/app__support.ts";
 import { useRemote } from "../../remote.ts";
+import { ConsoleFrame } from "../console/frame.tsx";
 import { WorkspaceHeading, WorkspaceLegacy } from "../teams/legacy.tsx";
 
 const localTime = (date: number) => new Date(date).toLocaleString();
@@ -15,7 +16,11 @@ const topics = ["Workspace support", "Infrastructure partnership", "Billing", "P
 
 export function render(page: Page): ReactNode {
   if (page.tag !== "Console" || page.section !== "Support") return null;
-  return <SupportWorkspace />;
+  return (
+    <ConsoleFrame section="Support">
+      <SupportWorkspace />
+    </ConsoleFrame>
+  );
 }
 
 function readSeen() {

@@ -2,7 +2,7 @@
 import { Activity, ArrowLeft, ArrowRight, Check, KeyRound, MessageSquare, Wallet, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { Console } from "../../../../gen/app__console.ts";
-import { ThemeSwitch } from "../site/chrome.tsx";
+import { ThemeSwitch, type Theme } from "../site/chrome.tsx";
 import { TermsAcceptance } from "./terms-acceptance.tsx";
 import { WalletControl } from "./wallet.tsx";
 
@@ -21,6 +21,7 @@ export function Onboarding({
   onSignIn,
   onSignOut,
   onSaveProfile,
+  onChooseTheme,
   close,
 }: {
   wallet?: string;
@@ -31,6 +32,7 @@ export function Onboarding({
   onSignIn: (wallet: string) => Promise<boolean>;
   onSignOut: () => Promise<boolean>;
   onSaveProfile: (name: string, username: string) => Promise<boolean>;
+  onChooseTheme: (theme: Theme) => Promise<boolean>;
   close: () => void;
 }) {
   const [screen, setScreen] = useState<"profile" | "funding" | "tour">("profile");
@@ -119,7 +121,7 @@ export function Onboarding({
               ))}
             </ol>
             <div className="onboarding-toolbar-controls">
-              <ThemeSwitch />
+              <ThemeSwitch choose={(next) => void onChooseTheme(next)} />
               <button className="onboarding-close" type="button" onClick={close} disabled={busy} aria-label="Close setup">
                 <X size={19} />
               </button>

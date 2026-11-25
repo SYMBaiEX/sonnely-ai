@@ -30,7 +30,8 @@ import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Referrals as ReferralState } from "../../../../gen/app__admin__referrals.ts";
 import type { Registry as AdminRegistry } from "../../../../gen/app__admin.ts";
 import { useRemote, type Remote } from "../../remote.ts";
-import { ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
+import { Brand, ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
+import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
 import { CommandMenu } from "./command-menu.tsx";
 import { Onboarding } from "./onboarding.tsx";
@@ -73,15 +74,6 @@ const groups = [
 ];
 
 const all = groups.flatMap((group) => group.items);
-
-function Brand() {
-  return (
-    <a href="/" className="brand" aria-label="Sonnely">
-      <span className="brand-icon" aria-hidden="true" />
-      <span className="brand-wordmark" aria-hidden="true" />
-    </a>
-  );
-}
 
 function walletBalance(ledger: Ledger | undefined, wallet: string) {
   return (ledger?.entries ?? []).reduce(
@@ -158,12 +150,14 @@ export function ConsoleFrame({ section, children }: { section: Section; children
         role,
       }
     : null;
+  const serviceEnabled = session.state !== undefined;
+  const checkingAccount = session.state === undefined && !session.error;
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
       event.preventDefault();
-      setPalette(true);
+      setPalette((isOpen) => !isOpen);
     }
     document.addEventListener("keydown", shortcut);
     return () => document.removeEventListener("keydown", shortcut);
@@ -268,11 +262,13 @@ export function ConsoleFrame({ section, children }: { section: Section; children
         </nav>
         <div className="rail-bottom">
           <span className="rail-theme">
-            <ThemeSwitch />
+            <ThemeSwitch choose={(next) => void chooseTheme(next)} />
           </span>
-          <button type="button" className="button quiet small" onClick={() => setSetupOpen(true)}>
-            <Sparkles size={16} aria-hidden /> Workspace setup
-          </button>
+          {serviceEnabled && (
+            <button type="button" className="button quiet small" onClick={() => setSetupOpen(true)}>
+              <Sparkles size={16} aria-hidden /> Workspace setup
+            </button>
+          )}
           <a href="/docs">
             <BookOpen size={17} /> Documentation <ArrowUpRight size={13} />
           </a>
@@ -318,9 +314,9 @@ export function ConsoleFrame({ section, children }: { section: Section; children
               <kbd aria-hidden="true">⌘ K</kbd>
             </button>
             <span className="console-theme">
-              <ThemeSwitch />
+              <ThemeSwitch choose={(next) => void chooseTheme(next)} />
             </span>
-            <WalletControl wallet={signedIn || undefined} cluster="mainnet" onSignIn={signIn} onSignOut={signOut} />
+            <WalletControl wallet={signedIn || undefined} cluster="mainnet" checkingAccount={checkingAccount} onSignIn={signIn} onSignOut={signOut} />
             <button
               type="button"
               className="mobile-menu-control console-menu-toggle"
@@ -346,20 +342,37 @@ export function ConsoleFrame({ section, children }: { section: Section; children
           inviteUrl={inviteUrl}
         />
         <main id="console-content" tabIndex={-1} className={selected.id === "chat" ? "console-chat" : "console-content"}>
-          {setupOpen && (
-            <Onboarding
-              wallet={signedIn || undefined}
-              settings={settings.state}
-              cluster="mainnet"
-              canFund
-              onSignIn={signIn}
-              onSignOut={signOut}
-              onSaveProfile={saveProfile}
-              close={() => setSetupOpen(false)}
-            />
-          )}
           <ConsoleShellContext.Provider value={shell}>
-            <SessionContext.Provider value={session}>{children}</SessionContext.Provider>
+            <SessionContext.Provider value={session}>
+              {session.error && (
+                <p role="alert" className="error">
+                  {session.error}
+                </p>
+              )}
+              {serviceEnabled && !profile && selected.id === "chat" && (
+                <div className="workspace-setup-invite">
+                  <Sparkles size={16} aria-hidden />
+                  <span>New to Sonnely?</span>
+                  <button type="button" className="text-link" onClick={() => setSetupOpen(true)}>
+                    Set up your workspace <ArrowUpRight size={14} aria-hidden />
+                  </button>
+                </div>
+              )}
+              {setupOpen && (
+                <Onboarding
+                  wallet={signedIn || undefined}
+                  settings={settings.state}
+                  cluster="mainnet"
+                  canFund
+                  onSignIn={signIn}
+                  onSignOut={signOut}
+                  onSaveProfile={saveProfile}
+                  onChooseTheme={chooseTheme}
+                  close={() => setSetupOpen(false)}
+                />
+              )}
+              {children}
+            </SessionContext.Provider>
           </ConsoleShellContext.Provider>
         </main>
       </div>
@@ -367,7 +380,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
         {all
           .filter(({ id }) => ["chat", "models", "usage"].includes(id))
           .map(({ id, path, Icon, title }) => (
-            <a key={id} href={path} className="dock-item" aria-current={section === selected.section && id === selected.id ? "page" : undefined} onClick={() => setNavOpen(false)}>
+            <a key={id} href={path} className="dock-item" aria-current={id === selected.id ? "page" : undefined} onClick={() => setNavOpen(false)}>
               <Icon size={20} aria-hidden />
               <span>{title}</span>
             </a>
@@ -377,6 +390,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
           <span>All pages</span>
         </button>
       </nav>
+      <AmbientVisualizer motion={motion} theme={theme} />
       </div>
     </div>
   );

@@ -2,18 +2,21 @@
 // console"; spec/app/session.md, "Story: Sign in with a wallet": workspace identity, preferences and sessions.
 import { useState, type FormEvent } from "react";
 import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield } from "lucide-react";
-import type { Console, Theme } from "../../../../gen/app__console.ts";
+import type { Console, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
 import type { Session } from "../../../../gen/app__session.ts";
 import { useRemote, type Remote } from "../../remote.ts";
+import type { Theme as BrowserTheme } from "../site/chrome.tsx";
 import { MotionSwitch } from "../site/motion.tsx";
+import { useConsoleShell } from "./frame.tsx";
 import { CopyButton, WorkspaceHeading, WorkspaceLegacy, shorten } from "../teams/legacy.tsx";
 
 const usernameHelp = "Use 3–24 letters, numbers, or underscores. Start with a letter.";
-const themes: { id: Theme; label: string }[] = [
+const themes: { id: ConsoleTheme; label: string }[] = [
   { id: "System", label: "system" },
   { id: "Light", label: "light" },
   { id: "Dark", label: "dark" },
 ];
+const browserThemes: Record<ConsoleTheme, BrowserTheme> = { System: "system", Light: "light", Dark: "dark" };
 const date = (time: number) =>
   new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(time);
 
@@ -26,6 +29,7 @@ function Failure({ message }: { message: string }) {
 }
 
 function PreferencesPanel({ settings, state }: { settings: Remote<Console>; state?: Console }) {
+  const shell = useConsoleShell();
   return (
     <section className="panel stack-panel settings-panel">
       <div className="between">
@@ -43,7 +47,7 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
               key={id}
               type="button"
               aria-pressed={(state?.theme ?? "Dark") === id}
-              onClick={() => void settings.send({ type: "chooseTheme", theme: id })}
+              onClick={() => void shell.chooseTheme(browserThemes[id])}
             >
               {label}
             </button>
