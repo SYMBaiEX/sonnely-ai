@@ -1,0 +1,13 @@
+services:
+  app:
+    image: ghcr.io/sonnely-ai/sonnely-vibestack:latest
+    ports:
+      - "443:3010"
+    environment:
+      - PORT=3010
+    volumes:
+      - data:/app/dist/data
+    restart: unless-stopped
+
+volumes:
+  data:

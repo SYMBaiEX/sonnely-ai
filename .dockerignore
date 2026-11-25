@@ -1,0 +1,10 @@
+.git
+node_modules
+**/node_modules
+apps/app/dist
+apps/app/gen
+apps/app/test/__traces__
+.turbo
+**/.turbo
+*.log
+.DS_Store
