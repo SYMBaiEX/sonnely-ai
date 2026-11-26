@@ -1,10 +1,19 @@
 // spec/app/support.md, "Story: Open a request"
 import { Machine, stored } from "../../gen/app__support.effect.vibe"
+import type { Tickets } from "../../gen/app__support.ts"
 import { machineApi } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
+function project(state: Tickets, wallet: string): Tickets {
+  return {
+    tickets: state.tickets
+      .filter((ticket) => ticket.wallet == wallet)
+      .map((ticket) => ({ ...ticket, replies: ticket.replies.filter((r) => r.visibility == "Public") })),
+  }
+}
+
 export const supportApi = Layer.unwrap(effect {
-  return machineApi("support", try Machine, { events: ["open", "reply"], bind: ["wallet"] })
+  return machineApi("support", try Machine, { events: ["open", "reply"], bind: ["wallet"] }, { visibility: "user", project })
 })
 
 /** The queue machine, kept under "support". */

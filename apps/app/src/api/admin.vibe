@@ -19,6 +19,39 @@ interface SenderMachine {
   changes: Stream.Stream<unknown>
 }
 
+function projectReferrals(state: { codes?: { owner: string; code: string }[]; signups?: { wallet: string; code: string }[] }, wallet: string) {
+  const codes = (state.codes ?? []).filter((row) => row.owner == wallet)
+  const mine = new Set(codes.map((row) => row.code))
+  return { codes, signups: (state.signups ?? []).filter((row) => row.wallet == wallet || mine.has(row.code)) }
+}
+
+function projectCrm(state: { profiles?: { wallet: string }[] }, wallet: string) {
+  return {
+    profiles: (state.profiles ?? []).filter((row) => row.wallet == wallet),
+    activities: [], tasks: [], flags: [], segments: [], adjustments: [],
+  }
+}
+
+effect function getScopedState(admin: Admin.Machine.Shape, m: SenderMachine, project: (state: any, wallet: string) => unknown) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  const state = try m.get()
+  const operator = try operatorRequired(admin)
+  return try HttpServerResponse.json(operator != "" ? state : project(state, wallet), { headers: noStore })
+}
+
+effect function getScopedStream(admin: Admin.Machine.Shape, m: SenderMachine, project: (state: any, wallet: string) => unknown) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  const operator = try operatorRequired(admin)
+  const full = operator != ""
+  const pushes = Stream.map(m.changes, (raw) => `data: ${JSON.stringify(full ? raw : project(raw, wallet))}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
 effect function getState(admin: Admin.Machine.Shape, m: SenderMachine) {
   const operator = try operatorRequired(admin)
   if (operator == "") return try HttpServerResponse.json({ error: "operator access required" }, { status: 403, headers: noStore })
@@ -70,8 +103,34 @@ effect function postOperatorEvent(admin: Admin.Machine.Shape, m: SenderMachine) 
     return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
   }
   const operator = try operatorRequired(admin)
+  const input = (request.json catch () => undefined) as { type?: unknown; wallet?: unknown } | undefined
+  if (input != undefined && (input.type == "issueCode" || input.type == "signup")) {
+    const wallet = try authenticatedWallet()
+    if (wallet == "") return try HttpServerResponse.json({ ok: false, error: "sign in required" }, { status: 401, headers: noStore })
+    const own = { ...(input as Record<string, unknown>) } as Record<string, unknown>
+    if ("owner" in own) own["owner"] = wallet
+    if ("wallet" in own) own["wallet"] = wallet
+    const sentUser = m.receive(own, operator != "" ? operator : wallet) catch (error) => error
+    const rejectedUser = sentUser as { _tag?: string; state?: unknown }
+    if (rejectedUser && typeof rejectedUser === "object" && "_tag" in rejectedUser) {
+      const status = rejectedUser._tag === "NotAnEvent" ? 400 : rejectedUser._tag === "Rejected" ? 409 : 500
+      return try HttpServerResponse.json({ ok: false, error: rejectedUser._tag, state: rejectedUser.state }, { status, headers: noStore })
+    }
+    return try HttpServerResponse.json({ ok: true, state: sentUser }, { headers: noStore })
+  }
+  if (input != undefined && input.type == "saveProfile") {
+    const wallet = try authenticatedWallet()
+    if (wallet == "") return try HttpServerResponse.json({ ok: false, error: "sign in required" }, { status: 401, headers: noStore })
+    const own = { ...(input as Record<string, unknown>), wallet }
+    const sentOwn = m.receive(own, operator != "" ? operator : wallet) catch (error) => error
+    const rejectedOwn = sentOwn as { _tag?: string; state?: unknown }
+    if (rejectedOwn && typeof rejectedOwn === "object" && "_tag" in rejectedOwn) {
+      const status = rejectedOwn._tag === "NotAnEvent" ? 400 : rejectedOwn._tag === "Rejected" ? 409 : 500
+      return try HttpServerResponse.json({ ok: false, error: rejectedOwn._tag, state: rejectedOwn.state }, { status, headers: noStore })
+    }
+    return try HttpServerResponse.json({ ok: true, state: sentOwn }, { headers: noStore })
+  }
   if (operator == "") return try HttpServerResponse.json({ ok: false, error: "operator access required" }, { status: 403, headers: noStore })
-  const input = request.json catch () => undefined
   const sent = m.receive(input, operator) catch (error) => error
   const rejected = sent as { _tag?: string; state?: unknown }
   if (rejected && typeof rejected === "object" && "_tag" in rejected) {
@@ -215,22 +274,40 @@ effect function postAdjust() {
   return try HttpServerResponse.json({ ok: true, balanceAfter: balanceBefore + delta }, { headers: noStore })
 }
 
+// spec/app/admin/operators.md, "an empty directory appoints its first operator": deployment
+// configuration names the first operators so a fresh or reset store still opens to the people
+// who run the surface. The machine's own rule validates every grant — this only asks.
+effect function bootstrapOperators(admin: Admin.Machine.Shape) {
+  const seed = Config.withDefault(Config.String("SONNELY_OPERATORS"), "") catch () => ""
+  const wallets = seed.split(",").map((w) => w.trim()).filter((w) => w != "")
+  if (wallets.length == 0) return
+  const registry = try admin.get()
+  if (registry.ops.roster.length > 0) return
+  const now = try Clock.currentTimeMillis
+  for (const wallet of wallets) {
+    const sender = Admin.decodeSender(wallet) catch () => undefined
+    if (sender === undefined) continue
+    admin.receive({ type: "grant", wallet, role: "Admin", at: now }, sender) catch () => undefined
+  }
+}
+
 export const adminApi = Layer.unwrap(effect {
   const admin = try Admin.Machine
   const crm = try Crm.Machine
   const referrals = try Referrals.Machine
+  try bootstrapOperators(admin)
   return Layer.mergeAll(
     HttpRouter.add("POST", "/api/admin/adjust", provideService(postAdjust(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
     HttpRouter.add("GET", "/api/machines/admin", getState(admin, admin)),
     HttpRouter.add("POST", "/api/machines/admin", provideService(postSender(admin), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("GET", "/api/machines/admin/stream", getStream(admin, admin)),
     HttpRouter.add("GET", "/api/admin/overview", overview(admin)),
-    HttpRouter.add("GET", "/api/machines/admin-crm", getState(admin, crm)),
+    HttpRouter.add("GET", "/api/machines/admin-crm", getScopedState(admin, crm, projectCrm)),
     HttpRouter.add("POST", "/api/machines/admin-crm", provideService(postOperatorEvent(admin, crm), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
-    HttpRouter.add("GET", "/api/machines/admin-crm/stream", getStream(admin, crm)),
-    HttpRouter.add("GET", "/api/machines/admin-referrals", getState(admin, referrals)),
+    HttpRouter.add("GET", "/api/machines/admin-crm/stream", getScopedStream(admin, crm, projectCrm)),
+    HttpRouter.add("GET", "/api/machines/admin-referrals", getScopedState(admin, referrals, projectReferrals)),
     HttpRouter.add("POST", "/api/machines/admin-referrals", provideService(postOperatorEvent(admin, referrals), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
-    HttpRouter.add("GET", "/api/machines/admin-referrals/stream", getStream(admin, referrals)),
+    HttpRouter.add("GET", "/api/machines/admin-referrals/stream", getScopedStream(admin, referrals, projectReferrals)),
   )
 })
 

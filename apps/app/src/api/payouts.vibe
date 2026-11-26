@@ -3,7 +3,6 @@ import * as Admin from "../../gen/app__admin.effect.vibe"
 import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Payouts from "../../gen/app__billing__payouts.effect.vibe"
 import * as Usage from "../../gen/app__usage.effect.vibe"
-import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
 import { billingConfig, CheckoutUnavailable } from "./billing.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
@@ -271,11 +270,24 @@ interface ReadMachine {
   changes: Stream.Stream<unknown>
 }
 
+effect function operatorRequired() {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return ""
+  const admin = try Admin.Machine
+  const registry = try admin.get()
+  if (!registry.ops.roster.some((o) => o.wallet == wallet)) return ""
+  return wallet
+}
+
 effect function getState(m: ReadMachine) {
+  const operator = try operatorRequired()
+  if (operator == "") return try reply({ error: "operator access required" }, 403)
   return try reply(try m.get())
 }
 
 effect function getStream(m: ReadMachine) {
+  const operator = try operatorRequired()
+  if (operator == "") return try reply({ error: "operator access required" }, 403)
   const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
@@ -292,7 +304,6 @@ export const payoutsApi = Layer.unwrap(effect {
     HttpRouter.add("POST", "/api/admin/payouts/cancel", provideService(cancelPayout(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
     HttpRouter.add("GET", "/api/machines/billing-payouts", getState(payouts)),
     HttpRouter.add("GET", "/api/machines/billing-payouts/stream", getStream(payouts)),
-    machineRegistration("billing-payouts", payouts),
   )
 })
 

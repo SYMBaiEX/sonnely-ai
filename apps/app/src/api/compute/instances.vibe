@@ -1,6 +1,7 @@
 // spec/app/compute/instances.md, "Story: Rent a confidential machine"
 import * as Instances from "../../../gen/app__compute__instances.effect.vibe"
 import * as Ledger from "../../../gen/app__billing__ledger.effect.vibe"
+import type { Compute } from "../../../gen/app__compute__instances.ts"
 import { machineReadApi } from "../../machines.vibe"
 import { store } from "../../serve.vibe"
 import { authenticatedWallet } from "../session.vibe"
@@ -75,7 +76,7 @@ effect function stopRun() {
 export const instancesApi = Layer.unwrap(effect {
   const runs = try Instances.Machine
   return Layer.mergeAll(
-    machineReadApi("instances", runs),
+    machineReadApi("instances", runs, { visibility: "user", project: (state: Compute, wallet: string) => ({ runs: state.runs.filter((run) => run.wallet == wallet) }) }),
     HttpRouter.add("POST", "/api/compute/runs", provideService(openRun(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("POST", "/api/compute/runs/stop", provideService(stopRun(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
   )

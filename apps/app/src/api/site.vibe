@@ -101,7 +101,7 @@ export const siteApi = Layer.unwrap(effect {
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/machines/site", getState(machine)),
     HttpRouter.add("GET", "/api/machines/site/stream", getStream(machine)),
-    machineRegistration("site", machine),
+    machineRegistration("site", machine, { visibility: "public" }),
     HttpRouter.add("POST", "/api/site/status", postReport(machine)),
   )
 })

@@ -75,12 +75,25 @@ interface ReadMachine {
   changes: Stream.Stream<unknown>
 }
 
-effect function getState(m: ReadMachine) {
-  return try reply(try m.get())
+function projectLedger(state: Ledger.Ledger, wallet: string): Ledger.Ledger {
+  const entries = state.entries.filter((entry) => entry.wallet == wallet)
+  return { balance: Ledger.balanceOf(state, wallet), entries }
 }
 
-effect function getStream(m: ReadMachine) {
-  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+function projectDeposits(state: Deposits.Deposits, wallet: string): Deposits.Deposits {
+  return { intents: state.intents.filter((intent) => intent.wallet == wallet) }
+}
+
+effect function getState(m: ReadMachine, project: (state: any, wallet: string) => unknown) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try reply({ error: "sign in required" }, 401)
+  return try reply(project(try m.get(), wallet))
+}
+
+effect function getStream(m: ReadMachine, project: (state: any, wallet: string) => unknown) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try reply({ error: "sign in required" }, 401)
+  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(project(s, wallet))}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
     headers: { ...noStore, connection: "keep-alive" },
@@ -423,12 +436,12 @@ export const billingApi = Layer.unwrap(effect {
   const deposits = try Deposits.Machine
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/billing/config", configRoute()),
-    HttpRouter.add("GET", "/api/machines/billing-ledger", getState(ledger)),
-    HttpRouter.add("GET", "/api/machines/billing-ledger/stream", getStream(ledger)),
-    machineRegistration("billing-ledger", ledger),
-    HttpRouter.add("GET", "/api/machines/billing-deposits", getState(deposits)),
-    HttpRouter.add("GET", "/api/machines/billing-deposits/stream", getStream(deposits)),
-    machineRegistration("billing-deposits", deposits),
+    HttpRouter.add("GET", "/api/machines/billing-ledger", getState(ledger, projectLedger)),
+    HttpRouter.add("GET", "/api/machines/billing-ledger/stream", getStream(ledger, projectLedger)),
+    machineRegistration("billing-ledger", ledger, { visibility: "user", project: projectLedger }),
+    HttpRouter.add("GET", "/api/machines/billing-deposits", getState(deposits, projectDeposits)),
+    HttpRouter.add("GET", "/api/machines/billing-deposits/stream", getStream(deposits, projectDeposits)),
+    machineRegistration("billing-deposits", deposits, { visibility: "user", project: projectDeposits }),
     HttpRouter.add("POST", "/api/billing/deposits", provideService(openDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("POST", "/api/billing/deposits/prepare", provideService(prepareDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("POST", "/api/billing/intents/quote", provideService(quoteIntent(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),

@@ -26,19 +26,33 @@ export interface MachineReader {
   changes: Stream.Stream<unknown>
 }
 
+/** Row-level access for one machine: a projection keeps the state's shape but holds only what
+ * the wallet may see. Operator machines never register here — they answer scoped endpoints only. */
+export interface Scoping {
+  /** "public" serves anonymous readers; "user" requires a verified session. */
+  visibility: "public" | "user"
+  /** Shape-preserving per-wallet row filter, applied on every read and stream frame. */
+  project?: (state: any, wallet: string) => unknown
+}
+
+export interface RegisteredMachine {
+  machine: MachineReader
+  scoping: Scoping
+}
+
 service MachineRegistry {
   static readonly key = "@repo/app/machines/MachineRegistry"
-  register(name: string, machine: MachineReader): void!!
-  entries(): Array<readonly [string, MachineReader]>!!
+  register(name: string, machine: MachineReader, scoping: Scoping): void!!
+  entries(): Array<readonly [string, RegisteredMachine]>!!
 }
 
 const machineRegistry = Layer.effect(MachineRegistry, effect {
-  const machines = try Ref.make(new Map<string, MachineReader>())
+  const machines = try Ref.make(new Map<string, RegisteredMachine>())
   return {
-    effect register(name: string, machine: MachineReader) {
+    effect register(name: string, machine: MachineReader, scoping: Scoping) {
       try Ref.update(machines, (current) => {
         const next = new Map(current)
-        next.set(name, machine)
+        next.set(name, { machine, scoping })
         return next
       })
     },
@@ -48,23 +62,25 @@ const machineRegistry = Layer.effect(MachineRegistry, effect {
   }
 })
 
-function registrationLayer(name: string, machine: MachineReader) {
+function registrationLayer(name: string, machine: MachineReader, scoping: Scoping) {
   return Layer.effectDiscard(effect {
     const registry = try MachineRegistry
-    try registry.register(name, machine)
+    try registry.register(name, machine, scoping)
   })
 }
 
-export function machineRegistration(name: string, machine: MachineReader) {
-  return Layer.provideMerge(registrationLayer(name, machine), machineRegistry)
+export function machineRegistration(name: string, machine: MachineReader, scoping: Scoping = { visibility: "user" }) {
+  return Layer.provideMerge(registrationLayer(name, machine, scoping), machineRegistry)
 }
 
 const noStore = { "cache-control": "no-store" }
 
-effect function getState(m: MachineLike, read: "public" | "user") {
+effect function getState(m: MachineLike, scoping: Scoping) {
   const wallet = try authenticatedWallet()
-  if (read != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
-  return try HttpServerResponse.json(try m.get(), { headers: noStore })
+  if (scoping.visibility != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  const state = try m.get()
+  const scoped = scoping.project != undefined && wallet != "" ? scoping.project(state, wallet) : state
+  return try HttpServerResponse.json(scoped, { headers: noStore })
 }
 
 effect function postEvent(m: MachineLike, policy: WritePolicy) {
@@ -91,10 +107,13 @@ effect function postEvent(m: MachineLike, policy: WritePolicy) {
   return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
 }
 
-effect function getStream(m: MachineLike, read: "public" | "user") {
+effect function getStream(m: MachineLike, scoping: Scoping) {
   const wallet = try authenticatedWallet()
-  if (read != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
-  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  if (scoping.visibility != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  const pushes = Stream.map(m.changes, (raw) => {
+    const state = scoping.project != undefined && wallet != "" ? scoping.project(raw, wallet) : raw
+    return `data: ${JSON.stringify(state)}\n\n`
+  })
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
     headers: { ...noStore, connection: "keep-alive" },
@@ -103,9 +122,12 @@ effect function getStream(m: MachineLike, read: "public" | "user") {
 
 effect function getMultiplexedStream(registry: MachineRegistry.Shape) {
   const wallet = try authenticatedWallet()
-  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   const machines = try registry.entries()
-  const streams = machines.map(([name, machine]) => Stream.map(machine.changes, (state) => `data: ${JSON.stringify({ machine: name, state })}\n\n`))
+  const visible = machines.filter(([, entry]) => entry.scoping.visibility == "public" || (entry.scoping.visibility == "user" && wallet != ""))
+  const streams = visible.map(([name, entry]) => Stream.map(entry.machine.changes, (raw) => {
+    const state = entry.scoping.project != undefined && wallet != "" ? entry.scoping.project(raw, wallet) : raw
+    return `data: ${JSON.stringify({ machine: name, state })}\n\n`
+  }))
   return HttpServerResponse.stream(Stream.encodeText(Stream.mergeAll(streams, { concurrency: "unbounded" })), {
     contentType: "text/event-stream",
     headers: { ...noStore, connection: "keep-alive" },
@@ -121,22 +143,22 @@ const multiplexedMachines = Layer.provideMerge(
 )
 
 /** state and stream endpoints over one spec machine whose writes have a guarded route elsewhere. */
-export function machineReadApi(name: string, m: MachineLike, read: "public" | "user" = "user") {
+export function machineReadApi(name: string, m: MachineLike, scoping: Scoping = { visibility: "user" }) {
   return Layer.mergeAll(
-    HttpRouter.add("GET", `/api/machines/${name}`, getState(m, read)),
-    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m, read)),
-    machineRegistration(name, m),
+    HttpRouter.add("GET", `/api/machines/${name}`, getState(m, scoping)),
+    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m, scoping)),
+    machineRegistration(name, m, scoping),
     multiplexedMachines,
   )
 }
 
 /** state, event and stream endpoints over one spec machine, mounted at /api/machines/<name>. */
-export function machineApi(name: string, m: MachineLike, policy: WritePolicy = { events: [] }, read: "public" | "user" = "user") {
+export function machineApi(name: string, m: MachineLike, policy: WritePolicy = { events: [] }, scoping: Scoping = { visibility: "user" }) {
   return Layer.mergeAll(
-    HttpRouter.add("GET", `/api/machines/${name}`, getState(m, read)),
+    HttpRouter.add("GET", `/api/machines/${name}`, getState(m, scoping)),
     HttpRouter.add("POST", `/api/machines/${name}`, provideService(postEvent(m, policy), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
-    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m, read)),
-    machineRegistration(name, m),
+    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m, scoping)),
+    machineRegistration(name, m, scoping),
     multiplexedMachines,
   )
 }

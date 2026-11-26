@@ -1,10 +1,15 @@
 // spec/app/teams.md, "Story: Form a team"
 import { Machine, stored } from "../../gen/app__teams.effect.vibe"
+import type { Teams } from "../../gen/app__teams.ts"
 import { machineApi } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
+function project(state: Teams, wallet: string): Teams {
+  return { teams: state.teams.filter((team) => team.members.some((m) => m.wallet == wallet) || team.invites.some((i) => i.wallet == wallet)) }
+}
+
 export const teamsApi = Layer.unwrap(effect {
-  return machineApi("teams", try Machine, { events: ["createTeam", "invite", "respond", "cancelInvite", "changeRole", "removeMember", "createProject", "updateProject", "archiveProject"], bind: ["actor"] })
+  return machineApi("teams", try Machine, { events: ["createTeam", "invite", "respond", "cancelInvite", "changeRole", "removeMember", "createProject", "updateProject", "archiveProject"], bind: ["actor"] }, { visibility: "user", project })
 })
 
 /** The directory machine, kept under "teams". */

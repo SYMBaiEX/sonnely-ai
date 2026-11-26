@@ -206,7 +206,7 @@ describe("admin payout API", () => {
     stubRpc({ finalized: true });
     const second = await post(handler, "/api/admin/payouts/execute", { reference: body.payout.reference, signature });
     const secondBody = (await second.json()) as { status?: string };
-    const machine = await handler(new Request("http://localhost/api/machines/billing-payouts"));
+    const machine = await handler(new Request("http://localhost/api/machines/billing-payouts", { headers: { cookie: "sonnely_session=" + token } }));
     const payouts = (await machine.json()) as Payouts.Payouts;
     expect({
       firstStatus: first.status,
