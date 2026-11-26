@@ -3,6 +3,7 @@ import { text as readStreamText } from "node:stream/consumers";
 import { Effect, Layer } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as Admin from "../gen/app__admin.effect.vibe";
 import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
@@ -20,6 +21,7 @@ const stateLayer = () =>
       Ledger.stored("inference-test-ledger"),
       Usage.stored("inference-test-usage"),
       Requests.stored("inference-test-requests"),
+      Admin.stored("inference-test-admin"),
     ),
     KeyValueStore.layerMemory,
   );
@@ -287,6 +289,43 @@ describe("gateway inference", () => {
     expect(result.response.status).toBe(200);
     expect(result.response.headers["x-sonnely-provider"] ?? (result.response.headers as Headers).get?.("x-sonnely-provider")).toBe("staging");
     expect(ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount > 0)).toBe(true);
+  });
+
+  // spec/app/admin/index.md, "Only an active account can be suspended": suspension stops inference.
+  it("refuses session-wallet inference with 403 for a suspended account and serves an active one", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    vi.stubGlobal("fetch", () => Promise.resolve(new Response(
+      JSON.stringify({
+        id: "chatcmpl-provider",
+        object: "chat.completion",
+        created: 1,
+        model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        choices: [{ index: 0, message: { role: "assistant", content: "metered" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      }),
+      { status: 200, headers: { "content-type": "application/json", "inference-id": crypto.randomUUID() } },
+    )));
+    const input = { model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] };
+    const program = Effect.gen(function* () {
+      const admin = yield* Admin.Machine;
+      yield* admin.send({ type: "grant", wallet: "op-wallet", role: "Admin", at: 1 }, "op-wallet");
+      yield* admin.send({ type: "register", id: wallet, subject: "User", at: 2 }, "op-wallet");
+      yield* admin.send({ type: "register", id: "active-wallet", subject: "User", at: 2 }, "op-wallet");
+      yield* admin.send({ type: "suspend", id: wallet, at: 3 }, "op-wallet");
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "deposit-suspended", amount: 100_000 });
+      yield* ledger.send({ type: "credit", wallet: "active-wallet", detail: "deposit-active", amount: 100_000 });
+      const suspended = yield* inferChat(input, undefined, wallet, "suspended-ref");
+      const active = yield* inferChat(input, undefined, "active-wallet", "active-ref");
+      return { suspended, active, ledger };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const ledgerRows = await Effect.runPromise(Effect.gen(function* () {
+      return (yield* result.ledger.get()).entries;
+    }));
+    expect(result.suspended.status).toBe(403);
+    expect(result.active.status).toBe(200);
+    expect(ledgerRows.some((entry) => entry.wallet === wallet && (entry.kind === "Reserve" || entry.kind === "Charge"))).toBe(false);
   });
 
 });

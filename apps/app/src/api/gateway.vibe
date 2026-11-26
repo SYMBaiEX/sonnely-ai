@@ -45,6 +45,15 @@ function bearerId(request: { headers: Record<string, string | undefined> }): str
   return auth.startsWith("Bearer ") ? hashToken(auth.slice(7)) : ""
 }
 
+// spec/app/admin/index.md, "Only an active account can be suspended": suspension stops inference
+// for the account, whichever credential the request arrives on.
+effect function suspendedAccount(wallet: string) {
+  if (wallet == "") return false
+  const admin = try Admin.Machine
+  const registry = try admin.get()
+  return registry.records.some((record) => record.id == wallet && record.status == "Suspended")
+}
+
 /** The key the request's bearer names, or the refusal in the OpenAI shape. */
 effect function bearerKey() {
   const request = try HttpServerRequest.HttpServerRequest
@@ -62,6 +71,9 @@ effect function bearerKey() {
   }
   if (!key.scopes.includes("inference")) {
     return { refused: { error: { message: "The key cannot use inference.", type: "insufficient_quota" }, status: 402 } }
+  }
+  if (try suspendedAccount(key.wallet)) {
+    return { refused: { error: { message: "This account's inference access is suspended.", type: "invalid_request_error" }, status: 403 } }
   }
   return { key }
 }
@@ -287,6 +299,7 @@ effect function receiptFor(input: unknown, candidate: unknown, completionId: str
 }
 
 export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string, withReceipt: boolean = false) {
+  if (key == undefined && wallet != "" && try suspendedAccount(wallet)) return try inferenceFailure("This account's inference access is suspended.", 403, ref)
   const parsedResult = try Effect.try(() => parseChatInput(raw))
   if (!parsedResult.ok) return try inferenceFailure(parsedResult.message, parsedResult.status, ref)
   const usageBefore = try Usage.Machine
@@ -556,6 +569,7 @@ const endpoints: { path: string; endpoint: Requests.Endpoint; model: (input: unk
 ]
 
 export effect function inferSpecialized(path: string, endpoint: Requests.Endpoint, fallbackModel: string, raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string) {
+  if (key == undefined && wallet != "" && try suspendedAccount(wallet)) return try inferenceFailure("This account's inference access is suspended.", 403, ref)
   const request = try HttpServerRequest.HttpServerRequest
   const multipart = path == "images/edits" || path == "audio/transcriptions" || path == "audio/translations" || path == "convert/file"
   let input: unknown = raw
