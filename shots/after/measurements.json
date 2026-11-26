@@ -1,0 +1,313 @@
+{
+  "report": {
+    "light/desktop/logs": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1176
+    },
+    "light/desktop/usage": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 2655
+    },
+    "light/desktop/batch": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1093
+    },
+    "light/desktop/teams": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1344
+    },
+    "light/desktop/referrals": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 900
+    },
+    "light/desktop/blackboxes": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1291
+    },
+    "light/desktop/dry-docks": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1523
+    },
+    "dark/desktop/logs": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1176
+    },
+    "dark/desktop/usage": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 2655
+    },
+    "dark/desktop/batch": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1093
+    },
+    "dark/desktop/teams": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1344
+    },
+    "dark/desktop/referrals": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 900
+    },
+    "dark/desktop/blackboxes": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1291
+    },
+    "dark/desktop/dry-docks": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 0,
+        "height": 0
+      },
+      "scrollHeight": 1523
+    },
+    "light/mobile/logs": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 2040
+    },
+    "light/mobile/usage": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 4735
+    },
+    "light/mobile/batch": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 1859
+    },
+    "light/mobile/teams": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 1861
+    },
+    "light/mobile/referrals": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 1187
+    },
+    "light/mobile/blackboxes": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 1863
+    },
+    "light/mobile/dry-docks": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 2383
+    },
+    "dark/mobile/logs": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 2040
+    },
+    "dark/mobile/usage": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 4735
+    },
+    "dark/mobile/batch": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 1859
+    },
+    "dark/mobile/teams": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 1861
+    },
+    "dark/mobile/referrals": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 1187
+    },
+    "dark/mobile/blackboxes": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 1863
+    },
+    "dark/mobile/dry-docks": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "dock": {
+        "top": 771,
+        "height": 64
+      },
+      "scrollHeight": 2383
+    }
+  },
+  "consoleErrors": []
+}
