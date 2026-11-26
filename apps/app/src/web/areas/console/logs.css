@@ -38,7 +38,7 @@
 }
 
 .telemetry-legacy button,
-.telemetry-legacy input,
+.telemetry-legacy input:not([type="checkbox"], [type="radio"]),
 .telemetry-legacy textarea,
 .telemetry-legacy select {
   font: inherit;

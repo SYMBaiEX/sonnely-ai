@@ -1485,7 +1485,7 @@
   opacity: 0.48;
   cursor: not-allowed;
 }
-.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) :is(input, textarea, select) {
+.theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) :is(input:not([type="checkbox"], [type="radio"]), textarea, select) {
   width: 100%;
   border: 1px solid var(--control-edge);
   background: var(--card);

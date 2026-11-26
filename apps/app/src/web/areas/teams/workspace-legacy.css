@@ -198,7 +198,7 @@
   font-size: 0.875rem;
 }
 
-.workspace-legacy .teams-panel input,
+.workspace-legacy .teams-panel input:not([type="checkbox"], [type="radio"]),
 .workspace-legacy .teams-panel select {
   min-width: 0;
   width: 100%;

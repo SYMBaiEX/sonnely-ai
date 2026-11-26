@@ -305,7 +305,7 @@
   border-color: color-mix(in srgb, var(--info) 28%, var(--border));
 }
 
-.billing-area input,
+.billing-area input:not([type="checkbox"], [type="radio"]),
 .billing-area select {
   width: 100%;
   border: 1px solid var(--input);

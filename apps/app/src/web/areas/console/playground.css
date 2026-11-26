@@ -75,7 +75,7 @@
     max-width: 100%;
   }
 
-.console-playground input,
+.console-playground input:not([type="checkbox"], [type="radio"]),
   .console-playground textarea,
   .console-playground select {
     width: 100%;

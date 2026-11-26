@@ -38,7 +38,7 @@
   font-size: 0.86rem;
   font-weight: 650;
 }
-.form input,
+.form input:not([type="checkbox"], [type="radio"]),
 .form select {
   width: 100%;
   min-height: 2.75rem;
