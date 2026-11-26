@@ -1,7 +1,7 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated batch class names and keeps the checkpoint workflow together */
 // spec/app/console/batch.md, "Story: Prepare and run a batch"
-import { ArrowUpRight, Download, Files, Pause, Play, RefreshCw, Upload } from "lucide-react";
-import { Suspense, use, useCallback, useRef, useState, type ChangeEvent } from "react";
+import { ArrowUpRight, Download, Files, KeyRound, Pause, Play, RefreshCw, Upload } from "lucide-react";
+import { Suspense, use, useCallback, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { z } from "zod";
 import type { Batch } from "../../../../gen/app__console__batch.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
@@ -351,12 +351,19 @@ function batchExport(job: BatchJob, kind: "results" | "needs-attention") {
   return lines.length ? lines.join("\n") + "\n" : "";
 }
 
-async function sendBatchRow(wallet: string, jobId: string, index: number, row: BatchRow): Promise<BatchRow> {
+const keyShape = /^sonnely_live_[A-Za-z0-9_-]{20,80}$/;
+
+function batchKeyError(httpStatus: number | undefined) {
+  return httpStatus === 401;
+}
+
+async function sendBatchRow(wallet: string, key: string, jobId: string, index: number, row: BatchRow): Promise<BatchRow> {
   try {
     const response = await fetch("/api/sonnely/batch/chat", {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        authorization: `Bearer ${key}`,
         "idempotency-key": `batch:${jobId}:${index}`,
         "x-sonnely-batch-wallet": wallet,
       },
@@ -375,7 +382,8 @@ async function sendBatchRow(wallet: string, jobId: string, index: number, row: B
     }
     if (response.ok && validReference && record(output) && Array.isArray(output.choices)) return { ...row, status: "succeeded", reference: validReference, httpStatus: response.status, output, detail: undefined };
     if (response.status === 409 && validReference) return { ...row, status: "review", reference: validReference, httpStatus: response.status, detail: detail || "This request may already have been accepted. Check settlement in Request logs." };
-    if ([401, 402, 403, 429].includes(response.status) && !validReference) return { ...row, status: "blocked", httpStatus: response.status, detail: detail || "The workspace cannot send more batch requests right now." };
+    if (response.status === 401 && !validReference) return { ...row, status: "blocked", httpStatus: response.status, detail: detail || "The inference key was refused. Paste a valid key and run the batch again." };
+    if ([402, 403, 429].includes(response.status) && !validReference) return { ...row, status: "blocked", httpStatus: response.status, detail: detail || "The workspace cannot send more batch requests right now." };
     if ([400, 404, 413, 415, 422].includes(response.status) && !validReference) return { ...row, status: "failed", httpStatus: response.status, detail: detail || "The batch request was rejected before inference." };
     return validReference
       ? { ...row, status: "review", reference: validReference, httpStatus: response.status, detail: detail || "Check settlement in Request logs." }
@@ -445,6 +453,9 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
   const [error, setError] = useState(boot.error);
   const [issues, setIssues] = useState<{ count: number; lines: BatchIssue[] }>();
   const [scope, setScope] = useState<"all" | "remaining" | "attention" | "completed">("all");
+  const [inferenceKey, setInferenceKey] = useState("");
+  const [keyDraft, setKeyDraft] = useState("");
+  const [keyError, setKeyError] = useState("");
   const taskRef = useRef<AbortController | undefined>(undefined);
   const focusUploaderRef = useRef(false);
   const focusSummaryRef = useRef(false);
@@ -525,8 +536,32 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
     else if (row.status === "review") await machine.send({ type: "review", index, detail: row.detail ?? "" });
   }
 
+  function useKey(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const key = keyDraft.trim();
+    if (!keyShape.test(key)) {
+      setKeyError("Paste a workspace inference key beginning with sonnely_live_. Create one under API keys with the inference scope.");
+      return;
+    }
+    setInferenceKey(key);
+    setKeyDraft("");
+    setKeyError("");
+    setError("");
+  }
+
+  function forgetKey() {
+    setInferenceKey("");
+    setKeyDraft("");
+    setKeyError("");
+  }
+
   async function run(jobId: string, retryIndex?: number) {
     if (!wallet) return;
+    const key = inferenceKey;
+    if (!keyShape.test(key)) {
+      setError("Batch requests authenticate with a workspace inference key. Paste one below before running.");
+      return;
+    }
     await operate("running", async (signal) => {
       const loaded = await readBatch(wallet);
       if (!loaded || loaded.id !== jobId) throw new Error("This batch changed in another tab. Refresh the saved batch.");
@@ -549,11 +584,16 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
         if (retryIndex === index) await machine.send({ type: "retry", index });
         await machine.send({ type: "start", index });
         setSaved(started);
-        const result = await sendBatchRow(wallet, job.id, index, row);
+        const result = await sendBatchRow(wallet, key, job.id, index, row);
         job = replaceRow(started, index, result);
         await writeBatch(wallet, job);
         await sendMachine(index, result);
         setSaved(job);
+        if (batchKeyError(result.httpStatus)) {
+          setInferenceKey("");
+          setKeyError("The inference key was refused (HTTP 401), so the batch stopped. Check that the key is active, unexpired and scoped for inference on this wallet, then paste it again.");
+          break;
+        }
         if (result.status === "blocked" || result.status === "interrupted") break;
       }
       if (signal.aborted) setMessage("Batch paused. Your progress is saved on this device.");
@@ -622,11 +662,51 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
         </section>
       ) : (
         <>
+          <section className="panel batch-panel-section" aria-labelledby="batch-key-title">
+            <div className="batch-section-heading">
+              <div>
+                <h2 id="batch-key-title">Inference key</h2>
+                <p className="caption">
+                  Batch rows authenticate with one of your workspace inference keys. The key you paste stays in this tab’s memory only: it is never
+                  saved to this device or sent anywhere but the batch endpoint.
+                </p>
+              </div>
+            </div>
+            {inferenceKey ? (
+              <div className="batch-key-ready">
+                <p role="status"><KeyRound size={15} aria-hidden="true" /> Key ready for this tab.</p>
+                <button className="button quiet small" type="button" disabled={busy} onClick={forgetKey}>Use a different key</button>
+              </div>
+            ) : (
+              <form className="batch-key-form" onSubmit={useKey}>
+                <label>
+                  Workspace inference key
+                  <input
+                    type="password"
+                    name="inference-key"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="sonnely_live_…"
+                    minLength={32}
+                    maxLength={100}
+                    required
+                    value={keyDraft}
+                    onChange={(event) => setKeyDraft(event.target.value)}
+                  />
+                </label>
+                <div className="batch-actions">
+                  <button className="button accent" type="submit">Use this key</button>
+                  <a className="button quiet" href="/console/keys">Create a key <ArrowUpRight size={14} aria-hidden="true" /></a>
+                </div>
+                {keyError && <p role="alert" className="error">{keyError}</p>}
+              </form>
+            )}
+          </section>
           <section className="panel batch-panel-section" aria-labelledby="batch-summary-title">
             <div className="batch-section-heading">
               <div><h2 id="batch-summary-title" ref={noteSummary} tabIndex={-1}>{saved.filename}</h2><p className="caption">This batch and its checkpoints are stored in this browser for your wallet.</p></div>
               <div className="batch-actions">
-                {activity === "running" ? <button className="button quiet" type="button" disabled={pausing} onClick={() => { taskRef.current?.abort(); setPausing(true); }}><Pause size={16} aria-hidden="true" /> {pausing ? "Pausing…" : "Pause batch"}</button> : <button className="button accent" type="button" disabled={busy || !remaining || confirmClear} onClick={() => void run(saved.id)}><Play size={16} aria-hidden="true" /> {rows.every((row) => row.status === "queued") ? "Run batch" : "Resume batch"}</button>}
+                {activity === "running" ? <button className="button quiet" type="button" disabled={pausing} onClick={() => { taskRef.current?.abort(); setPausing(true); }}><Pause size={16} aria-hidden="true" /> {pausing ? "Pausing…" : "Pause batch"}</button> : <button className="button accent" type="button" disabled={busy || !remaining || confirmClear || !inferenceKey} title={inferenceKey ? undefined : "Paste an inference key first"} onClick={() => void run(saved.id)}><Play size={16} aria-hidden="true" /> {rows.every((row) => row.status === "queued") ? "Run batch" : "Resume batch"}</button>}
                 <button className="button quiet" type="button" disabled={busy} onClick={() => void reload()}><RefreshCw size={16} aria-hidden="true" /> Refresh saved batch</button>
               </div>
             </div>
@@ -643,7 +723,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
                   <div><span className="batch-badge" data-status={row.status}>{row.status === "sending" && activity === "running" ? "In progress" : statusLabels[row.status]}</span>{row.detail && <p className="caption">{row.detail}</p>}</div>
                   <div className="batch-actions">
                     {row.reference && <a className="text-link" href={"/console/logs?request=" + encodeURIComponent(row.reference)}>Request details <ArrowUpRight size={14} aria-hidden="true" /></a>}
-                    {(row.status === "interrupted" || row.status === "sending") && activity !== "running" && <button className="button quiet small" type="button" disabled={busy || confirmClear} onClick={() => void run(saved.id, index)}>Retry interrupted request<span className="visually-hidden"> {row.customId}</span></button>}
+                    {(row.status === "interrupted" || row.status === "sending") && activity !== "running" && <button className="button quiet small" type="button" disabled={busy || confirmClear || !inferenceKey} title={inferenceKey ? undefined : "Paste an inference key first"} onClick={() => void run(saved.id, index)}>Retry interrupted request<span className="visually-hidden"> {row.customId}</span></button>}
                   </div>
                 </article>
               ))}
