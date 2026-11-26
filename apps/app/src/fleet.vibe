@@ -1,12 +1,13 @@
-// The console machines (settings, playground, logs, batch) are single-user by shape: the spec models one
-// person's workspace, so the server keeps one machine instance per wallet instead of one shared instance
-// every account would see and mutate. Each instance is backed by the store under "<name>:<wallet>"; the
-// machine's own load-step-keep keeps concurrent writers correct, and the cache keeps streams stable.
+// The console machines (settings, playground, logs, batch) and the gateway batch job are single-user by
+// shape: the server keeps one machine instance per wallet instead of one shared instance every account
+// would see and mutate. Each instance is backed by the store under "<name>:<wallet>"; the machine's own
+// load-step-keep keeps concurrent writers correct, and the cache keeps streams stable.
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Console from "../gen/app__console.effect.vibe"
 import * as Chat from "../gen/app__console__chat.effect.vibe"
 import * as Logs from "../gen/app__console__logs.effect.vibe"
 import * as Batch from "../gen/app__console__batch.effect.vibe"
+import * as GatewayBatch from "../gen/app__gateway__batch.effect.vibe"
 
 export interface FleetMachine {
   get(): unknown!!
@@ -77,6 +78,16 @@ effect function buildBatch(kv: Storekv, key: string) {
   return try Effect.orDie(Batch.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
 }
 
+effect function buildGatewayBatch(kv: Storekv, key: string) {
+  effect function load() {
+    const found = try Effect.orDie(kv.get(key))
+    if (found === undefined) return GatewayBatch.initial
+    const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new GatewayBatch.NotAState({ input: found }) }))
+    return try Effect.orDie(GatewayBatch.decodeState(parsed))
+  }
+  return try Effect.orDie(GatewayBatch.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
+}
+
 export service Fleet {
   static readonly key = "@repo/app/fleet"
   machine(name: string, wallet: string): FleetMachine!!
@@ -94,6 +105,7 @@ export const fleetLive = Layer.effect(Fleet, effect {
       const built: any = name == "console" ? try buildConsole(kv, key)
         : name == "console__chat" ? try buildChat(kv, key)
         : name == "console__logs" ? try buildLogs(kv, key)
+        : name == "gateway-batch" ? try buildGatewayBatch(kv, key)
         : try buildBatch(kv, key)
       return try Ref.modify(cache, (current: Map<string, FleetMachine>) => {
         const existing = current.get(key)

@@ -1,6 +1,6 @@
 // spec/app/gateway/index.md — the staging gateway: bearer-key authorization against the workspace
 // keys, metered reservations on the billing ledger, project and key budgets, the usage meter, the
-// served-request ledger under "gateway-requests" and the resumable batch job under "gateway-batch".
+// served-request ledger under "gateway-requests" and the per-wallet batch job under "gateway-batch:<wallet>".
 // There is no upstream provider here: each endpoint answers a deterministic completion in the OpenAI
 // wire shape after the machines rule on the request.
 import * as Keyring from "../../gen/app__gateway__keyring.effect.vibe"
@@ -12,6 +12,7 @@ import * as Usage from "../../gen/app__usage.effect.vibe"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
+import { Fleet } from "../fleet.vibe"
 import { store } from "../serve.vibe"
 import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
@@ -694,13 +695,35 @@ effect function keyStatus() {
 }
 
 // spec/app/gateway/batch.md, "Story: Run a resumable batch": the job is created once, sent row by row
-// and cleared by the wallet that owns it; the machine rules on each step.
+// and cleared by the wallet that owns it — one job per wallet, a fleet instance under "gateway-batch:<wallet>".
+interface BatchMachine {
+  get(): unknown!!
+  send(event: unknown): unknown!unknown
+}
+
+effect function batchWallet() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (bearerId(request) != "") {
+    const auth = try bearerKey()
+    if ("refused" in auth) return { refused: auth.refused }
+    return { wallet: auth.key.wallet }
+  }
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return { refused: { error: { message: "A valid bearer key is required.", type: "invalid_request_error" }, status: 401 } }
+  return { wallet }
+}
+
+effect function batchInstance(wallet: string) {
+  const fleet = try Fleet
+  return (try fleet.machine("gateway-batch", wallet)) as unknown as BatchMachine
+}
+
 effect function batchCreate() {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
-  const authBatch = try bearerKey()
-  if ("refused" in authBatch) {
-    const r = authBatch.refused as { error: unknown; status: number }
+  const owner = try batchWallet()
+  if ("refused" in owner) {
+    const r = owner.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
   }
   const raw = request.json catch () => undefined
@@ -708,7 +731,7 @@ effect function batchCreate() {
   const id = typeof input?.id == "string" ? input.id : ""
   const filename = typeof input?.filename == "string" ? input.filename : ""
   const customIds = Array.isArray(input?.customIds) ? input!.customIds.filter((c): c is string => typeof c == "string") : []
-  const batch = try Batch.Machine
+  const batch = try batchInstance(owner.wallet)
   const now = try Clock.currentTimeMillis
   const created = batch.send({ type: "create", id, filename, customIds, createdAt: now }) catch (e) => e
   if (created instanceof Batch.Rejected) return try oops("A different batch job is running, or these rows do not fit (1-200 non-empty unique custom ids).", 409)
@@ -716,22 +739,22 @@ effect function batchCreate() {
 }
 
 effect function batchShow() {
-  const authBatch = try bearerKey()
-  if ("refused" in authBatch) {
-    const r = authBatch.refused as { error: unknown; status: number }
+  const owner = try batchWallet()
+  if ("refused" in owner) {
+    const r = owner.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
   }
-  const batch = try Batch.Machine
+  const batch = try batchInstance(owner.wallet)
   return try reply(try batch.get())
 }
 
 effect function batchClear() {
-  const authBatch = try bearerKey()
-  if ("refused" in authBatch) {
-    const r = authBatch.refused as { error: unknown; status: number }
+  const owner = try batchWallet()
+  if ("refused" in owner) {
+    const r = owner.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
   }
-  const batch = try Batch.Machine
+  const batch = try batchInstance(owner.wallet)
   const cleared = batch.send({ type: "clear" }) catch (e) => e
   if (cleared instanceof Batch.Rejected) return try oops("No batch job is running.", 409)
   return try reply({ ok: true })
@@ -740,14 +763,14 @@ effect function batchClear() {
 effect function batchInterrupt() {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
-  const authInterrupt = try bearerKey()
-  if ("refused" in authInterrupt) {
-    const r = authInterrupt.refused as { error: unknown; status: number }
+  const owner = try batchWallet()
+  if ("refused" in owner) {
+    const r = owner.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
   }
   const raw = request.json catch () => undefined
   const customId = typeof (raw as any)?.customId == "string" ? (raw as any).customId : ""
-  const batch = try Batch.Machine
+  const batch = try batchInstance(owner.wallet)
   const cut = batch.send({ type: "interrupt", customId }) catch (e) => e
   if (cut instanceof Batch.Rejected) return try oops("That row is not in flight.", 409)
   return try reply({ ok: true })
@@ -800,7 +823,7 @@ export function requestsMachine() {
   return Requests.stored("gateway-requests")
 }
 
-/** The batch job, stored under "gateway-batch". */
+/** The batch machine over one stored instance, for tests and drivers. */
 export function batchMachine() {
   return Batch.stored("gateway-batch")
 }
@@ -828,14 +851,11 @@ export effect function dispatchBatch(input: unknown) {
 export const gatewayApi = Layer.unwrap(effect {
   const keyring = try Keyring.Machine
   const requests = try Requests.Machine
-  const batch = try Batch.Machine
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/machines/keys", getState(keyring)),
     HttpRouter.add("GET", "/api/machines/keys/stream", getStream(keyring)),
     HttpRouter.add("GET", "/api/machines/gateway-requests", getState(requests)),
     HttpRouter.add("GET", "/api/machines/gateway-requests/stream", getStream(requests)),
-    HttpRouter.add("GET", "/api/machines/gateway-batch", getState(batch)),
-    HttpRouter.add("GET", "/api/machines/gateway-batch/stream", getStream(batch)),
     HttpRouter.add("GET", "/api/sonnely/v1/models", listModels()),
     HttpRouter.add("GET", "/api/sonnely/v1/provider-models", providerModels()),
     HttpRouter.add("GET", "/api/sonnely/v1/key", keyStatus()),
@@ -854,11 +874,10 @@ export const gatewayApi = Layer.unwrap(effect {
   )
 })
 
-/** The gateway machines' state, kept under `dir`. */
+/** The gateway machines' state, kept under `dir`; each wallet's batch job is a fleet instance over the same store. */
 export function gatewayState(dir: string) {
   return Layer.mergeAll(
     Layer.provide(Keyring.stored("keys"), store(dir)),
     Layer.provide(Requests.stored("gateway-requests"), store(dir)),
-    Layer.provide(Batch.stored("gateway-batch"), store(dir)),
   )
 }
