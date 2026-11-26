@@ -27,7 +27,7 @@ function Details({ rows }: { rows: [string, ReactNode][] }) {
   return (
     <dl className="grid gap-2.5 rounded-md border border-border bg-secondary p-4">
       {rows.map(([label, value]) => (
-        <div key={label} className="flex justify-between gap-4 text-[13px]">
+        <div key={label} className="flex justify-between gap-4 text-sm">
           <dt className="text-muted-foreground">{label}</dt>
           <dd className={monoSm + " break-all text-end"}>{value}</dd>
         </div>
@@ -98,7 +98,7 @@ function EvidenceSummary({ receipt, evidence }: Pick<Inspection, "receipt" | "ev
         <Fingerprint size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-primary" />
         <div>
           <strong className="text-sm font-medium">{label}</strong>
-          <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
       </div>
       {details.length > 0 && <Details rows={details} />}
@@ -119,7 +119,7 @@ function Comparison({ name, digest, match }: { name: string; digest: string; mat
       </div>
       <code className={monoSm + " break-all text-muted-foreground"}>{digest}</code>
       {match !== undefined && (
-        <p data-result={match ? "match" : "mismatch"} className={match ? "text-ok text-[13px]" : "text-warn text-[13px]"}>
+        <p data-result={match ? "match" : "mismatch"} className={match ? "text-ok text-sm" : "text-warn text-sm"}>
           {match ? "File matches the receipt hash" : "File does not match the receipt hash"}
         </p>
       )}
@@ -166,12 +166,10 @@ function ReceiptInspector() {
     }
   }
 
-  const panelHead = "mb-5 grid gap-1.5 [&_h2]:text-lg [&_h2]:font-medium [&_p]:text-sm [&_p]:text-muted-foreground";
-
   return (
-    <div className="grid items-start gap-6 min-[900px]:grid-cols-2">
-      <form className={panel + " grid gap-4"} onSubmit={(event) => void inspect(event)}>
-        <div className={panelHead}>
+    <div className="verify-grid">
+      <form className={panel + " verify-panel grid gap-4"} onSubmit={(event) => void inspect(event)}>
+        <div className="verify-panel-head">
           <h2>Completion receipt</h2>
           <p>Use a receipt, a JSON completion response, or a stream containing a receipt.</p>
         </div>
@@ -207,11 +205,11 @@ function ReceiptInspector() {
               }}
             />
           </div>
-          <details className="grid gap-3 rounded-md border border-border p-4">
+          <details className="verify-files">
             <summary className="cursor-pointer text-sm font-medium">
               Compare exact upstream files
             </summary>
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Use the original bytes exchanged between Sonnely and the provider. The gateway
               rewrites API responses and stream events before returning them to you.
             </p>
@@ -242,7 +240,7 @@ function ReceiptInspector() {
               />
             </div>
           </details>
-          <div className="flex flex-wrap gap-3">
+          <div className="verify-actions flex flex-wrap gap-3">
             <button className={buttonAccent} type="submit">
               {busy ? "Inspecting…" : "Inspect receipt"}
             </button>
@@ -266,12 +264,12 @@ function ReceiptInspector() {
             {error}
           </p>
         )}
-        <p className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
+        <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
           <ShieldCheck size={16} aria-hidden="true" /> The receipt and files stay in this browser.
         </p>
       </form>
-      <section className={panel + " grid gap-4"} aria-labelledby="verification-result">
-        <div className={panelHead}>
+      <section className={panel + " verify-panel grid gap-4"} aria-labelledby="verification-result">
+        <div className="verify-panel-head">
           <h2 id="verification-result">Inspection results</h2>
           <p role="status">
             {inspection
@@ -334,8 +332,8 @@ function ReceiptInspector() {
           </>
         ) : (
           <div className="grid gap-5">
-            <div>
-              <h3 className="text-[15px] font-medium">Get a receipt</h3>
+            <div className="verify-note">
+              <h3 className="text-sm font-medium">Get a receipt</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Enable <strong className="text-foreground">Include verification receipt</strong>{" "}
                 before sending in Playground, or send{" "}
@@ -346,8 +344,8 @@ function ReceiptInspector() {
                 Read the receipt guide <ArrowUpRight size={15} aria-hidden="true" />
               </a>
             </div>
-            <div>
-              <h3 className="text-[15px] font-medium">Gateway boundary</h3>
+            <div className="verify-note">
+              <h3 className="text-sm font-medium">Gateway boundary</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Sonnely reads the request at its HTTPS gateway. The provider’s trusted execution
                 environment serves the model.

@@ -12,8 +12,8 @@ import {
   ShieldCheck,
   Terminal,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { Streamdown, type Components } from "streamdown";
+import { useId, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { defaultComponents, Streamdown, type Components } from "streamdown";
 import "streamdown/styles.css";
 import { apiEndpoints, type Endpoint } from "../../../../gen/app__docs.ts";
 import { apiBasePath, apiOrigin, slugify, type Block } from "../../../docs.ts";
@@ -135,7 +135,15 @@ function Block_({ block }: { block: Block }) {
 function Tabs({ block }: { block: Block & { kind: "tabs" } }) {
   const tabs = block.children.filter((c): c is Block & { kind: "tab" } => c.kind === "tab");
   const [active, setActive] = useState(0);
+  const tabRef = useRef<HTMLButtonElement[]>([]);
   const tab = tabs[active] ?? tabs[0];
+  const id = useId();
+  const tabId = (index: number) => `${id}-tab-${index}`;
+  const panelId = (index: number) => `${id}-panel-${index}`;
+  const activate = (index: number) => {
+    setActive(index);
+    tabRef.current[index]?.focus();
+  };
   return (
     <div className="docs-tabs">
       <div className="docs-tabs-list" role="tablist">
@@ -144,16 +152,33 @@ function Tabs({ block }: { block: Block & { kind: "tabs" } }) {
             key={t.label}
             type="button"
             role="tab"
+            id={tabId(i)}
             aria-selected={i === active}
+            aria-controls={panelId(i)}
             className={i === active ? "docs-tab-active" : undefined}
+            ref={(element) => {
+              if (element) tabRef.current[i] = element;
+            }}
             onClick={() => setActive(i)}
+            onKeyDown={(event) => {
+              const offset = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+              if (offset === 0) return;
+              event.preventDefault();
+              activate((active + offset + tabs.length) % tabs.length);
+            }}
           >
             {t.label}
           </button>
         ))}
       </div>
       {tab && (
-        <div className="docs-tab-panel" role="tabpanel">
+        <div
+          className="docs-tab-panel"
+          role="tabpanel"
+          id={panelId(active)}
+          aria-labelledby={tabId(active)}
+          tabIndex={0}
+        >
           <Blocks blocks={tab.children} />
         </div>
       )}
@@ -221,7 +246,25 @@ function textOf(node: ReactNode): string {
   return "";
 }
 
+const DefaultCode = defaultComponents.code;
+
+function DocsCode(props: ComponentProps<typeof DefaultCode>) {
+  const metastring = props.node?.properties?.metastring;
+  const title =
+    typeof metastring === "string" ? /(?:^|\s)title="([^"]+)"/.exec(metastring)?.[1] : undefined;
+  if (title === undefined || props.className?.includes("language-") !== true) {
+    return <DefaultCode {...props} />;
+  }
+  return (
+    <div className="docs-titled-code">
+      <DefaultCode {...props} />
+      <div className="docs-code-title">{title}</div>
+    </div>
+  );
+}
+
 const mdComponents: Components = {
+  code: DocsCode,
   h2: ({ children }) => <h2 id={slugify(textOf(children))}>{children}</h2>,
   h3: ({ children }) => <h3 id={slugify(textOf(children))}>{children}</h3>,
   a: ({ href = "", children }) => (
@@ -231,15 +274,43 @@ const mdComponents: Components = {
   ),
 };
 
+function dedentMarkdown(text: string) {
+  let fence = "";
+  return text
+    .split("\n")
+    .map((line) => {
+      const marker = /^ {0,3}(```+|~~~+)/.exec(line)?.[1];
+      if (fence !== "") {
+        if (marker?.startsWith(fence[0])) fence = "";
+        return line;
+      }
+      if (marker) {
+        fence = marker[0];
+        return line;
+      }
+      return line.startsWith("    ") ? line.slice(4) : line;
+    })
+    .join("\n");
+}
+
 export function Markdown({ lines }: { lines: string[] }) {
   const text = lines
     .join("\n")
     .trim()
     .replace(/\n(?=\d+\. \*\*)/g, "\n\n");
   if (text === "") return null;
+  const dedented = dedentMarkdown(text);
   return (
     <div className="docs-prose">
-      <Streamdown components={mdComponents}>{text}</Streamdown>
+      <Streamdown
+        components={mdComponents}
+        mode="static"
+        normalizeHtmlIndentation
+        lineNumbers={false}
+        controls={{ code: { copy: true, download: false }, table: false, image: false }}
+      >
+        {dedented}
+      </Streamdown>
     </div>
   );
 }

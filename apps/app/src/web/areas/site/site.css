@@ -8,3 +8,130 @@
 [data-area="site"] summary::marker {
   content: none;
 }
+
+.verify-grid {
+  display: grid;
+  gap: clamp(16px, 2.5vw, 28px);
+  align-items: start;
+  margin-block: 2rem clamp(3rem, 7vw, 6rem);
+}
+
+@media (width >= 850px) {
+  .verify-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.verify-panel {
+  align-content: start;
+  padding: clamp(15px, 3vw, 30px);
+}
+
+.verify-panel textarea {
+  field-sizing: fixed;
+}
+
+.verify-panel input[type="file"] {
+  min-height: 44px;
+  align-content: center;
+}
+
+.verify-panel input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+}
+
+.verify-actions {
+  margin-top: 4px;
+}
+
+.status-probes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status-probe {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 1.5;
+}
+
+.status-probe[data-state="Ok"] {
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+  color: var(--ok);
+}
+
+.status-probe[data-state="Down"] {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--warn);
+}
+
+.status-probe:is([data-state="Pending"], [data-state="Disabled"]) {
+  background: color-mix(in srgb, var(--active-fill) 45%, transparent);
+  color: var(--muted);
+}
+
+.verify-files {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 14px 0;
+}
+
+.verify-files summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 620;
+}
+
+.verify-files summary::before {
+  content: "+";
+  width: 14px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+.verify-files[open] summary::before {
+  content: "−";
+}
+
+.verify-note + .verify-note {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.verify-panel-head {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 18px;
+}
+
+.verify-panel-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 640;
+}
+
+.verify-panel-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}

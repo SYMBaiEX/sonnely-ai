@@ -6,14 +6,14 @@ import {
   ChevronRight,
   CircleHelp,
   Copy,
-  FileText,
   Fingerprint,
   Rocket,
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Input } from "@repo/ui";
 import { docAt, docs, docsIn, sections, slugAfter, slugBefore } from "../../../../gen/app__docs.ts";
-import { bodyLines, markdownUrl, parseBlocks, searchDocs, tocOf } from "../../../docs.ts";
+import { bodyLines, markdownUrl, pageMarkdown, parseBlocks, searchDocs, tocOf } from "../../../docs.ts";
 import "../site/appearance.ts";
 import { MotionSwitch, AmbientVisualizer } from "../site/motion.tsx";
 import { SiteHeader, useAmbientMotion, useTheme } from "../site/chrome.tsx";
@@ -64,9 +64,25 @@ export function DocsPage({ slug }: { slug: string }) {
             <div className={kind === "guide" ? "docs-guide" : undefined}>
               <Blocks blocks={blocks} />
             </div>
-            <footer className="docs-prev-next">
-              {before === "" ? <span /> : <a href={`/docs${before === "index" ? "" : `/${before}`}`}>← {docAt(before).title}</a>}
-              {after === "" ? <span /> : <a href={`/docs/${after}`}>{docAt(after).title} →</a>}
+            <footer className="docs-prev-next" data-single={before === "" || after === "" ? "" : undefined}>
+              {before === "" ? (
+                <span />
+              ) : (
+                <a className="docs-pager-card" href={`/docs${before === "index" ? "" : `/${before}`}`}>
+                  <span className="docs-pager-label">← Previous</span>
+                  <strong>{docAt(before).title}</strong>
+                  <small>{docAt(before).description}</small>
+                </a>
+              )}
+              {after === "" ? (
+                <span />
+              ) : (
+                <a className="docs-pager-card" data-direction="next" href={`/docs/${after}`}>
+                  <span className="docs-pager-label">Next →</span>
+                  <strong>{docAt(after).title}</strong>
+                  <small>{docAt(after).description}</small>
+                </a>
+              )}
             </footer>
           </article>
         </main>
@@ -139,10 +155,8 @@ function Sidebar({ slug }: { slug: string }) {
 
 function CopyMarkdown({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
-    const copy = async () => {
-    const doc = docAt(slug);
-    const { pageMarkdown } = await import("../../../docs.ts");
-    await navigator.clipboard.writeText(pageMarkdown(doc.slug));
+  const copy = async () => {
+    await navigator.clipboard.writeText(pageMarkdown(docAt(slug).slug));
     setCopied(true);
   };
   return (
@@ -172,7 +186,7 @@ function SearchDocs() {
       }}
     >
       <Search size={14} className="docs-search-icon" />
-      <input
+      <Input
         value={query}
         onChange={(event) => {
           setQuery(event.target.value);
@@ -189,7 +203,11 @@ function SearchDocs() {
         aria-controls="docs-search-results"
         aria-expanded={open && query.trim() !== ""}
       />
-      <kbd>⌘K</kbd>
+      {query !== "" && (
+        <button type="button" className="docs-search-clear" aria-label="Clear search" onClick={() => setQuery("")}>
+          ×
+        </button>
+      )}
       {open && query.trim() !== "" && (
         <div className="docs-search-results" id="docs-search-results" role="listbox" aria-label="Documentation search results">
           {results.length === 0 && <p className="docs-search-empty">No results for “{query}”.</p>}
