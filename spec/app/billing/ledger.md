@@ -16,7 +16,7 @@ and names what caused it: `Credit` for a deposit, `Reserve` for a hold,
 `AdjustCredit` or `AdjustDebit` for an operator's audited balance adjustment.
 A credit's detail is the payment reference it came from, an adjustment's
 detail is the audited adjustment record it carries out; every other entry's
-detail is the request or rental it belongs to.
+detail is the request it belongs to.
 
 ```quint
 type EntryKind = Credit | Reserve | Charge | Release | Refund | AdjustCredit | AdjustDebit

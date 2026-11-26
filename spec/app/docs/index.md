@@ -25,12 +25,11 @@ type Doc = { slug: str, title: str, description: str, section: str }
 
 ### The catalog lists every guide in sidebar order
 
-The overview leads, then the guides of each section in `meta.json` order. The
-compute guides ship with the rest; staging shows them all. `apiEndpoints` is
-the endpoint table the API reference opens with.
+The overview leads, then the guides of each section in `meta.json` order.
+`apiEndpoints` is the endpoint table the API reference opens with.
 
 ```quint
-pure val sections: List[str] = List("Get started", "Inference", "Compute", "Support")
+pure val sections: List[str] = List("Get started", "Inference", "Support")
 
 pure val docs: List[Doc] = List(
     { slug: "index", title: "Sonnely documentation", description: "Build with confidential inference, fund a workspace, and verify completion receipts.", section: "" },
@@ -46,17 +45,15 @@ pure val docs: List[Doc] = List(
     { slug: "batch", title: "Batch inference", description: "Run, resume, and export a local JSONL batch with your Sonnely credits.", section: "Inference" },
     { slug: "attestation", title: "Confidentiality and attestation", description: "Understand the gateway boundary and the evidence available for each request.", section: "Inference" },
     { slug: "observability", title: "Usage and observability", description: "Track token usage and charges, export settled requests, and understand platform reconciliation.", section: "Inference" },
-    { slug: "blackboxes", title: "Blackboxes", description: "Configure a TDX rental, launch a pinned container, and verify its evidence.", section: "Compute" },
-    { slug: "dry-docks", title: "Dry Docks", description: "Preview the planned workflow for isolated repo builds and artifacts.", section: "Compute" },
     { slug: "troubleshooting", title: "Errors and recovery", description: "Diagnose API errors, incomplete streams, and unsettled funding.", section: "Support" },
     { slug: "migration", title: "Migrate to Sonnely", description: "Update older API clients and move from the retired app to the current gateway.", section: "Support" }
 )
 
-pure val prevSlugs: List[str] = List("", "index", "quickstart", "sdks", "keys", "billing", "workspace", "teams", "api", "providers", "streaming", "batch", "attestation", "observability", "blackboxes", "dry-docks", "troubleshooting")
+pure val prevSlugs: List[str] = List("", "index", "quickstart", "sdks", "keys", "billing", "workspace", "teams", "api", "providers", "streaming", "batch", "attestation", "observability", "troubleshooting")
 
-pure val nextSlugs: List[str] = List("quickstart", "sdks", "keys", "billing", "workspace", "teams", "api", "providers", "streaming", "batch", "attestation", "observability", "blackboxes", "dry-docks", "troubleshooting", "migration", "")
+pure val nextSlugs: List[str] = List("quickstart", "sdks", "keys", "billing", "workspace", "teams", "api", "providers", "streaming", "batch", "attestation", "observability", "troubleshooting", "migration", "")
 
-pure val sectionFirst: List[int] = List(1, 7, 13, 15)
+pure val sectionFirst: List[int] = List(1, 7, 13)
 
 pure val bodies: List[List[str]] = List(
     List(
@@ -129,7 +126,7 @@ pure val bodies: List[List[str]] = List(
         "@end",
         "",
         "",
-        "@group {‖icon‖:‖fingerprint‖,‖id‖:‖docs-confidentiality‖,‖title‖:‖Confidentiality and compute‖}",
+        "@group {‖icon‖:‖fingerprint‖,‖id‖:‖docs-confidentiality‖,‖title‖:‖Confidentiality‖}",
         "",
         "",
         "@link {‖id‖:‖verification‖,‖href‖:‖/docs/attestation‖,‖title‖:‖Confidentiality and attestation‖}",
@@ -139,9 +136,6 @@ pure val bodies: List[List[str]] = List(
         "",
         "",
         "@link {‖id‖:‖privacy‖,‖href‖:‖/docs/attestation#data-handling‖,‖title‖:‖Data handling‖}",
-        "",
-        "",
-        "@link {‖href‖:‖/compute‖,‖title‖:‖Compute roadmap and availability‖}",
         "",
         "",
         "@end",
@@ -1093,82 +1087,6 @@ pure val bodies: List[List[str]] = List(
         "@end"
     ),
     List(
-        "Blackboxes is a paid pilot for eligible wallets. Open [Console → Blackboxes](/console/blackboxes) to check access.",
-        "",
-        "## Start a rental",
-        "",
-        "",
-        "@box {‖kind‖:‖procedure‖}",
-        "",
-        "",
-        "1. **Choose an image.** Pick **NGINX web server**, **HTTP playground**, or **Request inspector** to use a pinned image. Pick **Custom container** to supply a public Docker Hub or GHCR digest and an HTTP port.",
-        "2. **Size the machine.** Select a Small (1 vCPU, 2 GB), Medium (2 vCPU, 4 GB), or Large (4 vCPU, 8 GB) TDX machine, and 20, 40, or 80 GB of temporary SSD. Placement is automatic.",
-        "3. **Set the rental window.** Choose 15, 30, 60, or 120 minutes. Review the maximum credit hold before renting.",
-        "4. **Check attestation.** Wait for verification in the rental details. Open the HTTPS endpoint after attestation and download the evidence if you need an independent record.",
-        "",
-        "",
-        "@end",
-        "",
-        "",
-        "## Agent framework presets",
-        "",
-        "Hermes Agent, OpenClaw, ElizaOS, Mastra, and Pydantic AI have guided presets. They start with a Medium machine, 40 GB of SSD, and a suggested HTTP port. Supply your configured Linux amd64 image pinned by digest.",
-        "",
-        "> **Public endpoint.** Add application authentication and keep credentials out of the image. The pilot does not inject runtime secrets.",
-        "",
-        "## Attestation and teardown",
-        "",
-        "Sonnely checks the hardware quote and replays the RTMR3 event log to match the Compose, app, and instance measurements before publishing the endpoint. The evidence download contains the quote, verification result, and Compose hashes. Application logs and system information are private. Attestation metadata may be published for the workload.",
-        "",
-        "The VM and SSD are temporary. Ending a rental takes the endpoint offline and triggers deletion. Reopen a settled rental in history to view the receipt or reuse its configuration.",
-        "",
-        "## Charges",
-        "",
-        "The rate combines machine cost, temporary SSD, service fees, and a per-run fee. Runtime rounds up to the minute and is capped by the selected window. Unused credits return after teardown.",
-        "",
-        "",
-        "@box {‖kind‖:‖next‖,‖label‖:‖Related guides and resources‖}",
-        "",
-        "",
-        "- [Check pricing](/pricing)",
-        "- [Review attestation evidence](/docs/attestation)",
-        "",
-        "",
-        "@end"
-    ),
-    List(
-        "Dry Docks builds a pinned public GitHub commit in a temporary Boat Linux VM.",
-        "",
-        "## Planned workflow",
-        "",
-        "",
-        "@box {‖kind‖:‖procedure‖}",
-        "",
-        "",
-        "1. **Pick a commit.** Enter a public repository and full commit SHA.",
-        "2. **Check the quote.** Review the build window and credit quote.",
-        "3. **Follow logs.** Watch output from `npm ci` and `npm run build`.",
-        "4. **Download the build.** Get the first matching output directory from `dist`, `build`, `out`, or `.next`. The archive limit is 5 MiB.",
-        "",
-        "",
-        "@end",
-        "",
-        "",
-        "> **Build isolation.** The planned VM receives no user credentials and has no inbound endpoint.",
-        "",
-        "Sonnely requests deletion after stopping the run and settles the receipt after deletion is confirmed. Logs and artifacts are intended to expire after seven days.",
-        "",
-        "",
-        "@box {‖kind‖:‖next‖,‖label‖:‖Related guides and resources‖}",
-        "",
-        "",
-        "- [Check Dry Docks availability](/dry-docks)",
-        "- [See the compute roadmap](/compute)",
-        "",
-        "",
-        "@end"
-    ),
-    List(
         "## Diagnose a failed request",
         "",
         "Read `error.message` in the response. An open stream may report the error in an SSE event even after HTTP 200. See [stream interruptions](/docs/streaming#handle-interruptions) for how to detect an incomplete stream.",
@@ -1298,9 +1216,9 @@ pure def docsIn(section: str): List[Doc] =
 
 pure val lastDoc: Doc = docs.nthOr(docs.length() - 1, emptyDoc)
 
-pure val iValues = Set(-1, 0, 1, 5, 8, 16, 17, 18)
+pure val iValues = Set(-1, 0, 1, 5, 8, 13, 14, 15)
 
-pure val jValues = Set(-1, 0, 1, 6, 16, 17, 18)
+pure val jValues = Set(-1, 0, 1, 6, 13, 14, 15)
 
 pure val kValues = Set(-1, 0, 1, 2, 3, 4, 5)
 ```
@@ -1414,12 +1332,12 @@ each guide is also served at `content.md` under its slug.
 
 ### The catalog holds the guides the product ships
 
-The overview plus the guides of the four sections: seventeen pages, the full
+The overview plus the guides of the three sections: fifteen pages, the full
 set the documentation site serves.
 
 ```quint
 pure def lawCatalogIsComplete(i: int): bool =
-  (0 <= i and i < docs.length()) implies docs.length() == 17
+  (0 <= i and i < docs.length()) implies docs.length() == 15
 ```
 
 ### Every doc a feed serves is readable

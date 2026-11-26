@@ -2,9 +2,9 @@
 
 The workspace surface a signed-in wallet works from: the playground chat,
 the model catalog, request logs, batch inference and the workspace settings.
-Keys, usage, billing, teams, referrals, support, admin and the compute
-products are neighboring areas; the console frame links to every section and
-gates the signed-in ones on a session.
+Keys, usage, billing, teams, referrals, support and admin are neighboring
+areas; the console frame links to every section and gates the signed-in ones
+on a session.
 
 - [Chat](./chat.md): playground conversations with an assistant.
 - [Catalog](./catalog.md): the providers' models and their Sonnely rates.
