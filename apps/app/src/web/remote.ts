@@ -33,7 +33,7 @@ type MachineFrame = z.infer<typeof frameSchema>;
 const machineSnapshots = new Map<string, MachineSnapshot>();
 const machineListeners = new Map<string, Set<() => void>>();
 const scopedSources = new Map<string, EventSource>();
-const scopedMachines = new Set(["workspace-keys", "usage"]);
+const scopedMachines = new Set(["workspace-keys", "usage", "admin", "admin-crm", "admin-referrals"]);
 let source: EventSource | undefined;
 let streamError: string | undefined;
 

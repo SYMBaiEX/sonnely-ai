@@ -61,7 +61,9 @@ export function machineRegistration(name: string, machine: MachineReader) {
 
 const noStore = { "cache-control": "no-store" }
 
-effect function getState(m: MachineLike) {
+effect function getState(m: MachineLike, read: "public" | "user") {
+  const wallet = try authenticatedWallet()
+  if (read != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   return try HttpServerResponse.json(try m.get(), { headers: noStore })
 }
 
@@ -89,7 +91,9 @@ effect function postEvent(m: MachineLike, policy: WritePolicy) {
   return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
 }
 
-effect function getStream(m: MachineLike) {
+effect function getStream(m: MachineLike, read: "public" | "user") {
+  const wallet = try authenticatedWallet()
+  if (read != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
@@ -98,6 +102,8 @@ effect function getStream(m: MachineLike) {
 }
 
 effect function getMultiplexedStream(registry: MachineRegistry.Shape) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   const machines = try registry.entries()
   const streams = machines.map(([name, machine]) => Stream.map(machine.changes, (state) => `data: ${JSON.stringify({ machine: name, state })}\n\n`))
   return HttpServerResponse.stream(Stream.encodeText(Stream.mergeAll(streams, { concurrency: "unbounded" })), {
@@ -115,21 +121,21 @@ const multiplexedMachines = Layer.provideMerge(
 )
 
 /** state and stream endpoints over one spec machine whose writes have a guarded route elsewhere. */
-export function machineReadApi(name: string, m: MachineLike) {
+export function machineReadApi(name: string, m: MachineLike, read: "public" | "user" = "user") {
   return Layer.mergeAll(
-    HttpRouter.add("GET", `/api/machines/${name}`, getState(m)),
-    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m)),
+    HttpRouter.add("GET", `/api/machines/${name}`, getState(m, read)),
+    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m, read)),
     machineRegistration(name, m),
     multiplexedMachines,
   )
 }
 
 /** state, event and stream endpoints over one spec machine, mounted at /api/machines/<name>. */
-export function machineApi(name: string, m: MachineLike, policy: WritePolicy = { events: [] }) {
+export function machineApi(name: string, m: MachineLike, policy: WritePolicy = { events: [] }, read: "public" | "user" = "user") {
   return Layer.mergeAll(
-    HttpRouter.add("GET", `/api/machines/${name}`, getState(m)),
+    HttpRouter.add("GET", `/api/machines/${name}`, getState(m, read)),
     HttpRouter.add("POST", `/api/machines/${name}`, provideService(postEvent(m, policy), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
-    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m)),
+    HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m, read)),
     machineRegistration(name, m),
     multiplexedMachines,
   )

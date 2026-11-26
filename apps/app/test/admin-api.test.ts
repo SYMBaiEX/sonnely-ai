@@ -109,7 +109,7 @@ describe("admin API", () => {
     const first = await post(handler, "/api/admin/adjust", adjustment);
     const second = await post(handler, "/api/admin/adjust", adjustment);
     const distinct = await post(handler, "/api/admin/adjust", { ...adjustment, id: "adjustment-repeat-2", activityId: "activity-repeat-2" });
-    const crmResponse = await handler(new Request("http://localhost/api/machines/admin-crm"));
+    const crmResponse = await handler(new Request("http://localhost/api/machines/admin-crm", { headers: { cookie: "sonnely_session=" + token } }));
     const ledger = (existsSync(join(dir, "billing-ledger")) ? JSON.parse(readFileSync(join(dir, "billing-ledger"), "utf8")) : Ledger.initial) as Ledger.Ledger;
     const crm = await crmResponse.json() as Crm.Crm;
     expect({
