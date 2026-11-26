@@ -1,7 +1,8 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes -- shared console controls intentionally use the migrated console class names */
 import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Check, Copy } from "lucide-react";
+import { Check, ChevronDown, Copy, SlidersHorizontal } from "lucide-react";
+import "./data-rows.css";
 
 export const shorten = (wallet: string) => wallet.slice(0, 4) + "…" + wallet.slice(-4);
 
@@ -115,6 +116,44 @@ export function Detail({ label, children, mono = false }: { label: string; child
     <div className="detail">
       <dt>{label}</dt>
       <dd className={mono ? "mono" : undefined}>{children}</dd>
+    </div>
+  );
+}
+
+const narrowViewport = "(width <= 720px)";
+
+export function FilterPanel({
+  label,
+  active = 0,
+  className = "",
+  children,
+}: {
+  label: string;
+  active?: number;
+  className?: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(
+    () => typeof window === "undefined" || !window.matchMedia(narrowViewport).matches,
+  );
+  return (
+    <div className={`filter-panel ${className}`}>
+      <button
+        type="button"
+        className="filter-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="filter-toggle-label">
+          <SlidersHorizontal size={15} aria-hidden="true" />
+          {label}
+          {active > 0 && <span className="filter-active-count">{active}</span>}
+        </span>
+        <ChevronDown size={15} aria-hidden="true" className="filter-chevron" />
+      </button>
+      <div className="filter-body" data-open={open}>
+        {children}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,144 @@
+/* Responsive operational data primitives, shared by logs, usage, batch, teams,
+   referrals and compute. Two patterns:
+   1. `.data-rows` — a dense table on desktop that becomes a stack of cards on
+      narrow viewports. Annotate every cell with `data-label` so values stay
+      self-describing once the column header row is visually hidden.
+   2. `.filter-panel` — filter controls that collapse behind a toggle on narrow
+      viewports instead of compressing into control piles.
+   Both are pure CSS below the breakpoint; desktop rendering is untouched. */
+
+@media (width <= 720px) {
+  .data-rows {
+    overflow-x: visible;
+  }
+
+  .data-rows table,
+  .data-rows tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .data-rows thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .data-rows tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px 14px;
+    margin-block: 10px;
+    padding: 13px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+  }
+
+  /* the tr in the selector keeps these above the base table cell rules */
+  .data-rows tr :is(th, td) {
+    min-width: 0;
+    padding: 0;
+    border-bottom: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .data-rows th[scope="row"] {
+    grid-column: 1 / -1;
+    font-weight: 550;
+  }
+
+  .data-rows td[data-label] {
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    gap: 3px;
+  }
+
+  .data-rows td[data-label]::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font: 540 10.5px var(--mono);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  /* full-width cells for wide values such as billing state or actions */
+  .data-rows td[data-span] {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Collapsible filter panels: the toggle only exists on narrow viewports; on
+   desktop the body is always visible and no control is shown. */
+.filter-panel .filter-toggle {
+  display: none;
+}
+
+@media (width <= 720px) {
+  .filter-panel .filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 9px 13px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: var(--card);
+    font-weight: 550;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .filter-panel .filter-toggle .filter-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .filter-panel .filter-toggle .filter-active-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding-inline: 5px;
+    border-radius: 999px;
+    background: var(--active-fill);
+    color: var(--accent);
+    font: 600 11px var(--mono);
+  }
+
+  .filter-panel .filter-toggle svg.filter-chevron {
+    transition: transform 160ms ease;
+  }
+
+  .filter-panel .filter-toggle[aria-expanded="true"] svg.filter-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* type selectors keep this above consumer grid display rules in specificity */
+  div.filter-panel div.filter-body[data-open="false"] {
+    display: none;
+  }
+}
+
+/* Breathing room above the fixed mobile dock so the last rows never end
+   flush underneath it. The console frame already pads its container; this
+   keeps a consistent gap inside the data surfaces themselves. */
+@media (width <= 720px) {
+  .logs-legacy,
+  .usage-legacy,
+  .batch-legacy,
+  .referrals-legacy,
+  .workspace-legacy,
+  .compute-legacy {
+    padding-block-end: 28px;
+  }
+}
