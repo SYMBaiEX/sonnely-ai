@@ -6859,7 +6859,10 @@ html[data-initial-theme="light"] .site .home {
   padding: 0;
   background: transparent;
 }
-.site .site-nav nav,.site .site-actions{
+.site .site-actions{
   position: relative;
+  z-index: 1;
+}
+.site .site-nav nav{
   z-index: 1;
 }
