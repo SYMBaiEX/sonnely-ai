@@ -31,6 +31,25 @@ const actionTone = (action: string): "info" | "warn" | "muted" => {
   return "muted";
 };
 
+const actionNames: Record<string, string> = {
+  "crm.note": "Note added",
+  "crm.ticket": "Support request updated",
+  "credit.resolve": "Held credit resolved",
+  "finance.openPayout": "Profit payout prepared",
+  "finance.confirmPayout": "Payout finality checked",
+  "finance.savePayoutTransaction": "Payout transaction saved",
+  "finance.reconcile": "Provider costs reconciled",
+  "invoice.record": "Provider invoice recorded",
+  "operations.alert-test": "Test alert sent",
+};
+
+function actionLabel(action: string) {
+  if (actionNames[action]) return actionNames[action];
+  const tail = action.includes(".") ? action.slice(action.indexOf(".") + 1) : action;
+  const words = tail.replaceAll(/([a-z])([A-Z])/g, "$1 $2").replaceAll(/[-_]/g, " ").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function exportCsv(rows: AuditRow[]) {
   const cell = (value: unknown) => '"' + String(value ?? "").replaceAll('"', '""') + '"';
   const lines = [
@@ -157,7 +176,7 @@ export function AdminLogs() {
               aria-labelledby="logs-heading"
               tabIndex={0}
             >
-              <table>
+              <table data-cards>
                 <thead>
                   <tr>
                     <th scope="col">Time (UTC)</th>
@@ -170,8 +189,8 @@ export function AdminLogs() {
                 <tbody>
                   {state.data.page.map((row) => (
                     <tr key={row.id}>
-                      <td>{utc(row.time)}</td>
-                      <td>
+                      <td data-label="Time (UTC)">{utc(row.time)}</td>
+                      <td data-label="Actor">
                         <span className="cell-copy">
                           <code title={row.actor}>
                             {row.actor.length > 16 ? shorten(row.actor) : row.actor}
@@ -179,10 +198,12 @@ export function AdminLogs() {
                           <CopyButton value={row.actor} label="Copy actor" />
                         </span>
                       </td>
-                      <td>
-                        <Pill tone={actionTone(row.action)}>{row.action}</Pill>
+                      <td data-label="Action">
+                        <Pill tone={actionTone(row.action)}>
+                          <span title={row.action}>{actionLabel(row.action)}</span>
+                        </Pill>
                       </td>
-                      <td>
+                      <td data-label="Target">
                         <span className="cell-copy">
                           <Pill>{row.targetKind}</Pill>
                           <code className="caption" title={row.targetId}>
@@ -191,7 +212,7 @@ export function AdminLogs() {
                           <CopyButton value={row.targetId} label="Copy target ID" />
                         </span>
                       </td>
-                      <td>{row.summary}</td>
+                      <td data-label="Summary">{row.summary}</td>
                     </tr>
                   ))}
                 </tbody>

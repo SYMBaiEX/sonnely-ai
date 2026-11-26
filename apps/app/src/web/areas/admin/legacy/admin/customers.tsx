@@ -308,7 +308,7 @@ export function CustomersTable({
     );
   return (
     <div className="table-wrap">
-      <table>
+      <table data-cards>
         <thead>
           <tr>
             <th>
@@ -370,16 +370,26 @@ export function CustomersTable({
                     </span>
                   )}
                 </th>
-                <td>
+                <td data-label="Status">
                   <span className="crm-status">
-                    <Pill tone={row.funded ? "ok" : "muted"}>{row.funded ? "Funded" : "Unfunded"}</Pill>
-                    <Pill tone={row.active ? "ok" : "muted"}>{row.active ? "Active" : "Inactive"}</Pill>
+                    {row.funded ? (
+                      <Pill tone="ok">Funded</Pill>
+                    ) : (
+                      <span className="caption">Unfunded</span>
+                    )}
+                    {row.active ? (
+                      <Pill tone="ok">Active</Pill>
+                    ) : (
+                      <span className="caption">Inactive</span>
+                    )}
                   </span>
                 </td>
-                <td>{new Date(row.joined).toLocaleDateString()}</td>
-                <td className="num">{creditBalance(row.balance)}</td>
-                <td>{row.role}</td>
-                <td>
+                <td data-label="Joined">{new Date(row.joined).toLocaleDateString()}</td>
+                <td className="num" data-label="Balance">
+                  {creditBalance(row.balance)}
+                </td>
+                <td data-label="Role">{row.role}</td>
+                <td data-label="Actions">
                   <span className="crm-row-actions">
                     <CopyButton value={row.wallet} label="Copy wallet" text="" />
                     <button

@@ -26,12 +26,20 @@ function Series({
   points: Point[];
   format?: (value: number) => string;
 }) {
-  const high = Math.max(1, ...points.map((point) => point.value));
+  const firstActivity = points.findIndex((point) => point.value > 0);
+  const shown = firstActivity > 0 ? points.slice(firstActivity) : points;
+  const high = Math.max(1, ...shown.map((point) => point.value));
+  const peak = shown.reduce((top, point) => (point.value > top.value ? point : top), shown[0]);
   return (
     <section className="panel chart-panel">
-      <h2>{title}</h2>
+      <div className="between">
+        <h2>{title}</h2>
+        <span className="caption">
+          Peak {format(peak.value)} · {dayLabel(peak.day)}
+        </span>
+      </div>
       <div className="bars" role="img" aria-label={title + " by UTC day"}>
-        {points.map((point) => (
+        {shown.map((point) => (
           <span
             key={point.day}
             title={dayLabel(point.day) + " · " + format(point.value)}
@@ -41,8 +49,9 @@ function Series({
         ))}
       </div>
       <div className="between caption">
-        <span>{dayLabel(points[0].day)}</span>
-        <span>{dayLabel(points[points.length - 1].day)}</span>
+        <span>{dayLabel(shown[0].day)}</span>
+        {firstActivity > 0 && <span>quiet before {dayLabel(shown[0].day)}</span>}
+        <span>{dayLabel(shown[shown.length - 1].day)}</span>
       </div>
     </section>
   );

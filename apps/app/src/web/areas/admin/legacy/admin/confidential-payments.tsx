@@ -370,7 +370,10 @@ export function AdminConfidentialPayments() {
         </div>
       )}
       {queue && !queue.payments.length && !fetching && !error && (
-        <EmptyState title="No payments awaiting review" />
+        <EmptyState
+          title="No payments awaiting review"
+          hint="Confidential USDC deposits that need manual verification appear here. Review means checking the received asset and amount in the treasury wallet, then approving or rejecting the credit."
+        />
       )}
     </section>
   );

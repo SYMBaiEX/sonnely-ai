@@ -88,12 +88,3 @@ export const adminTabs: AdminTab[] = [
   },
 ];
 
-export const adminNavGroups: { label?: string; tabs: AdminTab[] }[] = adminTabs.reduce(
-  (groups, tab) => {
-    const found = groups.find((group) => group.label === tab.group);
-    if (found) found.tabs.push(tab);
-    else groups.push({ label: tab.group, tabs: [tab] });
-    return groups;
-  },
-  [] as { label?: string; tabs: AdminTab[] }[],
-);

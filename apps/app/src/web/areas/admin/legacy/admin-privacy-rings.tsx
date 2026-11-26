@@ -333,6 +333,25 @@ function TreasuryRegistration() {
             <code style={{ overflowWrap: "anywhere" }}>{status.treasury}</code>
             <CopyButton label="Copy treasury address" value={status.treasury} />
           </div>
+          {status.treasury === "11111111111111111111111111111111" && (
+            <p className="status" role="status">
+              This deployment has no treasury configured yet — the address above is the system default.
+              Configure the treasury wallet in the deployment environment before registering.
+            </p>
+          )}
+          {!status.registered && (
+            <details className="admin-deploy-notes">
+              <summary>
+                <strong>How registration works</strong>
+              </summary>
+              <ul className="admin-deploy-list">
+                <li>Connect the treasury wallet itself — not your operator wallet — below.</li>
+                <li>Your browser derives the public registration keys locally from a signed setup message.</li>
+                <li>The wallet then confirms one mainnet transaction paying network fee and account rent.</li>
+                <li>Once finalized, the treasury can receive confidential Privacy Rings transfers.</li>
+              </ul>
+            </details>
+          )}
           {status.registered && status.registryAddress && (
             <a
               className="text-link"

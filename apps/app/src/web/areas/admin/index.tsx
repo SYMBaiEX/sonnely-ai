@@ -3,19 +3,37 @@ import "../site/site.css";
 import "./admin.css";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { useAdmin, useSession } from "./data.ts";
-import { ReferralsPage } from "./referrals.tsx";
-import { Admin } from "./legacy/admin.tsx";
+import { adminAreas, type AdminArea } from "./legacy/admin-areas.ts";
+import { AdminWorkspace } from "./shell.tsx";
 import { ConsoleFrame } from "../console/frame.tsx";
+
+/**
+ * `/console/admin/referrals` was an orphan duplicate of the personal referrals page.
+ * The personal page at `/console/referrals` is the canonical surface; this sends
+ * operators there with a declarative refresh and a visible fallback link.
+ */
+function ReferralRedirect() {
+  return (
+    <ConsoleFrame section="Admin">
+      <meta httpEquiv="refresh" content="0;url=/console/referrals" />
+      <section className="panel stack-panel">
+        <h2>Referrals moved</h2>
+        <p className="caption">
+          Referral tracking is a personal workspace surface, not an admin operations page.
+        </p>
+        <a className="button quiet" href="/console/referrals">
+          Open referrals
+        </a>
+      </section>
+    </ConsoleFrame>
+  );
+}
 
 export function AdminPage({ area }: { area: string }) {
   const session = useSession();
   const admin = useAdmin();
-  if (area === "referrals")
-    return (
-      <ConsoleFrame section="Admin">
-        <ReferralsPage />
-      </ConsoleFrame>
-    );
+  if (area === "referrals") return <ReferralRedirect />;
+  const section: AdminArea = (adminAreas as readonly string[]).includes(area) ? (area as AdminArea) : "overview";
   const signedIn = session.state?.tag === "SignedIn" ? session.state : undefined;
   const wallet = signedIn?.wallet ?? "";
   const roster = admin.state?.ops.roster ?? [];
@@ -25,31 +43,7 @@ export function AdminPage({ area }: { area: string }) {
 
   return (
     <ConsoleFrame section="Admin">
-      <div className="admin-legacy-scope" data-motion="on">
-        <Admin
-          key={wallet || "signed-out"}
-          session={{
-            profile: wallet
-              ? {
-                  wallet,
-                  name: "",
-                  username: "",
-                  balance: 0,
-                  referral: "",
-                  role,
-                  onboarding: "later",
-                }
-              : null,
-            enabled: true,
-            termsRequired: false,
-            billingEnabled: true,
-            paymentVerificationEnabled: true,
-            inferenceEnabled: true,
-            cluster: "mainnet",
-          }}
-          features={{ blackboxes: true, "dry-docks": true }}
-        />
-      </div>
+      <AdminWorkspace key={wallet || "signed-out"} area={section} wallet={wallet} role={role} />
     </ConsoleFrame>
   );
 }

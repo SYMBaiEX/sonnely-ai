@@ -81,6 +81,13 @@ export function TraceList({
                     {providerNames[row.provider] ?? "NEAR AI"}
                     {row.wallet ? " · " + shorten(row.wallet) : ""}
                   </span>
+                  <span className="caption trace-summary-facts">
+                    {creditBalance(row.cost)}
+                    {row.settled !== undefined &&
+                      " · " + ((row.settled - row.started) / 1000).toFixed(2) + " s"}
+                    {" · "}
+                    {row.input.toLocaleString()} / {row.output.toLocaleString()} tokens
+                  </span>
                 </span>
                 <Pill tone={tones[row.status]}>{traceStates[row.status]}</Pill>
               </summary>
@@ -251,7 +258,7 @@ export function TracesPanel({ open }: { open?: (id: string) => void }) {
           type="search"
           maxLength={80}
           aria-label="Search request traces"
-          placeholder="Sonnely or provider request ID"
+          placeholder="Request ID"
         />
         <button className="button quiet" aria-label="Search traces">
           <Search size={16} />

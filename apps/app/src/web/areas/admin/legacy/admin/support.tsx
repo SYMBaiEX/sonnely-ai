@@ -293,6 +293,16 @@ function ThreadPane({
   );
 }
 
+const hour = 3_600_000;
+
+function agingClass(row: Ticket) {
+  if (row.state === "resolved") return "";
+  const waiting = Date.now() - (row.updated ?? row.opened);
+  if (waiting > 72 * hour) return " aging-late";
+  if (waiting > 24 * hour) return " aging-warn";
+  return "";
+}
+
 function TicketRow({
   row,
   active,
@@ -320,9 +330,10 @@ function TicketRow({
           <span className="inbox-row-meta">
             {row.replyCount > 0 && <span className="pill">{row.replyCount}</span>}
             <Pill tone={stateTone(row.state)}>{ticketStates[row.state]}</Pill>
-            <span className="caption">{relTime(row.updated ?? row.opened)}</span>
+            <span className={"caption" + agingClass(row)}>{relTime(row.updated ?? row.opened)}</span>
           </span>
         </span>
+        {row.message && <span className="inbox-row-preview caption">{row.message}</span>}
         <span className="caption">
           {row.email}
           {row.assignedWallet ? " · " + shorten(row.assignedWallet) : " · unassigned"}

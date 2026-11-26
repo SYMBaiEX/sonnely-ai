@@ -323,6 +323,17 @@ function Invoices({ invoices, refresh }: { invoices: Invoice[]; refresh: () => v
       setBusy(false);
     }
   }
+  function downloadTemplate() {
+    const blob = new Blob(["billing_reference,cost_usd\nprovider-request-id,0.000042\n"], {
+      type: "text/csv",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "sonnely-invoice-template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
   return (
     <section className="panel stack-panel">
       <div>
@@ -331,6 +342,23 @@ function Invoices({ invoices, refresh }: { invoices: Invoice[]; refresh: () => v
           Compare a finalized provider statement with Sonnely’s billing references. Recording adds reporting
           evidence and leaves treasury payouts under the existing approval flow.
         </p>
+      </div>
+      <div className="actions">
+        <button type="button" className="button quiet small" onClick={downloadTemplate}>
+          Download CSV template
+        </button>
+        <button
+          type="button"
+          className="button quiet small"
+          disabled={busy}
+          onClick={() => {
+            setInvoiceId((current) => current || "INV-2025-001");
+            setRows("provider-request-id,0.000042\nsecond-request-id,0.000217");
+            reset();
+          }}
+        >
+          Fill example lines
+        </button>
       </div>
       <form onSubmit={submit} className={styles.invoice}>
         <label>
@@ -478,6 +506,12 @@ function Automation({ status, refresh }: { status: Report["automation"]; refresh
           </p>
         </div>
       ))}
+      {status.checks.length === 0 && (
+        <EmptyState
+          title="Automation status unavailable"
+          hint="Scheduled provider checks, cost sync, and alert delivery are configured in the deployment environment. This staging shell does not run them."
+        />
+      )}
       <div className="actions">
         <button
           type="button"
@@ -492,6 +526,12 @@ function Automation({ status, refresh }: { status: Report["automation"]; refresh
           {status.fallbackConfigured ? "configured" : "unconfigured"}
         </span>
       </div>
+      {!(status.emailEnabled || status.fallbackConfigured) && (
+        <p className="caption">
+          Alert delivery is configured in the deployment environment. Once an email provider or Slack
+          fallback webhook is configured, use the test alert to verify delivery end to end.
+        </p>
+      )}
       {notice && <p role="status">{notice}</p>}
       {status.email.length > 0 && (
         <ul>
@@ -693,7 +733,8 @@ export function AdminGateway() {
         )}
         {outbox && (outbox.failed > 0 || delay) && (
           <p className="error" role="alert">
-            UsageMax receipt delivery needs attention.
+            UsageMax receipt delivery needs attention. Open a recent receipt below to inspect the failure,
+            then re-check once the UsageMax integration is reachable again.
           </p>
         )}
         {operations?.alerts.evaluatedAt != null && (

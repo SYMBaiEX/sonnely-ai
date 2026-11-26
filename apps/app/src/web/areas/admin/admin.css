@@ -1,99 +1,279 @@
-.admin-legacy-scope {
-  color: var(--ink);
-  font-family: var(--font);
-  min-width: 0;
-  position: relative;
-  isolation: isolate;
-}
+/* spec/app/admin/index.md: the admin workspace's own styles — the horizontal section
+   navigation, the responsive data tables, and the triage cues the legacy shell
+   used to carry. Everything else inherits the console and token baseline. */
 
-.admin-legacy-scope input,
-.admin-legacy-scope textarea,
-.admin-legacy-scope select {
-  width: 100%;
-  border: 1px solid var(--control-edge);
+.admin-tabs {
+  display: flex;
+  gap: 2px;
+  margin-block: 14px 18px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: var(--card);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.admin-tabs a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 7px 12px;
   border-radius: 9px;
-  padding: 10px 12px;
-  min-height: 42px;
-  font: inherit;
-  color: inherit;
-}
-
-.admin-legacy-scope textarea {
-  resize: vertical;
-}
-
-.admin-legacy-scope select {
-  appearance: none;
-  padding-inline-end: 34px;
-  background-image:
-    linear-gradient(45deg, transparent 48%, var(--muted) 52%),
-    linear-gradient(135deg, var(--muted) 48%, transparent 52%);
-  background-position:
-    right 18px center,
-    right 13px center;
-  background-size: 5px 5px;
-  background-repeat: no-repeat;
-}
-
-.admin-legacy-scope form label {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
+  color: var(--muted);
   font-size: 13px;
-}
-
-.admin-legacy-scope .admin-legacy-console .panel {
-  color: var(--ink);
-}
-
-.site .admin-legacy-scope .pill-ok {
-  color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
-}
-
-.site .admin-legacy-scope .pill-warn {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 40%, var(--line));
-}
-
-.site .admin-legacy-scope .pill-error {
-  color: var(--destructive);
-  border-color: color-mix(in srgb, var(--destructive) 40%, var(--line));
-}
-
-.site .admin-legacy-scope .pill-info {
-  color: var(--info);
-  border-color: color-mix(in srgb, var(--info) 40%, var(--line));
-}
-
-.site .admin-legacy-scope .crm-controls input[type="radio"] {
-  width: auto;
-  min-height: 0;
-  accent-color: var(--action);
-}
-
-.site .admin-legacy-scope .crm-row-actions {
-  flex-wrap: nowrap;
-}
-
-.site .admin-legacy-scope .crm-row-actions .button {
-  flex-shrink: 0;
+  line-height: 1.3;
   white-space: nowrap;
 }
 
-.site .admin-legacy-scope .crm-avatar.crm-cell-avatar {
-  width: 46px;
-  height: 46px;
-  border-radius: 13px;
+.admin-tabs a:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+
+.admin-tabs a[aria-current="page"] {
+  background: var(--raised);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.admin-tabs a[aria-current="page"] > svg {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.admin-tab-badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.admin-area {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.admin-clear {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.admin-zero-rows {
+  margin-top: 8px;
+}
+
+.admin-zero-rows summary {
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+/* Triage cues: how long a support request has been waiting. */
+.site .aging-warn {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.site .aging-late {
+  color: var(--destructive);
+  font-weight: 600;
+}
+
+/* Tables with data-label cells collapse into cards on narrow screens: the row
+   becomes the card and each cell a labelled fact line. */
+@media (max-width: 720px) {
+  .site table[data-cards] {
+    display: block;
+  }
+
+  .site table[data-cards] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .site table[data-cards] tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .site table[data-cards] tr {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--glass-solid);
+  }
+
+  .site table[data-cards] :is(th, td) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+    padding: 3px 0;
+    border: 0;
+    text-align: start;
+  }
+
+  .site table[data-cards] :is(th, td)[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .site table[data-cards] td.num,
+  .site table[data-cards] th.num {
+    text-align: start;
+  }
+
+  .site table[data-cards] th[scope="row"] {
+    order: -1;
+    white-space: normal;
+  }
+
+  .site table[data-cards] .table-wrap {
+    overflow-x: visible;
+  }
+}
+
+@media (max-width: 720px) {
+  .site .table-wrap:has(table[data-cards]) {
+    border: 0;
+    background: transparent;
+    overflow-x: visible;
+    padding: 0;
+  }
+}
+
+/* Trace toolbar: wrap filter controls instead of forcing horizontal overflow. */
+.site .admin-toolbar {
+  row-gap: 8px;
+}
+
+.site .trace-panel .crm-search {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.site .trace-panel .crm-search input {
+  min-width: 0;
+}
+
+/* The gateway report header keeps its controls beside the title on wide screens
+   and wraps cleanly below them on narrow ones. */
+.site .gateway-report-head {
+  flex-wrap: wrap;
+}
+
+/* Mobile dock clearance for the last panel. */
+@media (max-width: 720px) {
+  .admin-area {
+    padding-bottom: 12px;
+  }
+}
+
+/* Inbox rows: two-line subjects and a message preview so triage does not
+   require opening every request. */
+.site .inbox-row-top strong {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.site .inbox-row-preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.site .inbox-row-main {
+  min-height: 40px;
+}
+
+/* Deployment guidance disclosures on the read-only operational surfaces. */
+.site .admin-deploy-notes {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 12px 16px;
+}
+
+.site .admin-deploy-notes summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.site .admin-deploy-notes summary strong {
+  font-weight: 600;
+}
+
+.site .admin-deploy-list {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0;
+  padding-inline-start: 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.site .admin-deploy-list code {
+  color: var(--ink);
+}
+
+/* Trace summary: cost, settlement time, and tokens visible without expansion. */
+.site .trace-summary-facts {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* The gateway panels reuse the editorial .section-head class; inside admin it is a
+   compact panel header instead of a marketing headline. */
+.site .admin-area .section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 0;
+}
+
+.site .admin-area .section-head h2 {
+  font-size: 21px;
+  letter-spacing: -0.02em;
+}
+
+.site .admin-area .section-head h3 {
   font-size: 16px;
 }
 
-.site .admin-nav-item.is-active {
-  color: var(--ink-1);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+/* Filter selects size to their longest option; without this a long model id
+   forces the toolbar (and the page) past the mobile viewport. */
+.site .admin-area .admin-toolbar {
+  min-width: 0;
 }
 
-.admin-legacy-scope .admin-content {
+.site .admin-area .admin-toolbar > select,
+.site .admin-area .admin-toolbar > input {
   min-width: 0;
 }

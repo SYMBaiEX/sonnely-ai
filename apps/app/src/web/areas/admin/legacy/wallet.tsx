@@ -332,7 +332,17 @@ async function crmRead(task: string) {
         group.spend += row.cost;
         return groups;
       }, {})).map(([, row]) => row).sort((a, b) => b.spend - a.spend).slice(0, 8),
-      topCustomers: [],
+      topCustomers: Object.entries(rows.reduce((groups, row) => {
+        const id = row.keyId || row.keyName || "";
+        if (!id) return groups;
+        const group = (groups[id] ??= { id, requests: 0, spend: 0 });
+        group.requests += 1;
+        group.spend += row.cost;
+        return groups;
+      }, {})).map(([, group]) => {
+        const customer = customers.find((item) => item.id === group.id);
+        return { id: group.id, wallet: customer?.wallet ?? group.id, name: customer?.name ?? "", username: customer?.username ?? "", spend: group.spend, requests: group.requests };
+      }).filter((row) => row.spend > 0).sort((a, b) => b.spend - a.spend).slice(0, 8),
       providerSplit: Object.entries(rows.reduce((groups, row) => {
         const provider = providerId(row.provider);
         groups[provider] = (groups[provider] ?? 0) + 1;
@@ -348,7 +358,16 @@ async function crmRead(task: string) {
   if (view === "support") {
     const search = String(params.get("search") ?? "").toLowerCase();
     const filter = params.get("filter") ?? "all";
-    const rows = supportRows(states.support).filter((row) => (filter === "all" || row.state === filter) && (!search || (row.topic + row.email + row.message).toLowerCase().includes(search))).sort((a, b) => b.updated - a.updated);
+    const stateRank = { open: 0, in_progress: 1, resolved: 2 };
+    const triage = (a, b) => {
+      const state = (stateRank[a.state] ?? 0) - (stateRank[b.state] ?? 0);
+      if (state) return state;
+      if (a.state === "resolved") return b.updated - a.updated;
+      const ownership = (a.assignedWallet ? 1 : 0) - (b.assignedWallet ? 1 : 0);
+      if (ownership) return ownership;
+      return a.updated - b.updated;
+    };
+    const rows = supportRows(states.support).filter((row) => (filter === "all" || row.state === filter) && (!search || (row.topic + row.email + row.message).toLowerCase().includes(search))).sort(triage);
     return cursorPage(rows, params.get("cursor") ?? undefined);
   }
   if (view === "traces") {

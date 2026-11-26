@@ -53,12 +53,12 @@ export function AdminOperators() {
       ) : state.data.length === 0 ? (
         <EmptyState
           title="No operators configured"
-          hint="Add wallets to SONNELY_ADMIN_WALLETS, SONNELY_SUPPORT_WALLETS, or SONNELY_FINANCE_WALLETS."
+          hint="Add wallets to SONNELY_ADMIN_WALLETS, SONNELY_SUPPORT_WALLETS, or SONNELY_FINANCE_WALLETS and redeploy. The first wallet to sign in with an empty roster becomes the bootstrap administrator."
         />
       ) : (
         <>
           <div className="table-wrap" role="region" aria-labelledby="operators-heading" tabIndex={0}>
-            <table>
+            <table data-cards>
               <thead>
                 <tr>
                   <th>Operator</th>
@@ -80,21 +80,52 @@ export function AdminOperators() {
                         <CopyButton value={row.wallet} label="Copy operator wallet" />
                       </span>
                     </th>
-                    <td>
+                    <td data-label="Role">
                       <Pill tone={roleTone(row.role)}>{row.role}</Pill>
                     </td>
-                    <td>{row.lastActiveAt === undefined ? "—" : localTime(row.lastActiveAt)}</td>
-                    <td className="num">{row.openTickets.toLocaleString()}</td>
-                    <td className="num">{row.openTasks.toLocaleString()}</td>
+                    <td data-label="Last active">
+                      {row.lastActiveAt === undefined ? "—" : localTime(row.lastActiveAt)}
+                    </td>
+                    <td className="num" data-label="Open tickets">
+                      {row.openTickets.toLocaleString()}
+                    </td>
+                    <td className="num" data-label="Open tasks">
+                      {row.openTasks.toLocaleString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="caption">
-            Roles come from the SONNELY_ADMIN_WALLETS, SONNELY_SUPPORT_WALLETS, and SONNELY_FINANCE_WALLETS
-            environment lists. Wallets that have not signed in cannot be assigned work yet.
-          </p>
+          <details className="admin-deploy-notes">
+            <summary>
+              <strong>Read-only roster</strong> — manage operators through deployment configuration
+            </summary>
+            <p className="caption">
+              Operator roles are sourced from environment variables at deploy time. There is no in-app grant
+              or revoke flow: a wallet appears here once it is listed and has signed in.
+            </p>
+            <ul className="admin-deploy-list">
+              <li>
+                <code>SONNELY_ADMIN_WALLETS</code> — full access: customers, treasury, reconciliation,
+                operators, and every workspace below.
+              </li>
+              <li>
+                <code>SONNELY_SUPPORT_WALLETS</code> — the support workspace: ticket triage, assignment,
+                and replies.
+              </li>
+              <li>
+                <code>SONNELY_FINANCE_WALLETS</code> — the finance workspace: provider statement
+                reconciliation.
+              </li>
+            </ul>
+            <p className="caption">
+              Set each variable to a comma-separated list of Solana wallets, redeploy the service, and ask
+              the operator to sign in once. Remove a wallet and redeploy to revoke access. When the roster
+              is empty, the first wallet to sign in becomes the bootstrap administrator.
+            </p>
+          </details>
+          <p className="caption">Wallets that have not signed in cannot be assigned work yet.</p>
         </>
       )}
     </section>

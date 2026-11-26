@@ -55,7 +55,7 @@ export function useCrm<T>(route: string, revision: number) {
       active = false;
     };
   }, [route, revision]);
-  return route !== "" && state?.route === route && state.revision === revision ? state : undefined;
+  return route !== "" && state?.route === route ? state : undefined;
 }
 
 export function Identity({

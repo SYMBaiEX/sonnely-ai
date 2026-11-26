@@ -118,18 +118,12 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
   if (account) return <CustomerWorkspace id={account} back={() => setAccount("")} open={setAccount} />;
   if (view === "support") return <SupportInbox open={canOpenCustomer ? setAccount : undefined} />;
 
-  const description = {
-    customers: "Find a wallet and review its account, referrals, payments, requests, and support history.",
-    support: "Review support requests, assign ownership, and update their status.",
-    traces: "Inspect request metadata, provider outcomes, and settlement amounts.",
-  };
   const title = { customers: "Customers", support: "Support inbox", traces: "Request traces" };
   return (
     <section className="panel stack-panel" aria-labelledby="crm-heading">
       <div className="between">
         <div>
           <h2 id="crm-heading">{title[view]}</h2>
-          <p className="caption">{description[view]}</p>
         </div>
         {view === "customers" && (
           <button type="button" className="button quiet small" onClick={refresh}>
