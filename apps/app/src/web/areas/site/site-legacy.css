@@ -3598,6 +3598,12 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
   gap: 14px;
   padding: clamp(13px, 2vw, 24px);
 }
+.site .contact-guide h2{
+  font-size: 1.5em;
+}
+.site .contact-resources h3{
+  font-size: 1.17em;
+}
 .site .contact-topics{
   display: grid;
   gap: 6px;
@@ -3620,6 +3626,9 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
 }
 .site .contact-topic svg:first-child,.site .contact-form > div:first-child > svg{
   color: var(--accent);
+}
+.site .contact-form > div:first-child > svg{
+  display: inline;
 }
 .site .contact-topic strong,.site .contact-topic span > span{
   display: block;
