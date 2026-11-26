@@ -170,11 +170,23 @@ export async function fetchTinfoil(init: RequestInit, path: `/v1/${string}` | "/
 }
 export type UpstreamCall = { response: Response; evidence?: { status: "attested_router"; config_repo: string; release_digest: string } };
 export type ChatAttempt = UpstreamCall & { candidate: ChatRoute; body: string };
+
+/** Upstream deadlines: a hung provider must never hold a credit reserve open. */
+export const upstreamTimeouts = { headersMs: 30_000, totalMs: 120_000, streamIdleMs: 60_000 } as const;
+
+function deadlineSignal(stream: boolean, signal: AbortSignal | undefined) {
+  const headers = new AbortController();
+  const timer = setTimeout(() => headers.abort(), upstreamTimeouts.headersMs);
+  timer.unref?.();
+  const signals = [headers.signal, ...(stream ? [] : [AbortSignal.timeout(upstreamTimeouts.totalMs)]), ...(signal ? [signal] : [])];
+  return { signal: AbortSignal.any(signals), headersReceived: () => clearTimeout(timer) };
+}
+
 export async function callChatCandidates(input: ChatInput, candidates: ChatRoute[], cacheSecret: string, signal?: AbortSignal): Promise<ChatAttempt> {
   const fallback = input.provider?.allow_fallbacks === true;
   for (const [index, candidate] of candidates.entries()) {
     const body = upstreamChatBody(input, candidate, cacheSecret);
-    const attempt = await callChat(candidate, body, signal);
+    const attempt = await callChat(candidate, body, input.stream === true, signal);
     if (
       !fallback ||
       attempt.response.status !== 429 ||
@@ -186,15 +198,20 @@ export async function callChatCandidates(input: ChatInput, candidates: ChatRoute
   }
   throw new Error("No chat candidate was available.");
 }
-export async function callChat(candidate: ChatRoute, body: string, signal?: AbortSignal): Promise<UpstreamCall> {
+export async function callChat(candidate: ChatRoute, body: string, stream = false, signal?: AbortSignal): Promise<UpstreamCall> {
+  const deadline = deadlineSignal(stream, signal);
   const init = {
     method: "POST",
     headers: { Authorization: "Bearer " + candidate.key, "Content-Type": "application/json" },
     body,
-    signal: signal ?? null,
+    signal: deadline.signal,
   } satisfies RequestInit;
-  if (candidate.provider === "tinfoil") return fetchTinfoil(init);
-  return { response: await fetch(providerUrls[candidate.provider] + "/v1/chat/completions", init) };
+  try {
+    if (candidate.provider === "tinfoil") return await fetchTinfoil(init);
+    return { response: await fetch(providerUrls[candidate.provider] + "/v1/chat/completions", init) };
+  } finally {
+    deadline.headersReceived();
+  }
 }
 
 const usageSchema = z.object({
@@ -325,9 +342,23 @@ function readSse(body: ReadableStream<Uint8Array>, onBytes?: (bytes: Uint8Array)
   let size = 0;
   let ended = false;
   const events = (async function* () {
+    const readWithIdleDeadline = async () => {
+      let idle: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          reader.read(),
+          new Promise<never>((_resolve, reject) => {
+            idle = setTimeout(() => reject(new Error("The provider stream sent no data for 60 seconds.")), upstreamTimeouts.streamIdleMs);
+            idle.unref?.();
+          }),
+        ]);
+      } finally {
+        if (idle) clearTimeout(idle);
+      }
+    };
     try {
       for (;;) {
-        const { value, done } = await reader.read();
+        const { value, done } = await readWithIdleDeadline();
         if (done) {
           ended = true;
           parser.feed(decoder.decode());
@@ -612,14 +643,20 @@ export async function callSpecialized(endpoint: string, selection: SpecializedSe
   if (input instanceof FormData) {
     const outbound = new FormData();
     for (const [name, value] of input.entries()) if (!(value instanceof File) || value.size > 0) outbound.append(name, value);
+    outbound.delete("max_cost_microusd");
     outbound.set("model", selection.upstreamModel);
     body = outbound;
   } else {
     headers["content-type"] = "application/json";
     body = JSON.stringify({ ...input, model: selection.upstreamModel, max_cost_microusd: undefined });
   }
-  if (selection.provider === "tinfoil") return fetchTinfoil({ method: "POST", headers, body }, providerPath as "/redact" | `/v1/${string}`);
-  return { response: await fetch(providerUrls[selection.provider] + providerPath, { method: "POST", headers, body }) };
+  const deadline = deadlineSignal(false, undefined);
+  try {
+    if (selection.provider === "tinfoil") return await fetchTinfoil({ method: "POST", headers, body, signal: deadline.signal }, providerPath as "/redact" | `/v1/${string}`);
+    return { response: await fetch(providerUrls[selection.provider] + providerPath, { method: "POST", headers, body, signal: deadline.signal }) };
+  } finally {
+    deadline.headersReceived();
+  }
 }
 export function extractUsage(endpoint: string, value: unknown): { input: number; output: number; costTokens: number } {
   if (typeof value === "object" && value !== null && "usage" in value) {

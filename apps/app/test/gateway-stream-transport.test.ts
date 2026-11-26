@@ -9,7 +9,7 @@ import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
 import { inferChat } from "../src/api/gateway.vibe";
-import { chatSseNodeResponse, chatSseResponse, type StreamFinal } from "../src/api/gateway/providers.ts";
+import { chatSseNodeResponse, chatSseResponse, upstreamTimeouts, type StreamFinal } from "../src/api/gateway/providers.ts";
 
 const wallet = "stream-transport-wallet";
 
@@ -153,5 +153,42 @@ describe("gateway stream transport", () => {
     expect(text).toContain('"type":"sonnely_error"');
     expect(text).toContain('"code":502');
     expect(settlements).toEqual([undefined]);
+  });
+
+  // FACTORY-R1 A1: a stream that goes silent must not hold the reserve open.
+  it("kills an upstream stream that sends no chunk within the idle timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const encoder = new TextEncoder();
+      let upstreamCancels = 0;
+      const upstream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"id":"idle-stream","object":"chat.completion.chunk","created":1,"choices":[{"index":0,"delta":{"content":"partial"},"finish_reason":null}]}\n\n'));
+        },
+        cancel() {
+          upstreamCancels += 1;
+        },
+      });
+      const settlements: Array<StreamFinal | undefined> = [];
+      const streamed = chatSseResponse({
+        upstream,
+        model: "requested/model",
+        includeUsage: true,
+        rememberId: () => undefined,
+        settle: (usage) => {
+          settlements.push(usage);
+          return Promise.resolve(undefined);
+        },
+      });
+      const reading = streamed.response.text();
+      await vi.advanceTimersByTimeAsync(upstreamTimeouts.streamIdleMs + 1_000);
+      const text = await reading;
+      await streamed.finished;
+      expect(text).toContain('"type":"sonnely_error"');
+      expect(upstreamCancels).toBeGreaterThan(0);
+      expect(settlements).toEqual([undefined]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
