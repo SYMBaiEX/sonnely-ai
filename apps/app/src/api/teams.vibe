@@ -4,7 +4,7 @@ import { machineApi } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
 export const teamsApi = Layer.unwrap(effect {
-  return machineApi("teams", try Machine)
+  return machineApi("teams", try Machine, { events: ["createTeam", "invite", "respond", "cancelInvite", "changeRole", "removeMember", "createProject", "updateProject", "archiveProject"], bind: ["actor"] })
 })
 
 /** The directory machine, kept under "teams". */

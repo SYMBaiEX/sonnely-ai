@@ -13,7 +13,7 @@ effect function catalogRows() {
 
 export const consoleApi = Layer.unwrap(effect {
   return Layer.mergeAll(
-    machineApi("console", try Machine),
+    machineApi("console", try Machine, { events: ["chooseTheme", "saveProfile", "setPlain", "setSaveOnDevice"] }),
     chatApi,
     logsApi,
     batchApi,

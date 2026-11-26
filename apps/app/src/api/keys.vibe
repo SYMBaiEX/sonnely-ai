@@ -28,7 +28,10 @@ effect function postEvent(keys: Keys.Machine.Shape) {
   }
   const wallet = try authenticatedWallet()
   if (wallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
-  const input = request.json catch () => undefined
+  const input = (request.json catch () => undefined) as { type?: unknown } | undefined
+  if (input == undefined || typeof input.type != "string" || !["create", "update", "revoke"].includes(input.type as string)) {
+    return try reply({ ok: false, error: "This event is not yours to send." }, 403)
+  }
   const sent = keys.receive(input, wallet) catch (error) => error
   const rejected = sent as { _tag?: string; state?: unknown }
   if (rejected && typeof rejected == "object" && "_tag" in rejected) {

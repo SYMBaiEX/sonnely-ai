@@ -265,7 +265,7 @@ function playgroundRoute(path: string, endpoint: string) {
 
 export const chatApi = Layer.unwrap(effect {
   return Layer.mergeAll(
-    machineApi("console__chat", try Machine),
+    machineApi("console__chat", try Machine, { events: ["newChat", "pickModel", "send", "reply", "edit", "open", "remove"] }),
     playgroundRoute("responses", "responses"),
     playgroundRoute("embeddings", "embeddings"),
     playgroundRoute("rerank", "rerank"),

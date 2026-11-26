@@ -70,7 +70,7 @@ function post(handler: (request: Request) => Promise<Response>, path: string, bo
 }
 
 async function grantOperator(handler: (request: Request) => Promise<Response>) {
-  const response = await post(handler, "/api/machines/admin", { type: "grant", wallet: operator, role: "Admin", at: 1, by: operator }, false);
+  const response = await post(handler, "/api/machines/admin", { type: "grant", wallet: operator, role: "Admin", at: 1 });
   if (!response.ok) throw new Error("operator grant failed: " + response.status);
 }
 
@@ -85,7 +85,7 @@ describe("admin API", () => {
     writeFileSync(join(dir, "workspace-keys"), JSON.stringify({ keys: [] }));
     writeFileSync(join(dir, "billing-ledger"), JSON.stringify({ balance: 0, entries: [] }));
     await grantOperator(handler);
-    const response = await handler(new Request("http://localhost/api/admin/overview?by=" + operator));
+    const response = await handler(new Request("http://localhost/api/admin/overview", { headers: { cookie: "sonnely_session=" + token } }));
     const body = await response.json() as Record<string, unknown>;
     expect({ status: response.status, keys: body.keys, billing: body.billing }).toEqual({
       status: 200,
@@ -98,6 +98,7 @@ describe("admin API", () => {
   // spec/app/admin/crm.md, "A balance adjustment is recorded without overdrawing the balance read"
   it("treats a repeated adjustment request as the same audited write", async () => {
     const { handler, dir } = makeAdminApi();
+    await grantOperator(handler);
     const adjustment = {
       id: "adjustment-repeat",
       activityId: "activity-repeat",
@@ -136,6 +137,7 @@ describe("admin API", () => {
   // spec/app/billing/ledger.md, "An adjustment credits or debits once per record"
   it("does not move credit when the audited record cannot be written", async () => {
     const { handler, dir } = makeAdminApi();
+    await grantOperator(handler);
     const collision = "adjustment-conflict";
     const note = await post(handler, "/api/machines/admin-crm", {
       type: "addNote",
@@ -144,7 +146,7 @@ describe("admin API", () => {
       actor: operator,
       note: "existing customer timeline row",
       now: 1,
-    }, false);
+    });
     const adjusted = await post(handler, "/api/admin/adjust", {
       id: collision,
       activityId: collision,

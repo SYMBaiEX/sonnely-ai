@@ -23,21 +23,54 @@ effect function getState(m: SenderMachine) {
   return try HttpServerResponse.json(try m.get(), { headers: noStore })
 }
 
-// The machine's POST reads the sender from the event's `by`: an event without a
-// `by` the decoder accepts is refused before the rules see it, and an event the
-// rules do not allow from that sender answers 409.
+// The machine's POST derives the trusted sender from the verified session — never from anything
+// the client supplied. Metering events like accrueUsage are internal and never cross HTTP.
+const adminUserEvents = ["grant", "revoke", "suspend", "reinstate", "register"]
+
 effect function postSender(m: SenderMachine) {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) {
     return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
   }
-  const input = request.json catch () => undefined
-  const body = input as { by?: unknown }
-  const sender = Admin.decodeSender(body === undefined || body === null ? undefined : body.by) catch () => undefined
+  const operator = try authenticatedWallet()
+  if (operator == "") return try HttpServerResponse.json({ ok: false, error: "sign in required" }, { status: 401, headers: noStore })
+  const input = (request.json catch () => undefined) as { type?: unknown } | undefined
+  if (input == undefined || typeof input.type != "string" || !adminUserEvents.includes(input.type as string)) {
+    return try HttpServerResponse.json({ ok: false, error: "This event is not yours to send." }, { status: 403, headers: noStore })
+  }
+  const sender = Admin.decodeSender(operator) catch () => undefined
   if (sender === undefined) {
     return try HttpServerResponse.json({ ok: false, error: "NotASender" }, { status: 400, headers: noStore })
   }
   const sent = m.receive(input, sender) catch (error) => error
+  const rejected = sent as { _tag?: string; state?: unknown }
+  if (rejected && typeof rejected === "object" && "_tag" in rejected) {
+    const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
+    return try HttpServerResponse.json({ ok: false, error: rejected._tag, state: rejected.state }, { status, headers: noStore })
+  }
+  return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
+}
+
+/** The session wallet is a listed operator, or the empty roster's bootstrap still holds. */
+effect function operatorRequired(admin: Admin.Machine.Shape) {
+  const operator = try authenticatedWallet()
+  if (operator == "") return ""
+  const registry = try admin.get()
+  if (!registry.ops.roster.some((o) => o.wallet == operator)) return ""
+  return operator
+}
+
+// Operator-only machines (CRM, referrals): every write over HTTP requires a listed operator.
+// Operators are trusted with their own identity fields; the machine rules constrain the rest.
+effect function postOperatorEvent(admin: Admin.Machine.Shape, m: SenderMachine) {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
+  }
+  const operator = try operatorRequired(admin)
+  if (operator == "") return try HttpServerResponse.json({ ok: false, error: "operator access required" }, { status: 403, headers: noStore })
+  const input = request.json catch () => undefined
+  const sent = m.receive(input, operator) catch (error) => error
   const rejected = sent as { _tag?: string; state?: unknown }
   if (rejected && typeof rejected === "object" && "_tag" in rejected) {
     const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
@@ -56,10 +89,8 @@ effect function getStream(m: SenderMachine) {
 
 /** The shared state the admin views join, held only for a listed operator. */
 effect function overview(admin: Admin.Machine.Shape) {
-  const request = try HttpServerRequest.HttpServerRequest
-  const by = new URL(request.url, "http://localhost").searchParams.get("by") ?? ""
-  const a = try admin.get()
-  if (!a.ops.roster.some((o) => o.wallet === by)) {
+  const operator = try operatorRequired(admin)
+  if (operator == "") {
     return try HttpServerResponse.json({ error: "operator access required" }, { status: 403, headers: noStore })
   }
   const kv = try KeyValueStore.KeyValueStore
@@ -104,7 +135,7 @@ effect function postAdjust() {
   }
   const admin = try Admin.Machine
   const registry = try admin.get()
-  if (registry.ops.roster.length > 0 && !registry.ops.roster.some((o) => o.wallet == operator)) {
+  if (!registry.ops.roster.some((o) => o.wallet == operator)) {
     return try HttpServerResponse.json({ ok: false, error: "operator access required" }, { status: 403, headers: noStore })
   }
   const raw = request.json catch () => undefined
@@ -191,8 +222,14 @@ export const adminApi = Layer.unwrap(effect {
     HttpRouter.add("GET", "/api/machines/admin/stream", getStream(admin)),
     machineRegistration("admin", admin),
     HttpRouter.add("GET", "/api/admin/overview", overview(admin)),
-    machineApi("admin-crm", crm),
-    machineApi("admin-referrals", referrals),
+    HttpRouter.add("GET", "/api/machines/admin-crm", getState(crm)),
+    HttpRouter.add("POST", "/api/machines/admin-crm", provideService(postOperatorEvent(admin, crm), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("GET", "/api/machines/admin-crm/stream", getStream(crm)),
+    machineRegistration("admin-crm", crm),
+    HttpRouter.add("GET", "/api/machines/admin-referrals", getState(referrals)),
+    HttpRouter.add("POST", "/api/machines/admin-referrals", provideService(postOperatorEvent(admin, referrals), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("GET", "/api/machines/admin-referrals/stream", getStream(referrals)),
+    machineRegistration("admin-referrals", referrals),
   )
 })
 

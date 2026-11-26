@@ -4,7 +4,7 @@ import { machineApi } from "../machines.vibe"
 import { store } from "../serve.vibe"
 
 export const navApi = Layer.unwrap(effect {
-  return machineApi("nav", try Machine)
+  return machineApi("nav", try Machine, { events: ["open", "back"] })
 })
 
 export function navState(dir: string) {

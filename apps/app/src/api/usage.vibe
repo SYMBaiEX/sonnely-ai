@@ -21,23 +21,6 @@ effect function getState(usage: Usage.Machine.Shape) {
   return try reply(project(try usage.get(), wallet))
 }
 
-effect function postEvent(usage: Usage.Machine.Shape) {
-  const request = try HttpServerRequest.HttpServerRequest
-  if (!request.headers["content-type"]?.startsWith("application/json")) {
-    return try reply({ error: "send application/json" }, 415)
-  }
-  const wallet = try authenticatedWallet()
-  if (wallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
-  const input = request.json catch () => undefined
-  const sent = usage.receive(input, wallet) catch (error) => error
-  const rejected = sent as { _tag?: string; state?: unknown }
-  if (rejected && typeof rejected == "object" && "_tag" in rejected) {
-    const status = rejected._tag == "NotAnEvent" ? 400 : rejected._tag == "Rejected" ? 409 : 500
-    return try reply({ ok: false, error: rejected._tag, state: rejected.state }, status)
-  }
-  return try reply({ ok: true, state: project(sent as Usage.Usage, wallet) })
-}
-
 effect function getStream(usage: Usage.Machine.Shape) {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
@@ -52,7 +35,6 @@ export const usageApi = Layer.unwrap(effect {
   const usage = try Usage.Machine
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/machines/usage", getState(usage)),
-    HttpRouter.add("POST", "/api/machines/usage", provideService(postEvent(usage), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("GET", "/api/machines/usage/stream", getStream(usage)),
   )
 })

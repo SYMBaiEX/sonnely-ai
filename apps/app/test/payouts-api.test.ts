@@ -91,7 +91,7 @@ function post(handler: (request: Request) => Promise<Response>, path: string, bo
 }
 
 async function grantOperator(handler: (request: Request) => Promise<Response>) {
-  const response = await post(handler, "/api/machines/admin", { type: "grant", wallet: operator, role: "Admin", at: 1, by: operator }, false);
+  const response = await post(handler, "/api/machines/admin", { type: "grant", wallet: operator, role: "Admin", at: 1 });
   if (!response.ok) throw new Error("operator grant failed: " + response.status);
 }
 

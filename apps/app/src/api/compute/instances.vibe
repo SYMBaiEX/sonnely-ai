@@ -3,6 +3,7 @@ import * as Instances from "../../../gen/app__compute__instances.effect.vibe"
 import * as Ledger from "../../../gen/app__billing__ledger.effect.vibe"
 import { machineReadApi } from "../../machines.vibe"
 import { store } from "../../serve.vibe"
+import { authenticatedWallet } from "../session.vibe"
 
 /** The runs, kept under "instances". */
 export const instances = Instances.stored("instances")
@@ -20,12 +21,14 @@ effect function openRun() {
   if (!request.headers["content-type"]?.startsWith("application/json")) {
     return try reply({ ok: false, error: "send application/json" }, 415)
   }
+  const sessionWallet = try authenticatedWallet()
+  if (sessionWallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
   const raw = request.json catch () => undefined
   const parsed = Instances.parseEvent(raw)
   if (parsed == undefined || parsed.type != "open") {
     return try reply({ ok: false, error: "A compute open event is required." }, 400)
   }
-  const event = parsed
+  const event = { ...parsed, wallet: sessionWallet }
   const runs = try Instances.Machine
   const current = try runs.get()
   const existing = current.runs.find((r) => r.wallet == event.wallet && r.reference == event.reference)
@@ -55,10 +58,11 @@ effect function stopRun() {
     return try reply({ ok: false, error: "send application/json" }, 415)
   }
   const raw = request.json catch () => undefined
-  const input = raw as { id?: unknown; wallet?: unknown } | undefined
+  const input = raw as { id?: unknown } | undefined
   const id = typeof input?.id == "string" ? input.id : ""
-  const wallet = typeof input?.wallet == "string" ? input.wallet : ""
-  if (id == "" || wallet == "") return try reply({ ok: false, error: "A run id and wallet are required." }, 400)
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
+  if (id == "") return try reply({ ok: false, error: "A run id is required." }, 400)
   const runs = try Instances.Machine
   const current = try runs.get()
   const run = current.runs.find((r) => r.id == id)

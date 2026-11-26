@@ -7,7 +7,7 @@ import { store } from "../../serve.vibe"
 export const market = stored("market")
 
 export const marketApi = Layer.unwrap(effect {
-  return machineApi("market", try Machine)
+  return machineApi("market", try Machine, { events: [] })
 })
 
 export function marketState(dir: string) {

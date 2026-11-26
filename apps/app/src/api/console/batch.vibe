@@ -41,7 +41,7 @@ effect function runRoute() {
 
 export const batchApi = Layer.unwrap(effect {
   return Layer.mergeAll(
-    machineApi("console__batch", try Machine),
+    machineApi("console__batch", try Machine, { events: ["submit", "start", "review", "interrupt", "retry", "clear", "block", "failed", "succeed"] }),
     HttpRouter.add("POST", "/api/console/batch/run", provideService(runRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
   )
 })

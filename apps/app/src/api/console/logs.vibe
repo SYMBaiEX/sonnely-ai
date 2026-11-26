@@ -6,7 +6,7 @@ import { machineApi } from "../../machines.vibe"
 import { store } from "../../serve.vibe"
 
 export const logsApi = Layer.unwrap(effect {
-  return machineApi("console__logs", try Machine)
+  return machineApi("console__logs", try Machine, { events: ["resetFilters", "setKeyName", "setModel", "setProvider", "setShowing", "setWindow"] })
 })
 
 export function logsState(dir: string) {

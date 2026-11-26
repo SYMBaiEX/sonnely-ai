@@ -317,7 +317,7 @@
     },
     "spec/app/billing/index.md": {
       "@document": [
-        "8936235ddf26"
+        "53f2a96a37a0"
       ]
     },
     "spec/app/billing/ledger.md": {
@@ -436,6 +436,89 @@
         "e3b0c44298fc",
         "801263fc8d4b",
         "3ddd563e743a"
+      ]
+    },
+    "spec/app/billing/payouts.md": {
+      "@document": [
+        "de1beba11205"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / A payout binds margin to one exact treasury transfer": [
+        "660163390686",
+        "d283cd5e2d5c"
+      ],
+      "## Story: Prepare a margin payout": [
+        "2640b9d76f1a"
+      ],
+      "Story: Prepare a margin payout / A payout covers only the markup share of the revenue window": [
+        "564e599da44b",
+        "30087cdf4885",
+        "3f80470acc84"
+      ],
+      "Story: Prepare a margin payout / References are never reused": [
+        "e3b0c44298fc",
+        "af31600204a2",
+        "3f80470acc84"
+      ],
+      "Story: Prepare a margin payout / Every payout names the payout wallet and a positive margin amount": [
+        "e3b0c44298fc",
+        "04757af11421",
+        "3f80470acc84"
+      ],
+      "Story: Prepare a margin payout / A payout can be prepared": [
+        "e3b0c44298fc",
+        "60096d7b4a66",
+        "3f80470acc84"
+      ],
+      "## Story: Record and verify the external execution": [
+        "889e3bb1eb4c"
+      ],
+      "Story: Record and verify the external execution / Execution records one signature for one prepared payout": [
+        "fd51f4b4f9c4",
+        "326697732189",
+        "3f80470acc84"
+      ],
+      "Story: Record and verify the external execution / Verification requires the same signature and exact prepared terms": [
+        "c6bb38156a0b",
+        "ed751857b2a0",
+        "3f80470acc84"
+      ],
+      "Story: Record and verify the external execution / A failed execution releases the reservation, but a verified payout never fails": [
+        "c409d3be6855",
+        "b81c49743cfa",
+        "127eca84fb03"
+      ],
+      "Story: Record and verify the external execution / A prepared payout can be cancelled before execution": [
+        "a18a4d475d8f",
+        "c0aa5bd1c81c",
+        "3f80470acc84"
+      ],
+      "Story: Record and verify the external execution / A signature names at most one payout": [
+        "e3b0c44298fc",
+        "8d3dcd29034a",
+        "3f80470acc84"
+      ],
+      "Story: Record and verify the external execution / Once prepared, payout terms never change and terminal states never reopen": [
+        "e3b0c44298fc",
+        "3ece98f05b7a",
+        "3f80470acc84"
+      ],
+      "Story: Record and verify the external execution / A payout can be verified": [
+        "e3b0c44298fc",
+        "c1f2eddd97be",
+        "3f80470acc84"
+      ],
+      "Story: Record and verify the external execution / A prepared payout can be cancelled": [
+        "e3b0c44298fc",
+        "51b42ba69ffc",
+        "3f80470acc84"
+      ],
+      "Story: Record and verify the external execution / Verification is idempotent": [
+        "e3b0c44298fc",
+        "48effd474be0",
+        "127eca84fb03"
       ]
     },
     "spec/app/compute/index.md": {
@@ -1027,13 +1110,13 @@
       ],
       "Domain / The catalog lists every guide in sidebar order": [
         "d5fc8b50213f",
-        "ad08a8c66eda",
+        "cefa6c1b0759",
         "b2644373e008"
       ],
       "Domain / The docs a slug names are found in the catalog": [
         "f6657d389203",
         "d33b559b91da",
-        "30e7355a1a2c"
+        "cabdbc216043"
       ],
       "## Story: Read the documentation": [
         "857732ca033e"
@@ -1041,27 +1124,27 @@
       "Story: Read the documentation / Every guide is listed once": [
         "1deed32c5101",
         "07cdc09c1c1a",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ],
       "Story: Read the documentation / The sidebar leads with the overview": [
         "e3b0c44298fc",
         "641d2b553d05",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ],
       "Story: Read the documentation / Every guide sits in a named section": [
         "0baaf63e6497",
         "068e26040bf6",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ],
       "Story: Read the documentation / Each section lists its guides": [
         "bd9579bf4101",
         "2164593c4d2c",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ],
       "Story: Read the documentation / A guide is found by its slug": [
         "e3b0c44298fc",
         "1fc12c476627",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ],
       "## Story: Move between guides": [
         "7e59cb118b33"
@@ -1069,17 +1152,17 @@
       "Story: Move between guides / Previous and next follow the catalog order": [
         "dd17af011d87",
         "70aa77234e30",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ],
       "Story: Move between guides / The ends of the catalog have no neighbour": [
         "e3b0c44298fc",
         "9f64180365d3",
-        "30e7355a1a2c"
+        "cabdbc216043"
       ],
       "Story: Move between guides / A guide's neighbours are guides": [
         "e3b0c44298fc",
         "db17aa7f1252",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ],
       "## Story: Serve the documentation as markdown": [
         "ecd86e492de8"
@@ -1087,17 +1170,17 @@
       "Story: Serve the documentation as markdown / The catalog holds the guides the product ships": [
         "14f7b80cbcf6",
         "6ada5d8c56fd",
-        "30e7355a1a2c"
+        "cabdbc216043"
       ],
       "Story: Serve the documentation as markdown / Every doc a feed serves is readable": [
         "9b5bc8b27cbd",
         "75575e7bfa1c",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ],
       "Story: Serve the documentation as markdown / Every endpoint the reference lists is documented": [
         "9315137d3e66",
         "da9dc41d0c1b",
-        "6f133c4d45a7"
+        "7b64654c7b9b"
       ]
     },
     "spec/app/gateway/batch.md": {
@@ -1573,14 +1656,14 @@
         "e3b0c44298fc"
       ],
       "Domain / Pages and console sections": [
-        "3d53dd5da64a",
-        "3702da51208c",
+        "2055e32e7565",
+        "84fc3f599a15",
         "c2829debbd38"
       ],
       "Domain / Navigation starts on the home page with nowhere to go back to": [
         "e3b0c44298fc",
-        "bf84c578b8fe",
-        "10cc1dcb0139"
+        "f92ea617d1ba",
+        "334b11114fa2"
       ],
       "## Story: Move around": [
         "7f6064769965"
@@ -1588,27 +1671,27 @@
       "Story: Move around / Any page can be opened": [
         "5d64f362f658",
         "18a2e54b8831",
-        "10cc1dcb0139"
+        "334b11114fa2"
       ],
       "Story: Move around / Going back is possible only after opening a page": [
         "e3b0c44298fc",
         "2e10b4a349ac",
-        "89368a2aa5de"
+        "9d1238280a2d"
       ],
       "Story: Move around / Opening a page leaves it showing": [
         "e3b0c44298fc",
         "747bc12f386b",
-        "10cc1dcb0139"
+        "334b11114fa2"
       ],
       "Story: Move around / Opening then going back returns where it started": [
         "e3b0c44298fc",
         "16d63d0e33c7",
-        "268a70a8c153"
+        "dee565299c19"
       ],
       "Story: Move around / Going back twice needs two pages opened": [
         "e3b0c44298fc",
         "8da3ffea64e8",
-        "10cc1dcb0139"
+        "334b11114fa2"
       ]
     },
     "spec/app/session.md": {
