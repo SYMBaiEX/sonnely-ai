@@ -3,6 +3,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, CircleCheck, Fingerprint, Terminal
 import { useState, type ReactNode } from "react";
 import { ReaderNavigation, SiteLead, type SiteBrief } from "./chrome.tsx";
 import {
+  apiBasePath,
   artifactLimit,
   computeMarkup,
   computePlans,
@@ -234,6 +235,21 @@ function Inference() {
             ]}
           />
         </ProductSample>
+        <ProductSample label="One completion, condensed · example">
+          <pre>
+            <code>
+              {[
+                "POST " + apiBasePath + "/chat/completions",
+                "",
+                '→ { "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",',
+                '    "messages": [{ "role": "user", "content": "…" }] }',
+                "",
+                '← { "choices": [{ "message": { "content": "…" } }],',
+                '    "usage": { "prompt_tokens": 18, "completion_tokens": 64 } }',
+              ].join("\n")}
+            </code>
+          </pre>
+        </ProductSample>
         <NextLink href="/models#available-models">Compare models and prices</NextLink>
       </ProductSection>
       <ProductSection id="streaming" title="Stream with a budget.">
@@ -448,6 +464,15 @@ function Blackboxes() {
             ]}
           />
         </ProductSample>
+        <ProductSample label={"Lease estimates · " + plan.size}>
+          <SampleFacts
+            rows={plan.minutes.map((minutes) => [
+              minutes + " minutes",
+              creditBalance(computeQuote("blackboxes", minutes).total),
+            ])}
+          />
+          <p className={caption}>Estimates include metered compute, markup, and the run fee.</p>
+        </ProductSample>
         <NextLink href="/console/blackboxes">Check pilot access</NextLink>
       </ProductSection>
     </>
@@ -483,6 +508,15 @@ function DryDocks() {
         </ol>
       </ProductSample>
       <p>Artifact downloads are limited to {artifactLimit / 1024 ** 2} MiB.</p>
+      <ProductSample label="Build estimates">
+        <SampleFacts
+          rows={plan.minutes.map((minutes) => [
+            minutes + " minutes",
+            creditBalance(computeQuote("dry-docks", minutes).total),
+          ])}
+        />
+        <p className={caption}>Estimates include metered compute, markup, and the run fee.</p>
+      </ProductSample>
       <NextLink href="/console/dry-docks">Open Dry Docks</NextLink>
     </ProductSection>
   );
