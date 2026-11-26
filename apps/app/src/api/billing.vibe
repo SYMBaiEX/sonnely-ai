@@ -5,6 +5,10 @@
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Deposits from "../../gen/app__billing__deposits.effect.vibe"
+import * as Usage from "../../gen/app__usage.effect.vibe"
+import * as WorkspaceKeys from "../../gen/app__keys.effect.vibe"
+import * as Teams from "../../gen/app__teams.effect.vibe"
+import * as Requests from "../../gen/app__gateway__requests.effect.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
 import * as intents from "./billing/intents.ts"
 import * as solana from "./billing/solana.ts"
@@ -387,6 +391,58 @@ effect function sweepDeposits(nextChecks: Map<string, number>) {
   return { checked: candidates.length, credited }
 }
 
+/** A reserve whose metering row has been pending this long is orphaned: the serving process is gone. */
+const orphanAfterMs = 15 * 60 * 1000
+
+// spec/app/billing/ledger.md, "A failed reservation releases its whole hold": a reservation whose
+// request died unsettled — the process was redeployed or crashed mid-stream — is the failure the
+// settlement path never reached, so the sweep finishes its unwind exactly as the dead request would
+// have: the hold releases, key and project budgets refund, the metering rows close faulted.
+export effect function sweepOrphanedReservations() {
+  const usage = try Usage.Machine
+  const rows = (try usage.get()).rows
+  const now = try Clock.currentTimeMillis
+  const orphans = rows.filter((row) => row.status == "Pending" && now - row.time > orphanAfterMs)
+  let released = 0
+  for (const row of orphans) {
+    const wallet = row.wallet
+    if (wallet == "") continue
+    const ledger = try Ledger.Machine
+    const held = Ledger.heldOf(try ledger.get(), wallet, row.id)
+    if (held <= 0) {
+      usage.send({ type: "release", id: row.id }, wallet) catch () => undefined
+      continue
+    }
+    const day = new Date(row.time).toISOString().slice(0, 10)
+    if (row.keyId != "") {
+      const keys = try WorkspaceKeys.Machine
+      keys.send({ type: "refundUse", id: row.keyId, amount: row.cost, day }, wallet) catch () => undefined
+    }
+    if (row.project != "") {
+      const teams = try Teams.Machine
+      teams.send({ type: "releaseProject", projectId: row.project, amount: row.cost }) catch () => undefined
+    }
+    ledger.send({ type: "release", wallet, detail: row.id }) catch () => undefined
+    usage.send({ type: "release", id: row.id }, wallet) catch () => undefined
+    const requests = try Requests.Machine
+    requests.send({ type: "fault", ref: row.id }) catch () => undefined
+    released += 1
+  }
+  return { orphans: orphans.length, released }
+}
+
+effect function reconciliationLoop() {
+  for (;;) {
+    sweepOrphanedReservations() catch () => undefined
+    try sleep("60 seconds")
+  }
+}
+
+/** Orphaned reserves block real money without any operator action, so this worker is always on. */
+export const reconciliationWorker = Layer.effectDiscard(effect {
+  fork.detached reconciliationLoop()
+})
+
 effect function recoveryLoop() {
   const nextChecks = new Map<string, number>()
   for (;;) {
@@ -458,5 +514,5 @@ export function billingState(dir: string) {
     Layer.provide(Deposits.stored("billing-deposits"), storage),
     storage,
   )
-  return Layer.provideMerge(depositRecoveryWorker, machines)
+  return Layer.provideMerge(depositRecoveryWorker, Layer.mergeAll(machines, reconciliationWorker))
 }
