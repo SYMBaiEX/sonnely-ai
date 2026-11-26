@@ -561,16 +561,22 @@ export function AdminInvoices() {
   useEffect(() => {
     void load();
   }, [load]);
-  return (
-    <>
-      {error && (
+  if (error) {
+    return (
+      <section className="panel stack-panel">
+        <h2>Provider invoices</h2>
         <p className="error" role="alert">
           {error}
         </p>
-      )}
-      <Invoices invoices={invoices} refresh={() => void load()} />
-    </>
-  );
+        <div className="actions">
+          <button className="button quiet small" type="button" onClick={() => void load()}>
+            Retry
+          </button>
+        </div>
+      </section>
+    );
+  }
+  return <Invoices invoices={invoices} refresh={() => void load()} />;
 }
 
 export function AdminGateway() {

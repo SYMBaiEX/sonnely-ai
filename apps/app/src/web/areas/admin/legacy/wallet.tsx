@@ -390,31 +390,21 @@ export async function request<T>(task: string, data?: unknown): Promise<T> {
   const body = (data ?? {}) as any;
   if (task === "admin") return (await overview(await readMachines())) as T;
   if (task === "compute?admin=capacity") return { state: "unavailable", enabled: false, active: null, limit: null } as T;
-  if (task === "admin-invoices") return [] as T;
+  if (task === "admin-invoices") throw new Error("Provider invoices are not modeled by the vibestack staging shell.");
   if (task.startsWith("admin-gateway")) {
-    if (new URLSearchParams(task.split("?")[1]).get("requestId")) throw new Error("UsageMax reporting is not configured in the vibestack staging shell.");
-    const now = Date.now();
-    return {
-      operations: null,
-      delivery: { queued: 0, failed: 0, oldestQueuedAt: null, truncated: false },
-      invoices: [],
-      automation: {
-        status: "unavailable",
-        emailEnabled: false,
-        fallbackConfigured: false,
-        checks: [],
-        email: [],
-        generatedAt: now,
-      },
-    } as T;
+    throw new Error("UsageMax reporting is not configured in the vibestack staging shell.");
   }
-  if (task === "confidential-payments/review" || task.startsWith("confidential-payments/review?")) return { payments: [], nextCursor: null } as T;
-  if (task === "admin-privacy-rings") return { cluster: "mainnet", treasury: "11111111111111111111111111111111", registered: false, canPrepare: false } as T;
-  if (task === "admin-alert-email-test") return { ok: true } as T;
-  if (task === "admin-reconcile") return { count: 0 } as T;
+  if (task === "confidential-payments/review" || task.startsWith("confidential-payments/review?")) {
+    throw new Error("Confidential payment review is not modeled by the vibestack admin machine.");
+  }
+  if (task === "admin-privacy-rings") throw new Error("Privacy Rings registration is not modeled by the vibestack staging shell.");
+  if (task === "admin-alert-email-test") throw new Error("Alert delivery is not configured in the vibestack staging shell.");
+  if (task === "admin-reconcile") throw new Error("Provider cost reconciliation is not modeled by the vibestack staging shell.");
   if (task === "admin-open-payout") throw new Error("Treasury payouts are not modeled by the vibestack admin machine.");
-  if (task === "admin-confirm-payout") return { ok: false } as T;
-  if (task === "admin-invoice-preview" || task === "admin-invoice-record") return [] as T;
+  if (task === "admin-confirm-payout") throw new Error("Treasury payouts are not modeled by the vibestack admin machine.");
+  if (task === "admin-invoice-preview" || task === "admin-invoice-record") {
+    throw new Error("Provider invoices are not modeled by the vibestack staging shell.");
+  }
   if (task === "admin-suspend") return (await postAdmin({ type: body.suspended ? "suspend" : "reinstate", id: body.account, at: Date.now() })) as T;
   if (task === "admin-revoke-key") return (await postMachine("workspace-keys", { type: "revoke", id: body.id })) as T;
   if (task === "admin-reply") {
@@ -486,7 +476,8 @@ export async function request<T>(task: string, data?: unknown): Promise<T> {
     if (!response.ok || answer.ok === false) throw new Error(answer.error ?? "The adjustment was refused.");
     return { ok: true } as T;
   }
-  if (task === "admin-reset-sessions" || task === "admin-resolve-credit") return { ok: true } as T;
+  if (task === "admin-reset-sessions") throw new Error("Session resets are not modeled by the vibestack session machine.");
+  if (task === "admin-resolve-credit") throw new Error("Held credit resolution is not modeled by the vibestack usage machine.");
   if (task.startsWith("confidential-payments/")) throw new Error("Confidential payment review is not modeled by the vibestack admin machine.");
   throw new Error("The vibestack staging shell does not implement " + task + " yet.");
 }
