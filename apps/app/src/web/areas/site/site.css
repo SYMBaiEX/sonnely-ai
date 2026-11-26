@@ -9,6 +9,63 @@
   content: none;
 }
 
+.product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  align-items: center;
+}
+
+.product-compare {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+}
+
+.product-compare > div {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 0.42fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.35rem 1.2rem;
+  padding: 0.68rem 0;
+}
+
+.product-compare > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.product-compare-head {
+  padding-bottom: 0.35rem;
+}
+
+.product-compare-head span {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 610;
+}
+
+.product-compare dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.product-compare dd {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .product-compare > div {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .product-compare-head span:first-child,
+  .product-compare dt {
+    grid-column: 1 / -1;
+  }
+}
+
 .verify-grid {
   display: grid;
   gap: clamp(16px, 2.5vw, 28px);

@@ -283,31 +283,129 @@ function Inference() {
 
 const computeProductIds = ["blackboxes", "dry-docks"] as const;
 
+const computeComparison = [
+  [
+    "Runs",
+    "A confidential VM you rent: NGINX, playground, or inspector presets, or a public image pinned by digest",
+    "An isolated build for a public GitHub repository at an exact commit",
+  ],
+  ["Machine", computePlans.blackboxes.size, computePlans["dry-docks"].size + " Boat sandbox"],
+  [
+    "Lease terms",
+    computePlans.blackboxes.minutes.join(", ") + " minutes",
+    computePlans["dry-docks"].minutes.join(", ") + " minutes",
+  ],
+  [
+    "Smallest estimate",
+    creditBalance(computeQuote("blackboxes", 15).total) + " for 15 minutes",
+    creditBalance(computeQuote("dry-docks", 5).total) + " for 5 minutes",
+  ],
+  [
+    "You receive",
+    "Attestation evidence, endpoint access, logs, and receipts",
+    "Live build logs and a downloadable artifact archive",
+  ],
+] as const;
+
 function Compute() {
   return (
-    <ProductSection id="products" title="Compute products">
-      <div className="product-computeList">
-        {computeProductIds.map((id) => {
-          const Icon = id === "blackboxes" ? Fingerprint : Terminal;
-          const title = computePlans[id].title;
-          const detail =
-            id === "blackboxes"
-              ? "Attested confidential VMs"
-              : "Isolated public-repository builds on Boat";
-          return (
-            <a id={id} key={id} href={"/" + id}>
-              <Icon aria-hidden="true" size={20} />
-              <span>
-                <strong>{title}</strong>
-                <small>{detail}</small>
-              </span>
-              <ArrowUpRight aria-hidden="true" size={16} />
-            </a>
-          );
-        })}
-      </div>
-      <NextLink href="/models#billing">See compute pricing</NextLink>
-    </ProductSection>
+    <>
+      <ProductSection id="products" title="Two ways to run work.">
+        <p>
+          Compute products meter machine time into the same credit balance as inference. Quotes
+          include metered compute cost, a {computeMarkup}% service markup, and a fixed fee per
+          billable run.
+        </p>
+        <div className="product-computeList">
+          {computeProductIds.map((id) => {
+            const Icon = id === "blackboxes" ? Fingerprint : Terminal;
+            const title = computePlans[id].title;
+            const detail =
+              id === "blackboxes"
+                ? "Attested confidential VMs"
+                : "Isolated public-repository builds on Boat";
+            return (
+              <a id={id} key={id} href={"/" + id}>
+                <Icon aria-hidden="true" size={20} />
+                <span>
+                  <strong>{title}</strong>
+                  <small>{detail}</small>
+                </span>
+                <ArrowUpRight aria-hidden="true" size={16} />
+              </a>
+            );
+          })}
+        </div>
+        <ProductSample label="Blackboxes compared with Dry Docks">
+          <dl className="product-compare">
+            <div className="product-compare-head" aria-hidden="true">
+              <span />
+              <span>Blackboxes</span>
+              <span>Dry Docks</span>
+            </div>
+            {computeComparison.map(([label, blackboxes, dryDocks]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{blackboxes}</dd>
+                <dd>{dryDocks}</dd>
+              </div>
+            ))}
+          </dl>
+        </ProductSample>
+        <NextLink href="/models#billing">See compute pricing</NextLink>
+      </ProductSection>
+      <ProductSection id="lifecycle" title="A rental, start to finish.">
+        <p>
+          Each Blackbox lease is time-limited and expires automatically. Review the credit hold
+          before the machine starts, inspect the workload attestation while it runs, and stop the
+          VM early when the work is done.
+        </p>
+        <ProductSample label="Blackbox lifecycle · example">
+          <ol className="product-buildSteps">
+            <li>
+              <strong>Configure</strong>
+              <span>Preset or pinned image · machine · SSD · term</span>
+            </li>
+            <li>
+              <strong>Review the hold</strong>
+              <span>Quote covers compute, markup, and the run fee</span>
+            </li>
+            <li>
+              <strong>Inspect</strong>
+              <span>Attestation evidence and lifecycle status</span>
+            </li>
+            <li>
+              <strong>Settle</strong>
+              <span>Stop early or let the lease expire</span>
+            </li>
+          </ol>
+        </ProductSample>
+        <div className="product-actions">
+          <NextLink href="/console/blackboxes">Rent a Blackbox</NextLink>
+          <NextLink href="/blackboxes">Read the Blackboxes overview</NextLink>
+        </div>
+      </ProductSection>
+      <ProductSection id="builds" title="A build, pinned and torn down.">
+        <p>
+          Dry Docks runs one build at a time in a disposable Boat sandbox. Pin the repository URL
+          and commit SHA, follow the streamed log while it runs, and download the artifact archive
+          before retention expires.
+        </p>
+        <ProductSample label="Dry Dock build · example">
+          <SampleFacts
+            rows={[
+              ["Source", "Public GitHub commit"],
+              ["Runtime", computePlans["dry-docks"].size],
+              ["Artifacts", "Archive up to " + artifactLimit / 1024 ** 2 + " MiB"],
+            ]}
+          />
+        </ProductSample>
+        <div className="product-actions">
+          <NextLink href="/console/dry-docks">Open Dry Docks</NextLink>
+          <NextLink href="/dry-docks">Read the Dry Docks overview</NextLink>
+        </div>
+      </ProductSection>
+    </>
   );
 }
 
@@ -411,7 +509,11 @@ const pageSections: Record<ProductPageId, readonly (readonly [string, string])[]
     ["alerts", "Alerts"],
     ["evaluations", "Evaluations"],
   ],
-  compute: [],
+  compute: [
+    ["products", "Products"],
+    ["lifecycle", "Rental lifecycle"],
+    ["builds", "Builds"],
+  ],
   blackboxes: [
     ["rental", "Rental configuration"],
     ["attestation", "Attestation"],

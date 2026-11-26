@@ -6297,9 +6297,9 @@ html[data-initial-theme="light"] .site .home {
 .site {
 .product-section {
   display: grid;
-  grid-template-columns: minmax(0, 0.58fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 15.5rem) minmax(0, 1fr);
   align-items: start;
-  gap: clamp(1rem, 3.8vw, 3.6rem);
+  gap: clamp(1rem, 2.6vw, 2.4rem);
   padding-block-start: clamp(1rem, 2.3vw, 2rem);
 }
 .product-index {
@@ -6338,14 +6338,14 @@ html[data-initial-theme="light"] .site .home {
   align-items: start;
 }
 .product-product {
-  gap: clamp(48px, 7vw, 96px);
+  gap: clamp(34px, 4.6vw, 62px);
 }
 .product-withNavigation {
   grid-template-columns: minmax(144px, 0.37fr) minmax(0, 2fr);
   gap: clamp(18px, 3vw, 48px);
 }
 .product-page {
-  gap: clamp(36px, 5vw, 74px);
+  gap: clamp(30px, 3.8vw, 56px);
 }
 .product-sectionTitle::before {
   content: "";
