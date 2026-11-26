@@ -12,7 +12,8 @@ Every page a visitor can be on. A console page is one of its sections; the
 admin section can name an admin area. `Journal` is the journal's index and
 `Post` one of its articles. `Model` carries the provider and the model id,
 `Post` and `Doc` carry their slugs, `Verify` may carry the receipt it was
-opened to inspect.
+opened to inspect. `Contact` is the baseline contact page; `ContactOne`,
+`ContactTwo`, `ContactThree` and `ContactFour` are working redesign concepts.
 
 ```quint
 type Section =
@@ -24,6 +25,7 @@ type Page =
   | Inference | Observability | Compute | Blackboxes | DryDocks
   | Models | Pricing | Model({ provider: str, model: str })
   | Status | Journal | Post({ slug: str }) | Privacy | Terms | Verify | Contact
+  | ContactOne | ContactTwo | ContactThree | ContactFour
   | Docs | Doc({ slug: str })
   | Console({ section: Section, area: str })
   | Unknown
@@ -39,7 +41,8 @@ pure val initial: Nav = { page: Home, back: List() }
 
 ```quint
 pure val pageValues = Set(
-  Home, Inference, Models, Pricing, Status, Journal, Privacy, Terms, Verify, Contact, Docs,
+  Home, Inference, Models, Pricing, Status, Journal, Privacy, Terms, Verify, Contact,
+  ContactOne, ContactTwo, ContactThree, ContactFour, Docs,
   Model({ provider: "deepseek-ai", model: "DeepSeek-V4.1" }),
   Post({ slug: "hello-world" }), Doc({ slug: "quickstart" }),
   Console({ section: Chat, area: "" }), Console({ section: Admin, area: "crm" }),

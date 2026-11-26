@@ -258,29 +258,35 @@ export function SiteFooter() {
       <div className="wrap footer-inner">
         <div className="footer-brand">
           <Brand />
-          <p>Confidential inference on Solana.</p>
-          <a href="/docs/quickstart" className="text-link">
-            API quickstart <ArrowUpRight size={14} aria-hidden="true" />
-          </a>
+          <p>Confidential AI inference, routed and verified on Solana.</p>
+          <div className="footer-social" aria-label="Sonnely elsewhere">
+            <a href="https://github.com/Sonnely-AI" aria-label="Sonnely on GitHub">
+              GitHub <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+            <a href="https://x.com/sonnelyai" aria-label="Sonnely on X">
+              X <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+          </div>
         </div>
-        <nav aria-label="Footer">
+        <nav className="footer-nav" aria-label="Footer">
           {footerGroups.map(({ title, links }) => (
-            <div className="footer-group" key={title}>
-              <h2>{title}</h2>
-              {links.map(([href, label]) => (
-                <a key={href} href={href}>
-                  {label}
-                </a>
-              ))}
-              {title === "Sonnely" && (
-                <a href="https://x.com/sonnelyai" aria-label="Sonnely on X">
-                  Sonnely on X <ArrowUpRight size={13} aria-hidden="true" />
-                </a>
-              )}
-            </div>
+            <section className="footer-group" key={title} aria-labelledby={`footer-${title.toLowerCase()}`}>
+              <h2 id={`footer-${title.toLowerCase()}`}>{title}</h2>
+              <ul>
+                {links.map(([href, label]) => (
+                  <li key={href}>
+                    <a href={href}>{label}</a>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
         </nav>
-        <MotionSwitch icon />
+        <div className="footer-meta">
+          <a href="/docs/quickstart">API quickstart <ArrowUpRight size={13} aria-hidden="true" /></a>
+          <MotionSwitch icon />
+          <p>© Sonnely</p>
+        </div>
       </div>
     </footer>
   );
