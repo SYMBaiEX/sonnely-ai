@@ -14,8 +14,22 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Input } from "@repo/ui";
-import { docAt, docs, docsIn, sections, slugAfter, slugBefore } from "../../../../gen/app__docs.ts";
-import { bodyLines, markdownUrl, pageMarkdown, parseBlocks, searchDocs, tocOf } from "../../../docs.ts";
+import { docAt } from "../../../../gen/app__docs.ts";
+import {
+  bodyLines,
+  markdownUrl,
+  pageMarkdown,
+  parseBlocks,
+  releasedBlocks,
+  releasedDocs,
+  releasedDocsIn,
+  releasedSections,
+  releasedSlugAfter,
+  releasedSlugBefore,
+  searchDocs,
+  tocOf,
+} from "../../../docs.ts";
+import { docReleased } from "../../../feature-availability.ts";
 import "../site/appearance.ts";
 import { MotionSwitch, AmbientVisualizer } from "../site/motion.tsx";
 import { SiteHeader, useAmbientMotion, useTheme } from "../site/chrome.tsx";
@@ -31,10 +45,11 @@ const sectionIcons = {
 export function DocsPage({ slug }: { slug: string }) {
   const doc = docAt(slug);
   const lines = useMemo(() => bodyLines(slug), [slug]);
-  const blocks = useMemo(() => parseBlocks(lines), [lines]);
+  const blocks = useMemo(() => releasedBlocks(parseBlocks(lines)), [lines]);
   const toc = useMemo(() => tocOf(lines), [lines]);
-  const before = slugBefore(slug);
-  const after = slugAfter(slug);
+  const before = releasedSlugBefore(slug);
+  const after = releasedSlugAfter(slug);
+  const released = docReleased(slug);
   const motion = useAmbientMotion();
   const theme = useTheme();
   const kind = slug === "index" ? "overview" : slug === "api" ? "api" : "guide";
@@ -52,58 +67,74 @@ export function DocsPage({ slug }: { slug: string }) {
       <div className="docs-layout">
         <Sidebar slug={slug} />
         <main id="docs-page" className="docs-main" tabIndex={-1}>
-          <article className="docs-article">
-            <header className="docs-article-header" data-docs-page={kind}>
-              <h1>{doc.title}</h1>
-              <p className="docs-article-description">{doc.description}</p>
-              <div className="docs-page-actions">
-                <CopyMarkdown slug={slug} />
-                <a className="docs-page-action" href={markdownUrl(slug)}>
-                  View Markdown
-                </a>
+          {released ? (
+            <article className="docs-article">
+              <header className="docs-article-header" data-docs-page={kind}>
+                <h1>{doc.title}</h1>
+                <p className="docs-article-description">{doc.description}</p>
+                <div className="docs-page-actions">
+                  <CopyMarkdown slug={slug} />
+                  <a className="docs-page-action" href={markdownUrl(slug)}>
+                    View Markdown
+                  </a>
+                </div>
+              </header>
+              {toc.length > 1 && (
+                <details className="docs-minitoc">
+                  <summary>
+                    <List size={15} aria-hidden="true" /> On this page
+                    <span className="docs-minitoc-count">{toc.length} sections</span>
+                  </summary>
+                  <nav aria-label="On this page">
+                    {toc.map((h) => (
+                      <a key={h.id} href={`#${h.id}`} className={h.depth === 3 ? "docs-toc-sub" : undefined}>
+                        {h.title}
+                      </a>
+                    ))}
+                  </nav>
+                </details>
+              )}
+              <div className={kind === "guide" ? "docs-guide" : undefined}>
+                <Blocks blocks={blocks} />
               </div>
-            </header>
-            {toc.length > 1 && (
-              <details className="docs-minitoc">
-                <summary>
-                  <List size={15} aria-hidden="true" /> On this page
-                  <span className="docs-minitoc-count">{toc.length} sections</span>
-                </summary>
-                <nav aria-label="On this page">
-                  {toc.map((h) => (
-                    <a key={h.id} href={`#${h.id}`} className={h.depth === 3 ? "docs-toc-sub" : undefined}>
-                      {h.title}
-                    </a>
-                  ))}
-                </nav>
-              </details>
-            )}
-            <div className={kind === "guide" ? "docs-guide" : undefined}>
-              <Blocks blocks={blocks} />
-            </div>
-            <footer className="docs-prev-next" data-single={before === "" || after === "" ? "" : undefined}>
-              {before === "" ? (
-                <span />
-              ) : (
-                <a className="docs-pager-card" href={`/docs${before === "index" ? "" : `/${before}`}`}>
-                  <span className="docs-pager-label">← Previous</span>
-                  <strong>{docAt(before).title}</strong>
-                  <small>{docAt(before).description}</small>
-                </a>
-              )}
-              {after === "" ? (
-                <span />
-              ) : (
-                <a className="docs-pager-card" data-direction="next" href={`/docs/${after}`}>
-                  <span className="docs-pager-label">Next →</span>
-                  <strong>{docAt(after).title}</strong>
-                  <small>{docAt(after).description}</small>
-                </a>
-              )}
-            </footer>
-          </article>
+              <footer className="docs-prev-next" data-single={before === "" || after === "" ? "" : undefined}>
+                {before === "" ? (
+                  <span />
+                ) : (
+                  <a className="docs-pager-card" href={`/docs${before === "index" ? "" : `/${before}`}`}>
+                    <span className="docs-pager-label">← Previous</span>
+                    <strong>{docAt(before).title}</strong>
+                    <small>{docAt(before).description}</small>
+                  </a>
+                )}
+                {after === "" ? (
+                  <span />
+                ) : (
+                  <a className="docs-pager-card" data-direction="next" href={`/docs/${after}`}>
+                    <span className="docs-pager-label">Next →</span>
+                    <strong>{docAt(after).title}</strong>
+                    <small>{docAt(after).description}</small>
+                  </a>
+                )}
+              </footer>
+            </article>
+          ) : (
+            <article className="docs-article">
+              <header className="docs-article-header" data-docs-page="guide">
+                <h1>The {doc.title} guide is not available yet.</h1>
+                <p className="docs-article-description">
+                  This compute feature is still being built. The inference guides are ready today.
+                </p>
+                <div className="docs-page-actions">
+                  <a className="docs-page-action" href="/docs">
+                    Browse available guides
+                  </a>
+                </div>
+              </header>
+            </article>
+          )}
         </main>
-        {toc.length > 0 && (
+        {released && toc.length > 0 && (
           <aside className="docs-toc" aria-label="On this page">
             <p className="docs-toc-title">On this page</p>
             <nav>
@@ -155,14 +186,14 @@ function Sidebar({ slug }: { slug: string }) {
           <span>Overview</span>
           <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
         </a>
-        {sections.map((section) => {
+        {releasedSections.map((section) => {
           const Icon = sectionIcons[section as keyof typeof sectionIcons] ?? CircleHelp;
           return (
             <section key={section}>
               <h2 className="docs-sidebar-section">
                 <Icon size={15} aria-hidden="true" /> {section}
               </h2>
-              {docsIn(section).map((d) => (
+              {releasedDocsIn(section).map((d) => (
                 <a
                   key={d.slug}
                   href={`/docs/${d.slug}`}
@@ -268,5 +299,5 @@ function SearchDocs() {
 
 function docTitle(url: string): string {
   const slug = url === "/docs" ? "index" : url.replace("/docs/", "");
-  return docs.find((d) => d.slug === slug)?.title ?? url;
+  return releasedDocs.find((d) => d.slug === slug)?.title ?? url;
 }

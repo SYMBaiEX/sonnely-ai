@@ -1,6 +1,7 @@
 // spec/app/docs/index.md — the catalog the pages, the search endpoint and the
 // markdown feeds all read.
-import { apiEndpoints, bodyAt, docAt, docs, isDoc } from "../gen/app__docs.ts";
+import { apiEndpoints, bodyAt, docAt, docs, docsIn, isDoc, sections } from "../gen/app__docs.ts";
+import { docReleased, publicHrefReleased } from "./feature-availability.ts";
 
 export const apiOrigin = "https://sonnely.com";
 export const apiBasePath = "/api/sonnely/v1";
@@ -10,6 +11,25 @@ export const decode = (line: string): string => line.replaceAll("§", "\\").repl
 
 /** A doc's markdown lines, decoded. */
 export const bodyLines = (slug: string): string[] => bodyAt(slug).map(decode);
+
+export const releasedDocs = docs.filter((doc) => docReleased(doc.slug));
+export const releasedSections = sections.filter((section) =>
+  releasedDocs.some((doc) => doc.section === section),
+);
+
+export function releasedDocsIn(section: string) {
+  return docsIn(section).filter((doc) => docReleased(doc.slug));
+}
+
+export function releasedSlugBefore(slug: string): string {
+  const index = releasedDocs.findIndex((doc) => doc.slug === slug);
+  return index > 0 ? releasedDocs[index - 1].slug : "";
+}
+
+export function releasedSlugAfter(slug: string): string {
+  const index = releasedDocs.findIndex((doc) => doc.slug === slug);
+  return index >= 0 && index + 1 < releasedDocs.length ? releasedDocs[index + 1].slug : "";
+}
 
 export type Block =
   | { kind: "md"; lines: string[] }
@@ -89,6 +109,29 @@ export function parseBlocks(lines: string[]): Block[] {
   return root;
 }
 
+export function releasedBlocks(blocks: Block[]): Block[] {
+  return blocks.flatMap((block): Block[] => {
+    switch (block.kind) {
+      case "card":
+      case "link":
+        return publicHrefReleased(block.href) ? [block] : [];
+      case "box":
+        return [{ ...block, children: releasedBlocks(block.children) }];
+      case "group": {
+        const children = releasedBlocks(block.children);
+        return children.length > 0 ? [{ ...block, children }] : [];
+      }
+      case "steps":
+      case "step":
+      case "tabs":
+      case "tab":
+        return [{ ...block, children: releasedBlocks(block.children) }];
+      default:
+        return [block];
+    }
+  });
+}
+
 // ---- The same body as plain markdown, for the feeds ----
 
 function* markdownOfBlocks(blocks: Block[]): Generator<string> {
@@ -132,7 +175,7 @@ function* markdownOfBlocks(blocks: Block[]): Generator<string> {
 
 /** The body's markdown, with the directives written out as markdown. */
 export function markdownOf(slug: string): string[] {
-  const out = [...markdownOfBlocks(parseBlocks(bodyLines(slug)))];
+  const out = [...markdownOfBlocks(releasedBlocks(parseBlocks(bodyLines(slug))))];
   while (out.length > 0 && out[0] === "") out.shift();
   while (out.length > 0 && out[out.length - 1] === "") out.pop();
   return out;
@@ -151,13 +194,13 @@ export function markdownUrl(slug: string): string {
 
 /** `/llms.txt`: one line per guide. */
 export function llmsIndex(origin = apiOrigin): string {
-  const lines = docs.map((d) => `- [${d.title}](${origin}${markdownUrl(d.slug)}): ${d.description}`);
+  const lines = releasedDocs.map((d) => `- [${d.title}](${origin}${markdownUrl(d.slug)}): ${d.description}`);
   return ["# Sonnely documentation", "", ...lines, ""].join("\n");
 }
 
 /** `/llms-full.txt`: the whole catalog as one document. */
 export function llmsFull(): string {
-  return docs.map((d) => `# ${d.title}\n\n${markdownOf(d.slug).join("\n")}`).join("\n\n---\n\n");
+  return releasedDocs.map((d) => `# ${d.title}\n\n${markdownOf(d.slug).join("\n")}`).join("\n\n---\n\n");
 }
 
 export interface SearchResult {
@@ -172,7 +215,7 @@ export function searchDocs(query: string): { success: boolean; results: SearchRe
   const needle = query.trim().toLowerCase();
   if (needle === "") return { success: true, results: [] };
   const results: SearchResult[] = [];
-  for (const doc of docs) {
+  for (const doc of releasedDocs) {
     const url = doc.slug === "index" ? "/docs" : `/docs/${doc.slug}`;
     if (doc.title.toLowerCase().includes(needle) || doc.description.toLowerCase().includes(needle)) {
       results.push({ id: url, url, type: "page", content: `${doc.title} — ${doc.description}` });

@@ -5,7 +5,7 @@ import { EmptyState } from "@repo/ui";
 import type { Page } from "../../../../gen/app__nav.ts";
 import "./compute-legacy.css";
 import { ConsoleFrame } from "../console/frame.tsx";
-import { sectionReleased } from "../console/features.ts";
+import { sectionReleased } from "../../../feature-availability.ts";
 import { Consoles } from "./consoles.tsx";
 import { Docks } from "./docks.tsx";
 

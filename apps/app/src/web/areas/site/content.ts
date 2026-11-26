@@ -1,8 +1,9 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import type { Endpoint, ProviderId } from "../../../../gen/app__models.ts";
+import { publicHrefReleased } from "../../../feature-availability.ts";
 import { apiBasePath, apiOrigin, endpointPaths, providerSlugs } from "./data.ts";
 
-export const productsMenu = [
+const allProductsMenu = [
   {
     href: "/inference",
     label: "Confidential inference",
@@ -14,6 +15,8 @@ export const productsMenu = [
   { href: "/blackboxes", label: "Blackboxes", detail: "Attested VM rentals", icon: "Container" },
   { href: "/dry-docks", label: "Dry Docks", detail: "Isolated build sandboxes", icon: "Terminal" },
 ] as const;
+
+export const productsMenu = allProductsMenu.filter(({ href }) => publicHrefReleased(href));
 
 export const headerLinks = [
   ["/models", "Models"],
@@ -100,7 +103,7 @@ export const entryActions = {
   },
 } as const;
 
-export const platformLinks = [
+const allPlatformLinks = [
   {
     href: "/inference",
     label: "Confidential inference",
@@ -120,6 +123,8 @@ export const platformLinks = [
     icon: "Boxes",
   },
 ] as const;
+
+export const platformLinks = allPlatformLinks.filter(({ href }) => publicHrefReleased(href));
 
 export const traceStages = [
   {
@@ -204,7 +209,7 @@ export const supportTopics = [
   ["MessageSquare", "Product feedback", "Ideas, gaps, and what we should build next"],
 ] as const;
 
-export const footerGroups = [
+const allFooterGroups = [
   {
     title: "Platform",
     links: [
@@ -241,6 +246,13 @@ export const footerGroups = [
     ],
   },
 ] as const;
+
+export const footerGroups = allFooterGroups
+  .map((group) => ({
+    ...group,
+    links: group.links.filter(([href]) => publicHrefReleased(href)),
+  }))
+  .filter((group) => group.links.length > 0);
 
 export const demoExamples = [
   {

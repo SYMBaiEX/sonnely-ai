@@ -17,6 +17,7 @@ import {
 } from "../../../../gen/app__models.ts";
 import type { Board, ProbeState } from "../../../../gen/app__site.ts";
 import { useRemote } from "../../remote.ts";
+import { computeProductsReleased } from "../../../feature-availability.ts";
 import { SiteLead } from "./chrome.tsx";
 import {
   apiBasePath,
@@ -586,25 +587,27 @@ export function ModelsPage() {
           </article>
         </div>
       </section>
-      <section id="compute-pricing" className={panel + " my-14"} aria-labelledby="compute-pricing-title">
-        <header className="mb-4 flex items-center gap-3">
-          <Boxes size={22} aria-hidden="true" />
-          <h2 id="compute-pricing-title" className="text-lg font-medium">Compute pricing</h2>
-        </header>
-        <div className="grid gap-3">
-          <p className="text-sm text-muted-foreground">
-            A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
-            {creditBalance(computeQuote("blackboxes", 15).total)}. Review the full reservation
-            before starting.
-          </p>
-          <a className={textLink} href="/blackboxes#rental">
-            Explore Blackbox rentals <ArrowUpRight size={15} aria-hidden="true" />
-          </a>
-          <a className={textLink} href="/dry-docks">
-            Explore Dry Docks
-          </a>
-        </div>
-      </section>
+      {computeProductsReleased() && (
+        <section id="compute-pricing" className={panel + " my-14"} aria-labelledby="compute-pricing-title">
+          <header className="mb-4 flex items-center gap-3">
+            <Boxes size={22} aria-hidden="true" />
+            <h2 id="compute-pricing-title" className="text-lg font-medium">Compute pricing</h2>
+          </header>
+          <div className="grid gap-3">
+            <p className="text-sm text-muted-foreground">
+              A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
+              {creditBalance(computeQuote("blackboxes", 15).total)}. Review the full reservation
+              before starting.
+            </p>
+            <a className={textLink} href="/blackboxes#rental">
+              Explore Blackbox rentals <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+            <a className={textLink} href="/dry-docks">
+              Explore Dry Docks
+            </a>
+          </div>
+        </section>
+      )}
       <section className="my-14" aria-labelledby="billing-questions">
         <header className={sectionHead}>
           <h2 id="billing-questions" style={serif} className="text-[clamp(26px,4vw,38px)] font-normal leading-tight">

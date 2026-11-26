@@ -2,6 +2,7 @@
 import { ArrowDown, ArrowRight, ArrowUpRight, CircleCheck, Fingerprint, Terminal } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ReaderNavigation, SiteLead, type SiteBrief } from "./chrome.tsx";
+import { publicHrefReleased } from "../../../feature-availability.ts";
 import {
   apiBasePath,
   artifactLimit,
@@ -24,7 +25,7 @@ export function PlatformLinks({ compact = false, className = "" }: { compact?: b
         <h2 id="platform-links-heading">
           {compact ? "Explore the platform" : "Inference, from API to operations."}
         </h2>
-        {!compact && <p>Choose a model route, understand each request, and explore compute products.</p>}
+        {!compact && <p>Choose a model route and understand each request.</p>}
       </div>
       <ul className="product-linkList" role="list">
         {platformLinks.map(({ href, label, description, icon }) => (
@@ -597,7 +598,32 @@ const pageBriefs: Record<ProductPageId, SiteBrief> = {
   },
 };
 
+function UnavailableProduct({ page }: { page: ProductPageId }) {
+  const name = page === "compute" ? "Compute" : pages[page][0];
+  const verb = page === "compute" ? "is" : "are";
+  return (
+    <div className={wrap + " inner-page market-page"}>
+      <SiteLead
+        title={`${name} ${verb} not available yet.`}
+        description="This compute feature is still being built. Confidential inference, models, keys and billing are ready today."
+        status="In development"
+      >
+        <div className="product-entry-actions">
+          <a href="/inference" className={buttonAccent}>
+            Explore inference <ArrowRight size={15} aria-hidden="true" />
+          </a>
+          <a href="/models" className={textLink}>
+            Compare models <ArrowRight size={15} aria-hidden="true" />
+          </a>
+        </div>
+      </SiteLead>
+      <PlatformLinks compact />
+    </div>
+  );
+}
+
 export function ProductPage({ page }: { page: ProductPageId }) {
+  if (!publicHrefReleased("/" + page)) return <UnavailableProduct page={page} />;
   const [title, description] = pages[page];
   const entry = entryActions[page];
   const sections = pageSections[page];

@@ -2,6 +2,7 @@
 import { docAt, isDoc } from "../../gen/app__docs.ts";
 import { catalog } from "../../gen/app__models.ts";
 import type { Page, Section } from "../../gen/app__nav.ts";
+import { publicPageReleased } from "../feature-availability.ts";
 import { providerNames, providerOfSlug } from "./areas/site/data.ts";
 import { pages } from "./areas/site/content.ts";
 import { articles } from "./areas/site/journal.ts";
@@ -35,11 +36,11 @@ export function titleOf(page: Page): string {
     case "Observability":
       return titled(pages.observability[0]);
     case "Compute":
-      return titled(pages.compute[0]);
+      return titled(publicPageReleased(page) ? pages.compute[0] : "Compute not available yet");
     case "Blackboxes":
-      return titled(pages.blackboxes[0]);
+      return titled(publicPageReleased(page) ? pages.blackboxes[0] : "Blackboxes not available yet");
     case "DryDocks":
-      return titled(pages["dry-docks"][0]);
+      return titled(publicPageReleased(page) ? pages["dry-docks"][0] : "Dry Docks not available yet");
     case "Models":
       return titled(pages.models[0]);
     case "Model": {
@@ -67,7 +68,9 @@ export function titleOf(page: Page): string {
     case "Docs":
       return titled(docAt("index").title);
     case "Doc":
-      return isDoc(page.slug) ? titled(docAt(page.slug).title) : home;
+      return isDoc(page.slug)
+        ? titled(publicPageReleased(page) ? docAt(page.slug).title : "Guide not available yet")
+        : home;
     case "Console":
       return titled(consoleTitles[page.section]);
     case "Unknown":

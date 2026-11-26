@@ -35,7 +35,7 @@ import { Brand, ShellRules, ThemeSwitch, accentTokenAliases, setTheme as applyTh
 import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
 import { CommandMenu } from "./command-menu.tsx";
-import { sectionReleased } from "./features.ts";
+import { sectionReleased } from "../../../feature-availability.ts";
 import { Onboarding } from "./onboarding.tsx";
 import { TermsAcceptance, termsVersion } from "./terms-acceptance.tsx";
 import { useBillingCluster, WalletControl } from "./wallet.tsx";
