@@ -12,6 +12,10 @@ const tour = [
   { name: "API keys", detail: "Connect your app with a key and a budget.", href: "/console/keys", Icon: KeyRound },
 ] as const;
 
+function focusHeading(element: HTMLHeadingElement | null) {
+  element?.focus();
+}
+
 export function Onboarding({
   wallet,
   settings,
@@ -140,9 +144,7 @@ export function Onboarding({
             <h2
               id="onboarding-title"
               tabIndex={-1}
-              ref={(element) => {
-                element?.focus();
-              }}
+              ref={focusHeading}
             >
               {heading}
             </h2>
