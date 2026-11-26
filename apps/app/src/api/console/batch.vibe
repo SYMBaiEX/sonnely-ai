@@ -1,59 +1,10 @@
-// spec/app/console/batch.md, "Story: Prepare and run a batch": the batch machine and the endpoint that runs one row at a time.
+// spec/app/console/batch.md, "Story: Prepare and run a batch": the batch machine, one instance
+// per wallet. The client drives each row through the gateway itself; there is no server-side
+// runner, so nothing here simulates row outcomes.
 import { Machine, stored, initial } from "../../../gen/app__console__batch.effect.vibe"
-import type { Batch } from "../../../gen/app__console__batch.ts"
 import { fleetMachineApi } from "../../machines.vibe"
-import { Fleet } from "../../fleet.vibe"
-import { authenticatedWallet } from "../session.vibe"
 
-const noStore = { "cache-control": "no-store" }
-
-/** The first queued or blocked row of a working batch, or undefined. */
-function pendingRow(batch: Batch): number | undefined {
-  if (batch.tag !== "Working") return undefined
-  const index = batch.rows.findIndex((row) => row.status === "Queued" || row.status === "Blocked")
-  return index < 0 ? undefined : index
-}
-
-/**
- * Run one row: the runner sends the first queued or blocked row, then settles it on the device — on staging a
- * local outcome (a custom id ending in "-fail" fails; everything else succeeds); the gateway settles it in
- * production. Returns whether anything is still pending.
- */
-interface BatchMachine {
-  get(): unknown!!
-  send(event: unknown): unknown!unknown
-}
-
-export effect function advance(machine: BatchMachine) {
-  const state = (try machine.get()) as Batch
-  const index = pendingRow(state)
-  if (index === undefined) return { done: true }
-  try machine.send({ type: "start", index })
-  const running = (try machine.get()) as Batch
-  const row = running.tag === "Working" ? running.rows[index] : undefined
-  const failed = row !== undefined && row.customId.endsWith("-fail")
-  const settled = failed
-    ? machine.send({ type: "failed", index, detail: "The gateway rejected this request." }) catch effect (error) => { return error }
-    : machine.send({ type: "succeed", index }) catch effect (error) => { return error }
-  const rejection = settled as { _tag?: string }
-  if (rejection && typeof rejection === "object" && "_tag" in rejection) return { done: true, error: rejection._tag }
-  return { done: false, index, status: failed ? "Failed" : "Succeeded" }
-}
-
-effect function runRoute() {
-  const wallet = try authenticatedWallet()
-  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
-  const fleet = try Fleet
-  const machine = (try fleet.machine("console__batch", wallet)) as unknown as BatchMachine
-  return try HttpServerResponse.json(try advance(machine), { headers: noStore })
-}
-
-export const batchApi = Layer.unwrap(effect {
-  return Layer.mergeAll(
-    fleetMachineApi("console__batch", { events: ["submit", "start", "review", "interrupt", "retry", "clear", "block", "failed", "succeed"] }),
-    HttpRouter.add("POST", "/api/console/batch/run", provideService(runRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
-  )
-})
+export const batchApi = fleetMachineApi("console__batch", { events: ["submit", "start", "review", "interrupt", "retry", "clear", "block", "failed", "succeed"] })
 
 /** The batch machine's store, for tests and drivers. */
 export const batchStore = stored("console__batch")

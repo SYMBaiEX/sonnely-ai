@@ -1,8 +1,16 @@
-// spec/app/support.md, "Story: Open a request"
+// spec/app/support.md, "Story: Open a request": the queue behind the verified-session boundary.
+// A customer opens and replies on their own requests and reads only their own thread's public
+// replies; a listed operator reads the whole queue — internal notes included — and is the only
+// one who may send the staff events, with the staff author forced to the operator's own wallet.
 import { Machine, stored } from "../../gen/app__support.effect.vibe"
+import * as Admin from "../../gen/app__admin.effect.vibe"
 import type { Tickets } from "../../gen/app__support.ts"
-import { machineApi } from "../machines.vibe"
+import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
+import { operatorRequired } from "./admin.vibe"
+import { authenticatedWallet } from "./session.vibe"
+
+const noStore = { "cache-control": "no-store" }
 
 function project(state: Tickets, wallet: string): Tickets {
   return {
@@ -12,8 +20,75 @@ function project(state: Tickets, wallet: string): Tickets {
   }
 }
 
+interface QueueMachine {
+  get(): unknown!!
+  receive(input: unknown): any!any
+  changes: Stream.Stream<unknown>
+}
+
+effect function getState(admin: Admin.Machine.Shape, m: QueueMachine) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  const state = try m.get()
+  const operator = try operatorRequired(admin)
+  return try HttpServerResponse.json(operator != "" ? state : project(state as Tickets, wallet), { headers: noStore })
+}
+
+effect function getStream(admin: Admin.Machine.Shape, m: QueueMachine) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  const operator = try operatorRequired(admin)
+  const full = operator != ""
+  const pushes = Stream.map(m.changes, (raw) => `data: ${JSON.stringify(full ? raw : project(raw as Tickets, wallet))}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: noStore,
+  })
+}
+
+// Customer events stay the customer's: open binds its wallet to the session. Staff events are the
+// operator's alone, and a staff reply's author is forced to the operator's wallet — never a wallet
+// the client supplied.
+const customerEvents = ["open", "reply"]
+const staffEvents = ["staffReply", "setState", "assignOwner"]
+
+effect function postEvent(admin: Admin.Machine.Shape, m: QueueMachine) {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
+  }
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ ok: false, error: "sign in required" }, { status: 401, headers: noStore })
+  const input = (request.json catch () => undefined) as { type?: unknown } | undefined
+  if (input == undefined || typeof input.type != "string" || (!customerEvents.includes(input.type as string) && !staffEvents.includes(input.type as string))) {
+    return try HttpServerResponse.json({ ok: false, error: "This event is not yours to send." }, { status: 403, headers: noStore })
+  }
+  const bound = input as Record<string, unknown>
+  if (staffEvents.includes(input.type as string)) {
+    const operator = try operatorRequired(admin)
+    if (operator == "") return try HttpServerResponse.json({ ok: false, error: "operator access required" }, { status: 403, headers: noStore })
+    if ("author" in bound) bound["author"] = operator
+  } else if ("wallet" in bound) {
+    bound["wallet"] = wallet
+  }
+  const sent = m.receive(bound) catch (error) => error
+  const rejected = sent as { _tag?: string; state?: unknown }
+  if (rejected && typeof rejected === "object" && "_tag" in rejected) {
+    const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
+    return try HttpServerResponse.json({ ok: false, error: rejected._tag, state: rejected.state }, { status, headers: noStore })
+  }
+  return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
+}
+
 export const supportApi = Layer.unwrap(effect {
-  return machineApi("support", try Machine, { events: ["open", "reply"], bind: ["wallet"] }, { visibility: "user", project })
+  const admin = try Admin.Machine
+  const queue = try Machine
+  return Layer.mergeAll(
+    HttpRouter.add("GET", "/api/machines/support", getState(admin, queue)),
+    HttpRouter.add("POST", "/api/machines/support", provideService(postEvent(admin, queue), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("GET", "/api/machines/support/stream", getStream(admin, queue)),
+    machineRegistration("support", queue, { visibility: "user", project }),
+  )
 })
 
 /** The queue machine, kept under "support". */

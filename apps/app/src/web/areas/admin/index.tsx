@@ -36,9 +36,11 @@ export function AdminPage({ area }: { area: string }) {
   const section: AdminArea = (adminAreas as readonly string[]).includes(area) ? (area as AdminArea) : "overview";
   const signedIn = session.state?.tag === "SignedIn" ? session.state : undefined;
   const wallet = signedIn?.wallet ?? "";
-  const roster = admin.state?.ops.roster ?? [];
-  const operator = roster.find((row) => row.wallet === wallet);
-  const bootstrapOperator = Boolean(wallet && roster.length === 0);
+  const roster = admin.state?.ops.roster;
+  const operator = roster?.find((row) => row.wallet === wallet);
+  // Only a roster read back as empty opens the bootstrap: an unreadable admin state
+  // (still loading, or refused) never turns a wallet into an administrator.
+  const bootstrapOperator = Boolean(wallet && roster && roster.length === 0);
   const role = operator ? operator.role.toLowerCase() : bootstrapOperator ? "admin" : "member";
 
   return (

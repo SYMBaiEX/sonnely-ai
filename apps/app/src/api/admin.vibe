@@ -87,7 +87,7 @@ effect function postSender(m: SenderMachine) {
 }
 
 /** The session wallet is a listed operator, or the empty roster's bootstrap still holds. */
-effect function operatorRequired(admin: Admin.Machine.Shape) {
+export effect function operatorRequired(admin: Admin.Machine.Shape) {
   const operator = try authenticatedWallet()
   if (operator == "") return ""
   const registry = try admin.get()
@@ -277,17 +277,44 @@ effect function postAdjust() {
 // spec/app/admin/operators.md, "Only an operator can grant access": deployment
 // configuration names the first operators so a fresh or reset store still opens to the people
 // who run the surface. The machine's own rule validates every grant — this only asks.
+// SONNELY_ADMIN_WALLETS, SONNELY_SUPPORT_WALLETS and SONNELY_FINANCE_WALLETS list the
+// comma-separated wallets for each role; SONNELY_OPERATORS names further Admin wallets.
+// The first listed wallet sends every grant: the empty roster appoints it, and its own
+// membership authorises the rest.
+function seededWallets(seed: string) {
+  return seed.split(",").map((w) => w.trim()).filter((w) => w != "")
+}
+
+effect function seededGrants() {
+  const admins = Config.withDefault(Config.String("SONNELY_ADMIN_WALLETS"), "") catch () => ""
+  const legacy = Config.withDefault(Config.String("SONNELY_OPERATORS"), "") catch () => ""
+  const support = Config.withDefault(Config.String("SONNELY_SUPPORT_WALLETS"), "") catch () => ""
+  const finance = Config.withDefault(Config.String("SONNELY_FINANCE_WALLETS"), "") catch () => ""
+  const grants = [
+    ...seededWallets(admins + "," + legacy).map((wallet) => ({ wallet, role: "Admin" })),
+    ...seededWallets(support).map((wallet) => ({ wallet, role: "Support" })),
+    ...seededWallets(finance).map((wallet) => ({ wallet, role: "Finance" })),
+  ]
+  const seen: string[] = []
+  return grants.filter((grant) => {
+    if (seen.includes(grant.wallet)) return false
+    seen.push(grant.wallet)
+    return true
+  })
+}
+
 effect function bootstrapOperators(admin: Admin.Machine.Shape) {
-  const seed = Config.withDefault(Config.String("SONNELY_OPERATORS"), "") catch () => ""
-  const wallets = seed.split(",").map((w) => w.trim()).filter((w) => w != "")
-  if (wallets.length == 0) return
+  const grants = try seededGrants()
+  if (grants.length == 0) return
   const registry = try admin.get()
   if (registry.ops.roster.length > 0) return
+  const first = grants[0]
+  if (first == undefined) return
+  const sender = Admin.decodeSender(first.wallet) catch () => undefined
+  if (sender === undefined) return
   const now = try Clock.currentTimeMillis
-  for (const wallet of wallets) {
-    const sender = Admin.decodeSender(wallet) catch () => undefined
-    if (sender === undefined) continue
-    admin.receive({ type: "grant", wallet, role: "Admin", at: now }, sender) catch () => undefined
+  for (const grant of grants) {
+    admin.receive({ type: "grant", wallet: grant.wallet, role: grant.role, at: now }, sender) catch () => undefined
   }
 }
 
