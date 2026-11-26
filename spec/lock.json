@@ -3,7 +3,7 @@
   "specs": {
     "spec/app/admin/crm.md": {
       "@document": [
-        "2a6fc1ee8417"
+        "5545fdfb0acf"
       ],
       "## Domain": [
         "e3b0c44298fc"
@@ -15,6 +15,49 @@
       "Domain / Audit entries": [
         "942bece4f7a3",
         "4a9e2cd882e2"
+      ],
+      "## Story: Keep customer relationship state": [
+        "2186cee1de52"
+      ],
+      "Story: Keep customer relationship state / Customer profiles are keyed by wallet": [
+        "db607e97ec6f",
+        "b6529d5e18f1",
+        "f8313c550323"
+      ],
+      "Story: Keep customer relationship state / The CRM tables start empty": [
+        "afd65814e000",
+        "6c58c7e06bb0",
+        "475cdbced5d7"
+      ],
+      "Story: Keep customer relationship state / An internal note is appended once": [
+        "e3b0c44298fc",
+        "c437d61dba8e",
+        "5ed28b17a78b"
+      ],
+      "Story: Keep customer relationship state / A follow-up is created, completed and reopened without losing it": [
+        "e3b0c44298fc",
+        "8503acc5a20e",
+        "5ed28b17a78b"
+      ],
+      "Story: Keep customer relationship state / Flags are one row per customer and flag": [
+        "f991116f754a",
+        "4186511da0e3",
+        "5ed28b17a78b"
+      ],
+      "Story: Keep customer relationship state / Saved views belong to their operator": [
+        "e3b0c44298fc",
+        "0d6dac6b0c7c",
+        "5ed28b17a78b"
+      ],
+      "Story: Keep customer relationship state / A balance adjustment is recorded without overdrawing the balance read": [
+        "e3b0c44298fc",
+        "9daa274504f1",
+        "5ed28b17a78b"
+      ],
+      "Story: Keep customer relationship state / Relationship work is reachable": [
+        "e3b0c44298fc",
+        "f00215180a4a",
+        "5ed28b17a78b"
       ],
       "## Story: Review customers": [
         "9d7c4ca7b2f2"
@@ -96,8 +139,8 @@
         "165d58aa8bc1"
       ],
       "Domain / What the admin reads elsewhere": [
-        "83bb3c0e5359",
-        "b78f2f28a405"
+        "77d580de4555",
+        "d2e356179dc3"
       ],
       "## Story: Grant and revoke access": [
         "aecf7a50af58"
@@ -279,14 +322,14 @@
     },
     "spec/app/billing/ledger.md": {
       "@document": [
-        "3d8509d57dbd"
+        "b66be04fdde0"
       ],
       "## Domain": [
         "e3b0c44298fc"
       ],
       "Domain / The ledger is a balance over an append-only entry log": [
-        "ca5cbd1eb10a",
-        "88baf711c155"
+        "99f024b6f8fc",
+        "993d890bca12"
       ],
       "## Story: Move credit": [
         "484809cb5a8f"
@@ -294,67 +337,105 @@
       "Story: Move credit / A deposit credits the wallet once per reference": [
         "e93afbc8869c",
         "93f28f78393b",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
+      ],
+      "Story: Move credit / A reservation holds only what the wallet covers, once per detail": [
+        "03fc3f2d1a36",
+        "7bcfff95cfa9",
+        "e238f1e099e2"
+      ],
+      "Story: Move credit / Settlement releases the reservation and records its final charge": [
+        "b9f38791f574",
+        "523739fb9ac5",
+        "e238f1e099e2"
+      ],
+      "Story: Move credit / A failed reservation releases its whole hold": [
+        "e3b0c44298fc",
+        "51fea7ab5089",
+        "e238f1e099e2"
       ],
       "Story: Move credit / A charge spends only what the wallet holds": [
         "e3b0c44298fc",
         "e9ebc2f19f5a",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / A refund returns no more than its charge took": [
         "e26012fa2c63",
         "7eb16df52d54",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / The balance is always the sum of its entries": [
         "e3b0c44298fc",
         "d6ccc6097c50",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / The balance is never negative": [
         "e3b0c44298fc",
         "6d00ec953576",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / Entries are never rewritten or removed": [
         "e3b0c44298fc",
         "1dea09f362ca",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / A charge fires only while the balance covers it": [
         "e3b0c44298fc",
         "87a697c9ba7b",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / A reference appears as a credit at most once": [
         "e3b0c44298fc",
         "2d410e1717be",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / Credit can arrive": [
         "e3b0c44298fc",
         "f93cb6837b55",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / Inference can be charged": [
         "e3b0c44298fc",
         "a6333f18b6cb",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
+      ],
+      "Story: Move credit / A reservation can be held, settled or released": [
+        "e3b0c44298fc",
+        "ed8aa6d440a4",
+        "e238f1e099e2"
       ],
       "Story: Move credit / A charge can be partly refunded": [
         "e3b0c44298fc",
         "5bccb298073e",
-        "1ce7c783cdb3"
+        "e238f1e099e2"
       ],
       "Story: Move credit / Crediting a reference twice credits it once": [
         "e3b0c44298fc",
         "2ced7cf567a8",
-        "6df8bb49b5fa"
+        "21f596b41782"
       ],
       "Story: Move credit / A charge debits exactly its amount": [
         "e3b0c44298fc",
         "53dd5f92f3a2",
-        "7c21f061130e"
+        "7b824ec380bf"
+      ],
+      "## Story: Adjust a balance": [
+        "5faea91a3b1a"
+      ],
+      "Story: Adjust a balance / An adjustment credits or debits once per record": [
+        "e1c0da23c0de",
+        "47b3a3a76f37",
+        "e238f1e099e2"
+      ],
+      "Story: Adjust a balance / An adjustment can arrive in either direction": [
+        "e3b0c44298fc",
+        "4eda2f803ab7",
+        "e238f1e099e2"
+      ],
+      "Story: Adjust a balance / Adjusting a record twice adjusts it once": [
+        "e3b0c44298fc",
+        "801263fc8d4b",
+        "3ddd563e743a"
       ]
     },
     "spec/app/compute/index.md": {
@@ -415,7 +496,7 @@
         "c1a0d514c61f"
       ],
       "Story: Rent a confidential machine / A wallet opens a run for a supported window and a valid workload": [
-        "7541f337fd59",
+        "7897f945544d",
         "f289229db3e2",
         "309e6f4249a4"
       ],
@@ -470,7 +551,7 @@
         "eeb756699b08"
       ],
       "Story: Rent a confidential machine / Teardown settles the hold against metered time": [
-        "48d731168441",
+        "c2e9c4357ff2",
         "2507079aa85e",
         "b6e07bb56aa5"
       ],
@@ -1310,93 +1391,103 @@
     },
     "spec/app/keys.md": {
       "@document": [
-        "9c188dcfba70"
+        "a8db098289bb"
       ],
       "## Domain": [
         "e3b0c44298fc"
       ],
       "Domain / A key record and its lifetime": [
         "e3b0c44298fc",
-        "d2145b545d03"
+        "2394763dbcf7"
       ],
       "Domain / The registry starts empty": [
         "e3b0c44298fc",
-        "b328226b6c4e",
-        "7a45085ce6ab"
+        "4151482e51d2",
+        "40cbf688bae4"
       ],
       "## Story: Issue a key": [
         "4dda0fb85d2c"
       ],
       "Story: Issue a key / A new key needs a name, unique credentials and valid limits": [
         "1b8069b04567",
-        "4b563177a661",
-        "d73d8078c0b6"
+        "4e75941f2f56",
+        "f8dfa6528b2b"
       ],
       "Story: Issue a key / A workspace key can be renamed and have its limits updated": [
         "26b6ed72eaa0",
-        "205ecad7294e",
-        "d73d8078c0b6"
+        "5f994bb2baa0",
+        "f8dfa6528b2b"
+      ],
+      "Story: Issue a key / Every key belongs to the wallet that created it": [
+        "ce4ce277693a",
+        "8b6a06b8a261",
+        "f8dfa6528b2b"
       ],
       "Story: Issue a key / Every registered key is well formed": [
         "e3b0c44298fc",
-        "a31db63a125d",
-        "d73d8078c0b6"
+        "0a14010db01e",
+        "f8dfa6528b2b"
       ],
       "Story: Issue a key / Ids, prefixes and hashes are unique across the registry": [
         "e3b0c44298fc",
         "8135c08541c5",
-        "7a45085ce6ab"
+        "40cbf688bae4"
       ],
       "Story: Issue a key / A workspace can hold a capped and an uncapped key": [
         "e3b0c44298fc",
         "034ec1cf53e9",
-        "7a45085ce6ab"
+        "40cbf688bae4"
       ],
       "## Story: Spend through a key": [
-        "18104890a66e"
+        "0f0a09360c21"
       ],
       "Story: Spend through a key / Only an active key within its limits can be metered": [
-        "420b1cbdd702",
-        "215be4178435",
-        "d73d8078c0b6"
+        "5133fbdeb54f",
+        "afe2c3693e49",
+        "f8dfa6528b2b"
       ],
-      "Story: Spend through a key / Spend only ever grows": [
-        "e3b0c44298fc",
-        "62fb4ec4b3bd",
-        "d73d8078c0b6"
+      "Story: Spend through a key / Releasing a hold returns what was not charged": [
+        "6e1be523365a",
+        "206d6a0f5b29",
+        "f8dfa6528b2b"
       ],
-      "Story: Spend through a key / Only metering touches last used and the day's tally": [
+      "Story: Spend through a key / Spend moves only with metering or a returned hold": [
+        "c648364b3d7c",
+        "1d629b20b18a",
+        "f8dfa6528b2b"
+      ],
+      "Story: Spend through a key / Only metering or a returned hold touches last used and the day's tally": [
         "e3b0c44298fc",
-        "a6ba9f86b0c5",
-        "d73d8078c0b6"
+        "cb68338e1618",
+        "f8dfa6528b2b"
       ],
       "Story: Spend through a key / A key can be metered": [
         "e3b0c44298fc",
         "1083065bbfe7",
-        "7a45085ce6ab"
+        "40cbf688bae4"
       ],
       "## Story: Revoke a key": [
         "2eed66851ba4"
       ],
       "Story: Revoke a key / Only an active key can be revoked": [
         "e3b0c44298fc",
-        "23e7a1d70c56",
-        "d73d8078c0b6"
+        "857081cbc3b9",
+        "f8dfa6528b2b"
       ],
       "Story: Revoke a key / Revoked is final": [
         "e3b0c44298fc",
         "f84efe43d246",
-        "d73d8078c0b6"
+        "f8dfa6528b2b"
       ],
       "Story: Revoke a key / A revoked key can be shown": [
         "e3b0c44298fc",
         "e843bfd2d60e",
-        "7a45085ce6ab"
+        "40cbf688bae4"
       ],
       "Story: Revoke a key / A revoked key takes no update and no metering": [
         "e3b0c44298fc",
-        "abcf392128c7",
-        "4d24a73b9a16"
+        "35fa244efd06",
+        "d7a2b902bb5b"
       ]
     },
     "spec/app/models.md": {
@@ -1482,14 +1573,14 @@
         "e3b0c44298fc"
       ],
       "Domain / Pages and console sections": [
-        "d8a62be132ae",
-        "94abe53a963d",
+        "3d53dd5da64a",
+        "3702da51208c",
         "c2829debbd38"
       ],
       "Domain / Navigation starts on the home page with nowhere to go back to": [
         "e3b0c44298fc",
-        "69d757d81399",
-        "bb9d891373b3"
+        "bf84c578b8fe",
+        "10cc1dcb0139"
       ],
       "## Story: Move around": [
         "7f6064769965"
@@ -1497,67 +1588,87 @@
       "Story: Move around / Any page can be opened": [
         "5d64f362f658",
         "18a2e54b8831",
-        "bb9d891373b3"
+        "10cc1dcb0139"
       ],
       "Story: Move around / Going back is possible only after opening a page": [
         "e3b0c44298fc",
         "2e10b4a349ac",
-        "05010e32be2e"
+        "89368a2aa5de"
       ],
       "Story: Move around / Opening a page leaves it showing": [
         "e3b0c44298fc",
         "747bc12f386b",
-        "bb9d891373b3"
+        "10cc1dcb0139"
       ],
       "Story: Move around / Opening then going back returns where it started": [
         "e3b0c44298fc",
         "16d63d0e33c7",
-        "9cc840f6028f"
+        "268a70a8c153"
       ],
       "Story: Move around / Going back twice needs two pages opened": [
         "e3b0c44298fc",
         "8da3ffea64e8",
-        "bb9d891373b3"
+        "10cc1dcb0139"
       ]
     },
     "spec/app/session.md": {
       "@document": [
-        "de357bb1b94d"
+        "075006efde3a"
       ],
       "## Domain": [
         "e3b0c44298fc"
       ],
-      "Domain / A session is signed out, or names the wallet it is signed in to": [
+      "Domain / Signing state is a registry of challenges and sessions": [
         "e3b0c44298fc",
-        "95473988b3c5"
+        "b64c0383a8ed"
+      ],
+      "Domain / Challenges and sessions are found by nonce and credential digest": [
+        "e3b0c44298fc",
+        "e3b2741a7c29",
+        "a08cb38c574e"
       ],
       "## Story: Sign in with a wallet": [
         "d11ab2e59886"
       ],
-      "Story: Sign in with a wallet / Only a wallet that names itself can sign in": [
-        "f5417fb3212a",
-        "f3f4c550197f",
-        "0ec374b6229b"
+      "Story: Sign in with a wallet / A challenge binds one wallet, site and expiry": [
+        "50c0800afa80",
+        "27f22e73e599",
+        "3d0cecf4a2b2"
       ],
-      "Story: Sign in with a wallet / Only a signed-in session can sign out": [
-        "e3b0c44298fc",
-        "944f5e5d4630",
-        "0ec374b6229b"
+      "Story: Sign in with a wallet / Only a verified signature consumes its challenge once": [
+        "2c5cdc3148e3",
+        "b6095f0fac01",
+        "3d0cecf4a2b2"
       ],
-      "Story: Sign in with a wallet / A signed-in session always names a wallet": [
+      "Story: Sign in with a wallet / Only an active session can sign out": [
         "e3b0c44298fc",
-        "9ed8896fd118",
-        "0ec374b6229b"
+        "f0a43d1ea579",
+        "3d0cecf4a2b2"
       ],
-      "Story: Sign in with a wallet / Signing in holds the wallet that signed": [
-        "e3b0c44298fc",
-        "c2fd22e16c2e",
-        "093e0948a357"
+      "Story: Sign in with a wallet / Expiry closes open challenges and active sessions": [
+        "7993a66106db",
+        "858a7790b8ce",
+        "a08cb38c574e"
       ],
-      "Story: Sign in with a wallet / A session can be signed in": [
+      "Story: Sign in with a wallet / Every challenge and session is well formed": [
+        "94248725204b",
+        "e60833813254",
+        "a08cb38c574e"
+      ],
+      "Story: Sign in with a wallet / Signing out is idempotent in effect": [
         "e3b0c44298fc",
-        "e086fbdd7564",
-        "0ec374b6229b"
+        "ecdaa53dd4fb",
+        "367ce8fb86f6"
+      ],
+      "Story: Sign in with a wallet / A session can be established": [
+        "e3b0c44298fc",
+        "0d0b89320ff4",
+        "a08cb38c574e"
+      ],
+      "Story: Sign in with a wallet / A session can end and a challenge can expire": [
+        "e3b0c44298fc",
+        "c460401422d0",
+        "a08cb38c574e"
       ]
     },
     "spec/app/site/index.md": {
@@ -1612,70 +1723,75 @@
     },
     "spec/app/support.md": {
       "@document": [
-        "1f8d52a2e59a"
+        "76e22267d815"
       ],
       "## Domain": [
         "e3b0c44298fc"
       ],
       "Domain / A ticket and its replies": [
         "b289472b783f",
-        "e87a596d1ba4"
+        "b66c2f33fb62"
       ],
       "Domain / The queue starts empty": [
         "e3b0c44298fc",
-        "7df245b9c371",
-        "a0bc152490a4"
+        "d1abd18afb38",
+        "a5ee13f9e297"
       ],
       "## Story: Open a request": [
         "522889c36e71"
       ],
       "Story: Open a request / A request needs valid fields and a fresh id": [
-        "e3b0c44298fc",
-        "b7422cfa47f5",
-        "a0bc152490a4"
+        "46b3823a4d76",
+        "247fe12d57cb",
+        "a5ee13f9e297"
       ],
       "Story: Open a request / Every ticket stays well formed and uniquely identified": [
         "e3b0c44298fc",
         "1a917c580d5c",
-        "a0bc152490a4"
+        "a5ee13f9e297"
       ],
       "Story: Open a request / A request can be opened": [
         "e3b0c44298fc",
         "0a59f4b10bac",
-        "a0bc152490a4"
+        "a5ee13f9e297"
+      ],
+      "Story: Open a request / A request can carry its workspace's wallet": [
+        "e3b0c44298fc",
+        "887ad673feac",
+        "a5ee13f9e297"
       ],
       "## Story: Converse on a request": [
         "9548e28376dd"
       ],
       "Story: Converse on a request / The customer can reply on their request": [
         "724d79bd7b93",
-        "ea5baac89a52",
-        "1a784f83effd"
+        "3f28edaea5ce",
+        "2cfd3a2bc38a"
       ],
       "Story: Converse on a request / The team can reply publicly or note internally": [
         "587eaee39745",
-        "616eca48e753",
-        "1a784f83effd"
+        "95ba06e96b47",
+        "2cfd3a2bc38a"
       ],
       "Story: Converse on a request / Replying reopens a resolved request": [
         "e3b0c44298fc",
         "1c236f2a7598",
-        "1a784f83effd"
+        "2cfd3a2bc38a"
       ],
       "Story: Converse on a request / A staff reply starts progress on an open request": [
         "e3b0c44298fc",
         "15c4c01c5499",
-        "1a784f83effd"
+        "2cfd3a2bc38a"
       ],
       "Story: Converse on a request / Replies are never removed": [
         "e3b0c44298fc",
         "a65fd35c60fd",
-        "1a784f83effd"
+        "2cfd3a2bc38a"
       ],
       "Story: Converse on a request / A thread can hold a public reply from the team": [
         "e3b0c44298fc",
         "a99c3b35a4a8",
-        "a0bc152490a4"
+        "a5ee13f9e297"
       ],
       "## Story: Move a request through its states": [
         "ede8c369ee6f"
@@ -1683,22 +1799,35 @@
       "Story: Move a request through its states / Staff set the state directly": [
         "e3b0c44298fc",
         "1e762436f4e6",
-        "1a784f83effd"
+        "2cfd3a2bc38a"
       ],
       "Story: Move a request through its states / Only the listed transitions move a request's state": [
         "e3b0c44298fc",
         "2c9e7da8ae1f",
-        "1a784f83effd"
+        "2cfd3a2bc38a"
       ],
       "Story: Move a request through its states / A request can be resolved": [
         "e3b0c44298fc",
         "86643a88bbbc",
-        "a0bc152490a4"
+        "a5ee13f9e297"
       ],
       "Story: Move a request through its states / The lifecycle as the customer and the team run it": [
         "e3b0c44298fc",
-        "823cfa55f3ef",
-        "f00b538a8bee"
+        "0f95462e20c4",
+        "477ee31b4f62"
+      ],
+      "## Story: Assign ownership": [
+        "ab31f2d2902c"
+      ],
+      "Story: Assign ownership / Staff assign, claim or unassign a request": [
+        "eea869b92096",
+        "5a089561ec8f",
+        "2cfd3a2bc38a"
+      ],
+      "Story: Assign ownership / A request can have an owner": [
+        "e3b0c44298fc",
+        "5cdac0b191ad",
+        "a5ee13f9e297"
       ]
     },
     "spec/app/teams.md": {
@@ -1804,9 +1933,19 @@
         "be11302f0856",
         "c513e94f3a13"
       ],
+      "Story: Budget a project / A live project holds each reservation inside its budget": [
+        "ba6cacc50c75",
+        "384ca15edecd",
+        "c513e94f3a13"
+      ],
+      "Story: Budget a project / Settling or releasing a reservation returns what it did not spend": [
+        "e116c80e7601",
+        "f6cd56fff092",
+        "c513e94f3a13"
+      ],
       "Story: Budget a project / A project can be created and archived": [
         "e3b0c44298fc",
-        "58932943c3fb",
+        "7e2ce1fca524",
         "7b3a7ad24118"
       ]
     },
@@ -1818,56 +1957,61 @@
         "e3b0c44298fc"
       ],
       "Domain / A metered request": [
-        "acc692fc8a32",
-        "521be996ec6a"
+        "ec8dcc3874e1",
+        "5eb6cab7e4e9"
       ],
       "Domain / The meter starts empty": [
         "e3b0c44298fc",
-        "da3c5fcb0700",
-        "459a3eb738a5"
+        "127b6c001037",
+        "847b7c273122"
       ],
       "## Story: Meter a request": [
         "aaf9e691944c"
       ],
       "Story: Meter a request / A request is recorded with a reserved cost": [
         "281f749e9d87",
-        "0109630b7e67",
-        "459a3eb738a5"
+        "76c550a54172",
+        "847b7c273122"
       ],
       "Story: Meter a request / A pending request settles with its real usage": [
         "6af655189832",
-        "9e4ae6799fa1",
-        "bdb6062e9dae"
+        "c1ae06909d91",
+        "5e7738f06a91"
       ],
       "Story: Meter a request / A pending request can fail or go under review": [
         "e3b0c44298fc",
-        "7baa9b4bec68",
-        "bdb6062e9dae"
+        "1e2239125891",
+        "5e7738f06a91"
+      ],
+      "Story: Meter a request / Every usage row belongs to the wallet that metered it": [
+        "e764d05e4eb3",
+        "b87fc2e92b92",
+        "5e7738f06a91"
       ],
       "Story: Meter a request / A pending row carries no measurements yet": [
         "e3b0c44298fc",
         "c15dca7b008a",
-        "459a3eb738a5"
+        "847b7c273122"
       ],
       "Story: Meter a request / Every row is well formed and uniquely identified": [
         "e3b0c44298fc",
-        "6de846eba97f",
-        "459a3eb738a5"
+        "36c7cd649bb6",
+        "847b7c273122"
       ],
       "Story: Meter a request / Rows are never removed and settled rows never change": [
         "e3b0c44298fc",
         "687f40409ae9",
-        "bdb6062e9dae"
+        "5e7738f06a91"
       ],
       "Story: Meter a request / A pending row can only settle, fail or go under review": [
         "e3b0c44298fc",
-        "d42d6ff6f2c4",
-        "bdb6062e9dae"
+        "918fb580ca6b",
+        "5e7738f06a91"
       ],
       "Story: Meter a request / A request can complete and one can be held": [
         "e3b0c44298fc",
         "edd4d073fda1",
-        "459a3eb738a5"
+        "847b7c273122"
       ],
       "## Story: Roll usage up": [
         "35b27cced6e2"
@@ -1875,12 +2019,12 @@
       "Story: Roll usage up / Totals are the sum of their rows": [
         "f7b66eab4edd",
         "646595fe9801",
-        "459a3eb738a5"
+        "847b7c273122"
       ],
       "Story: Roll usage up / Period filters keep only what is inside the window": [
         "e3b0c44298fc",
         "3f2adaaa9217",
-        "459a3eb738a5"
+        "847b7c273122"
       ]
     },
     "spec/index.md": {

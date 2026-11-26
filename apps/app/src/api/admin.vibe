@@ -63,11 +63,10 @@ effect function overview(admin: Admin.Machine.Shape) {
     return try HttpServerResponse.json({ error: "operator access required" }, { status: 403, headers: noStore })
   }
   const kv = try KeyValueStore.KeyValueStore
-  const keys = ["session", "keys", "billing", "usage", "support", "teams"]
   const states = {} as Record<string, unknown>
-  for (const key of keys) {
-    const found = kv.get(key) catch () => undefined
-    states[key] =
+  for (const joined of Admin.joinedKeys) {
+    const found = kv.get(joined.storage) catch () => undefined
+    states[joined.projection] =
       found === undefined
         ? null
         : (Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new BadJson({ raw: found }) }) catch () => null)
@@ -79,6 +78,23 @@ effect function overview(admin: Admin.Machine.Shape) {
 // the ledger itself and is recorded in the CRM, both naming the one adjustment record — so the
 // audited record and the balance never disagree. The operator is the session wallet, checked
 // against the roster; an empty roster is the bootstrap every staging shell starts from.
+function adjustmentEntry(state: Ledger.Ledger, detail: string) {
+  return state.entries.find((entry) => entry.detail == detail && (entry.kind == "AdjustCredit" || entry.kind == "AdjustDebit"))
+}
+
+function entryMatches(entry: Ledger.Entry | undefined, wallet: string, kind: Ledger.EntryKind, amount: number) {
+  return entry != undefined && entry.wallet == wallet && entry.kind == kind && entry.amount == amount
+}
+
+function balanceBeforeEntry(entries: Ledger.Entry[], wallet: string, detail: string) {
+  let balance = 0
+  for (const entry of entries) {
+    if (entry.detail == detail && (entry.kind == "AdjustCredit" || entry.kind == "AdjustDebit")) return balance
+    if (entry.wallet == wallet) balance += Ledger.contribution(entry)
+  }
+  return balance
+}
+
 effect function postAdjust() {
   const request = try HttpServerRequest.HttpServerRequest
   const operator = try authenticatedWallet()
@@ -107,25 +123,59 @@ effect function postAdjust() {
   if (reason.length < 8 || reason.length > 500) {
     return try HttpServerResponse.json({ ok: false, error: "Record an evidence note of 8 to 500 characters." }, { status: 400, headers: noStore })
   }
+  const amount = Math.abs(delta)
+  const kind = delta > 0 ? "AdjustCredit" : "AdjustDebit"
   const ledger = try Ledger.Machine
   const before = try ledger.get()
-  const balanceBefore = Ledger.balanceOf(before, account)
-  if (balanceBefore + delta < 0) {
+  const crm = try Crm.Machine
+  const crmBefore = try crm.get()
+  const written = adjustmentEntry(before, id)
+  const writtenMatches = entryMatches(written, account, kind, amount)
+  if (written != undefined && !writtenMatches) {
+    return try HttpServerResponse.json({ ok: false, error: "This adjustment id names a different ledger entry." }, { status: 409, headers: noStore })
+  }
+  const record = crmBefore.adjustments.find((row) => row.id == id)
+  const recordMatches = record != undefined && record.account == account && record.admin == operator && record.delta == delta && record.reason == reason
+  if (record != undefined && !recordMatches) {
+    return try HttpServerResponse.json({ ok: false, error: "This adjustment id names a different audited record." }, { status: 409, headers: noStore })
+  }
+  const activity = crmBefore.activities.find((row) => row.id == activityId)
+  const activityMatches = activity != undefined && activity.account == account && activity.actor == operator && activity.kind == "adjust"
+  if (recordMatches && activityMatches) {
+    if (writtenMatches) return try HttpServerResponse.json({ ok: true, balanceAfter: record.balanceAfter }, { headers: noStore })
+    return try HttpServerResponse.json({ ok: false, error: "The audited record exists without its ledger entry." }, { status: 500, headers: noStore })
+  }
+  if (record != undefined || activity != undefined) {
+    return try HttpServerResponse.json({ ok: false, error: "This adjustment or activity id is already used in the customer timeline." }, { status: 409, headers: noStore })
+  }
+  const balanceBefore = writtenMatches ? balanceBeforeEntry(before.entries, account, id) : Ledger.balanceOf(before, account)
+  if (!writtenMatches && balanceBefore + delta < 0) {
     return try HttpServerResponse.json({ ok: false, error: "This adjustment would overdraw the account balance." }, { status: 409, headers: noStore })
   }
-  const amount = Math.abs(delta)
-  const movement = delta > 0
-    ? ledger.send({ type: "adjustCredit", wallet: account, detail: id, amount }) catch (e) => e
-    : ledger.send({ type: "adjustDebit", wallet: account, detail: id, amount }) catch (e) => e
-  if (movement instanceof Ledger.Rejected) {
-    return try HttpServerResponse.json({ ok: false, error: "The ledger refused the adjustment." }, { status: 409, headers: noStore })
-  }
-  const crm = try Crm.Machine
   const now = try Clock.currentTimeMillis
   const summary = "Balance adjusted by operations: " + reason.slice(0, 120)
+  if (!Crm.canRecordAdjustment(crmBefore, id, activityId, account, operator, delta, reason, balanceBefore, summary, now)) {
+    return try HttpServerResponse.json({ ok: false, error: "The adjustment record was refused." }, { status: 409, headers: noStore })
+  }
+  if (!writtenMatches) {
+    const movement = delta > 0
+      ? ledger.send({ type: "adjustCredit", wallet: account, detail: id, amount }) catch (e) => e
+      : ledger.send({ type: "adjustDebit", wallet: account, detail: id, amount }) catch (e) => e
+    if (movement instanceof Ledger.Rejected) {
+      const current = try ledger.get()
+      if (!entryMatches(adjustmentEntry(current, id), account, kind, amount)) {
+        return try HttpServerResponse.json({ ok: false, error: "The ledger refused the adjustment." }, { status: 409, headers: noStore })
+      }
+    }
+  }
   const recorded = crm.send({ type: "recordAdjustment", id, activityId, account, admin: operator, delta, reason, balanceBefore, summary, now }) catch (e) => e
   if (recorded instanceof Crm.Rejected) {
-    return try HttpServerResponse.json({ ok: false, error: "The ledger moved the credit but the record was refused." }, { status: 500, headers: noStore })
+    const current = try crm.get()
+    const completed = current.adjustments.some((row) => row.id == id && row.account == account && row.admin == operator && row.delta == delta && row.reason == reason) &&
+      current.activities.some((row) => row.id == activityId && row.account == account && row.kind == "adjust")
+    if (!completed) {
+      return try HttpServerResponse.json({ ok: false, error: "The ledger moved the credit but the record was refused." }, { status: 500, headers: noStore })
+    }
   }
   return try HttpServerResponse.json({ ok: true, balanceAfter: balanceBefore + delta }, { headers: noStore })
 }

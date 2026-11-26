@@ -39,17 +39,27 @@ pure val idValues = Set("acct-a", "acct-b", "org-a")
 ### What the admin reads elsewhere
 
 The admin machine keeps only what it owns. The views join it, through the
-shell, with the state other areas keep in the same store: `session` holds
-`{ tag: "SignedIn", wallet: str }` or `{ tag: "SignedOut" }`; `keys` holds
-the API keys an account issued; `billing` holds the credit ledger an
-account's balance and deposits come from; `usage` holds the request records
-the traces and analytics views aggregate; `support` holds the tickets the
-support inbox lists; `teams` holds the workspaces an account belongs to.
-Each is read as untrusted JSON — a view shows `—` for what a key does not
+shell, with the state other areas keep in the same store. Each projection has
+a public name and the store key it reads: `session` reads `session` and holds
+`{ tag: "SignedIn", wallet: str }` or `{ tag: "SignedOut" }`; `keys` reads
+`workspace-keys` and holds the API keys an account issued; `billing` reads
+`billing-ledger` and holds the credit ledger an account's balance comes from;
+`usage` reads `usage` and holds the request records the traces and analytics
+views aggregate; `support` reads `support` and holds the tickets the support
+inbox lists; `teams` reads `teams` and holds the workspaces an account belongs
+to. Each is read as untrusted JSON — a view shows `—` for what a key does not
 hold or does not carry in the shape it expects.
 
 ```quint
-pure val joinedKeys: List[str] = List("session", "keys", "billing", "usage", "support", "teams")
+type JoinedKey = { projection: str, storage: str }
+
+pure val joinedKeys: List[JoinedKey] = List(
+  { projection: "session", storage: "session" },
+  { projection: "keys", storage: "workspace-keys" },
+  { projection: "billing", storage: "billing-ledger" },
+  { projection: "usage", storage: "usage" },
+  { projection: "support", storage: "support" },
+  { projection: "teams", storage: "teams" })
 ```
 
 ## Story: Grant and revoke access
