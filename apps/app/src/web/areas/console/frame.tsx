@@ -29,7 +29,7 @@ import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Referrals as ReferralState } from "../../../../gen/app__admin__referrals.ts";
 import type { Registry as AdminRegistry } from "../../../../gen/app__admin.ts";
 import { useRemote, type Remote } from "../../remote.ts";
-import { useSession, type WorkspaceSession } from "../../session.ts";
+import { useSession, type SessionSnapshot, type WorkspaceSession } from "../../session.ts";
 import { Brand, ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
 import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
@@ -97,7 +97,7 @@ export interface ConsoleProfile {
   role: "member" | "admin" | "support" | "finance";
 }
 
-export type WorkspaceSessionRemote = Remote<WorkspaceSession> & { refresh: () => Promise<void> };
+export type WorkspaceSessionRemote = SessionSnapshot;
 
 export interface ConsoleShell {
   session: WorkspaceSessionRemote;
@@ -188,9 +188,9 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     else setNavOpen(true);
   }
 
-  async function signIn(_wallet: string) {
-    await session.refresh();
-    return session.state?.tag === "SignedIn";
+  async function signIn(wallet: string) {
+    const state = await session.refresh();
+    return state?.tag === "SignedIn" && state.wallet === wallet;
   }
 
   async function signOut() {

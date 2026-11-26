@@ -9,7 +9,7 @@ export type WorkspaceSession =
       sessions?: Array<{ digest: string; createdAt: number; expiresAt: number; state: string; current: boolean }>;
     };
 
-type SessionSnapshot = Remote<WorkspaceSession> & { refresh: () => Promise<void> };
+export type SessionSnapshot = Remote<WorkspaceSession> & { refresh: () => Promise<WorkspaceSession | undefined> };
 
 async function readSession(): Promise<WorkspaceSession> {
   const response = await fetch("/api/session", { cache: "no-store" });
@@ -20,17 +20,24 @@ async function readSession(): Promise<WorkspaceSession> {
 let current: SessionSnapshot;
 const listeners = new Set<() => void>();
 let source: EventSource | undefined;
+let refreshGeneration = 0;
 
 function publish(state?: WorkspaceSession, error?: string) {
   current = { ...current, state, error };
   listeners.forEach((listener) => listener());
 }
 
-async function refresh() {
+async function refresh(): Promise<WorkspaceSession | undefined> {
+  const generation = ++refreshGeneration;
   try {
-    publish(await readSession(), undefined);
+    const state = await readSession();
+    if (generation === refreshGeneration) publish(state, undefined);
+    return state;
   } catch (cause) {
-    publish(current.state, cause instanceof Error ? cause.message : "session request failed");
+    if (generation === refreshGeneration) {
+      publish(current.state, cause instanceof Error ? cause.message : "session request failed");
+    }
+    return undefined;
   }
 }
 

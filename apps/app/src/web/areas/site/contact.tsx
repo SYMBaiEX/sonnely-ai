@@ -25,18 +25,8 @@ function ContactForm() {
   const checkingAccount = session.state === undefined && !session.error;
 
   async function signIn(signedWallet: string) {
-    await session.refresh();
-    const response = await fetch("/api/session", { cache: "no-store" });
-    if (!response.ok) return false;
-    const state: unknown = await response.json();
-    return (
-      typeof state === "object" &&
-      state !== null &&
-      "tag" in state &&
-      state.tag === "SignedIn" &&
-      "wallet" in state &&
-      state.wallet === signedWallet
-    );
+    const state = await session.refresh();
+    return state?.tag === "SignedIn" && state.wallet === signedWallet;
   }
 
   async function signOut() {
