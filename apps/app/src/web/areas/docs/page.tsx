@@ -3,10 +3,12 @@ import {
   ArrowUpRight,
   BookOpen,
   Box,
+  ChevronDown,
   ChevronRight,
   CircleHelp,
   Copy,
   Fingerprint,
+  List,
   Rocket,
   Search,
 } from "lucide-react";
@@ -61,6 +63,21 @@ export function DocsPage({ slug }: { slug: string }) {
                 </a>
               </div>
             </header>
+            {toc.length > 1 && (
+              <details className="docs-minitoc">
+                <summary>
+                  <List size={15} aria-hidden="true" /> On this page
+                  <span className="docs-minitoc-count">{toc.length} sections</span>
+                </summary>
+                <nav aria-label="On this page">
+                  {toc.map((h) => (
+                    <a key={h.id} href={`#${h.id}`} className={h.depth === 3 ? "docs-toc-sub" : undefined}>
+                      {h.title}
+                    </a>
+                  ))}
+                </nav>
+              </details>
+            )}
             <div className={kind === "guide" ? "docs-guide" : undefined}>
               <Blocks blocks={blocks} />
             </div>
@@ -104,16 +121,36 @@ export function DocsPage({ slug }: { slug: string }) {
 }
 
 function Sidebar({ slug }: { slug: string }) {
+  const [open, setOpen] = useState(false);
+  const [openSlug, setOpenSlug] = useState(slug);
+  if (openSlug !== slug) {
+    setOpenSlug(slug);
+    setOpen(false);
+  }
+  const close = () => setOpen(false);
   return (
-    <aside className="docs-sidebar" aria-label="Documentation sidebar">
+    <aside className="docs-sidebar" aria-label="Documentation sidebar" data-open={open ? "" : undefined}>
       <div className="docs-sidebar-head">
         <a href="/docs" className="docs-sidebar-brand">
           <BookOpen size={18} /> Documentation
         </a>
         <SearchDocs />
+        <button
+          type="button"
+          className="docs-nav-toggle"
+          aria-expanded={open}
+          aria-controls="docs-sidebar-nav"
+          onClick={() => setOpen(!open)}
+        >
+          <span className="docs-nav-toggle-label">
+            Browse docs
+            <strong>{docAt(slug).title}</strong>
+          </span>
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
       </div>
-      <nav className="docs-sidebar-nav" aria-label="Documentation">
-        <a href="/docs" className="docs-sidebar-link" data-overview="" aria-current={slug === "index" ? "page" : undefined}>
+      <nav className="docs-sidebar-nav" id="docs-sidebar-nav" aria-label="Documentation">
+        <a href="/docs" className="docs-sidebar-link" data-overview="" aria-current={slug === "index" ? "page" : undefined} onClick={close}>
           <BookOpen size={16} aria-hidden="true" />
           <span>Overview</span>
           <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
@@ -126,7 +163,13 @@ function Sidebar({ slug }: { slug: string }) {
                 <Icon size={15} aria-hidden="true" /> {section}
               </h2>
               {docsIn(section).map((d) => (
-                <a key={d.slug} href={`/docs/${d.slug}`} className="docs-sidebar-link" aria-current={d.slug === slug ? "page" : undefined}>
+                <a
+                  key={d.slug}
+                  href={`/docs/${d.slug}`}
+                  className="docs-sidebar-link"
+                  aria-current={d.slug === slug ? "page" : undefined}
+                  onClick={close}
+                >
                   <span>{d.title}</span>
                   <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
                 </a>
