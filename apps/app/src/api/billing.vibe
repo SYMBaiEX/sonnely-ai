@@ -373,11 +373,17 @@ effect function sweepDeposits(nextChecks: Map<string, number>) {
     }
     if (intent.status.tag != "Pending") continue
     if (intent.expiresAt <= now) {
+      // The machine finalizes only while the deadline has not passed, so a transfer discovered
+      // now can never be credited: checking the chain before expiring would cost an RPC call
+      // and change nothing. Catching those payments has to happen before the deadline below.
       deposits.send({ type: "expire", reference: intent.reference, now }) catch () => undefined
       continue
     }
     const nextCheckAt = nextChecks.get(intent.reference) ?? 0
-    if (candidates.length < 48 && nextCheckAt <= now) candidates.push(intent)
+    // Backoff spacing grows to an hour for old intents, but an intent whose next scheduled check
+    // falls past its deadline is in its final window: skip the backoff so a transfer finalizing
+    // just before the deadline is still found while the machine accepts the finalize.
+    if (candidates.length < 48 && (nextCheckAt <= now || nextCheckAt >= intent.expiresAt)) candidates.push(intent)
   }
   if (candidates.length == 0) return { checked: 0, credited: 0 }
   const network = tryPromise({ try: () => solana.verifyCluster(config.rpc, "mainnet"), catch: (e) => e }) catch (e) => e
