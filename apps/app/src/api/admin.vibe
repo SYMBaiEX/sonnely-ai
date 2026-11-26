@@ -274,7 +274,7 @@ effect function postAdjust() {
   return try HttpServerResponse.json({ ok: true, balanceAfter: balanceBefore + delta }, { headers: noStore })
 }
 
-// spec/app/admin/operators.md, "an empty directory appoints its first operator": deployment
+// spec/app/admin/operators.md, "Only an operator can grant access": deployment
 // configuration names the first operators so a fresh or reset store still opens to the people
 // who run the surface. The machine's own rule validates every grant — this only asks.
 effect function bootstrapOperators(admin: Admin.Machine.Shape) {

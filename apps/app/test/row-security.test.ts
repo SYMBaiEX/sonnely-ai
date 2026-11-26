@@ -104,6 +104,7 @@ afterEach(async () => {
 });
 
 describe("row-level access", () => {
+  // spec/app/billing/ledger.md, "The ledger is a balance over an append-only entry log"
   it("projects only the requesting wallet's ledger entries with their own balance", async () => {
     const handler = makeApp();
     const a = await (await get(handler, "/api/machines/billing-ledger", tokenA)).json() as { balance: number; entries: unknown[] };
@@ -114,6 +115,7 @@ describe("row-level access", () => {
     });
   });
 
+  // spec/app/billing/deposits.md, "An intent binds a transfer to the credit it buys"
   it("projects only the requesting wallet's deposit intents", async () => {
     const handler = makeApp();
     const a = await (await get(handler, "/api/machines/billing-deposits", tokenA)).json() as { intents: unknown[] };
@@ -121,6 +123,7 @@ describe("row-level access", () => {
     expect({ a: a.intents.length, b: b.intents.length }).toEqual({ a: 1, b: 0 });
   });
 
+  // spec/app/teams.md, "A team, its members, invites and projects"
   it("shows teams only to their members", async () => {
     const handler = makeApp();
     const a = await (await get(handler, "/api/machines/teams", tokenA)).json() as { teams: unknown[] };
@@ -128,6 +131,7 @@ describe("row-level access", () => {
     expect({ a: a.teams.length, b: b.teams.length }).toEqual({ a: 1, b: 0 });
   });
 
+  // spec/app/support.md, "A ticket and its replies"
   it("shows tickets only to their owner and strips internal staff replies", async () => {
     const handler = makeApp();
     const a = await (await get(handler, "/api/machines/support", tokenA)).json() as { tickets: { replies: { visibility: string }[] }[] };
@@ -139,6 +143,7 @@ describe("row-level access", () => {
     }).toEqual({ aTickets: 1, aReplies: ["Public"], bTickets: 0 });
   });
 
+  // spec/app/console/chat.md, "The playground is the threads, the open one and the chosen model"
   it("keeps each wallet's chat threads in its own machine instance", async () => {
     const handler = makeApp();
     const a = await (await get(handler, "/api/machines/console__chat", tokenA)).json() as { threads: unknown[] };
@@ -147,6 +152,7 @@ describe("row-level access", () => {
     expect({ a: a.threads.length, b: b.threads.length, anonStatus: anon.status }).toEqual({ a: 1, b: 0, anonStatus: 401 });
   });
 
+  // spec/app/console/chat.md, "Story: Converse with a model"
   it("writes to a wallet's own instance without touching another wallet's", async () => {
     const handler = makeApp();
     const write = await handler(new Request("http://localhost/api/machines/console__chat", {
