@@ -42,8 +42,8 @@ this prose into tokens. To change the design, describe it, and have the change w
 | `card-foreground` | oklch(0.225 0.046 271.3) | oklch(0.979 0.004 337.4) |
 | `popover` | oklch(0.983 0.008 278.6) | oklch(0.233 0.019 314.4) |
 | `popover-foreground` | oklch(0.225 0.046 271.3) | oklch(0.979 0.004 337.4) |
-| `primary` | oklch(0.459 0.202 267.6) | oklch(0.63 0.225 27.9) |
-| `primary-foreground` | oklch(1 0 0) | oklch(0.152 0.007 300.8) |
+| `primary` | oklch(0.459 0.202 267.6) | oklch(0.58 0.225 27.9) |
+| `primary-foreground` | oklch(1 0 0) | oklch(1 0 0) |
 | `secondary` | oklch(0.936 0.022 274.7) | oklch(0.265 0.016 312.9) |
 | `secondary-foreground` | oklch(0.225 0.046 271.3) | oklch(0.979 0.004 337.4) |
 | `muted` | oklch(0.936 0.022 274.7) | oklch(0.265 0.016 312.9) |
