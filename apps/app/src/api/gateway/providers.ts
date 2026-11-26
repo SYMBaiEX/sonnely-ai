@@ -28,6 +28,8 @@ const providerUrls: Record<ProviderId, string> = {
 
 const production = () => process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
 export const publicInference = () => !production() || process.env.SONNELY_PUBLIC_INFERENCE === "true";
+/** Deterministic staging answers are a development convenience; serving them for real money in production is not. */
+export const stagingInference = () => !production();
 const pausedProviders = () => new Set((process.env.SONNELY_PAUSED_PROVIDERS ?? "").split(",").map((provider) => provider.trim()).filter(Boolean));
 export function managedProviderKey(provider: string): string | undefined {
   if (!providerIds.includes(provider as ProviderId) || pausedProviders().has(provider) || !publicInference()) return undefined;

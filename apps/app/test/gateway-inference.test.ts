@@ -29,6 +29,8 @@ afterEach(() => {
   delete process.env.NEAR_AI_API_KEY;
   delete process.env.PHALA_AI_API_KEY;
   delete process.env.TINFOIL_API_KEY;
+  delete process.env.VERCEL_ENV;
+  delete process.env.SONNELY_PUBLIC_INFERENCE;
 });
 
 describe("gateway inference", () => {
@@ -240,6 +242,51 @@ describe("gateway inference", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // FACTORY-R1 A2: no provider keys in production means 503, never a paid fake answer.
+  it("fails closed with 503 and no reservation in production when no provider is configured", async () => {
+    process.env.VERCEL_ENV = "production";
+    const program = Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "key-prod", label: "Inference", prefix: "sonnely_live_prod", hash: "prod-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const response = yield* inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] }, key, wallet, "prod-ref");
+      const usage = yield* Usage.Machine;
+      return { response, ledger, usage };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await Effect.runPromise(Effect.gen(function* () {
+      return { ledgerRows: (yield* result.ledger.get()).entries, rows: (yield* result.usage.get()).rows };
+    }));
+    expect(result.response.status).toBe(503);
+    expect(state.ledgerRows.some((entry) => entry.kind === "Reserve" || entry.kind === "Charge")).toBe(false);
+    expect(state.rows).toHaveLength(0);
+  });
+
+  // FACTORY-R1 A2: staging answers remain a development-only convenience.
+  it("still serves a metered staging answer outside production when no provider is configured", async () => {
+    delete process.env.VERCEL_ENV;
+    const program = Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "key-staging", label: "Inference", prefix: "sonnely_live_staging", hash: "staging-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const response = yield* inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] }, key, wallet, "staging-ref");
+      return { response, ledger };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const ledgerRows = await Effect.runPromise(Effect.gen(function* () {
+      return (yield* result.ledger.get()).entries;
+    }));
+    expect(result.response.status).toBe(200);
+    expect(result.response.headers["x-sonnely-provider"] ?? (result.response.headers as Headers).get?.("x-sonnely-provider")).toBe("staging");
+    expect(ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount > 0)).toBe(true);
   });
 
 });

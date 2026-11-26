@@ -13,7 +13,7 @@ import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { store } from "../serve.vibe"
-import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -294,7 +294,7 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
     return try inferenceFailure("This Idempotency-Key already started a request. Look up the reference in Request logs.", 409, ref)
   }
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length == 0) {
+  if (liveProviders.length == 0 && try Effect.try(() => stagingInference())) {
     const input = parsedResult.value
     const cost = stagedCost(JSON.stringify(raw ?? {}).length)
     const openedStage = try openMeter(ref, wallet, key, "ChatCompletions", input.model, input.stream === true, cost)
@@ -510,7 +510,7 @@ effect function chatCompletions() {
   const receipt = request.headers["x-sonnely-receipt"]
   if (receipt != undefined && receipt != "v1") return try inferenceFailure("Unsupported evidence receipt version. Use X-Sonnely-Receipt: v1.", 400, ref)
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length > 0) return try inferChat(raw, auth.key, auth.key.wallet, ref, receipt == "v1")
+  if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) return try inferChat(raw, auth.key, auth.key.wallet, ref, receipt == "v1")
   const cost = stagedCost(body.bytes)
   if (!body.stream) {
     const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
@@ -649,7 +649,7 @@ function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[numb
     if (!multipart && !request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
     const raw = multipart ? undefined : request.json catch () => undefined
     const liveProviders = try Effect.try(() => configuredProviders())
-    if (liveProviders.length > 0) {
+    if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) {
       const ref = try Effect.try(() => newRef())
       return try inferSpecialized(path, endpoint, model({}), raw, undefined, "", ref)
     }
@@ -774,7 +774,7 @@ effect function batchChat() {
   }
   const ref = "idem" + (try Effect.try(() => sha256(auth.key.wallet + ":" + auth.key.id + ":" + idempotency))).slice(0, 32)
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length > 0) return try inferChat(raw, auth.key, auth.key.wallet, ref)
+  if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) return try inferChat(raw, auth.key, auth.key.wallet, ref)
   const cost = stagedCost(body.bytes)
   const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
   if ("refused" in settled) {
