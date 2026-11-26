@@ -47,9 +47,46 @@
   color: var(--ink);
 }
 
-.site .pill-ok {
-  color: #2f7d4f;
-  border-color: color-mix(in srgb, #2f7d4f 40%, var(--line));
+.site .admin-legacy-scope .pill-ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
+}
+
+.site .admin-legacy-scope .pill-warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 40%, var(--line));
+}
+
+.site .admin-legacy-scope .pill-error {
+  color: var(--destructive);
+  border-color: color-mix(in srgb, var(--destructive) 40%, var(--line));
+}
+
+.site .admin-legacy-scope .pill-info {
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 40%, var(--line));
+}
+
+.site .admin-legacy-scope .crm-controls input[type="radio"] {
+  width: auto;
+  min-height: 0;
+  accent-color: var(--action);
+}
+
+.site .admin-legacy-scope .crm-row-actions {
+  flex-wrap: nowrap;
+}
+
+.site .admin-legacy-scope .crm-row-actions .button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.site .admin-legacy-scope .crm-avatar.crm-cell-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  font-size: 16px;
 }
 
 .site .admin-nav-item.is-active {

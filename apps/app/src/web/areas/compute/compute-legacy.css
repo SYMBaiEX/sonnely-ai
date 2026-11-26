@@ -170,8 +170,8 @@
 }
 
 .compute-legacy .button.danger {
-  background: #923b35;
-  color: white;
+  background: var(--destructive);
+  color: var(--destructive-foreground);
 }
 
 .compute-legacy .full {

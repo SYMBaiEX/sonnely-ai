@@ -225,6 +225,16 @@
   background: var(--raised);
 }
 
+.billing-legacy .button.danger {
+  border-color: color-mix(in srgb, var(--destructive) 45%, var(--line));
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.billing-legacy .button.danger:not(:disabled):hover {
+  background: color-mix(in srgb, var(--destructive) 88%, var(--foreground));
+}
+
 .billing-legacy .button.small {
   padding: 6px 9px;
   min-height: 33px;

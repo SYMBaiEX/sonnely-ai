@@ -694,7 +694,7 @@ export function Consoles() {
               <input
                 type="search"
                 aria-label="Search rentals"
-                placeholder="Search image, port, or ID"
+                placeholder="Search rentals"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />

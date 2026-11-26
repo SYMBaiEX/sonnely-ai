@@ -190,7 +190,7 @@ export function ConfidentialCheckout({
           {canSubmit && (
             <>
               {!canSend && (
-                <p className="caption">Already paid while this request was open? You can still send us the signature.</p>
+                <p className="caption">Already paid while this request was open? You can still submit the signature.</p>
               )}
               <form
                 className="inline-form"
@@ -277,11 +277,11 @@ export function ConfidentialCheckout({
               </button>
               <button
                 type="button"
-                className="button quiet"
+                className="button danger"
                 disabled={Boolean(pending)}
                 onClick={() => void run("cancel", async () => receive(await cancelOrder(order.reference)))}
               >
-                {pending === "cancel" ? "Cancelling…" : "Confirm cancellation"}
+                {pending === "cancel" ? "Cancelling…" : "Cancel payment request"}
               </button>
             </div>
           )}

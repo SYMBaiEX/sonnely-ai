@@ -132,7 +132,7 @@
 }
 
 .controls .end {
-  color: light-dark(#a12438, #ff9aa4);
+  color: var(--destructive);
 }
 
 .status {
@@ -392,7 +392,7 @@
 }
 
 .error {
-  color: light-dark(#a12438, #ffb2b9);
+  color: var(--destructive);
 }
 
 .toolbar {
@@ -595,7 +595,7 @@
 }
 
 .fields input[aria-invalid] {
-  border-color: light-dark(#a12438, #ff9aa4);
+  border-color: var(--destructive);
 }
 
 .fields fieldset {
@@ -643,7 +643,7 @@
 }
 
 .windows input:focus-visible + span {
-  outline: 2px solid var(--muted);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -718,12 +718,12 @@
 }
 
 .dialog .danger {
-  background: light-dark(#ad2d42, #cd2033);
-  color: #fff;
+  background: var(--destructive);
+  color: var(--destructive-foreground);
 }
 
 .dialog .danger:not(:disabled):hover {
-  background: #a11c2e;
+  background: color-mix(in srgb, var(--destructive) 88%, var(--foreground));
 }
 
 @media (max-width: 680px) {
@@ -931,7 +931,7 @@ button.presetCard:hover {
 }
 
 .choice input:focus-visible + span {
-  outline: 2px solid var(--muted);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 

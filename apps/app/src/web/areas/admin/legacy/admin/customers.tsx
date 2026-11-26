@@ -16,7 +16,7 @@ const avatarTones = [
   "crm-cell-avatar-4",
 ];
 
-function avatarTone(seed: string) {
+export function customerAvatarTone(seed: string) {
   let hash = 0;
   for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return avatarTones[hash % avatarTones.length];
@@ -355,7 +355,7 @@ export function CustomersTable({
                 </td>
                 <th scope="row">
                   <span className="crm-customer">
-                    <span className={"crm-cell-avatar " + avatarTone(seed)} aria-hidden="true">
+                    <span className={"crm-cell-avatar " + customerAvatarTone(seed)} aria-hidden="true">
                       {initials(row)}
                     </span>
                     <Identity customer={row} />
@@ -381,7 +381,7 @@ export function CustomersTable({
                 <td>{row.role}</td>
                 <td>
                   <span className="crm-row-actions">
-                    <CopyButton value={row.wallet} label="Copy wallet" />
+                    <CopyButton value={row.wallet} label="Copy wallet" text="" />
                     <button
                       type="button"
                       className="button quiet small"

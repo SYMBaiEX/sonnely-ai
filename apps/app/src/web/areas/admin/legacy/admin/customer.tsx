@@ -15,6 +15,7 @@ import {
 } from "./shared.tsx";
 import { TicketList } from "./support.tsx";
 import { TraceList } from "./traces.tsx";
+import { customerAvatarTone } from "./customers.tsx";
 import { Pill, Skeleton } from "./ui.tsx";
 
 type PendingAction = { kind: "suspend" } | { kind: "sessions" } | { kind: "key"; id: string; name: string };
@@ -30,13 +31,10 @@ function CustomerAvatar({ customer }: { customer: CustomerDetail["customer"] }) 
       .slice(0, 2)
       .join("")
       .toUpperCase() || "?";
-  let hash = 0;
-  for (const ch of customer.wallet) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   return (
     <span
-      className="crm-avatar"
+      className={"crm-avatar crm-cell-avatar " + customerAvatarTone(customer.wallet)}
       aria-hidden="true"
-      style={{ background: "hsl(" + (hash % 360) + " 45% 40%)" }}
     >
       {initials}
     </span>
