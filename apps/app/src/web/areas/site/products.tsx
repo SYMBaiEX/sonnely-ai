@@ -7,7 +7,6 @@ import { publicHrefReleased } from "../../../feature-availability.ts";
 import {
   apiBasePath,
   artifactLimit,
-  computeMarkup,
   computePlans,
   computeQuote,
   creditBalance,
@@ -257,7 +256,7 @@ function Inference() {
       </ProductSection>
       <ProductSection id="streaming" title="Stream with a budget.">
         <p>
-          Send an OpenAI-compatible Chat Completions request with streaming enabled. Ask for final
+          Use the Sonnely SDK or a Chat Completions client with streaming enabled. Ask for final
           usage when consuming the stream. Set a cap for one request with{" "}
           <code>max_cost_microusd</code>, alongside daily and lifetime limits on the API key.
         </p>
@@ -333,8 +332,7 @@ function Compute() {
       <ProductSection id="products" title="Two ways to run work.">
         <p>
           Compute products meter machine time into the same credit balance as inference. Quotes
-          include metered compute cost, a {computeMarkup}% service markup, and a fixed fee per
-          billable run.
+          include metered compute cost and service fees for each billable run.
         </p>
         <div className="product-computeList">
           {computeProductIds.map((id) => {
@@ -372,7 +370,7 @@ function Compute() {
             ))}
           </dl>
         </ProductSample>
-        <NextLink href="/models#billing">See compute pricing</NextLink>
+        <NextLink href="/pricing">See pricing</NextLink>
       </ProductSection>
       <ProductSection id="lifecycle" title="A rental, start to finish.">
         <p>
@@ -388,7 +386,7 @@ function Compute() {
             </li>
             <li>
               <strong>Review the hold</strong>
-              <span>Quote covers compute, markup, and the run fee</span>
+              <span>Quote covers compute and service fees</span>
             </li>
             <li>
               <strong>Inspect</strong>
@@ -449,8 +447,8 @@ function Blackboxes() {
           />
         </ProductSample>
         <p>
-          Quotes include metered compute cost, a {computeMarkup}% service markup, and a fixed fee for
-          a billable run. Pilot availability depends on your account and capacity.
+          Quotes include metered compute cost and service fees for a billable run. Pilot availability
+          depends on your account and capacity.
         </p>
       </ProductSection>
       <ProductSection id="attestation" title="Inspect the evidence.">
@@ -475,7 +473,7 @@ function Blackboxes() {
               creditBalance(computeQuote("blackboxes", minutes).total),
             ])}
           />
-          <p className={caption}>Estimates include metered compute, markup, and the run fee.</p>
+          <p className={caption}>Estimates include metered compute and service fees.</p>
         </ProductSample>
         <NextLink href="/console/blackboxes">Check pilot access</NextLink>
       </ProductSection>
@@ -519,7 +517,7 @@ function DryDocks() {
             creditBalance(computeQuote("dry-docks", minutes).total),
           ])}
         />
-        <p className={caption}>Estimates include metered compute, markup, and the run fee.</p>
+        <p className={caption}>Estimates include metered compute and service fees.</p>
       </ProductSample>
       <NextLink href="/console/dry-docks">Open Dry Docks</NextLink>
     </ProductSection>

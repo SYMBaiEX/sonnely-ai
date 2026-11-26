@@ -1,6 +1,5 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowRight, ArrowUpRight, Boxes, Calculator, Fingerprint, KeyRound, Search, Wallet } from "lucide-react";
-import { useState } from "react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Search } from "lucide-react";
 import { Input } from "@repo/ui";
 import { useMachine } from "../../../../gen/app__models.react.ts";
 import {
@@ -11,34 +10,20 @@ import {
   type Event,
   type Endpoint,
   type ProviderId,
-  type RateUnit,
-  type Route,
   type Sort,
 } from "../../../../gen/app__models.ts";
 import type { Board, ProbeState } from "../../../../gen/app__site.ts";
 import { useRemote } from "../../remote.ts";
-import { computeProductsReleased } from "../../../feature-availability.ts";
+import { canonicalGroups, endpointIds } from "./catalog-data.ts";
 import { SiteLead } from "./chrome.tsx";
 import {
   apiBasePath,
-  computeQuote,
-  creditBalance,
-  endpointDocs,
-  endpointPaths,
   featuredTypes,
   featuredUpstreamIds,
-  formatRate,
   limits,
-  markupPercent,
-  modelDetailHref,
-  modelPlaygroundHref,
   providerNames,
   providerOfSlug,
-  requestCharge,
-  routeLabels,
-  routeRates,
   upstreamCoversEndpoint,
-  upstreamWorkloadLabel,
   workloadGuide,
   workloadNames,
 } from "./data.ts";
@@ -47,11 +32,6 @@ import { entryActions, pages } from "./content.ts";
 import { PlatformLinks } from "./products.tsx";
 import {
   buttonAccent,
-  faqBody,
-  faqCard,
-  faqSummary,
-  featureIcon,
-  panel,
   searchBox,
   sectionHead,
   selectClass,
@@ -59,74 +39,13 @@ import {
   textLink,
   wrap,
 } from "./ui.ts";
-import { groupCatalog, type CanonicalModel } from "./catalog-groups.ts";
+import type { CanonicalModel } from "./catalog-groups.ts";
 import {
   CatalogCards,
   type CatalogDisplayEntry,
   type CatalogRateKind,
   type CatalogStatus,
 } from "./catalog-cards.tsx";
-
-const endpointIds = Object.keys(workloadNames) as Endpoint[];
-
-const rateKinds: Record<RateUnit, CatalogRateKind> = {
-  Input: "input",
-  Cached: "cache",
-  Output: "output",
-  PerRequest: "request",
-  PerSession: "session",
-};
-
-const rateDescriptions: Record<RateUnit, string> = {
-  Input: "input / 1M tokens",
-  Cached: "cached input / 1M tokens",
-  Output: "output / 1M tokens",
-  PerRequest: "per request",
-  PerSession: "per session",
-};
-
-const rateOrder: readonly RateUnit[] = ["Input", "Cached", "Output", "PerRequest", "PerSession"];
-
-function displayEntry(model: CatalogEntry): CatalogDisplayEntry {
-  const key = model.provider + "/" + model.upstreamId;
-  return {
-    key,
-    provider: model.provider,
-    upstreamId: model.upstreamId,
-    name: model.name,
-    workload: model.workload,
-    summary: model.summary,
-    context: model.context,
-    mark: model.mark,
-    providerName: providerNames[model.provider],
-    privacyLabel: routeLabels[model.privacy],
-    workloadLabel: upstreamWorkloadLabel(model.workload),
-    detailHref: modelDetailHref(model),
-    status: model.routes.length
-      ? { label: "Routed", tone: "info" }
-      : { label: "Catalog only", tone: "muted" },
-    routes: model.routes.map((route) => {
-      const rates = routeRates(route);
-      return {
-        endpoint: route.endpoint,
-        endpointLabel: workloadNames[route.endpoint],
-        endpointPath: endpointPaths[route.endpoint],
-        docsHref: endpointDocs(route.endpoint),
-        modelId: route.modelId,
-        chatHref: route.endpoint === "ChatCompletions" ? modelPlaygroundHref(route.modelId, model.provider) : undefined,
-        rates: rateOrder.flatMap((unit) => {
-          const value = rates[unit];
-          return value === undefined || value < 0
-            ? []
-            : [{ kind: rateKinds[unit], label: rateDescriptions[unit], value, text: formatRate(value) }];
-        }),
-      };
-    }),
-  };
-}
-
-const catalogEntries = catalog.map(displayEntry);
-const canonicalGroups = groupCatalog(catalogEntries);
 
 function probeStates(board: Board | undefined): Partial<Record<ProviderId, ProbeState>> {
   if (board?.tag !== "Live") return {};
@@ -347,8 +266,8 @@ export function ModelCatalog() {
       <CatalogTools filter={filter} send={send} />
       <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
       <aside className="mt-4 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-        Sonnely rates include a {markupPercent}% markup.{" "}
-        <a className="text-primary hover:underline" href="/docs/providers#compare-prices">How pricing works</a>
+        Rates shown are the final Sonnely rates.{" "}
+        <a className="text-primary hover:underline" href="/pricing">How billing works</a>
         {" · "}
         <a className="text-primary hover:underline" href={apiBasePath + "/provider-models"}>Catalog JSON</a>
       </aside>
@@ -389,113 +308,6 @@ function ModelGuide() {
       <a className={textLink} href="/docs/api#request-limits">
         See request limits <ArrowUpRight size={16} aria-hidden="true" />
       </a>
-    </section>
-  );
-}
-
-function tokens(value: string, maximum: number) {
-  const count = Number(value);
-  return value !== "" && Number.isSafeInteger(count) && count >= 0 && count <= maximum
-    ? count
-    : null;
-}
-
-const chatModels = catalog.filter((entry) =>
-  entry.routes.some((route) => route.endpoint === "ChatCompletions"),
-);
-
-function chatModelRoute(entry: CatalogEntry): Route | undefined {
-  return entry.routes.find((route) => route.endpoint === "ChatCompletions");
-}
-
-function CostExample() {
-  const [modelId, setModelId] = useState(() => chatModelRoute(chatModels[0])?.modelId ?? "");
-  const [input, setInput] = useState("10000");
-  const [output, setOutput] = useState("1000");
-  const entry =
-    chatModels.find((model) => chatModelRoute(model)?.modelId === modelId) ?? chatModels[0];
-  const rates = entry ? routeRates(chatModelRoute(entry)!) : {};
-  const inputTokens = tokens(input, limits.bodyBytes);
-  const outputTokens = tokens(output, limits.maxOutputTokens);
-  const estimate =
-    inputTokens === null || outputTokens === null
-      ? null
-      : requestCharge(rates, inputTokens, 0, outputTokens);
-
-  return (
-    <section className={panel + " my-14 grid gap-5"} aria-labelledby="cost-example-heading">
-      <header className="flex items-center gap-3.5">
-        <span className={featureIcon}>
-          <Calculator size={21} aria-hidden="true" />
-        </span>
-        <div>
-          <h2 id="cost-example-heading" className="text-lg font-medium">Estimate a request</h2>
-          <p className="text-sm text-muted-foreground">Compare uncached text requests at Sonnely’s published token rates.</p>
-        </div>
-      </header>
-      <div className="grid gap-4 min-[800px]:grid-cols-3">
-        <label className="grid gap-1.5 text-sm">
-          Model
-          <select className={selectClass} value={modelId} onChange={(event) => setModelId(event.target.value)}>
-            {chatModels.map((model) => {
-              const route = chatModelRoute(model)!;
-              return (
-                <option key={model.provider + route.modelId} value={route.modelId}>
-                  {model.name}
-                </option>
-              );
-            })}
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-sm">
-          Input tokens
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={limits.bodyBytes}
-            step={1}
-            invalid={inputTokens === null}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-          />
-        </label>
-        <label className="grid gap-1.5 text-sm">
-          Output tokens
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={limits.maxOutputTokens}
-            step={1}
-            invalid={outputTokens === null}
-            value={output}
-            onChange={(event) => setOutput(event.target.value)}
-          />
-        </label>
-      </div>
-      <div className="grid gap-2.5 rounded-md border border-border bg-secondary p-4.5">
-        <p className="text-xs text-muted-foreground">Estimated charge</p>
-        <output aria-live="polite" className="text-2xl font-medium">
-          {estimate === null ? "Check token counts" : creditBalance(estimate)}
-        </output>
-        <dl aria-label="Rates per million tokens" className="flex gap-8 text-[13px]">
-          <div>
-            <dt className="text-muted-foreground">Input / 1M tokens</dt>
-            <dd>{formatRate(rates.Input ?? 0)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Output / 1M tokens</dt>
-            <dd>{formatRate(rates.Output ?? 0)}</dd>
-          </div>
-        </dl>
-      </div>
-      <footer className="flex flex-wrap items-center gap-4">
-        <p className="text-[13px] text-muted-foreground">Actual charges use reported usage and account for cached input.</p>
-        <a className={textLink} href="/models#model-rates">
-          Compare model rates <ArrowUpRight size={15} aria-hidden="true" />
-        </a>
-      </footer>
     </section>
   );
 }
@@ -547,109 +359,6 @@ export function ModelsPage() {
         </a>
       </section>
       <ModelGuide />
-      <CostExample />
-      <section className="my-14" id="billing" aria-labelledby="billing-basics">
-        <header className={sectionHead}>
-          <h2 id="billing-basics" style={serif} className="text-[clamp(26px,4vw,38px)] font-normal leading-tight">
-            How billing works
-          </h2>
-        </header>
-        <div className="grid gap-3.5 min-[800px]:grid-cols-3">
-          <article className={panel + " grid content-start gap-2.5 [&>svg]:size-6 [&>svg]:text-primary"}>
-            <Wallet aria-hidden="true" />
-            <h3 className="text-base font-medium">Prepaid credits</h3>
-            <p className="text-sm text-muted-foreground">
-              After signing in and accepting the current terms, choose a credit amount and pay with
-              USDC or SOL. Credits post automatically when the Solana transfer finalizes.
-            </p>
-            <a className={textLink} href="/console/billing">
-              Billing console <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
-          </article>
-          <article className={panel + " grid content-start gap-2.5 [&>svg]:size-6 [&>svg]:text-primary"}>
-            <KeyRound aria-hidden="true" />
-            <h3 className="text-base font-medium">Per-key budgets</h3>
-            <p className="text-sm text-muted-foreground">
-              Set limits on daily and total spend, choose an expiration, and revoke keys
-              immediately.
-            </p>
-            <a className={textLink} href="/console/keys">
-              Manage keys <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
-          </article>
-          <article className={panel + " grid content-start gap-2.5 [&>svg]:size-6 [&>svg]:text-primary"}>
-            <Fingerprint aria-hidden="true" />
-            <h3 className="text-base font-medium">Token rates</h3>
-            <p className="text-sm text-muted-foreground">Published token rates include a {markupPercent}% Sonnely markup on compute costs.</p>
-            <a className={textLink} href="/models#available-models">
-              Compare token rates <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
-          </article>
-        </div>
-      </section>
-      {computeProductsReleased() && (
-        <section id="compute-pricing" className={panel + " my-14"} aria-labelledby="compute-pricing-title">
-          <header className="mb-4 flex items-center gap-3">
-            <Boxes size={22} aria-hidden="true" />
-            <h2 id="compute-pricing-title" className="text-lg font-medium">Compute pricing</h2>
-          </header>
-          <div className="grid gap-3">
-            <p className="text-sm text-muted-foreground">
-              A 15-minute Small Blackbox with 20 GB SSD is estimated at{" "}
-              {creditBalance(computeQuote("blackboxes", 15).total)}. Review the full reservation
-              before starting.
-            </p>
-            <a className={textLink} href="/blackboxes#rental">
-              Explore Blackbox rentals <ArrowUpRight size={15} aria-hidden="true" />
-            </a>
-            <a className={textLink} href="/dry-docks">
-              Explore Dry Docks
-            </a>
-          </div>
-        </section>
-      )}
-      <section className="my-14" aria-labelledby="billing-questions">
-        <header className={sectionHead}>
-          <h2 id="billing-questions" style={serif} className="text-[clamp(26px,4vw,38px)] font-normal leading-tight">
-            Billing questions
-          </h2>
-          <a className={textLink} href="/docs/billing">
-            Credits and checkout <ArrowUpRight size={15} aria-hidden="true" />
-          </a>
-        </header>
-        <div className="grid gap-2">
-          <details name="billing-questions" className={faqCard}>
-            <summary className={faqSummary}>What do I need to buy credits?</summary>
-            <p className={faqBody}>
-              Use a compatible Solana wallet with enough SOL for network fees. Sign in with the
-              wallet that will pay, then choose SOL or USDC in Billing. A USDC payment can also
-              require token account setup.
-            </p>
-          </details>
-          <details name="billing-questions" className={faqCard}>
-            <summary className={faqSummary}>How do API key budgets work?</summary>
-            <p className={faqBody}>
-              Sonnely reserves a maximum estimated charge before sending each request. It releases
-              the difference when usage settles. Unreported usage can leave a reservation pending
-              reconciliation.
-            </p>
-          </details>
-          <details name="billing-questions" className={faqCard}>
-            <summary className={faqSummary}>Where can I see what a request cost?</summary>
-            <p className={faqBody}>
-              Open Usage in the console to review token counts, request status and charges. Billing
-              lists payment receipts separately.
-            </p>
-          </details>
-          <details name="billing-questions" className={faqCard}>
-            <summary className={faqSummary}>Do devnet payments create credits?</summary>
-            <p className={faqBody}>
-              Devnet payments verify the checkout path. Spendable credits require a verified
-              mainnet payment.
-            </p>
-          </details>
-        </div>
-      </section>
       <PlatformLinks compact />
     </div>
   );

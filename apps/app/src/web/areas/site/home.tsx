@@ -384,12 +384,8 @@ function RouteSample() {
 function EndpointSample() {
   return (
     <div className="gateway-sample gateway-endpoint">
-      <span>POST</span>
-      <code>
-        {apiBasePath}/chat/
-        <wbr />
-        completions
-      </code>
+      <span>SDK</span>
+      <code>new Sonnely()</code>
     </div>
   );
 }
@@ -435,10 +431,10 @@ const capabilities = [
   {
     id: "api",
     icon: Braces,
-    title: "OpenAI-compatible requests",
-    body: "Keep your Chat Completions client. Point it at Sonnely and choose a model ID.",
-    href: "/docs/api",
-    action: "See the API",
+    title: "Sonnely SDKs",
+    body: "Use the typed TypeScript or Python client for completions, streams, receipts, and request references.",
+    href: "/docs/sdks",
+    action: "Install an SDK",
     Sample: EndpointSample,
   },
   {
@@ -748,7 +744,7 @@ function WorkspacePreview() {
     <section className="section home-workspace" aria-labelledby="workspace-title">
       <div className={sectionHead}>
         <h2 id="workspace-title">Keys, usage, and credits.</h2>
-        <a className={textLink} href="/models#billing">
+        <a className={textLink} href="/pricing">
           See pricing <ArrowUpRight size={16} aria-hidden="true" />
         </a>
       </div>

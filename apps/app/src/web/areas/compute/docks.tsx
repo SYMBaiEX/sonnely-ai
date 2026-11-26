@@ -9,7 +9,6 @@ import { useSession } from "../../session.ts";
 import { useRemote } from "../../remote.ts";
 import {
   computeFee,
-  computeMarkup,
   creditBalance,
   dockDetails,
   dockMinutes,
@@ -288,8 +287,8 @@ export function Docks() {
               </div>
             </dl>
             <p className={styles.hint}>
-              The fee is {computeMarkup}% of the compute cost plus {creditBalance(computeFee)} for a billed run. Unspent credits return
-              to your balance after teardown.
+              The estimate combines compute cost, service fees, and a {creditBalance(computeFee)} charge for each billed run. Unspent
+              credits return to your balance after teardown.
             </p>
             <p className={styles.hint}>
               Boat meters machine time by the second. The sandbox is deleted when the build ends or the limit is reached.

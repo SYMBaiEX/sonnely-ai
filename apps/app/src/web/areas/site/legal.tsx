@@ -109,7 +109,7 @@ export function TermsPage() {
           </p>
           <p>
             We reserve credits before sending a request and settle the final charge using reported
-            token counts at the rates on <a href="/models#billing">Pricing</a>. Reservations may
+            token counts at the rates on <a href="/pricing">Pricing</a>. Reservations may
             remain held while an incomplete request is investigated.
           </p>
           <h2 id={termsSections[2][0]}>{termsSections[2][1]}</h2>

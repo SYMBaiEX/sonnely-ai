@@ -29,6 +29,7 @@ export function pathOf(page: Page): string {
     case "Blackboxes": return "/blackboxes";
     case "DryDocks": return "/dry-docks";
     case "Models": return "/models";
+    case "Pricing": return "/pricing";
     case "Model": return `/models/${page.provider}/${page.model}`;
     case "Status": return "/status";
     case "Journal": return "/blog";
@@ -64,6 +65,7 @@ export function pageOf(path: string): Page {
     case "terms": return { tag: "Terms" };
     case "verify": return { tag: "Verify" };
     case "contact": return { tag: "Contact" };
+    case "pricing": return { tag: "Pricing" };
     case "docs": return parts[1] ? { tag: "Doc", slug: parts.slice(1).map(decodeURIComponent).join("/") } : { tag: "Docs" };
     case "console": {
       const section = sections[parts[1] ?? "chat"] ?? "Chat";

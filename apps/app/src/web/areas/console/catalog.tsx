@@ -258,8 +258,8 @@ export function CatalogSection() {
       </div>
       <CatalogCards groups={displayed} filterSignature={filterSignature} />
       <aside className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-        Sonnely rates include a 10% markup.{" "}
-        <a href="/docs/providers#compare-prices" className="text-primary hover:underline">How pricing works</a>
+        Rates shown are the final Sonnely rates.{" "}
+        <a href="/pricing" className="text-primary hover:underline">How billing works</a>
         {" · "}
         <a href="/api/console/catalog" className="text-primary hover:underline">Catalog JSON</a>
       </aside>

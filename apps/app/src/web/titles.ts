@@ -43,6 +43,8 @@ export function titleOf(page: Page): string {
       return titled(publicPageReleased(page) ? pages["dry-docks"][0] : "Dry Docks not available yet");
     case "Models":
       return titled(pages.models[0]);
+    case "Pricing":
+      return titled("Pricing");
     case "Model": {
       const entry = catalog.find(
         (row) => row.provider === providerOfSlug[page.provider] && row.upstreamId === page.model,

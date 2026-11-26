@@ -22,7 +22,7 @@ type Section =
 type Page =
   | Home
   | Inference | Observability | Compute | Blackboxes | DryDocks
-  | Models | Model({ provider: str, model: str })
+  | Models | Pricing | Model({ provider: str, model: str })
   | Status | Journal | Post({ slug: str }) | Privacy | Terms | Verify | Contact
   | Docs | Doc({ slug: str })
   | Console({ section: Section, area: str })
@@ -39,7 +39,7 @@ pure val initial: Nav = { page: Home, back: List() }
 
 ```quint
 pure val pageValues = Set(
-  Home, Inference, Models, Status, Journal, Privacy, Terms, Verify, Contact, Docs,
+  Home, Inference, Models, Pricing, Status, Journal, Privacy, Terms, Verify, Contact, Docs,
   Model({ provider: "deepseek-ai", model: "DeepSeek-V4.1" }),
   Post({ slug: "hello-world" }), Doc({ slug: "quickstart" }),
   Console({ section: Chat, area: "" }), Console({ section: Admin, area: "crm" }),

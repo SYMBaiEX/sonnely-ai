@@ -19,8 +19,6 @@ export const limits = {
   maxOutputTokens: 2_048,
 } as const;
 export const termsVersion = "2026-11-21";
-export const markupPercent = 10;
-
 export const providerSlugs: Record<ProviderId, string> = {
   NearAI: "near-ai",
   Phala: "phala",

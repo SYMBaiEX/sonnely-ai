@@ -20,7 +20,7 @@ export const productsMenu = allProductsMenu.filter(({ href }) => publicHrefRelea
 
 export const headerLinks = [
   ["/models", "Models"],
-  ["/models#billing", "Pricing"],
+  ["/pricing", "Pricing"],
   ["/docs", "Docs"],
   ["/blog", "Journal"],
   ["/contact", "Contact"],
@@ -74,8 +74,8 @@ export const entryActions = {
   compute: {
     section: "#products",
     label: "Compare compute products",
-    next: "/models#billing",
-    action: "See compute pricing",
+    next: "/pricing",
+    action: "See pricing",
   },
   blackboxes: {
     section: "#rental",
@@ -176,7 +176,7 @@ export const requestPathSteps = [
     short: "Client",
     icon: "Terminal",
     description:
-      "Send a text request from the console or your OpenAI-compatible SDK over HTTPS.",
+      "Send a text request from the console or a Sonnely SDK over HTTPS.",
     link: "/docs/quickstart",
     action: "Integration guide",
   },
@@ -217,7 +217,7 @@ const allFooterGroups = [
       ["/observability", "Observability"],
       ["/compute", "Compute"],
       ["/models", "Model catalog"],
-      ["/models#billing", "Pricing"],
+      ["/pricing", "Pricing"],
       ["/console/chat", "Playground"],
     ],
   },
@@ -280,7 +280,6 @@ export const demoExamples = [
 export const demoLanguages = ["cURL", "Python", "JavaScript"] as const;
 export type DemoLanguage = (typeof demoLanguages)[number];
 
-const demoEndpoint = apiOrigin + apiBasePath;
 const completionPath = apiBasePath + "/chat/completions";
 
 export function requestCode(language: DemoLanguage, model: string, content: string) {
@@ -289,25 +288,23 @@ export function requestCode(language: DemoLanguage, model: string, content: stri
   if (language === "Python")
     return [
       "import os",
-      "from openai import OpenAI",
+      "from sonnely import Sonnely",
       "",
-      `client = OpenAI(base_url="${demoEndpoint}",`,
-      '                api_key=os.environ["SONNELY_API_KEY"])',
-      "reply = client.chat.completions.create(",
-      `    model=${modelId},`,
-      `    messages=[{"role": "user", "content": ${message}}],`,
-      ")",
-      "print(reply.choices[0].message.content)",
+      'client = Sonnely(api_key=os.environ["SONNELY_API_KEY"])',
+      "reply = client.complete({",
+      `    "model": ${modelId},`,
+      `    "messages": [{"role": "user", "content": ${message}}],`,
+      "})",
+      'print(reply["choices"][0]["message"]["content"])',
     ];
   if (language === "JavaScript")
     return [
-      'import OpenAI from "openai";',
+      'import { Sonnely } from "@sonnely/sdk";',
       "",
-      "const client = new OpenAI({",
-      `  baseURL: "${demoEndpoint}",`,
+      "const client = new Sonnely({",
       "  apiKey: process.env.SONNELY_API_KEY,",
       "});",
-      "const reply = await client.chat.completions.create({",
+      "const reply = await client.complete({",
       `  model: ${modelId},`,
       `  messages: [{ role: "user", content: ${message} }],`,
       "});",

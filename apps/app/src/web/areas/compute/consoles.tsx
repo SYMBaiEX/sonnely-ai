@@ -42,7 +42,6 @@ import {
   blackboxSize,
   blackboxStatus,
   computeFee,
-  computeMarkup,
   CopyButton,
   creditBalance,
   defaultBlackboxDisk,
@@ -959,9 +958,9 @@ export function Consoles() {
                 <details className={styles.presetDetails}>
                   <summary>How pricing works</summary>
                   <p className={styles.hint}>
-                    The fee is {computeMarkup}% of compute cost plus {creditBalance(computeFee)} for a billed run. SSD usage costs{" "}
-                    {creditBalance(blackboxDiskHourlyRate)} per GB per hour. Runtime is rounded up to the minute, and unused credits
-                    return after teardown.
+                    The estimate combines compute cost, SSD usage, service fees, and a {creditBalance(computeFee)} charge for each
+                    billed run. SSD usage costs {creditBalance(blackboxDiskHourlyRate)} per GB per hour. Runtime is rounded up to the
+                    minute, and unused credits return after teardown.
                   </p>
                 </details>
               </aside>

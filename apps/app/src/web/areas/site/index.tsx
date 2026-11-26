@@ -6,6 +6,7 @@ import { ProductIcon } from "./icons.tsx";
 import { Home } from "./home.tsx";
 import { PlatformLinks, ProductPage } from "./products.tsx";
 import { ModelsPage } from "./models.tsx";
+import { PricingPage } from "./pricing.tsx";
 import { ModelPage } from "./model.tsx";
 import { StatusPage } from "./status.tsx";
 import { PostPage } from "./post.tsx";
@@ -79,6 +80,9 @@ export function render(page: Page): React.ReactNode {
       break;
     case "Models":
       body = <ModelsPage />;
+      break;
+    case "Pricing":
+      body = <PricingPage />;
       break;
     case "Model":
       body = <ModelPage provider={page.provider} model={page.model} />;
