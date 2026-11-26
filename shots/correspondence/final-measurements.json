@@ -1,0 +1,116 @@
+{
+  "report": {
+    "light-desktop-pricing": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 3883
+    },
+    "light-desktop-contact": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 1872
+    },
+    "light-desktop-journal": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 1984
+    },
+    "light-desktop-journal-article": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 2287
+    },
+    "dark-desktop-pricing": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 3883
+    },
+    "dark-desktop-contact": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 1872
+    },
+    "dark-desktop-journal": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 1984
+    },
+    "dark-desktop-journal-article": {
+      "clientWidth": 1440,
+      "scrollWidth": 1440,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 2287
+    },
+    "light-mobile-pricing": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 6107
+    },
+    "light-mobile-contact": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 2651
+    },
+    "light-mobile-journal": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 2898
+    },
+    "light-mobile-journal-article": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 3146
+    },
+    "dark-mobile-pricing": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 6107
+    },
+    "dark-mobile-contact": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 2651
+    },
+    "dark-mobile-journal": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 2898
+    },
+    "dark-mobile-journal-article": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflowPx": 0,
+      "offenders": [],
+      "scrollHeight": 3146
+    }
+  }
+}

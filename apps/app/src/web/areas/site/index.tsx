@@ -21,6 +21,7 @@ import { ContactSignalPage } from "./contact-signal.tsx";
 import { textLink, wrap } from "./ui.ts";
 import "./site.css";
 import "./contactx.css";
+import "./correspondence.css";
 
 const recoveryLinks = [
   ["/console/chat", "Open the console", "Try a sample request in the playground.", "Terminal"],

@@ -10,6 +10,22 @@ export interface Article {
   related?: readonly [href: string, label: string];
 }
 
+export const categoryIcons: Record<string, string> = {
+  Operations: "Activity",
+  Architecture: "Radio",
+  Solana: "Wallet",
+  Billing: "CreditCard",
+  Guide: "Terminal",
+};
+
+export function readingMinutes(article: Article) {
+  const words = article.body
+    .flatMap((block) => (typeof block === "string" ? [block] : block.paragraphs))
+    .join(" ")
+    .split(/\s+/).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
 export const articles: Article[] = [
   {
     slug: "read-a-gateway-trace",

@@ -11,15 +11,19 @@ import {
   useSupportRequest,
 } from "./contact-shared.tsx";
 
-export function ContactCorrespondencePage() {
+export function ContactCorrespondencePage({ canonical = false }: { canonical?: boolean }) {
   const request = useSupportRequest();
 
   return (
-    <div className="wrap cx-page cx-correspondence" data-topic={request.topicId}>
+    <div className={canonical ? "wrap cx-page cx-correspondence cx-correspondence-canonical" : "wrap cx-page cx-correspondence"} data-topic={request.topicId}>
       <header className="cx-co-intro">
-        <span>Correspondence with Sonnely</span>
-        <h1>Write to us. A person will write back.</h1>
-        <p className="cx-copy">A quieter support room for careful questions, edge cases and partnership notes.</p>
+        <span>{canonical ? "Sonnely support correspondence" : "Correspondence with Sonnely"}</span>
+        <h1>{canonical ? "Write once. Reach the right desk." : "Write to us. A person will write back."}</h1>
+        <p className="cx-copy">
+          {canonical
+            ? "Choose the desk, attach your workspace and include the evidence that lets the first reply act."
+            : "A quieter support room for careful questions, edge cases and partnership notes."}
+        </p>
         <a href={mailtoFor(request.destination)}>sonnely@symbaiex.com</a>
       </header>
 
@@ -28,12 +32,14 @@ export function ContactCorrespondencePage() {
           <span>Before you write</span>
           <ul>
             <li><span>01</span><p>Addressed to <strong>{request.destination.topic}</strong>.</p></li>
-            <li><span>02</span><p>Include {request.destination.evidence.toLowerCase()} when relevant.</p></li>
-            <li><span>03</span><p>Leave API keys, recovery phrases and private prompt text out of the note.</p></li>
+            <li><span>02</span><p>Bring <strong>{request.destination.evidence.toLowerCase()}</strong> when relevant.</p></li>
+            <li><span>03</span><p>A reference is issued on receipt; quote it when you write again.</p></li>
+            <li><span>04</span><p>Leave API keys, recovery phrases and private prompt text out of the note.</p></li>
           </ul>
           <nav aria-label="Related support resources">
             <a href="/docs/troubleshooting">API troubleshooting <ArrowUpRight size={14} aria-hidden="true" /></a>
             <a href="/console/billing">Billing history <ArrowUpRight size={14} aria-hidden="true" /></a>
+            <a href="/console/support">Track requests <ArrowUpRight size={14} aria-hidden="true" /></a>
             <a href={mailtoFor(request.destination)}>Email without signing in <ArrowUpRight size={14} aria-hidden="true" /></a>
           </nav>
         </aside>
@@ -41,7 +47,7 @@ export function ContactCorrespondencePage() {
         <form className="cx-form cx-co-letter" noValidate onSubmit={(event) => submitContactForm(event, request)} aria-labelledby="cx-co-title">
           <div className="cx-co-letterhead">
             <span>Sonnely support</span>
-            <span aria-hidden="true">Reply slip</span>
+            <span>{request.destination.topic}</span>
           </div>
           <div className="cx-co-body">
             <fieldset className="cx-co-topics">
@@ -56,6 +62,7 @@ export function ContactCorrespondencePage() {
                     onChange={() => request.chooseTopic(destination.id)}
                   />
                   <span>{destination.shortName}</span>
+                  {canonical && <small>{destination.summary}</small>}
                 </label>
               ))}
             </fieldset>

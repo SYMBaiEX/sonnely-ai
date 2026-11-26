@@ -1,0 +1,116 @@
+{
+  "journal": {
+    "initial": 7,
+    "operations": 1,
+    "walletResults": 2,
+    "emptyVisible": true,
+    "errors": []
+  },
+  "articleDirectLoads": {
+    "count": 7,
+    "allVisible": true,
+    "maxOverflow": 0,
+    "articles": [
+      {
+        "slug": "read-a-gateway-trace",
+        "letter": true,
+        "overflow": 0
+      },
+      {
+        "slug": "request-path",
+        "letter": true,
+        "overflow": 0
+      },
+      {
+        "slug": "wallet-identity",
+        "letter": true,
+        "overflow": 0
+      },
+      {
+        "slug": "credits-and-quotes",
+        "letter": true,
+        "overflow": 0
+      },
+      {
+        "slug": "choose-a-model",
+        "letter": true,
+        "overflow": 0
+      },
+      {
+        "slug": "rotate-api-keys",
+        "letter": true,
+        "overflow": 0
+      },
+      {
+        "slug": "read-a-request-receipt",
+        "letter": true,
+        "overflow": 0
+      }
+    ],
+    "errors": []
+  },
+  "pricing": {
+    "first": "$0.00462",
+    "doubled": "$0.00792",
+    "invalid": "Check token counts",
+    "providersVisible": true,
+    "errors": []
+  },
+  "contactValidation": {
+    "posts": 0,
+    "confirmation": null,
+    "error": null,
+    "fieldErrors": [
+      "Enter the email we should answer.",
+      "Write a few details so the team can act."
+    ],
+    "draft": "",
+    "retryVisible": false,
+    "errors": []
+  },
+  "contactSuccess": {
+    "posts": 1,
+    "payload": {
+      "type": "open",
+      "id": "c40125ba-5734-4ca9-8ab3-d169517a4a17",
+      "email": "ada@example.com",
+      "topic": "Workspace support",
+      "message": "The receipts endpoint returns a stale verification state after batch settlement.",
+      "wallet": "So11111111111111111111111111111111111111112",
+      "now": 1795713347999
+    },
+    "confirmation": "Request receivedSave this reference. The team can use it to find the thread when you write again.c40125ba-5734-4ca9-8ab3-d169517a4a17",
+    "error": null,
+    "fieldErrors": [],
+    "draft": "",
+    "retryVisible": false,
+    "errors": []
+  },
+  "contactFailure": {
+    "posts": 1,
+    "payload": {
+      "type": "open",
+      "id": "f2180016-4f74-4cbc-9dc3-52ffe1199d81",
+      "email": "ada@example.com",
+      "topic": "Workspace support",
+      "message": "Keep this draft after the failed send.",
+      "wallet": "So11111111111111111111111111111111111111112",
+      "now": 1795713353586
+    },
+    "confirmation": null,
+    "error": "The request could not be sent. Your draft is still here; check the connection and try again.Nothing was lost. The message above is still editable.Try againEmail instead",
+    "fieldErrors": [],
+    "draft": "Keep this draft after the failed send.",
+    "retryVisible": true,
+    "errors": []
+  },
+  "contactInteraction": {
+    "disabled": true,
+    "fallback": "mailto:sonnely@symbaiex.com?subject=Workspace%20support",
+    "walletCopy": "Connect a walletAttach your workspace, or use the email fallback",
+    "workspaceDraft": "Workspace draft",
+    "keyboardChecked": true,
+    "focusVisible": 1,
+    "errors": []
+  }
+}

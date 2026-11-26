@@ -35,7 +35,7 @@ const routes = [
 ];
 
 const routeFilter = (process.env.SHOT_FILTER ?? "").split(",").filter(Boolean);
-const selectedRoutes = routeFilter.length ? routes.filter(([name]) => routeFilter.some((part) => name.includes(part))) : routes;
+const selectedRoutes = routeFilter.length ? routes.filter(([name]) => routeFilter.includes(name)) : routes;
 
 const variants = [
   ["desktop", "light", { width: 1440, height: 900 }],
@@ -322,8 +322,8 @@ async function interactions() {
     const { context, page, errors } = await openPage(browser, { width: 1440, height: 900 }, "light");
     await settle(page, "/contact");
     results.contactForm = {
-      visible: await page.locator(".contact-form").isVisible(),
-      topics: await page.locator(".contact-topic").count(),
+      visible: await page.locator(".cx-co-letter").isVisible(),
+      topics: await page.locator(".cx-co-topic").count(),
       errors: [...errors],
       ...(await measure(page)),
     };
@@ -334,15 +334,15 @@ async function interactions() {
   {
     const { context, page, errors } = await openPage(browser, { width: 1440, height: 900 }, "dark");
     await settle(page, "/pricing");
-    const input = page.locator(".estimate input[type='number']").first();
+    const input = page.locator(".cor-estimate input[type='number']").first();
     if (await input.count()) {
       await input.fill("20000");
       await page.waitForTimeout(180);
     }
     results.pricingEstimator = {
-      controls: await page.locator(".estimate input[type='number']").count(),
-      estimateVisible: await page.locator(".estimate-summary").isVisible().catch(() => false),
-      estimate: await page.locator(".estimate-summary output").textContent(),
+      controls: await page.locator(".cor-estimate input[type='number']").count(),
+      estimateVisible: await page.locator(".cor-invoice").isVisible().catch(() => false),
+      estimate: await page.locator(".cor-invoice output").textContent(),
       errors: [...errors],
       ...(await measure(page)),
     };
