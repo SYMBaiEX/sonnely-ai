@@ -4,6 +4,7 @@ import { Layer, Scheduler } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { afterEach, describe, expect, it } from "vitest";
 import * as Session from "../gen/app__session.effect.vibe";
+import * as Admin from "../gen/app__admin.effect.vibe";
 import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as Deposits from "../gen/app__billing__deposits.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
@@ -18,8 +19,10 @@ import { store } from "../src/serve.vibe";
 
 const walletA = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 const walletB = "DjVE6JNiYq52M37YLBjLvDSMaVG9eRQFRkPRCPwdJnn";
+const walletOp = "4vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2d";
 const tokenA = "row-security-session-a";
 const tokenB = "row-security-session-b";
+const tokenOp = "row-security-session-op";
 const cleanups: Array<() => void | Promise<void>> = [];
 
 function writeSessions(dir: string) {
@@ -28,7 +31,13 @@ function writeSessions(dir: string) {
     logins: [
       { digest: sessionDigest(tokenA), nonce: "nonce", wallet: walletA, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
       { digest: sessionDigest(tokenB), nonce: "nonce", wallet: walletB, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
+      { digest: sessionDigest(tokenOp), nonce: "nonce", wallet: walletOp, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
     ],
+  }));
+  writeFileSync(join(dir, "admin"), JSON.stringify({
+    ops: { roster: [{ wallet: walletOp, role: "Support" }] },
+    records: [],
+    audit: [],
   }));
 }
 
@@ -82,6 +91,7 @@ function makeApp() {
       Teams.stored("teams"),
       Support.stored("support"),
       Session.stored("session"),
+      Admin.stored("admin"),
       fleetLive,
     ),
     store(dir),
@@ -141,6 +151,73 @@ describe("row-level access", () => {
       aReplies: a.tickets[0]?.replies.map((r) => r.visibility),
       bTickets: b.tickets.length,
     }).toEqual({ aTickets: 1, aReplies: ["Public"], bTickets: 0 });
+  });
+
+  // spec/app/support.md, "A ticket and its replies": an operator reads the whole queue,
+  // internal staff notes included
+  it("shows an operator every ticket with internal replies", async () => {
+    const handler = makeApp();
+    const op = await (await get(handler, "/api/machines/support", tokenOp)).json() as { tickets: { wallet: string; replies: { visibility: string }[] }[] };
+    expect({
+      tickets: op.tickets.length,
+      replies: op.tickets[0]?.replies.map((r) => r.visibility),
+    }).toEqual({ tickets: 1, replies: ["Internal", "Public"] });
+  });
+
+  function post(handler: (request: Request) => Promise<Response>, body: unknown, token: string) {
+    return handler(new Request("http://localhost/api/machines/support", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + token },
+      body: JSON.stringify(body),
+    }));
+  }
+
+  // spec/app/support.md, "The team can reply publicly or note internally"
+  it("accepts a staff reply from an operator and forces the author to the operator wallet", async () => {
+    const handler = makeApp();
+    const spoofed = await post(handler, { type: "staffReply", id: "ticket-a", body: "looking into it", visibility: "Internal", author: walletA, now: 10 }, tokenOp);
+    const state = await (await get(handler, "/api/machines/support", tokenOp)).json() as { tickets: { replies: { authorWallet: string; visibility: string }[] }[] };
+    expect({
+      status: spoofed.status,
+      authors: state.tickets[0]?.replies.map((r) => r.authorWallet),
+    }).toEqual({ status: 200, authors: ["op", "op", walletOp] });
+  });
+
+  // spec/app/support.md, "Story: Move a request through its states"
+  // spec/app/support.md, "Story: Assign ownership": the staff events are the operator's alone
+  it("refuses staff events from a customer and accepts them from an operator", async () => {
+    const handler = makeApp();
+    const customerReply = await post(handler, { type: "staffReply", id: "ticket-a", body: "sneaky", visibility: "Public", author: walletA, now: 10 }, tokenA);
+    const customerState = await post(handler, { type: "setState", id: "ticket-a", status: "Resolved", now: 11 }, tokenA);
+    const customerAssign = await post(handler, { type: "assignOwner", id: "ticket-a", wallet: walletA, now: 12 }, tokenA);
+    const opState = await post(handler, { type: "setState", id: "ticket-a", status: "Resolved", now: 13 }, tokenOp);
+    const opAssign = await post(handler, { type: "assignOwner", id: "ticket-a", wallet: walletOp, now: 14 }, tokenOp);
+    const state = await (await get(handler, "/api/machines/support", tokenOp)).json() as { tickets: { state: string; assignedTo: string; replies: unknown[] }[] };
+    expect({
+      customerStatuses: [customerReply.status, customerState.status, customerAssign.status],
+      opStatuses: [opState.status, opAssign.status],
+      ticket: state.tickets[0] ? { state: state.tickets[0].state, assignedTo: state.tickets[0].assignedTo, replies: state.tickets[0].replies.length } : undefined,
+    }).toEqual({
+      customerStatuses: [403, 403, 403],
+      opStatuses: [200, 200],
+      ticket: { state: "Resolved", assignedTo: walletOp, replies: 2 },
+    });
+  });
+
+  // spec/app/support.md, "Story: Open a request": customer events are unchanged —
+  // a signed-in wallet opens and replies on its own request
+  it("still lets a customer open and reply with the wallet bound to the session", async () => {
+    const handler = makeApp();
+    const opened = await post(handler, { type: "open", id: "ticket-b", email: "b@x.com", topic: "Billing", message: "help me", wallet: walletOp, now: 20 }, tokenB);
+    const replied = await post(handler, { type: "reply", id: "ticket-b", body: "more detail", now: 21 }, tokenB);
+    const state = await (await get(handler, "/api/machines/support", tokenB)).json() as { tickets: { id: string; wallet: string }[] };
+    expect({
+      statuses: [opened.status, replied.status],
+      tickets: state.tickets.map((t) => ({ id: t.id, wallet: t.wallet })),
+    }).toEqual({
+      statuses: [200, 200],
+      tickets: [{ id: "ticket-b", wallet: walletB }],
+    });
   });
 
   // spec/app/console/chat.md, "The playground is the threads, the open one and the chosen model"

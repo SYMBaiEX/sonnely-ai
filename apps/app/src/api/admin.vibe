@@ -87,7 +87,7 @@ effect function postSender(m: SenderMachine) {
 }
 
 /** The session wallet is a listed operator, or the empty roster's bootstrap still holds. */
-effect function operatorRequired(admin: Admin.Machine.Shape) {
+export effect function operatorRequired(admin: Admin.Machine.Shape) {
   const operator = try authenticatedWallet()
   if (operator == "") return ""
   const registry = try admin.get()
