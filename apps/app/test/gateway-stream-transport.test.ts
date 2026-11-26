@@ -8,7 +8,7 @@ import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
-import { inferChat } from "../src/api/gateway.vibe";
+import { inferChat, inferSpecialized } from "../src/api/gateway.vibe";
 import { chatSseNodeResponse, chatSseResponse, upstreamTimeouts, type StreamFinal } from "../src/api/gateway/providers.ts";
 
 const wallet = "stream-transport-wallet";
@@ -190,5 +190,57 @@ describe("gateway stream transport", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // spec/app/docs/index.md, "Request references and retries": a repeat answers 409 without reserving again.
+  it("deduplicates specialized endpoint retries by Idempotency-Key", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "https://cloud-api.near.ai/v1/embeddings") {
+        return Promise.resolve(new Response(
+          JSON.stringify({ object: "list", data: [{ object: "embedding", embedding: [0.5], index: 0 }], usage: { prompt_tokens: 5, completion_tokens: 0, total_tokens: 5 } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ));
+      }
+      return realFetch(input, init);
+    });
+    const program = Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "idem-key", label: "Inference", prefix: "sonnely_live_idem", hash: "idem-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "idem-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const app = inferSpecialized("embeddings", "Embeddings", "Qwen/Qwen3-Embedding-0.6B", { model: "Qwen/Qwen3-Embedding-0.6B", input: "hello" }, key, "", "initial-ref");
+      const scope = yield* Scope.Scope;
+      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+      const server = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => handler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const address = server.address();
+      if (typeof address !== "object" || address === null) throw new Error("missing server address");
+      const post = (idempotencyKey: string) => globalThis.fetch(`http://127.0.0.1:${address.port}/`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+        body: JSON.stringify({ model: "Qwen/Qwen3-Embedding-0.6B", input: "hello" }),
+      });
+      const usage = yield* Usage.Machine;
+      const first = yield* Effect.promise(() => post("retry-token-abc"));
+      const firstBody = yield* Effect.promise(() => first.text());
+      const second = yield* Effect.promise(() => post("retry-token-abc"));
+      const secondBody = yield* Effect.promise(() => second.text());
+      const third = yield* Effect.promise(() => post("retry-token-other"));
+      const thirdBody = yield* Effect.promise(() => third.text());
+      return { statuses: { first: first.status, second: second.status, third: third.status }, usage };
+    }));
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const rows = await Effect.runPromise(Effect.gen(function* () {
+      return (yield* result.usage.get()).rows;
+    }));
+    expect(result.statuses).toEqual({ first: 200, second: 409, third: 200 });
+    expect(rows).toHaveLength(2);
   });
 });

@@ -14,6 +14,9 @@ export type Result<T> = { ok: true; value: T } | ({ ok: false } & GatewayProblem
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const bad = (status: number, message: string, retryAfter = false): Result<never> => ({ ok: false, status, message, retryAfter });
 export const sha256 = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
+/** spec/app/docs/index.md, "Request references and retries": one reference per wallet, credential and key. */
+export const validIdempotencyKey = (header: string) => /^[a-zA-Z0-9_.:-]{8,128}$/.test(header);
+export const idempotentRef = (wallet: string, keyId: string, header: string) => "idem" + sha256(wallet + ":" + keyId + ":" + header).slice(0, 32);
 export const providerIds = ["near-ai", "phala", "tinfoil"] as const;
 const providerKeys: Record<ProviderId, string> = {
   "near-ai": "NEAR_AI_API_KEY",

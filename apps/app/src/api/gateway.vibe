@@ -13,7 +13,7 @@ import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { store } from "../serve.vibe"
-import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -157,6 +157,10 @@ effect function openMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | 
   const teams = try Teams.Machine
   if (key != undefined && key.project != "" && !Teams.canHoldProject(try teams.get(), key.project, cost)) {
     return { refused: { error: { message: "The project budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
+  }
+  const requestLedger = try Requests.Machine
+  if ((try requestLedger.get()).requests.some((served) => served.ref == ref)) {
+    return { refused: { error: { message: "A request with this reference is already open.", type: "invalid_request_error" }, status: 409 } }
   }
   const ledger = try Ledger.Machine
   if (!Ledger.canReserve(try ledger.get(), wallet, ref, cost)) {
@@ -518,8 +522,8 @@ effect function chatCompletions() {
     return try reply(r.error, r.status)
   }
   const idempotency = request.headers["idempotency-key"]
-  if (idempotency != undefined && !/^[a-zA-Z0-9_.:-]{8,128}$/.test(idempotency)) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, "")
-  const ref = idempotency == undefined ? try Effect.try(() => newRef()) : "idem" + (try Effect.try(() => sha256(auth.key.wallet + ":" + auth.key.id + ":" + idempotency))).slice(0, 32)
+  if (idempotency != undefined && !(try Effect.try(() => validIdempotencyKey(idempotency)))) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, "")
+  const ref = idempotency == undefined ? try Effect.try(() => newRef()) : try Effect.try(() => idempotentRef(auth.key.wallet, auth.key.id, idempotency))
   const receipt = request.headers["x-sonnely-receipt"]
   if (receipt != undefined && receipt != "v1") return try inferenceFailure("Unsupported evidence receipt version. Use X-Sonnely-Receipt: v1.", 400, ref)
   const liveProviders = try Effect.try(() => configuredProviders())
@@ -571,6 +575,8 @@ const endpoints: { path: string; endpoint: Requests.Endpoint; model: (input: unk
 export effect function inferSpecialized(path: string, endpoint: Requests.Endpoint, fallbackModel: string, raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string) {
   if (key == undefined && wallet != "" && try suspendedAccount(wallet)) return try inferenceFailure("This account's inference access is suspended.", 403, ref)
   const request = try HttpServerRequest.HttpServerRequest
+  const idempotency = request.headers["idempotency-key"]
+  if (idempotency != undefined && !(try Effect.try(() => validIdempotencyKey(idempotency)))) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, ref)
   const multipart = path == "images/edits" || path == "audio/transcriptions" || path == "audio/translations" || path == "convert/file"
   let input: unknown = raw
   let form: FormData | undefined = undefined
@@ -595,13 +601,15 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
     meterKey = auth.key
   }
   const meterWallet = wallet == "" ? meterKey?.wallet ?? "" : wallet
+  let servingRef = ref
+  if (idempotency != undefined) servingRef = try Effect.try(() => idempotentRef(meterWallet, meterKey?.id ?? "console", idempotency))
   const inputTokens = try Effect.try(() => specializedInputTokens(path, fields))
   const outputTokens = path == "responses" ? (typeof fields.max_output_tokens == "number" ? fields.max_output_tokens : 1024) : path == "systemone" ? 256 : 0
   const routeResult = try Effect.try(() => specializedRoute(path, named, inputTokens, false, outputTokens))
-  if (!routeResult.ok) return try inferenceFailure(routeResult.message, routeResult.status, ref)
+  if (!routeResult.ok) return try inferenceFailure(routeResult.message, routeResult.status, servingRef)
   const selected = routeResult.value
-  if (typeof fields.max_cost_microusd == "number" && selected.reserve > fields.max_cost_microusd) return try inferenceFailure("The estimated reservation exceeds max_cost_microusd.", 400, ref)
-  const opened = try openMeter(ref, meterWallet, meterKey, endpoint, named, false, selected.reserve, meterProvider(selected.provider))
+  if (typeof fields.max_cost_microusd == "number" && selected.reserve > fields.max_cost_microusd) return try inferenceFailure("The estimated reservation exceeds max_cost_microusd.", 400, servingRef)
+  const opened = try openMeter(servingRef, meterWallet, meterKey, endpoint, named, false, selected.reserve, meterProvider(selected.provider))
   if ("refused" in opened) {
     const r = opened.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
@@ -612,18 +620,18 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
   const providerMs = try Clock.currentTimeMillis - providerAt
   if (upstream == undefined) {
     try failMeter(meter, true)
-    return try inferenceFailure("The provider did not respond. The reservation is pending reconciliation.", 502, ref)
+    return try inferenceFailure("The provider did not respond. The reservation is pending reconciliation.", 502, servingRef)
   }
   const response = upstream.response
   if (!response.ok) {
     try failMeter(meter, response.status >= 500)
-    return try inferenceFailure("The provider could not complete this request.", 502, ref)
+    return try inferenceFailure("The provider could not complete this request.", 502, servingRef)
   }
   if (path == "audio/speech") {
     const bytesResult = tryPromise(async () => new Uint8Array(await response.arrayBuffer())) catch () => undefined
     if (bytesResult == undefined || bytesResult.byteLength == 0) {
       try failMeter(meter, true)
-      return try inferenceFailure("The provider returned an incomplete result.", 502, ref)
+      return try inferenceFailure("The provider returned an incomplete result.", 502, servingRef)
     }
     const settled = try settleMeter(meter, inputTokens, 0, -1, selected.reserve, providerMs)
     if ("refused" in settled) {
@@ -632,19 +640,19 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
     }
     return HttpServerResponse.uint8Array(bytesResult, {
       contentType: response.headers.get("content-type") ?? "audio/mpeg",
-      headers: { ...noStore, "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": selected.provider },
+      headers: { ...noStore, "X-Sonnely-Request-Id": servingRef, "X-Sonnely-Provider": selected.provider },
     })
   }
   const output = tryPromise(() => response.json()) catch () => undefined
   if (output == undefined) {
     try failMeter(meter, true)
-    return try inferenceFailure("The provider returned an incomplete result or usage record.", 502, ref)
+    return try inferenceFailure("The provider returned an incomplete result or usage record.", 502, servingRef)
   }
   const usage = try Effect.try(() => extractUsage(path, output))
   const cost = selected.route.request >= 0 ? selected.reserve : try Effect.try(() => tokenCharge(selected.route, usage.input, 0, usage.output))
   if (cost > selected.reserve) {
     try failMeter(meter, true)
-    return try inferenceFailure("Provider usage exceeded the reservation. Check Usage.", 502, ref)
+    return try inferenceFailure("Provider usage exceeded the reservation. Check Usage.", 502, servingRef)
   }
   const settled = try settleMeter(meter, usage.input, usage.output, -1, cost, providerMs)
   if ("refused" in settled) {
@@ -652,8 +660,8 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
     return try reply(r.error, r.status)
   }
   const body = typeof output == "object" && output != null && !Array.isArray(output) ? output as Record<string, unknown> : { data: output }
-  const answered = try reply({ ...body, model: named, sonnely_request_id: ref, sonnely_provider: selected.provider })
-  return HttpServerResponse.setHeaders(answered, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": selected.provider })
+  const answered = try reply({ ...body, model: named, sonnely_request_id: servingRef, sonnely_provider: selected.provider })
+  return HttpServerResponse.setHeaders(answered, { "X-Sonnely-Request-Id": servingRef, "X-Sonnely-Provider": selected.provider })
 }
 
 function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[number]) {
@@ -673,7 +681,10 @@ function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[numb
       const r = auth.refused as { error: unknown; status: number }
       return try reply(r.error, r.status)
     }
-    const ref = try Effect.try(() => newRef())
+    const idempotency = request.headers["idempotency-key"]
+    if (idempotency != undefined && !(try Effect.try(() => validIdempotencyKey(idempotency)))) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, "")
+    let ref: string = try Effect.try(() => newRef())
+    if (idempotency != undefined) ref = try Effect.try(() => idempotentRef(auth.key.wallet, auth.key.id, idempotency))
     const cost = stagedCost(JSON.stringify(raw ?? {}).length)
     const settled = try stageMeter(ref, auth.key, endpoint, named, false, [], cost)
     if ("refused" in settled) {
@@ -787,7 +798,7 @@ effect function batchChat() {
   if (!/^batch:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:\d+$/i.test(idempotency)) {
     return try inferenceFailure("Use Idempotency-Key batch:<uuidv4>:<row index>.", 400, "")
   }
-  const ref = "idem" + (try Effect.try(() => sha256(auth.key.wallet + ":" + auth.key.id + ":" + idempotency))).slice(0, 32)
+  const ref = try Effect.try(() => idempotentRef(auth.key.wallet, auth.key.id, idempotency))
   const liveProviders = try Effect.try(() => configuredProviders())
   if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) return try inferChat(raw, auth.key, auth.key.wallet, ref)
   const cost = stagedCost(body.bytes)
