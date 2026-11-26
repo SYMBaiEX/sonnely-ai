@@ -1,10 +1,7 @@
 // spec/app/console/chat.md, "Story: Converse with a model"
 import { Machine, stored, initial } from "../../../gen/app__console__chat.effect.vibe"
-import { Machine as LogsMachine } from "../../../gen/app__console__logs.effect.vibe"
 import type { Chat } from "../../../gen/app__console__chat.ts"
-import type { LogEntry } from "../../../gen/app__console__logs.ts"
 import type { Endpoint as GatewayEndpoint } from "../../../gen/app__gateway__requests.ts"
-import { catalog, providerOf } from "../../../gen/app__console__catalog.ts"
 import { fleetMachineApi } from "../../machines.vibe"
 import { Fleet, type FleetMachine } from "../../fleet.vibe"
 import { inferChat, inferSpecialized } from "../gateway.vibe"
@@ -42,91 +39,6 @@ module playgroundNode {
 import { newRef, silentWav } from playgroundNode
 
 const noStore = { "cache-control": "no-store" }
-
-export service Responder {
-  static readonly key = "sonnely/console/chat#Responder"
-  reply(prompt: string, model: string): string!!
-}
-
-const local: Responder.Shape = {
-  effect reply(prompt: string, model: string) {
-    const canned = samples.find((sample) => sample.prompt === prompt)
-    if (canned) return canned.reply
-    return `You asked ${model}: "${prompt}". This staging workspace answers locally, outside any enclave — in production this prompt runs in a trusted execution environment and the gateway streams the model's answer back with a receipt.`
-  },
-}
-
-const samples = [
-  {
-    prompt: "What is a trusted execution environment?",
-    reply:
-      "A trusted execution environment (TEE) is an isolated part of a computer designed to protect data while it’s being processed. An attestation report can help a client check what software and hardware are running inside it. In Sonnely’s setup, the confidential enclave that runs the model and the Sonnely gateway are separate trust boundaries.",
-  },
-  {
-    prompt: "Show a simple API key budget example.",
-    reply:
-      "If a key has a $5 daily limit and a $30 lifetime limit, requests stop when either budget would be exceeded. The gateway reserves an estimate before running each request, then releases the remainder after usage settles.",
-  },
-  {
-    prompt: "How does a wallet sign-in work?",
-    reply:
-      "Your wallet signs a message tied to this site and a one-time challenge. The server checks the signature against your public Solana address and opens a session. Signing in does not send a transaction or move your funds.",
-  },
-]
-
-function tokenEstimate(text: string) {
-  return Math.max(1, Math.ceil(text.length / 4))
-}
-
-function lastPrompt(state: Chat, id: string) {
-  const thread = state.threads.find((t) => t.id === id)
-  const message = thread?.messages[thread.messages.length - 1]
-  return message?.role === "User" ? message.content : undefined
-}
-
-interface ChatMachine {
-  get(): unknown!!
-  send(event: unknown): unknown!unknown
-}
-
-export effect function completeReply(machine: ChatMachine, logs: ChatMachine, id: string, model: string) {
-  const responder = try Responder
-  const state = (try machine.get()) as Chat
-  const prompt = lastPrompt(state, id)
-  if (prompt === undefined) throw new NoPrompt({ id })
-  const started = try Clock.currentTimeMillis
-  const answer = try responder.reply(prompt, model)
-  const parts = Math.ceil(answer.length / 40)
-  for (let at = 1; at <= parts; at++) {
-    try machine.send({ type: "reply", id, model, text: answer.slice(0, at * 40) })
-    try Effect.sleep("40 millis")
-  }
-  const entry = recordEntry(id, model, prompt, answer, try Clock.currentTimeMillis - started)
-  const _logged = logs.send({ type: "record", entry }) catch () => undefined
-  return entry
-}
-
-function recordEntry(id: string, model: string, prompt: string, answer: string, durationMs: number): LogEntry {
-  const input = tokenEstimate(prompt)
-  const output = tokenEstimate(answer)
-  const route = catalog.flatMap((m) => m.routes).find((r) => r.endpoint === "chat/completions" && r.modelId === model)
-  const cost = route ? Math.ceil((input * Math.max(0, route.input) + output * Math.max(0, route.output)) / 1_000_000) : 0
-  return {
-    id: `req-${Math.abs([...id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7)).toString(16)}`,
-    model,
-    provider: providerOf(catalog, model),
-    endpoint: "chat/completions",
-    keyName: "playground",
-    status: "Complete",
-    input,
-    output,
-    cost,
-    durationMs,
-    ageDays: 0,
-  }
-}
-
-export error NoPrompt { id: string }
 
 effect function replyRoute() {
   const request = try HttpServerRequest.HttpServerRequest
@@ -282,16 +194,8 @@ export const chatApi = Layer.unwrap(effect {
     playgroundRoute("audio/transcriptions", "audio/transcriptions"),
     playgroundRoute("audio/translations", "audio/translations"),
     HttpRouter.add("POST", "/api/console/playground/audio/speech", provideService(playgroundSpeech(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
-    HttpRouter.add("POST", "/api/console/chat/stream", provideService(
-      provideService(streamRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256)),
-      Responder,
-      local,
-    )),
-    HttpRouter.add("POST", "/api/console/chat/reply", provideService(
-      provideService(replyRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256)),
-      Responder,
-      local,
-    )),
+    HttpRouter.add("POST", "/api/console/chat/stream", provideService(streamRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("POST", "/api/console/chat/reply", provideService(replyRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
   )
 })
 

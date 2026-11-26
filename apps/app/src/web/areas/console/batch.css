@@ -229,3 +229,47 @@
     display: none;
   }
 }
+
+.batch-legacy .batch-key-form {
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+}
+
+.batch-legacy .batch-key-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.batch-legacy .batch-key-form input {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: inherit;
+  font-family: var(--font-mono, monospace);
+}
+
+.batch-legacy .batch-key-form input:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.batch-legacy .batch-key-ready {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-legacy .batch-key-ready p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--ok);
+  font-size: 0.875rem;
+}

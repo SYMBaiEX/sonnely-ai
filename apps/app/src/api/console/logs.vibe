@@ -1,11 +1,96 @@
-// spec/app/console/logs.md, "Story: Review request activity": the request-history machine.
+// spec/app/console/logs.md, "Story: Review request activity": the request-history machine, and the
+// pipeline that records one row for each request the gateway settles. The worker watches the usage
+// meter — rows reach a terminal status there only after settlement — joins the served-request ledger
+// for the endpoint, and records the row on the owning wallet's logs machine. The machine's own
+// canRecord refuses a repeated id, so a restart or a replayed scan never double-records. The `record`
+// event is never user-writable over HTTP: it enters only here.
 import { Machine, stored, initial } from "../../../gen/app__console__logs.effect.vibe"
+import * as Usage from "../../../gen/app__usage.effect.vibe"
+import * as Requests from "../../../gen/app__gateway__requests.effect.vibe"
 import type { Event } from "../../../gen/app__console__logs.ts"
-import type { Logs } from "../../../gen/app__console__logs.ts"
+import type { Logs, LogEntry } from "../../../gen/app__console__logs.ts"
+import type { Row } from "../../../gen/app__usage.ts"
 import { fleetMachineApi } from "../../machines.vibe"
+import { Fleet, type FleetMachine } from "../../fleet.vibe"
+
+function logProvider(provider: Row["provider"]): string {
+  if (provider == "Phala") return "phala"
+  if (provider == "Tinfoil") return "tinfoil"
+  return "near-ai"
+}
+
+function logEndpoint(endpoint: Requests.Endpoint | undefined): string {
+  if (endpoint == "ChatCompletions") return "chat/completions"
+  if (endpoint == "ResponsesApi") return "responses"
+  if (endpoint == "Embeddings") return "embeddings"
+  if (endpoint == "Rerank") return "rerank"
+  if (endpoint == "Redact") return "redact"
+  if (endpoint == "Systemone") return "systemone"
+  if (endpoint == "ImageGenerations") return "images/generations"
+  if (endpoint == "ImageEdits") return "images/edits"
+  if (endpoint == "AudioSpeech") return "audio/speech"
+  if (endpoint == "AudioTranscriptions") return "audio/transcriptions"
+  if (endpoint == "AudioTranslations") return "audio/translations"
+  if (endpoint == "ConvertFile") return "convert/file"
+  return ""
+}
+
+const dayMs = 86_400_000
+
+function entryOf(row: Row, endpoint: Requests.Endpoint | undefined, now: number): LogEntry {
+  return {
+    id: row.id,
+    model: row.model,
+    provider: logProvider(row.provider),
+    endpoint: logEndpoint(endpoint),
+    keyName: row.keyName,
+    status: row.status,
+    input: row.input,
+    output: row.output,
+    cost: row.cost,
+    durationMs: row.providerMs >= 0 ? row.providerMs : Math.max(0, now - row.time),
+    ageDays: Math.max(0, Math.floor((now - row.time) / dayMs)),
+  }
+}
+
+function terminal(row: Row): boolean {
+  return row.status != "Pending"
+}
+
+/** Records every terminal metered row `seen` has not settled yet, for tests and the worker. */
+export effect function scanServed(state: Usage.Usage, seen: Set<string>) {
+  const requests = try Requests.Machine
+  const fleet = try Fleet
+  const served = try requests.get()
+  const now = try Clock.currentTimeMillis
+  for (const row of state.rows) {
+    if (!terminal(row) || seen.has(row.id)) continue
+    seen.add(row.id)
+    const endpoint = served.requests.find((servedRequest) => servedRequest.ref == row.id)?.endpoint
+    const machine = try fleet.machine("console__logs", row.wallet)
+    machine.receive({ type: "record", entry: entryOf(row, endpoint, now) }) catch () => undefined
+  }
+}
+
+/** Watches the meter: the stream opens with the current rows, so the scan also covers settlements
+ * that landed while the worker was down. */
+effect function watchServed() {
+  const usage = try Usage.Machine
+  const seen = new Set<string>()
+  for try (const state of usage.changes) {
+    try scanServed(state, seen)
+  }
+}
+
+export const logsWorker = Layer.effectDiscard(effect {
+  fork.detached watchServed()
+})
 
 export const logsApi = Layer.unwrap(effect {
-  return fleetMachineApi("console__logs", { events: ["resetFilters", "setKeyName", "setModel", "setProvider", "setShowing", "setWindow"] })
+  return Layer.mergeAll(
+    fleetMachineApi("console__logs", { events: ["resetFilters", "setKeyName", "setModel", "setProvider", "setShowing", "setWindow"] }),
+    logsWorker,
+  )
 })
 
 /** The logs machine's store, for tests and drivers. */
