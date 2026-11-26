@@ -10,7 +10,7 @@ import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
 import { inferChat } from "../src/api/gateway.vibe";
-import { callChatCandidates, chatSseResponse, upstreamTimeouts, type ChatRoute, type StreamFinal } from "../src/api/gateway/providers.ts";
+import { callChatCandidates, chatSseResponse, keyStatusPayload, upstreamTimeouts, type ChatRoute, type StreamFinal } from "../src/api/gateway/providers.ts";
 
 const wallet = "test-wallet";
 const stateLayer = () =>
@@ -326,6 +326,37 @@ describe("gateway inference", () => {
     expect(result.suspended.status).toBe(403);
     expect(result.active.status).toBe(200);
     expect(ledgerRows.some((entry) => entry.wallet === wallet && (entry.kind === "Reserve" || entry.kind === "Charge"))).toBe(false);
+  });
+
+  // spec/app/docs/index.md, "Check the current API key": budgets in micro-USD with resets_at.
+  it("serializes the documented key status budgets and expiry", () => {
+    const payload = keyStatusPayload(
+      { label: "Production", prefix: "sonnely_live_abc", status: "Active", cap: 50_000, dailyCap: 10_000, expiresAt: 1_800_000_000_000, spent: 7_000, dayKey: "2026-01-15", daySpent: 2_000 },
+      Date.UTC(2026, 0, 15, 10, 30),
+    );
+    expect(payload).toEqual({
+      prefix: "sonnely_live_abc",
+      status: "Active",
+      spendLimit: 50_000,
+      spent: 7_000,
+      name: "Production",
+      expires_at_ms: 1_800_000_000_000,
+      daily: { cap_microusd: 10_000, used_microusd: 2_000, remaining_microusd: 8_000, resets_at: "2026-01-16T00:00:00.000Z" },
+      lifetime: { cap_microusd: 50_000, used_microusd: 7_000, remaining_microusd: 43_000 },
+    });
+  });
+
+  // spec/app/docs/index.md, "Check the current API key": unlimited caps and their remainders are null.
+  it("serializes unlimited budgets and missing expiry as null and zeroes stale daily spend", () => {
+    const payload = keyStatusPayload(
+      { label: "Dev", prefix: "sonnely_live_dev", status: "Active", cap: 0, dailyCap: 0, expiresAt: 0, spent: 3_000, dayKey: "2026-01-14", daySpent: 2_000 },
+      Date.UTC(2026, 0, 15, 10, 30),
+    );
+    expect(payload).toMatchObject({
+      expires_at_ms: null,
+      daily: { cap_microusd: null, used_microusd: 0, remaining_microusd: null },
+      lifetime: { cap_microusd: null, remaining_microusd: null },
+    });
   });
 
 });

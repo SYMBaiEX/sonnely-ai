@@ -13,7 +13,7 @@ import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { store } from "../serve.vibe"
-import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -704,7 +704,8 @@ effect function keyStatus() {
   const state = try keys.get()
   const key = id == "" ? undefined : state.keys.find((k) => k.hash == id)
   if (key == undefined) return try oops("A valid bearer key is required.", 401)
-  return try reply({ data: { prefix: key.prefix, status: key.status, spendLimit: key.cap == 0 ? -1 : key.cap, spent: key.spent } })
+  const now = try Clock.currentTimeMillis
+  return try reply({ data: try Effect.try(() => keyStatusPayload(key, now)) })
 }
 
 // spec/app/gateway/batch.md, "Story: Run a resumable batch": the job is created once, sent row by row

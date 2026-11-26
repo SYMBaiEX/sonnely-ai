@@ -562,6 +562,28 @@ export function chatSseNodeResponse(options: ChatSseOptions) {
   };
 }
 
+const keyBudget = (cap: number, used: number) => ({
+  cap_microusd: cap === 0 ? null : cap,
+  used_microusd: used,
+  remaining_microusd: cap === 0 ? null : Math.max(0, cap - used),
+});
+
+/** spec/app/docs/index.md, "Check the current API key": name, expiry, and both budgets in micro-USD. */
+export function keyStatusPayload(key: { label: string; prefix: string; status: string; cap: number; dailyCap: number; expiresAt: number; spent: number; dayKey: string; daySpent: number }, now: number) {
+  const day = new Date(now).toISOString().slice(0, 10);
+  const midnightUtcMs = new Date(day + "T00:00:00.000Z").getTime();
+  return {
+    prefix: key.prefix,
+    status: key.status,
+    spendLimit: key.cap === 0 ? -1 : key.cap,
+    spent: key.spent,
+    name: key.label,
+    expires_at_ms: key.expiresAt === 0 ? null : key.expiresAt,
+    daily: { ...keyBudget(key.dailyCap, key.dayKey === day ? key.daySpent : 0), resets_at: new Date(midnightUtcMs + 86_400_000).toISOString() },
+    lifetime: keyBudget(key.cap, key.spent),
+  };
+}
+
 export function modelsPayload() {
   const enabled = configuredProviders();
   const rows = catalog.flatMap((model) => model.routes.filter((route) => route.endpoint === "chat/completions").map((route) => ({ model, route })));
