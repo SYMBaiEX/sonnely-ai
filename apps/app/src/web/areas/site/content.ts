@@ -201,6 +201,7 @@ export const supportTopics = [
   ["Code2", "Workspace support", "API errors, keys, sign-in, and model access"],
   ["CreditCard", "Billing", "USDC payments, credit balances, and charges"],
   ["Send", "Infrastructure partnership", "Infrastructure and integration questions"],
+  ["MessageSquare", "Product feedback", "Ideas, gaps, and what we should build next"],
 ] as const;
 
 export const footerGroups = [

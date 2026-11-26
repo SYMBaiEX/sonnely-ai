@@ -70,32 +70,26 @@ function ContactForm() {
   return (
     <div className="contact-grid" id="support-form">
       <aside className="panel contact-guide">
-        <h2>Choose a support topic</h2>
-        <div className="contact-topics" role="group" aria-label="Choose a support topic">
-          {supportTopics.map(([icon, label, description]) => (
-            <button
-              type="button"
-              key={label}
-              className="contact-topic"
-              aria-pressed={topic === label}
-              onClick={() => setTopic(label)}
-            >
-              <ProductIcon name={icon} size={21} />
-              <span>
-                <strong>{label}</strong>
-                <span>{description}</span>
-              </span>
-              <ArrowUpRight size={15} aria-hidden="true" />
-            </button>
-          ))}
-        </div>
-        <div className="contact-resources">
-          <h3>Before you submit</h3>
+        <h2>Before you submit</h2>
+        <div className="contact-resources contact-resources-first">
           <p>
             For API issues, include the status code, model ID and approximate time. For billing, include the
             payment reference or public transaction signature. Keep API keys, wallet recovery phrases and
             private prompt text out of the request.
           </p>
+        </div>
+        <div className="contact-resources">
+          <h3>After you submit</h3>
+          <p>
+            The request is saved with a reference you can quote when you follow up. Signed-in workspaces
+            can track the request and its status in the console.
+          </p>
+          <a className="text-link" href="/console/support">
+            Track requests in the console <ArrowUpRight size={16} aria-hidden="true" />
+          </a>
+        </div>
+        <div className="contact-resources">
+          <h3>Other ways to reach us</h3>
           <a className="text-link" href="/docs/troubleshooting">
             API troubleshooting <ArrowUpRight size={16} aria-hidden="true" />
           </a>
@@ -126,6 +120,25 @@ function ContactForm() {
           onSignOut={signOut}
         />
         {session.error && <p role="alert">{session.error}</p>}
+        <fieldset className="contact-topics">
+          <legend>Topic</legend>
+          {supportTopics.map(([icon, label, description]) => (
+            <label key={label} className="contact-topic" data-checked={topic === label || undefined}>
+              <input
+                type="radio"
+                name="topic"
+                value={label}
+                checked={topic === label}
+                onChange={() => setTopic(label)}
+              />
+              <ProductIcon name={icon} size={21} />
+              <span>
+                <strong>{label}</strong>
+                <span>{description}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         <label>
           Email
           <input
@@ -136,15 +149,6 @@ function ContactForm() {
             required
             placeholder="you@example.com"
           />
-        </label>
-        <label>
-          Topic
-          <select name="topic" value={topic} onChange={(event) => setTopic(event.target.value)}>
-            <option>Workspace support</option>
-            <option>Infrastructure partnership</option>
-            <option>Billing</option>
-            <option>Product feedback</option>
-          </select>
         </label>
         <label>
           Message

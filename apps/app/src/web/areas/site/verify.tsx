@@ -333,22 +333,47 @@ function ReceiptInspector() {
         ) : (
           <div className="grid gap-5">
             <div className="verify-note">
-              <h3 className="text-sm font-medium">Get a receipt</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Enable <strong className="text-foreground">Include verification receipt</strong>{" "}
-                before sending in Playground, or send{" "}
-                <code className={monoSm}>X-Sonnely-Receipt: v1</code> with an API Chat Completions
-                request.
-              </p>
+              <h3 className="text-sm font-medium">Get a receipt in three steps</h3>
+              <ol className="verify-steps">
+                <li>
+                  Enable <strong className="text-foreground">Include verification receipt</strong>{" "}
+                  in Playground, or send <code className={monoSm}>X-Sonnely-Receipt: v1</code>{" "}
+                  with an API Chat Completions request.
+                </li>
+                <li>
+                  Copy the <code className={monoSm}>sonnely_receipt</code> object from the JSON
+                  completion, save the response, or keep the stream events.
+                </li>
+                <li>Paste it or choose the file here. Inspection runs entirely in this browser.</li>
+              </ol>
               <a className={textLink + " mt-2"} href="/docs/attestation#completion-receipts">
                 Read the receipt guide <ArrowUpRight size={15} aria-hidden="true" />
               </a>
             </div>
             <div className="verify-note">
+              <h3 className="text-sm font-medium">What inspection checks</h3>
+              <ul className="verify-checks">
+                <li>The receipt is a supported Sonnely v1 receipt for a known provider route.</li>
+                <li>
+                  NEAR AI signatures are verified locally against the declared signer and the
+                  request and response hashes.
+                </li>
+                <li>
+                  Phala and Tinfoil evidence identifies the verified router release or session the
+                  route reported.
+                </li>
+                <li>
+                  Optional upstream files are hashed in this browser and compared with the receipt
+                  digests.
+                </li>
+              </ul>
+            </div>
+            <div className="verify-note">
               <h3 className="text-sm font-medium">Gateway boundary</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Sonnely reads the request at its HTTPS gateway. The provider’s trusted execution
-                environment serves the model.
+                environment serves the model. A receipt is evidence about the route, not proof of
+                end-to-end encryption.
               </p>
             </div>
           </div>
