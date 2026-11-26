@@ -12,6 +12,7 @@ import * as Usage from "../../gen/app__usage.effect.vibe"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseResponse, configuredProviders, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge, upstreamChatBody } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -77,121 +78,346 @@ function stagedCost(bytes: number): number {
  * write the pending usage row, open the served-request ledger, then settle the hold and usage exactly
  * once. Every refusal before completion releases what the reservation took.
  */
-function servedKey(key: WorkspaceKeys.Key): Keyring.KeyRecord {
-  return { id: key.hash, prefix: key.prefix, status: key.status, spendLimit: key.cap == 0 ? -1 : key.cap, spent: key.spent }
-}
-
 function providerOfModel(model: string): Usage.Provider {
   if (model.startsWith("phala/")) return "Phala"
   if (model.startsWith("tinfoil/")) return "Tinfoil"
   return "NearAI"
 }
 
-effect function unwindMeter(ref: string, key: WorkspaceKeys.Key, cost: number, day: string, projectHeld: boolean, keyHeld: boolean, usageRecorded: boolean, opened: boolean) {
+effect function unwindMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | undefined, cost: number, day: string, projectHeld: boolean, keyHeld: boolean, usageRecorded: boolean, opened: boolean) {
   if (usageRecorded) {
     const usage = try Usage.Machine
-    usage.send({ type: "release", id: ref }, key.wallet) catch () => undefined
+    usage.send({ type: "release", id: ref }, wallet) catch () => undefined
   }
-  if (keyHeld) {
+  if (key != undefined && keyHeld) {
     const keys = try WorkspaceKeys.Machine
-    keys.send({ type: "refundUse", id: key.id, amount: cost, day }, key.wallet) catch () => undefined
+    keys.send({ type: "refundUse", id: key.id, amount: cost, day }, wallet) catch () => undefined
   }
-  if (projectHeld) {
+  if (key != undefined && projectHeld) {
     const teams = try Teams.Machine
     teams.send({ type: "releaseProject", projectId: key.project, amount: cost }) catch () => undefined
   }
   const ledger = try Ledger.Machine
-  ledger.send({ type: "release", wallet: key.wallet, detail: ref }) catch () => undefined
+  ledger.send({ type: "release", wallet, detail: ref }) catch () => undefined
   if (opened) {
     const requests = try Requests.Machine
     requests.send({ type: "fault", ref }) catch () => undefined
   }
 }
 
-effect function meter(ref: string, key: WorkspaceKeys.Key, endpoint: Requests.Endpoint, model: string, stream: boolean, emits: number[], cost: number) {
+interface MeterOpen {
+  ref: string
+  wallet: string
+  key: WorkspaceKeys.Key | undefined
+  day: string
+  reserve: number
+  endpoint: Requests.Endpoint
+  model: string
+  stream: boolean
+  startedAt: number
+}
+
+function servedKey(key: WorkspaceKeys.Key | undefined, wallet: string): Keyring.KeyRecord {
+  if (key != undefined) return { id: key.hash, prefix: key.prefix, status: key.status, spendLimit: key.cap == 0 ? -1 : key.cap, spent: key.spent }
+  return { id: "session:" + wallet, prefix: "console", status: "Active", spendLimit: -1, spent: 0 }
+}
+
+function meterProvider(provider: string): Usage.Provider {
+  if (provider == "phala") return "Phala"
+  if (provider == "tinfoil") return "Tinfoil"
+  return "NearAI"
+}
+
+effect function openMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | undefined, endpoint: Requests.Endpoint, model: string, stream: boolean, cost: number, providerOverride: Usage.Provider | undefined = undefined) {
   const now = try Clock.currentTimeMillis
   const day = new Date(now).toISOString().slice(0, 10)
   const keys = try WorkspaceKeys.Machine
-  const keyState = try keys.get()
-  if (!WorkspaceKeys.canRecordUse(keyState, key.wallet, key.id, cost, day, now)) {
+  if (key != undefined && !WorkspaceKeys.canRecordUse(try keys.get(), wallet, key.id, cost, day, now)) {
     return { refused: { error: { message: "The API key budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
   }
   const teams = try Teams.Machine
-  if (key.project != "") {
-    const teamState = try teams.get()
-    if (!Teams.canHoldProject(teamState, key.project, cost)) {
-      return { refused: { error: { message: "The project budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
-    }
+  if (key != undefined && key.project != "" && !Teams.canHoldProject(try teams.get(), key.project, cost)) {
+    return { refused: { error: { message: "The project budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
   }
   const ledger = try Ledger.Machine
-  const ledgerState = try ledger.get()
-  if (!Ledger.canReserve(ledgerState, key.wallet, ref, cost)) {
+  if (!Ledger.canReserve(try ledger.get(), wallet, ref, cost)) {
     return { refused: { error: { message: "Insufficient compute credits.", type: "insufficient_quota" }, status: 402 } }
   }
-  const reserved = ledger.send({ type: "reserve", wallet: key.wallet, detail: ref, amount: cost }) catch (e) => e
+  const reserved = ledger.send({ type: "reserve", wallet, detail: ref, amount: cost }) catch (e) => e
   if (reserved instanceof Ledger.Rejected) {
     return { refused: { error: { message: "Insufficient compute credits.", type: "insufficient_quota" }, status: 402 } }
   }
   let projectHeld = false
   let keyHeld = false
-  let usageRecorded = false
-  let opened = false
-  if (key.project != "") {
+  if (key != undefined && key.project != "") {
     const heldProject = teams.send({ type: "holdProject", projectId: key.project, amount: cost }) catch (e) => e
     if (heldProject instanceof Teams.Rejected) {
-      ledger.send({ type: "release", wallet: key.wallet, detail: ref }) catch () => undefined
+      ledger.send({ type: "release", wallet, detail: ref }) catch () => undefined
       return { refused: { error: { message: "The project budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
     }
     projectHeld = true
   }
-  const used = keys.send({ type: "recordUse", id: key.id, cost, day, now }, key.wallet) catch (e) => e
-  if (used instanceof WorkspaceKeys.Rejected) {
-    try unwindMeter(ref, key, cost, day, projectHeld, false, false, false)
-    return { refused: { error: { message: "The API key budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
+  if (key != undefined) {
+    const used = keys.send({ type: "recordUse", id: key.id, cost, day, now }, wallet) catch (e) => e
+    if (used instanceof WorkspaceKeys.Rejected) {
+      try unwindMeter(ref, wallet, key, cost, day, projectHeld, false, false, false)
+      return { refused: { error: { message: "The API key budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
+    }
+    keyHeld = true
   }
-  keyHeld = true
   const usage = try Usage.Machine
   const row = usage.send({
     type: "record",
     id: ref,
     time: now,
-    keyName: key.label,
-    keyId: key.id,
-    project: key.project,
+    keyName: key?.label ?? "Console",
+    keyId: key?.id ?? "",
+    project: key?.project ?? "",
     model,
-    provider: providerOfModel(model),
+    provider: providerOverride ?? providerOfModel(model),
     cost,
-  }, key.wallet) catch (e) => e
+  }, wallet) catch (e) => e
   if (row instanceof Usage.Rejected) {
-    try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, false, false)
+    try unwindMeter(ref, wallet, key, cost, day, projectHeld, keyHeld, false, false)
     return { refused: { error: { message: "The request could not be metered.", type: "server_error" }, status: 500 } }
   }
-  usageRecorded = true
   const requests = try Requests.Machine
-  const openedRequest = requests.send({ type: "open", ref, key: servedKey(key), endpoint, model, stream }) catch (e) => e
+  const openedRequest = requests.send({ type: "open", ref, key: servedKey(key, wallet), endpoint, model, stream }) catch (e) => e
   if (openedRequest instanceof Requests.Rejected) {
-    try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, usageRecorded, false)
+    try unwindMeter(ref, wallet, key, cost, day, projectHeld, keyHeld, true, false)
     return { refused: { error: { message: "A request with this reference is already open.", type: "invalid_request_error" }, status: 409 } }
   }
-  opened = true
-  for (const tokens of emits) {
-    const emitted = requests.send({ type: "emit", ref, tokens }) catch (e) => e
-    if (emitted instanceof Requests.Rejected) {
-      try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, usageRecorded, opened)
-      return { refused: { error: { message: "The request could not emit.", type: "server_error" }, status: 500 } }
+  return { meter: { ref, wallet, key, day, reserve: cost, endpoint, model, stream, startedAt: now } }
+}
+
+effect function settleMeter(meter: MeterOpen, input: number, output: number, cached: number, cost: number, providerMs: number) {
+  const charge = Math.min(meter.reserve, Math.max(0, cost))
+  const refund = meter.reserve - charge
+  const ledger = try Ledger.Machine
+  const settledMoney = ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: charge }) catch (e) => e
+  if (settledMoney instanceof Ledger.Rejected) return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
+  if (meter.key != undefined && refund > 0) {
+    const keys = try WorkspaceKeys.Machine
+    keys.send({ type: "refundUse", id: meter.key.id, amount: refund, day: meter.day }, meter.wallet) catch () => undefined
+    if (meter.key.project != "") {
+      const teams = try Teams.Machine
+      teams.send({ type: "releaseProject", projectId: meter.key.project, amount: refund }) catch () => undefined
     }
   }
-  const settledMoney = ledger.send({ type: "settleHold", wallet: key.wallet, detail: ref, amount: cost }) catch (e) => e
-  if (settledMoney instanceof Ledger.Rejected) {
-    try unwindMeter(ref, key, cost, day, projectHeld, keyHeld, usageRecorded, opened)
-    return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
-  }
-  const chargedUse = usage.send({ type: "charge", id: ref, input: 0, output: endpoint == "ChatCompletions" ? (stream ? emits.reduce((n, t) => n + t, 0) : 8) : 0, cached: -1, cost, providerMs: -1 }, key.wallet) catch (e) => e
-  const finished = requests.send({ type: "finish", ref, cost }) catch (e) => e
+  const usage = try Usage.Machine
+  const chargedUse = usage.send({ type: "charge", id: meter.ref, input, output, cached, cost: charge, providerMs }, meter.wallet) catch (e) => e
+  const requests = try Requests.Machine
+  if (meter.stream && output > 0) requests.send({ type: "emit", ref: meter.ref, tokens: output }) catch () => undefined
+  const finished = requests.send({ type: "finish", ref: meter.ref, cost: charge }) catch (e) => e
   if (chargedUse instanceof Usage.Rejected || finished instanceof Requests.Rejected) {
     return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
   }
-  return { served: true }
+  return { served: true, charged: charge }
+}
+
+effect function failMeter(meter: MeterOpen, unreported: boolean) {
+  const ledger = try Ledger.Machine
+  const usage = try Usage.Machine
+  const requests = try Requests.Machine
+  if (unreported) {
+    ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: meter.reserve }) catch () => undefined
+    usage.send({ type: "unreported", id: meter.ref }, meter.wallet) catch () => undefined
+    requests.send({ type: "finish", ref: meter.ref, cost: meter.reserve }) catch () => undefined
+  } else {
+    ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: 0 }) catch () => undefined
+    if (meter.key != undefined) {
+      const keys = try WorkspaceKeys.Machine
+      keys.send({ type: "refundUse", id: meter.key.id, amount: meter.reserve, day: meter.day }, meter.wallet) catch () => undefined
+      if (meter.key.project != "") {
+        const teams = try Teams.Machine
+        teams.send({ type: "releaseProject", projectId: meter.key.project, amount: meter.reserve }) catch () => undefined
+      }
+    }
+    usage.send({ type: "release", id: meter.ref }, meter.wallet) catch () => undefined
+    requests.send({ type: "fault", ref: meter.ref }) catch () => undefined
+  }
+}
+
+effect function stageMeter(ref: string, key: WorkspaceKeys.Key, endpoint: Requests.Endpoint, model: string, stream: boolean, emits: number[], cost: number) {
+  const opened = try openMeter(ref, key.wallet, key, endpoint, model, stream, cost)
+  if ("refused" in opened) return opened
+  for (const tokens of emits) {
+    const requests = try Requests.Machine
+    requests.send({ type: "emit", ref, tokens }) catch () => undefined
+  }
+  return try settleMeter(opened.meter, 0, endpoint == "ChatCompletions" ? (stream ? emits.reduce((n, t) => n + t, 0) : 8) : 0, -1, cost, -1)
+}
+
+effect function inferenceFailure(message: string, status: number, ref: string) {
+  const response = try oops(message, status, "sonnely_error")
+  return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref })
+}
+
+effect function receiptFor(input: unknown, candidate: unknown, completionId: string, reportedModel: string | undefined, requestBody: string, responseHash: string, charged: number, cached: number, providerReference: string | undefined, tinfoilEvidence: unknown) {
+  const requestHash = try Effect.try(() => sha256(requestBody))
+  const selected = candidate as { provider: "near-ai" | "phala" | "tinfoil"; key: string; upstreamModel: string }
+  const requested = input as { model: string }
+  let evidence: unknown = tinfoilEvidence ?? { status: "unavailable" }
+  if (selected.provider == "near-ai") {
+    evidence = tryPromise(() => nearEvidence(completionId, selected.key, selected.upstreamModel, requestHash, responseHash)) catch () => ({ status: "unavailable" })
+  }
+  if (selected.provider == "phala") {
+    evidence = tryPromise(() => phalaEvidence(providerReference, selected.key, completionId, selected.upstreamModel, requestHash, responseHash)) catch () => ({ status: "unavailable" })
+  }
+  return {
+    version: "v1",
+    provider: selected.provider,
+    requested_model: requested.model,
+    ...(reportedModel == undefined ? {} : { reported_model: reportedModel }),
+    provider_completion_id: completionId,
+    ...(providerReference == undefined ? {} : { billing_reference: providerReference }),
+    charged_microusd: charged,
+    cached_input_tokens: cached,
+    upstream_request_sha256: requestHash,
+    upstream_response_sha256: responseHash,
+    evidence,
+  }
+}
+
+export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string, withReceipt: boolean = false) {
+  const parsedResult = try Effect.try(() => parseChatInput(raw))
+  if (!parsedResult.ok) return try inferenceFailure(parsedResult.message, parsedResult.status, ref)
+  const usageBefore = try Usage.Machine
+  if ((try usageBefore.get()).rows.some((row) => row.id == ref)) {
+    return try inferenceFailure("This Idempotency-Key already started a request. Look up the reference in Request logs.", 409, ref)
+  }
+  const liveProviders = try Effect.try(() => configuredProviders())
+  if (liveProviders.length == 0) {
+    const input = parsedResult.value
+    const cost = stagedCost(JSON.stringify(raw ?? {}).length)
+    const openedStage = try openMeter(ref, wallet, key, "ChatCompletions", input.model, input.stream === true, cost)
+    if ("refused" in openedStage) {
+      const r = openedStage.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    const settledStage = try settleMeter(openedStage.meter, 0, 8, -1, cost, -1)
+    if ("refused" in settledStage) {
+      const r = settledStage.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    if (input.stream !== true) {
+      const stagedResponse = try reply(completionShape(ref, input.model, cost))
+      return HttpServerResponse.setHeaders(stagedResponse, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
+    }
+    const stagedChunks = Stream.fromIterable([
+      `data: ${JSON.stringify(completionChunk(ref, input.model, { role: "assistant" }, null))}\n\n`,
+      `data: ${JSON.stringify(completionChunk(ref, input.model, { content: staged }, null))}\n\n`,
+      `data: ${JSON.stringify(completionChunk(ref, input.model, {}, "stop"))}\n\n`,
+      "data: [DONE]\n\n",
+    ])
+    return HttpServerResponse.stream(Stream.encodeText(stagedChunks), {
+      contentType: "text/event-stream",
+      headers: { ...noStore, connection: "keep-alive", "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" },
+    })
+  }
+  const selectedResult = try Effect.try(() => selectChat(parsedResult.value))
+  if (!selectedResult.ok) return try inferenceFailure(selectedResult.message, selectedResult.status, ref)
+  const selection = selectedResult.value
+  const firstCandidate = selection.candidates[0]
+  if (firstCandidate == undefined) return try inferenceFailure("Managed inference is awaiting provider activation.", 503, ref)
+  const reserve = selection.candidates.reduce((max, item) => Math.max(max, item.estimate), 0)
+  const opened = try openMeter(ref, wallet, key, "ChatCompletions", selection.input.model, selection.stream, reserve, meterProvider(firstCandidate.provider))
+  if ("refused" in opened) {
+    const r = opened.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
+  const meter = opened.meter
+  const cacheSecret = key?.hash ?? wallet
+  const providerAt = try Clock.currentTimeMillis
+  const upstream = tryPromise(() => callChatCandidates(selection.input, selection.candidates, cacheSecret)) catch () => undefined
+  const providerMs = try Clock.currentTimeMillis - providerAt
+  if (upstream == undefined) {
+    try failMeter(meter, true)
+    return try inferenceFailure("The provider did not respond. The reservation is pending reconciliation.", 502, ref)
+  }
+  const candidate = upstream.candidate
+  const requestBody = upstream.body
+  const response = upstream.response
+  if (!response.ok) {
+    try failMeter(meter, response.status >= 500)
+    return try inferenceFailure("The provider could not complete this request.", 502, ref)
+  }
+  if (!selection.stream) {
+    const completed = tryPromise(() => parseChatCompletion(response)) catch () => undefined
+    if (completed == undefined) {
+      try failMeter(meter, true)
+      return try inferenceFailure("The provider returned incomplete usage information.", 502, ref)
+    }
+    const usage = completed.completion.usage
+    const cached = try Effect.try(() => cachedTokens(usage))
+    const cost = try Effect.try(() => tokenCharge(candidate.rate, usage.prompt_tokens, cached, usage.completion_tokens))
+    const providerReference = try Effect.try(() => providerRequestReference(candidate.provider, response, completed.completion.id))
+    if (candidate.provider == "phala") {
+      const evidence = tryPromise(() => phalaEvidence(providerReference, candidate.key, completed.completion.id, candidate.upstreamModel, sha256(requestBody), completed.responseHash)) catch () => ({ status: "unavailable" })
+      if ((evidence as { status?: string }).status != "aci_payload_matched") {
+        try failMeter(meter, false)
+        return try inferenceFailure("Phala did not return matching evidence for the requested private route.", 502, ref)
+      }
+    }
+    const settled = try settleMeter(meter, usage.prompt_tokens, usage.completion_tokens, cached, cost, providerMs)
+    if ("refused" in settled) {
+      const r = settled.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    const body: Record<string, unknown> = {
+      ...completed.completion,
+      model: selection.input.model,
+      usage: try Effect.try(() => publicUsage(usage)),
+      sonnely_request_id: ref,
+      sonnely_provider: candidate.provider,
+    }
+    if (withReceipt) {
+      body.sonnely_receipt = try receiptFor(selection.input, candidate, completed.completion.id, undefined, requestBody, completed.responseHash, settled.charged, cached, providerReference, upstream.evidence)
+    }
+    const answered = try reply(body)
+    return HttpServerResponse.setHeaders(answered, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": candidate.provider })
+  }
+  if (response.body == undefined || !(response.headers.get("content-type") ?? "").startsWith("text/event-stream")) {
+    try failMeter(meter, true)
+    return try inferenceFailure("The provider did not return a stream. The reservation is pending reconciliation.", 502, ref)
+  }
+  const ledger = try Ledger.Machine
+  const usageMachine = try Usage.Machine
+  const requestMachine = try Requests.Machine
+  const keys = try WorkspaceKeys.Machine
+  const teams = try Teams.Machine
+  const rememberId = (_id: string) => undefined
+  const settleStream = (final: StreamFinal | undefined, _observedFirstTokenAt: number | undefined) =>
+    runPromise(effect {
+      if (final == undefined) {
+        ledger.send({ type: "settleHold", wallet, detail: ref, amount: meter.reserve }) catch () => undefined
+        usageMachine.send({ type: "unreported", id: ref }, wallet) catch () => undefined
+        requestMachine.send({ type: "finish", ref, cost: meter.reserve }) catch () => undefined
+        return undefined
+      }
+      const cached = try Effect.try(() => cachedTokens(final.usage))
+      const cost = try Effect.try(() => tokenCharge(candidate.rate, final.usage.prompt_tokens, cached, final.usage.completion_tokens))
+      const charge = Math.min(meter.reserve, cost)
+      const refund = meter.reserve - charge
+      ledger.send({ type: "settleHold", wallet, detail: ref, amount: charge }) catch () => undefined
+      if (key != undefined && refund > 0) {
+        keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day }, wallet) catch () => undefined
+        if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund }) catch () => undefined
+      }
+      usageMachine.send({ type: "charge", id: ref, input: final.usage.prompt_tokens, output: final.usage.completion_tokens, cached, cost: charge, providerMs }, wallet) catch () => undefined
+      if (final.usage.completion_tokens > 0) requestMachine.send({ type: "emit", ref, tokens: final.usage.completion_tokens }) catch () => undefined
+      requestMachine.send({ type: "finish", ref, cost: charge }) catch () => undefined
+      if (withReceipt !== true) return undefined
+      return try receiptFor(selection.input, candidate, final.id, final.reportedModel, requestBody, final.responseHash, charge, cached, (try Effect.try(() => providerRequestReference(candidate.provider, response, final.id))), upstream.evidence)
+    })
+  const stream = try Effect.try(() => chatSseResponse({
+    upstream: response.body!,
+    model: selection.input.model,
+    includeUsage: selection.input.stream_options?.include_usage === true,
+    rememberId,
+    settle: settleStream,
+  }))
+  return HttpServerResponse.raw(stream.response.body, { status: 200, contentType: "text/event-stream; charset=utf-8", headers: { ...noStore, "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": candidate.provider, "x-accel-buffering": "no" } })
 }
 
 const chatBody = (input: unknown): { model: string; stream: boolean; bytes: number } => {
@@ -248,10 +474,16 @@ effect function chatCompletions() {
     const r = auth.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
   }
-  const ref = try Effect.try(() => newRef())
+  const idempotency = request.headers["idempotency-key"]
+  if (idempotency != undefined && !/^[a-zA-Z0-9_.:-]{8,128}$/.test(idempotency)) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, "")
+  const ref = idempotency == undefined ? try Effect.try(() => newRef()) : "idem" + (try Effect.try(() => sha256(auth.key.wallet + ":" + auth.key.id + ":" + idempotency))).slice(0, 32)
+  const receipt = request.headers["x-sonnely-receipt"]
+  if (receipt != undefined && receipt != "v1") return try inferenceFailure("Unsupported evidence receipt version. Use X-Sonnely-Receipt: v1.", 400, ref)
+  const liveProviders = try Effect.try(() => configuredProviders())
+  if (liveProviders.length > 0) return try inferChat(raw, auth.key, auth.key.wallet, ref, receipt == "v1")
   const cost = stagedCost(body.bytes)
   if (!body.stream) {
-    const settled = try meter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
+    const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
     if ("refused" in settled) {
       const r = settled.refused as { error: unknown; status: number }
       return try reply(r.error, r.status)
@@ -260,7 +492,7 @@ effect function chatCompletions() {
     return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
   }
   const emits = [4, 4]
-  const settled = try meter(ref, auth.key, "ChatCompletions", body.model, true, emits, cost)
+  const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, true, emits, cost)
   if ("refused" in settled) {
     const r = settled.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
@@ -285,19 +517,112 @@ const endpoints: { path: string; endpoint: Requests.Endpoint; model: (input: unk
   { path: "responses", endpoint: "ResponsesApi", model: (i) => (i as any)?.model ?? "", shape: (ref, model) => ({ id: `resp-${ref}`, object: "response", created: 0, model, output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: staged }] }], status: "completed", sonnely_request_id: ref }) },
   { path: "redact", endpoint: "Redact", model: (i) => (i as any)?.model ?? "pii-filter", shape: (ref) => ({ redacted: staged, sonnely_request_id: ref }) },
   { path: "systemone", endpoint: "Systemone", model: (i) => (i as any)?.model ?? "levanto/sage-2", shape: (ref, model) => ({ id: `sys1-${ref}`, object: "systemone.completion", created: 0, model, output_text: staged, sonnely_request_id: ref }) },
-  { path: "images/generations", endpoint: "ImageGenerations", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ created: 0, data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }], sonnely_request_id: ref }) },
-  { path: "images/edits", endpoint: "ImageEdits", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ created: 0, data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }], sonnely_request_id: ref }) },
+  { path: "images/generations", endpoint: "ImageGenerations", model: (i) => (i as any)?.model ?? "black-forest-labs/FLUX.2-klein-4B", shape: (ref) => ({ created: 0, data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }], sonnely_request_id: ref }) },
+  { path: "images/edits", endpoint: "ImageEdits", model: (i) => (i as any)?.model ?? "black-forest-labs/FLUX.2-klein-4B", shape: (ref) => ({ created: 0, data: [{ b64_json: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" }], sonnely_request_id: ref }) },
   { path: "audio/speech", endpoint: "AudioSpeech", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ audio: staged, format: "wav", sonnely_request_id: ref }) },
-  { path: "audio/transcriptions", endpoint: "AudioTranscriptions", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ text: staged, sonnely_request_id: ref }) },
-  { path: "audio/translations", endpoint: "AudioTranslations", model: (i) => (i as any)?.model ?? "", shape: (ref) => ({ text: staged, sonnely_request_id: ref }) },
+  { path: "audio/transcriptions", endpoint: "AudioTranscriptions", model: (i) => (i as any)?.model ?? "whisper-large-v3-turbo", shape: (ref) => ({ text: staged, sonnely_request_id: ref }) },
+  { path: "audio/translations", endpoint: "AudioTranslations", model: (i) => (i as any)?.model ?? "voxtral-small-24b", shape: (ref) => ({ text: staged, sonnely_request_id: ref }) },
   { path: "convert/file", endpoint: "ConvertFile", model: (i) => (i as any)?.model ?? "doc-upload", shape: (ref) => ({ text: staged, sonnely_request_id: ref }) },
 ]
+
+export effect function inferSpecialized(path: string, endpoint: Requests.Endpoint, fallbackModel: string, raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string) {
+  const request = try HttpServerRequest.HttpServerRequest
+  const multipart = path == "images/edits" || path == "audio/transcriptions" || path == "audio/translations" || path == "convert/file"
+  let input: unknown = raw
+  let form: FormData | undefined = undefined
+  if (multipart) {
+    const contentType = request.headers["content-type"] ?? ""
+    if (!contentType.startsWith("multipart/form-data")) return try inferenceFailure("Send multipart form data.", 415, ref)
+    form = tryPromise(() => multipartForm(request.source, contentType)) catch () => undefined
+    if (form == undefined) return try inferenceFailure("The form data could not be read.", 400, ref)
+    input = { model: try Effect.try(() => formModel(form!, fallbackModel)) }
+  }
+  const parsedResult = multipart ? { ok: true as const, value: input as Record<string, unknown> } : try Effect.try(() => parseSpecialized(path, raw))
+  if (!parsedResult.ok) return try inferenceFailure(parsedResult.message, parsedResult.status, ref)
+  const fields = parsedResult.value
+  const named = typeof fields.model == "string" && fields.model != "" ? fields.model : fallbackModel
+  let meterKey = key
+  if (key == undefined && wallet == "") {
+    const auth = try authorized(endpoint, named)
+    if ("refused" in auth) {
+      const r = auth.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    meterKey = auth.key
+  }
+  const meterWallet = wallet == "" ? meterKey?.wallet ?? "" : wallet
+  const inputTokens = try Effect.try(() => specializedInputTokens(path, fields))
+  const outputTokens = path == "responses" ? (typeof fields.max_output_tokens == "number" ? fields.max_output_tokens : 1024) : path == "systemone" ? 256 : 0
+  const routeResult = try Effect.try(() => specializedRoute(path, named, inputTokens, false, outputTokens))
+  if (!routeResult.ok) return try inferenceFailure(routeResult.message, routeResult.status, ref)
+  const selected = routeResult.value
+  if (typeof fields.max_cost_microusd == "number" && selected.reserve > fields.max_cost_microusd) return try inferenceFailure("The estimated reservation exceeds max_cost_microusd.", 400, ref)
+  const opened = try openMeter(ref, meterWallet, meterKey, endpoint, named, false, selected.reserve, meterProvider(selected.provider))
+  if ("refused" in opened) {
+    const r = opened.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
+  const meter = opened.meter
+  const providerAt = try Clock.currentTimeMillis
+  const upstream = tryPromise(() => callSpecialized(path, selected, form ?? fields)) catch () => undefined
+  const providerMs = try Clock.currentTimeMillis - providerAt
+  if (upstream == undefined) {
+    try failMeter(meter, true)
+    return try inferenceFailure("The provider did not respond. The reservation is pending reconciliation.", 502, ref)
+  }
+  const response = upstream.response
+  if (!response.ok) {
+    try failMeter(meter, response.status >= 500)
+    return try inferenceFailure("The provider could not complete this request.", 502, ref)
+  }
+  if (path == "audio/speech") {
+    const bytesResult = tryPromise(async () => new Uint8Array(await response.arrayBuffer())) catch () => undefined
+    if (bytesResult == undefined || bytesResult.byteLength == 0) {
+      try failMeter(meter, true)
+      return try inferenceFailure("The provider returned an incomplete result.", 502, ref)
+    }
+    const settled = try settleMeter(meter, inputTokens, 0, -1, selected.reserve, providerMs)
+    if ("refused" in settled) {
+      const r = settled.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    return HttpServerResponse.uint8Array(bytesResult, {
+      contentType: response.headers.get("content-type") ?? "audio/mpeg",
+      headers: { ...noStore, "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": selected.provider },
+    })
+  }
+  const output = tryPromise(() => response.json()) catch () => undefined
+  if (output == undefined) {
+    try failMeter(meter, true)
+    return try inferenceFailure("The provider returned an incomplete result or usage record.", 502, ref)
+  }
+  const usage = try Effect.try(() => extractUsage(path, output))
+  const cost = selected.route.request >= 0 ? selected.reserve : try Effect.try(() => tokenCharge(selected.route, usage.input, 0, usage.output))
+  if (cost > selected.reserve) {
+    try failMeter(meter, true)
+    return try inferenceFailure("Provider usage exceeded the reservation. Check Usage.", 502, ref)
+  }
+  const settled = try settleMeter(meter, usage.input, usage.output, -1, cost, providerMs)
+  if ("refused" in settled) {
+    const r = settled.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
+  const body = typeof output == "object" && output != null && !Array.isArray(output) ? output as Record<string, unknown> : { data: output }
+  const answered = try reply({ ...body, model: named, sonnely_request_id: ref, sonnely_provider: selected.provider })
+  return HttpServerResponse.setHeaders(answered, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": selected.provider })
+}
 
 function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[number]) {
   const handler = effect {
     const request = try HttpServerRequest.HttpServerRequest
-    if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
-    const raw = request.json catch () => undefined
+    const multipart = path == "images/edits" || path == "audio/transcriptions" || path == "audio/translations" || path == "convert/file"
+    if (!multipart && !request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
+    const raw = multipart ? undefined : request.json catch () => undefined
+    const liveProviders = try Effect.try(() => configuredProviders())
+    if (liveProviders.length > 0) {
+      const ref = try Effect.try(() => newRef())
+      return try inferSpecialized(path, endpoint, model({}), raw, undefined, "", ref)
+    }
     const named = model(raw)
     const auth = try authorized(endpoint, named)
     if ("refused" in auth) {
@@ -306,7 +631,7 @@ function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[numb
     }
     const ref = try Effect.try(() => newRef())
     const cost = stagedCost(JSON.stringify(raw ?? {}).length)
-    const settled = try meter(ref, auth.key, endpoint, named, false, [], cost)
+    const settled = try stageMeter(ref, auth.key, endpoint, named, false, [], cost)
     if ("refused" in settled) {
       const r = settled.refused as { error: unknown; status: number }
       return try reply(r.error, r.status)
@@ -314,19 +639,17 @@ function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[numb
     const response = try reply(shape(ref, named, cost))
     return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
   }
-  return HttpRouter.add("POST", `/api/sonnely/v1/${path}`, provideService(handler, HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256)))
+  return HttpRouter.add("POST", `/api/sonnely/v1/${path}`, provideService(handler, HttpServerRequest.MaxBodySize, ByteSize.kibibytes(3072)))
 }
 
 /** The model catalog in the OpenAI list shape. */
 effect function listModels() {
-  const data = Requests.chatModels.map((id) => ({ id, object: "model", created: 0, owned_by: id.split("/")[0] }))
-  return try reply({ object: "list", data })
+  return try reply(try Effect.try(() => modelsPayload()))
 }
 
 /** The provider inventory staging routes over. */
 effect function providerModels() {
-  const providers = ["near-ai", "phala", "tinfoil"].map((provider) => ({ id: provider, models: Requests.chatModels.filter((id) => id.startsWith(`${provider}/`)) }))
-  return try reply({ object: "list", data: providers })
+  return try reply(try Effect.try(() => providerModelsPayload()))
 }
 
 /** The authenticated key's own status. */
@@ -386,35 +709,30 @@ effect function batchChat() {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
   const raw = request.json catch () => undefined
-  const input = raw as { custom_id?: unknown; body?: unknown } | undefined
-  const customId = typeof input?.custom_id == "string" ? input.custom_id : ""
-  const batch = try Batch.Machine
-  const now = try Clock.currentTimeMillis
-  const began = batch.send({ type: "begin", customId, at: now }) catch (e) => e
-  if (began instanceof Batch.Rejected) {
-    // A row sent twice asks for review rather than a second charge.
-    const reviewed = batch.send({ type: "resolve", customId, verdict: "Review" }) catch (e) => e
-    if (reviewed instanceof Batch.Rejected) return try oops("That row is not queued for this job.", 409)
-    return try reply({ ok: false, verdict: "Review", customId })
-  }
-  const body = chatBody(input?.body)
+  const body = chatBody(raw)
+  if (body.stream) return try oops("Batch rows must be non-streaming chat completions.", 400)
   const auth = try authorized("ChatCompletions", body.model)
   if ("refused" in auth) {
-    batch.send({ type: "resolve", customId, verdict: "Blocked" }) catch () => undefined
     const r = auth.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
   }
-  const ref = try Effect.try(() => newRef())
+  const wallet = request.headers["x-sonnely-batch-wallet"] ?? ""
+  if (wallet == "" || wallet != auth.key.wallet) return try inferenceFailure("The batch wallet does not match this key's workspace.", 403, "")
+  const idempotency = request.headers["idempotency-key"] ?? ""
+  if (!/^batch:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:\d+$/i.test(idempotency)) {
+    return try inferenceFailure("Use Idempotency-Key batch:<uuidv4>:<row index>.", 400, "")
+  }
+  const ref = "idem" + (try Effect.try(() => sha256(auth.key.wallet + ":" + auth.key.id + ":" + idempotency))).slice(0, 32)
+  const liveProviders = try Effect.try(() => configuredProviders())
+  if (liveProviders.length > 0) return try inferChat(raw, auth.key, auth.key.wallet, ref)
   const cost = stagedCost(body.bytes)
-  const settled = try meter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
+  const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
   if ("refused" in settled) {
-    batch.send({ type: "resolve", customId, verdict: "Failed" }) catch () => undefined
     const r = settled.refused as { error: unknown; status: number }
     return try reply(r.error, r.status)
   }
-  batch.send({ type: "resolve", customId, verdict: "Succeeded" }) catch () => undefined
   const response = try reply(completionShape(ref, body.model, cost))
-  return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref })
+  return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
 }
 
 /** /api/v1 is retired: every method answers 410. */

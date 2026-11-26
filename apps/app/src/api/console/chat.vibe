@@ -3,9 +3,13 @@ import { Machine, stored, initial } from "../../../gen/app__console__chat.effect
 import { Machine as LogsMachine } from "../../../gen/app__console__logs.effect.vibe"
 import type { Chat } from "../../../gen/app__console__chat.ts"
 import type { LogEntry } from "../../../gen/app__console__logs.ts"
+import type { Endpoint as GatewayEndpoint } from "../../../gen/app__gateway__requests.ts"
 import { catalog, providerOf } from "../../../gen/app__console__catalog.ts"
 import { machineApi } from "../../machines.vibe"
 import { store } from "../../serve.vibe"
+import { inferChat, inferSpecialized } from "../gateway.vibe"
+import { authenticatedWallet } from "../session.vibe"
+import { configuredProviders } from "../gateway/providers.ts"
 
 module playgroundNode {
   import { randomUUID } from "node:crypto"
@@ -126,44 +130,29 @@ effect function replyRoute() {
   if (!request.headers["content-type"]?.startsWith("application/json")) {
     return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
   }
-  const body = request.json catch () => undefined
-  const parsed = body as { id?: unknown; model?: unknown } | undefined
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "Sign in with a Solana wallet." }, { status: 401, headers: noStore })
+  const raw = request.json catch () => undefined
+  const parsed = raw as { id?: unknown; model?: unknown; provider?: unknown; fallbacks?: unknown } | undefined
   if (!parsed || typeof parsed.id !== "string" || typeof parsed.model !== "string") {
     return try HttpServerResponse.json({ error: "send {id, model}" }, { status: 400, headers: noStore })
   }
-  const answered = completeReply(parsed.id, parsed.model) catch effect (error) => { return error }
-  if (answered && typeof answered === "object" && "_tag" in (answered as object)) {
-    return try HttpServerResponse.json({ ok: false, error: (answered as { _tag: string })._tag }, { status: 409, headers: noStore })
+  const machine = try Machine
+  const state = try machine.get()
+  const thread = state.threads.find((item) => item.id === parsed.id)
+  if (thread == undefined || thread.messages[thread.messages.length - 1]?.role !== "User") {
+    return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
   }
-  return try HttpServerResponse.json({ ok: true, entry: answered }, { headers: noStore })
-}
-
-
-function streamChunk(ref: string, model: string, delta: object, finish: string | null) {
-  return { id: `chatcmpl-${ref}`, object: "chat.completion.chunk", created: 0, model, choices: [{ index: 0, delta, finish_reason: finish }] }
-}
-
-function receiptChunk(ref: string, model: string) {
-  const empty = "0000000000000000000000000000000000000000000000000000000000000000"
-  return {
-    id: `chatcmpl-${ref}`,
-    object: "chat.completion.chunk",
-    created: 0,
-    model,
-    choices: [],
-    sonnely_request_id: ref,
-    sonnely_receipt: {
-      version: "v1",
-      provider: "near-ai",
-      requested_model: model,
-      provider_completion_id: ref,
-      charged_microusd: 0,
-      cached_input_tokens: 0,
-      upstream_request_sha256: empty,
-      upstream_response_sha256: empty,
-      evidence: { status: "unavailable" },
-    },
-  }
+  const messages = thread.messages.map((message) => message.role == "User" ? { role: "user", content: message.content } : { role: "assistant", content: message.content })
+  const fallbacks = Array.isArray(parsed.fallbacks) ? parsed.fallbacks.filter((provider): provider is "near-ai" | "phala" | "tinfoil" => provider == "near-ai" || provider == "phala" || provider == "tinfoil") : []
+  const primary = parsed.provider == "phala" || parsed.provider == "tinfoil" ? parsed.provider : "near-ai"
+  const only = [primary, ...fallbacks.filter((provider) => provider != primary)] as ["near-ai" | "phala" | "tinfoil"]
+  const ref = try Effect.try(() => newRef())
+  return try inferChat({
+    model: parsed.model,
+    messages,
+    provider: { only, ...(only.length > 1 ? { allow_fallbacks: true } : {}) },
+  }, undefined, wallet, ref, request.headers["x-sonnely-receipt"] == "v1")
 }
 
 effect function streamRoute() {
@@ -171,30 +160,32 @@ effect function streamRoute() {
   if (!request.headers["content-type"]?.startsWith("application/json")) {
     return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
   }
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "Sign in with a Solana wallet." }, { status: 401, headers: noStore })
   const raw = request.json catch () => undefined
-  const parsed = raw as { id?: unknown; model?: unknown } | undefined
+  const parsed = raw as { id?: unknown; model?: unknown; provider?: unknown; fallbacks?: unknown } | undefined
   if (!parsed || typeof parsed.id !== "string" || typeof parsed.model !== "string") {
     return try HttpServerResponse.json({ error: "send {id, model}" }, { status: 400, headers: noStore })
   }
   const machine = try Machine
-  const responder = try Responder
   const state = try machine.get()
-  const prompt = lastPrompt(state, parsed.id)
-  if (prompt === undefined) return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
-  const answer = try responder.reply(prompt, parsed.model)
-  const ref = try Effect.try(() => newRef())
-  const events: string[] = [`data: ${JSON.stringify(streamChunk(ref, parsed.model, { role: "assistant" }, null))}\n\n`]
-  for (let at = 0; at < answer.length; at += 24) {
-    events.push(`data: ${JSON.stringify(streamChunk(ref, parsed.model, { content: answer.slice(at, at + 24) }, null))}\n\n`)
+  const thread = state.threads.find((item) => item.id === parsed.id)
+  if (thread == undefined || thread.messages[thread.messages.length - 1]?.role !== "User") {
+    return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
   }
-  events.push(`data: ${JSON.stringify(streamChunk(ref, parsed.model, {}, "stop"))}\n\n`)
-  if (request.headers["x-sonnely-receipt"] === "v1") events.push(`data: ${JSON.stringify(receiptChunk(ref, parsed.model))}\n\n`)
-  events.push("data: [DONE]\n\n")
-  const chunks = Stream.schedule(Stream.fromIterable(events), Schedule.spaced("35 millis"))
-  return HttpServerResponse.stream(Stream.encodeText(chunks), {
-    contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive", "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" },
-  })
+  const messages = thread.messages.map((message) => message.role == "User" ? { role: "user", content: message.content } : { role: "assistant", content: message.content })
+  const fallbacks = Array.isArray(parsed.fallbacks) ? parsed.fallbacks.filter((provider): provider is "near-ai" | "phala" | "tinfoil" => provider == "near-ai" || provider == "phala" || provider == "tinfoil") : []
+  const primary = parsed.provider == "phala" || parsed.provider == "tinfoil" ? parsed.provider : "near-ai"
+  const only = [primary, ...fallbacks.filter((provider) => provider != primary)] as ["near-ai" | "phala" | "tinfoil"]
+  const input = {
+    model: parsed.model,
+    messages,
+    stream: true,
+    stream_options: { include_usage: true },
+    provider: { only, ...(only.length > 1 ? { allow_fallbacks: true } : {}) },
+  }
+  const ref = try Effect.try(() => newRef())
+  return try inferChat(input, undefined, wallet, ref, request.headers["x-sonnely-receipt"] == "v1")
 }
 
 function playgroundShape(endpoint: string, ref: string) {
@@ -209,8 +200,42 @@ function playgroundShape(endpoint: string, ref: string) {
   return { text: staged, sonnely_request_id: ref }
 }
 
+function gatewayEndpoint(endpoint: string): GatewayEndpoint {
+  if (endpoint == "embeddings") return "Embeddings"
+  if (endpoint == "rerank") return "Rerank"
+  if (endpoint == "responses") return "ResponsesApi"
+  if (endpoint == "redact") return "Redact"
+  if (endpoint == "systemone") return "Systemone"
+  if (endpoint == "images/generations") return "ImageGenerations"
+  if (endpoint == "images/edits") return "ImageEdits"
+  if (endpoint == "audio/speech") return "AudioSpeech"
+  if (endpoint == "audio/transcriptions") return "AudioTranscriptions"
+  if (endpoint == "audio/translations") return "AudioTranslations"
+  return "ConvertFile"
+}
+
+function specializedFallback(endpoint: string) {
+  if (endpoint == "redact") return "pii-filter"
+  if (endpoint == "systemone") return "levanto/sage-2"
+  if (endpoint == "images/generations" || endpoint == "images/edits") return "black-forest-labs/FLUX.2-klein-4B"
+  if (endpoint == "audio/speech") return "voxtral-tts"
+  if (endpoint == "audio/transcriptions") return "whisper-large-v3-turbo"
+  if (endpoint == "audio/translations") return "voxtral-small-24b"
+  if (endpoint == "convert/file") return "doc-upload"
+  return ""
+}
+
 effect function playgroundJson(endpoint: string) {
   const request = try HttpServerRequest.HttpServerRequest
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "Sign in with a Solana wallet." }, { status: 401, headers: noStore })
+  const liveProviders = try Effect.try(() => configuredProviders())
+  if (liveProviders.length > 0) {
+    const multipart = endpoint == "images/edits" || endpoint == "audio/transcriptions" || endpoint == "audio/translations" || endpoint == "convert/file"
+    const raw = multipart ? undefined : request.json catch () => undefined
+    const ref = try Effect.try(() => newRef())
+    return try inferSpecialized(endpoint, gatewayEndpoint(endpoint), specializedFallback(endpoint), raw, undefined, wallet, ref)
+  }
   const _body = request.text catch () => ""
   const ref = try Effect.try(() => newRef())
   const response = try HttpServerResponse.json(playgroundShape(endpoint, ref), { headers: noStore })
@@ -219,6 +244,14 @@ effect function playgroundJson(endpoint: string) {
 
 effect function playgroundSpeech() {
   const request = try HttpServerRequest.HttpServerRequest
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "Sign in with a Solana wallet." }, { status: 401, headers: noStore })
+  const liveProviders = try Effect.try(() => configuredProviders())
+  if (liveProviders.length > 0) {
+    const raw = request.json catch () => undefined
+    const ref = try Effect.try(() => newRef())
+    return try inferSpecialized("audio/speech", "AudioSpeech", "voxtral-tts", raw, undefined, wallet, ref)
+  }
   const _body = request.text catch () => ""
   const ref = try Effect.try(() => newRef())
   const bytes = try Effect.try(() => silentWav())

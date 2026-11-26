@@ -73,18 +73,22 @@ async function streamReply({
   model,
   signal,
   includeReceipt,
+  provider,
+  fallbacks,
   onText,
 }: {
   id: string;
   model: string;
   signal: AbortSignal;
   includeReceipt: boolean;
+  provider: ProviderId;
+  fallbacks: ProviderId[];
   onText: (text: string) => void;
 }) {
   const response = await fetch("/api/console/chat/stream", {
     method: "POST",
     headers: { "content-type": "application/json", ...(includeReceipt ? { "X-Sonnely-Receipt": "v1" } : {}) },
-    body: JSON.stringify({ id, model }),
+    body: JSON.stringify({ id, model, provider, fallbacks }),
     cache: "no-store",
     signal,
   });
@@ -202,6 +206,8 @@ function ChatPlayground() {
         model: runModel,
         signal: controller.signal,
         includeReceipt,
+        provider,
+        fallbacks,
         onText: (next) => {
           streamed = next;
           setLive({ id, model: runModel, text: next });
