@@ -408,10 +408,6 @@
     margin-top: auto;
   }
 
-.console-playground .playground-entry:has(textarea:focus-visible) {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
 
 .console-playground .console .playground-entry .composer {
     margin: 0;
