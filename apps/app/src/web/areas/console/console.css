@@ -233,6 +233,77 @@
   border-top: 1px solid var(--line);
 }
 
+/* the profile form is a grid of full-width fields rather than a flex row, so
+   narrow viewports stack the inputs instead of squeezing them into slivers */
+.theme-root.site .console .settings-profile-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 320px));
+  align-items: start;
+  gap: 12px 16px;
+  padding-block: 10px;
+  border-top: 1px solid var(--line);
+}
+.theme-root.site .console .settings-profile-form button[type="submit"] {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+@media (width <= 720px) {
+  .theme-root.site .console .settings-profile-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* support request records: the status pills cluster at the end of the summary
+   row instead of floating loose, and each state reads on its semantic token */
+.theme-root.site .console .crm-summary-meta {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  margin-inline-start: auto;
+}
+.theme-root.site .console .crm-summary-meta .crm-state {
+  margin-inline-start: 0;
+}
+.theme-root.site .console .crm-state {
+  white-space: nowrap;
+}
+.theme-root.site .console .crm-state[data-status] {
+  background: var(--card);
+}
+.theme-root.site .console .crm-state[data-status="Open"] {
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 42%, var(--line));
+  background: color-mix(in srgb, var(--info) 9%, var(--card));
+}
+.theme-root.site .console .crm-state[data-status="InProgress"] {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 48%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--card));
+}
+.theme-root.site .console .crm-state[data-status="Resolved"] {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+  background: color-mix(in srgb, var(--ok) 9%, var(--card));
+}
+.theme-root.site .console .crm-state[data-tone="accent"] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+  background: color-mix(in srgb, var(--accent) 9%, var(--card));
+}
+@media (width <= 720px) {
+  .theme-root.site .console .crm-record summary {
+    flex-wrap: wrap;
+    row-gap: 7px;
+  }
+  .theme-root.site .console .crm-record summary > span:first-child {
+    flex-basis: 100%;
+  }
+  .theme-root.site .console .crm-summary-meta {
+    margin-inline-start: 0;
+  }
+}
+
 .theme-root.site .console .referral-invite .empty-icon {
   color: var(--accent);
   background: var(--active-fill);
@@ -302,6 +373,38 @@
 
 .theme-root.site .console .catalog-tools :is(select, .search) {
   min-height: 44px;
+}
+
+/* the catalog search is one bordered box: the label carries the boundary and
+   the focus state, the field inside it is borderless chrome */
+.theme-root.site .console .catalog-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding-inline: 12px;
+  border: 1px solid var(--control-edge);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--muted);
+}
+.theme-root.site .console .catalog-search:focus-within {
+  border-color: var(--focus-ring);
+}
+.theme-root.site .console .catalog-search input {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  color: var(--ink);
+  font: inherit;
+}
+.theme-root.site .console .catalog-search input::placeholder {
+  color: var(--muted);
 }
 
 .theme-root.site .console :is(.chart-panel, .breakdown) .controls h2 {
@@ -1536,7 +1639,15 @@
 .theme-root.site .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item):disabled {
   cursor: not-allowed;
 }
+/* the palette field is borderless chrome inside the command-search strip: the
+   strip carries the boundary and the focus state, never the field itself */
 .theme-root.site .console .command-search input {
   font: inherit;
   color: inherit;
+  min-height: 0;
+  padding-inline: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
 }

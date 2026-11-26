@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 import type { CatalogModel } from "../../../../gen/app__console__catalog.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
-import { Input } from "@repo/ui";
 import { formatRate } from "./bits.tsx";
 import { groupCatalog, type CanonicalModel } from "../site/catalog-groups.ts";
 import {
@@ -215,15 +214,14 @@ export function CatalogSection() {
         </button>
       </div>
       <div className="grid grid-cols-2 gap-2 xl:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(0,1fr))]">
-        <label className="relative col-span-2 xl:col-span-1">
-          <Search size={15} aria-hidden className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
-          <Input
+        <label className="catalog-search col-span-2 self-end xl:col-span-1">
+          <Search size={15} aria-hidden />
+          <input
             type="search"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
             placeholder="Find a model"
             aria-label="Find a model"
-            className="pl-9"
           />
         </label>
         <label className="grid gap-1 text-xs text-muted-foreground">

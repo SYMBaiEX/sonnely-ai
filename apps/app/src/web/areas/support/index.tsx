@@ -229,8 +229,10 @@ function SignedInSupport({ wallet, reload }: { wallet: string; reload: () => voi
                         {visible.length ? " · " + visible.length + (visible.length === 1 ? " reply" : " replies") : ""}
                       </span>
                     </span>
-                    {unread && <span className="crm-state">New reply</span>}
-                    <span className="crm-state">{ticketStates[row.state]}</span>
+                    <span className="crm-summary-meta">
+                      {unread && <span className="crm-state" data-tone="accent">New reply</span>}
+                      <span className="crm-state" data-status={row.state}>{ticketStates[row.state]}</span>
+                    </span>
                   </summary>
                   <SupportThread ticket={row} send={support.send} />
                 </details>

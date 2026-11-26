@@ -308,16 +308,29 @@
   }
 
 .console-playground .composer {
-    padding: 12px;
-    border-radius: 23px;
-    margin-top: auto;
+    margin: 0;
+    padding: 0;
   }
 
+/* the composer textarea is borderless chrome inside the bordered playground-entry:
+   the container carries the boundary and the focus state, never the field itself */
 .console-playground .composer textarea {
+    display: block;
     background: transparent;
     border: 0;
-    min-height: 76px;
+    outline: none;
+    min-height: 96px;
     max-height: 240px;
+    padding: 16px 17px 9px;
+    font-size: 1rem;
+  }
+
+.console-playground .composer textarea:focus-visible {
+    outline: none;
+  }
+
+.console-playground .playground-entry:has(.composer):focus-within {
+    border-color: var(--focus-ring);
   }
 
 .console-playground .chat-note {
@@ -404,25 +417,8 @@
     box-shadow: 0 8px 20px color-mix(in srgb, var(--shadow) 20%, transparent);
   }
 
-.console-playground .console .messages + .playground-entry {
+.console-playground .messages ~ .playground-entry {
     margin-top: auto;
-  }
-
-
-.console-playground .console .playground-entry .composer {
-    margin: 0;
-    padding: 0;
-    border-radius: 17px 17px 0 0;
-  }
-
-.console-playground .console .playground-entry textarea {
-    display: block;
-    min-height: 96px;
-    padding: 16px 17px 9px;
-    border-radius: inherit;
-    font: inherit;
-    font-size: 1rem;
-    outline: none;
   }
 
 .console-playground .composer-controls {
@@ -679,11 +675,24 @@
     color: var(--muted);
   }
 
-.console-playground .playground-model-search input {
+/* the search field is borderless chrome inside its bordered label; the label
+   carries the boundary and the focus state. The dialog ancestor in the selector
+   keeps this above the site-wide input resets that tie on specificity. */
+.console-playground .playground-route-dialog .playground-model-search input {
     min-width: 0;
     min-height: 44px;
     border: 0;
     background: transparent;
+    outline: none;
+    box-shadow: none;
+  }
+
+.console-playground .playground-route-dialog .playground-model-search input:focus-visible {
+    outline: none;
+  }
+
+.console-playground .playground-route-dialog .playground-model-search:focus-within {
+    border-color: var(--focus-ring);
   }
 
 .console-playground .playground-model-results {

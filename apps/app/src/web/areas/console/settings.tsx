@@ -165,7 +165,7 @@ function SettingsContent() {
           {wallet && <CopyButton value={wallet} label="Copy address" />}
         </div>
         {wallet && (
-          <form className="settings-row" onSubmit={(event) => void rename(event)} key={wallet + (state?.name ?? "") + (state?.username ?? "")}>
+          <form className="settings-profile-form" onSubmit={(event) => void rename(event)} key={wallet + (state?.name ?? "") + (state?.username ?? "")}>
             <label>
               Display name
               <input name="name" maxLength={60} defaultValue={state?.name ?? ""} placeholder="Your name" />
