@@ -7,7 +7,7 @@ const privacySections = [
   ["prompts", "Prompts and model responses"],
   ["wallets", "Wallets, accounts, and payments"],
   ["support", "Support and service providers"],
-  ["reporting", "Builds and usage reporting"],
+  ["reporting", "Usage reporting"],
   ["retention", "Retention and your choices"],
 ] as const;
 
@@ -44,13 +44,6 @@ export function PrivacyPage() {
             requests.
           </p>
           <h2 id={privacySections[3][0]}>{privacySections[3][1]}</h2>
-          <p>
-            When available, Dry Docks sends the public repository URL and pinned commit to a Boat
-            sandbox. Sonnely keeps build logs and downloadable artifacts for seven days after
-            teardown, and retains the run and billing receipt in your workspace. When available,
-            Blackboxes sends the selected image and port to its compute provider and publishes
-            workload attestation metadata.
-          </p>
           <p>
             For service operations, Sonnely sends settled inference receipts to a private UsageMax
             project. Receipts contain opaque request and trace identifiers, model and route names,

@@ -1,5 +1,5 @@
 /* Responsive operational data primitives, shared by logs, usage, batch, teams,
-   referrals and compute. Two patterns:
+   and referrals. Two patterns:
    1. `.data-rows` — a dense table on desktop that becomes a stack of cards on
       narrow viewports. Annotate every cell with `data-label` so values stay
       self-describing once the column header row is visually hidden.
@@ -137,8 +137,7 @@
   .usage-legacy,
   .batch-legacy,
   .referrals-legacy,
-  .workspace-surface,
-  .compute-legacy {
+  .workspace-surface {
     padding-block-end: 28px;
   }
 }

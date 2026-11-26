@@ -6,9 +6,7 @@ import {
   Activity,
   ArrowUpRight,
   BookOpen,
-  Box,
   CircleHelp,
-  Container,
   Cpu,
   Files,
   KeyRound,
@@ -35,7 +33,6 @@ import { Brand, ShellRules, ThemeSwitch, accentTokenAliases, setTheme as applyTh
 import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
 import { CommandMenu } from "./command-menu.tsx";
-import { sectionReleased } from "../../../feature-availability.ts";
 import { Onboarding } from "./onboarding.tsx";
 import { TermsAcceptance, termsVersion } from "./terms-acceptance.tsx";
 import { useBillingCluster, WalletControl } from "./wallet.tsx";
@@ -54,13 +51,6 @@ const groups = [
       { section: "Usage" as Section, id: "usage", title: "Usage", path: "/console/usage", Icon: Activity },
       { section: "Logs" as Section, id: "logs", title: "Request logs", path: "/console/logs", Icon: List },
       { section: "Batch" as Section, id: "batch", title: "Batch", path: "/console/batch", Icon: Files },
-    ],
-  },
-  {
-    label: "Compute",
-    items: [
-      { section: "Consoles" as Section, id: "blackboxes", title: "Blackboxes", path: "/console/blackboxes", Icon: Box },
-      { section: "Docks" as Section, id: "dry-docks", title: "Dry Docks", path: "/console/dry-docks", Icon: Container },
     ],
   },
   {
@@ -263,7 +253,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => sectionReleased(item.section) && (item.id !== "admin" || (profile?.role ?? "member") !== "member")),
+      items: group.items.filter((item) => item.id !== "admin" || (profile?.role ?? "member") !== "member"),
     }))
     .filter((group) => group.items.length > 0);
   const visibleItems = visibleGroups.flatMap((group) => group.items);
