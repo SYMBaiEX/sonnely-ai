@@ -20,7 +20,7 @@ import keyring as K from "./keyring"
 type Endpoint =
   | ChatCompletions | Embeddings | Rerank | ResponsesApi | Redact | Systemone
   | ImageGenerations | ImageEdits | AudioSpeech | AudioTranscriptions
-  | AudioTranslations | ConvertFile
+  | AudioTranslations | ConvertFile | Realtime
 
 pure val chatModels = List(
   "deepseek-ai/DeepSeek-V4.1-Flash-1017",
@@ -58,6 +58,7 @@ pure def registered(endpoint: Endpoint, model: str): bool =
   | AudioTranscriptions => List("whisper-large-v3-turbo").includes(model)
   | AudioTranslations => List("voxtral-small-24b").includes(model)
   | ConvertFile => List("doc-upload").includes(model)
+  | Realtime => List("voxtral-mini-4b-realtime").includes(model)
   }
 ```
 
