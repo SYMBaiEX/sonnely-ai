@@ -359,7 +359,7 @@ function ProjectWorkspace({
         {requests.length === 0 ? (
           <p className="caption">Project requests will appear here.</p>
         ) : (
-          <div className="table-wrap compact-table" tabIndex={0} aria-label="Project request table" role="region">
+          <div className="table-wrap compact-table data-rows" tabIndex={0} aria-label="Project request table" role="region">
             <table>
               <thead>
                 <tr>
@@ -376,8 +376,8 @@ function ProjectWorkspace({
                       <p className="caption">{dateTime(row.time)}</p>
                       <code className="teams-reference">{row.id}</code>
                     </th>
-                    <td>{row.keyName}</td>
-                    <td>
+                    <td data-label="Key">{row.keyName}</td>
+                    <td data-label="Billing">
                       {usageStatuses[row.status]}
                       {row.status === "Failed" ? "" : " · " + creditBalance(row.cost)}
                     </td>
