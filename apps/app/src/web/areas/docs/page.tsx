@@ -9,6 +9,8 @@ import {
   Copy,
   Fingerprint,
   List,
+  PanelLeftClose,
+  PanelLeftOpen,
   Rocket,
   Search,
 } from "lucide-react";
@@ -42,6 +44,27 @@ const sectionIcons = {
   Support: CircleHelp,
 } as const;
 
+const sidebarKey = "sonnely.docs.sidebar";
+
+function useSidebarCollapsed(): [boolean, (next: boolean) => void] {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(sidebarKey) === "collapsed";
+    } catch {
+      return false;
+    }
+  });
+  const set = (next: boolean) => {
+    setCollapsed(next);
+    try {
+      localStorage.setItem(sidebarKey, next ? "collapsed" : "expanded");
+    } catch {
+      // device-local chrome state is best-effort
+    }
+  };
+  return [collapsed, set];
+}
+
 export function DocsPage({ slug }: { slug: string }) {
   const doc = docAt(slug);
   const lines = useMemo(() => bodyLines(slug), [slug]);
@@ -53,9 +76,16 @@ export function DocsPage({ slug }: { slug: string }) {
   const motion = useAmbientMotion();
   const theme = useTheme();
   const kind = slug === "index" ? "overview" : slug === "api" ? "api" : "guide";
+  const [collapsed, setCollapsed] = useSidebarCollapsed();
+  const reopen = (focusId?: string) => {
+    setCollapsed(false);
+    if (focusId !== undefined) {
+      window.setTimeout(() => document.getElementById(focusId)?.focus(), 200);
+    }
+  };
 
   return (
-    <div className="theme-root site docs-shell" data-theme={theme} data-motion={motion ? "on" : "off"}>
+    <div className="theme-root site docs-shell" data-theme={theme} data-motion={motion ? "on" : "off"} data-collapsed={collapsed ? "" : undefined}>
       <a href="#docs-page" className="skip">
         Skip to documentation
       </a>
@@ -64,8 +94,16 @@ export function DocsPage({ slug }: { slug: string }) {
         <AmbientVisualizer motion={motion} theme={theme} />
       </div>
       <SiteHeader />
+      <div className="docs-sidebar-pill" role="group" aria-label="Sidebar actions">
+        <button type="button" aria-label="Open sidebar" onClick={() => reopen("docs-sidebar-collapse")}>
+          <PanelLeftOpen size={15} aria-hidden="true" />
+        </button>
+        <button type="button" aria-label="Search documentation" onClick={() => reopen("docs-search-input")}>
+          <Search size={15} aria-hidden="true" />
+        </button>
+      </div>
       <div className="docs-layout">
-        <Sidebar slug={slug} />
+        <Sidebar slug={slug} onCollapse={() => setCollapsed(true)} />
         <main id="docs-page" className="docs-main" tabIndex={-1}>
           {released ? (
             <article className="docs-article">
@@ -151,7 +189,7 @@ export function DocsPage({ slug }: { slug: string }) {
   );
 }
 
-function Sidebar({ slug }: { slug: string }) {
+function Sidebar({ slug, onCollapse }: { slug: string; onCollapse: () => void }) {
   const [open, setOpen] = useState(false);
   const [openSlug, setOpenSlug] = useState(slug);
   if (openSlug !== slug) {
@@ -161,10 +199,16 @@ function Sidebar({ slug }: { slug: string }) {
   const close = () => setOpen(false);
   return (
     <aside className="docs-sidebar" aria-label="Documentation sidebar" data-open={open ? "" : undefined}>
-      <div className="docs-sidebar-head">
-        <a href="/docs" className="docs-sidebar-brand">
-          <BookOpen size={18} /> Documentation
-        </a>
+      <div className="docs-sidebar-inner">
+        <div className="docs-sidebar-head">
+        <div className="docs-sidebar-brandrow">
+          <a href="/docs" className="docs-sidebar-brand">
+            <BookOpen size={18} /> Documentation
+          </a>
+          <button type="button" className="docs-sidebar-collapse" id="docs-sidebar-collapse" aria-label="Collapse sidebar" onClick={onCollapse}>
+            <PanelLeftClose size={15} aria-hidden="true" />
+          </button>
+        </div>
         <SearchDocs />
         <button
           type="button"
@@ -209,20 +253,21 @@ function Sidebar({ slug }: { slug: string }) {
           );
         })}
       </nav>
-      <footer className="docs-sidebar-footer">
-        <nav aria-label="Sonnely links">
-          <a href="/">
-            Sonnely <ArrowUpRight size={13} aria-hidden="true" />
-          </a>
-          <a href="/console/chat">
-            Console <ArrowUpRight size={13} aria-hidden="true" />
-          </a>
-          <a href="/status">
-            Status <ArrowUpRight size={13} aria-hidden="true" />
-          </a>
-        </nav>
-        <MotionSwitch icon />
-      </footer>
+        <footer className="docs-sidebar-footer">
+          <nav aria-label="Sonnely links">
+            <a href="/">
+              Sonnely <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+            <a href="/console/chat">
+              Console <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+            <a href="/status">
+              Status <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+          </nav>
+          <MotionSwitch icon />
+        </footer>
+      </div>
     </aside>
   );
 }
@@ -261,6 +306,7 @@ function SearchDocs() {
     >
       <Search size={14} className="docs-search-icon" />
       <Input
+        id="docs-search-input"
         value={query}
         onChange={(event) => {
           setQuery(event.target.value);
