@@ -1,6 +1,7 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { ArrowDown, ArrowRight, ArrowUpRight, CircleCheck, Fingerprint, Terminal } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { HighlightedCode } from "../../syntax.tsx";
 import { ReaderNavigation, SiteLead, type SiteBrief } from "./chrome.tsx";
 import { publicHrefReleased } from "../../../feature-availability.ts";
 import {
@@ -185,7 +186,7 @@ function Observability() {
         </p>
         <ProductSample label="Normalized invoice line · example">
           <pre>
-            <code>{"reference,cost_usd\nprovider-request-id,0.000042"}</code>
+            <HighlightedCode source={"reference,cost_usd\nprovider-request-id,0.000042"} language="csv" />
           </pre>
         </ProductSample>
         <p>Customer charges, credit balances, and treasury payout amounts follow the Sonnely ledger.</p>
@@ -238,8 +239,8 @@ function Inference() {
         </ProductSample>
         <ProductSample label="One completion, condensed · example">
           <pre>
-            <code>
-              {[
+            <HighlightedCode
+              source={[
                 "POST " + apiBasePath + "/chat/completions",
                 "",
                 '→ { "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",',
@@ -248,7 +249,8 @@ function Inference() {
                 '← { "choices": [{ "message": { "content": "…" } }],',
                 '    "usage": { "prompt_tokens": 18, "completion_tokens": 64 } }',
               ].join("\n")}
-            </code>
+              language="http"
+            />
           </pre>
         </ProductSample>
         <NextLink href="/models#available-models">Compare models and prices</NextLink>
@@ -261,8 +263,8 @@ function Inference() {
         </p>
         <ProductSample label="Streaming request options">
           <pre>
-            <code>
-              {JSON.stringify(
+            <HighlightedCode
+              source={JSON.stringify(
                 {
                   stream: true,
                   stream_options: { include_usage: true },
@@ -271,7 +273,8 @@ function Inference() {
                 null,
                 2,
               )}
-            </code>
+              language="json"
+            />
           </pre>
         </ProductSample>
         <NextLink href="/docs/streaming">Read the streaming guide</NextLink>

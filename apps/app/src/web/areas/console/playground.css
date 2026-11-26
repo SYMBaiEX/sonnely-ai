@@ -1152,6 +1152,28 @@
     overflow: auto;
   }
 
+.console-playground .playground-markdown [data-streamdown="code-block"] {
+    max-width: 100%;
+    border-color: var(--line);
+    background: var(--card);
+  }
+
+.console-playground .playground-markdown [data-streamdown="code-block-header"] {
+    border-bottom: 1px solid var(--line);
+    padding-inline: 10px;
+    color: var(--muted);
+  }
+
+.console-playground .playground-markdown [data-streamdown="code-block-body"] {
+    border-color: var(--line);
+    background: var(--surface);
+    scrollbar-width: thin;
+  }
+
+.console-playground .playground-markdown [data-streamdown="code-block-body"] pre {
+    background: transparent;
+  }
+
 @media (width <= 700px) {
     .console-playground .playground-toolbar-controls {
       flex-basis: 100%;

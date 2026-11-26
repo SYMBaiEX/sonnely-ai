@@ -22,6 +22,7 @@ import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } f
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, Route } from "../../../../gen/app__models.ts";
 import { CopyButton, useAmbientMotion } from "./chrome.tsx";
+import { HighlightedCode, SyntaxTokens, useSyntaxHighlight, type SyntaxLanguage } from "../../syntax.tsx";
 import { Scene } from "./scene.tsx";
 import {
   apiBasePath,
@@ -63,7 +64,11 @@ const featuredEntries = featuredUpstreamIds
   .map((id) => featured(id))
   .filter((entry): entry is CatalogEntry => entry !== undefined);
 const demoModels = featuredEntries.slice(0, 3);
-const codeToken = /("(?:\\.|[^"\\])*"|\b(?:curl|import|from|const|new|await)\b|-(?:H|d)(?=\s))/g;
+const demoSyntaxLanguages = {
+  cURL: "bash",
+  Python: "python",
+  JavaScript: "javascript",
+} as const satisfies Record<DemoLanguage, SyntaxLanguage>;
 
 const track = `polygon(${[
   ...requestPathPoints.map(([x, y]) => `${x}% ${y}%`),
@@ -234,6 +239,8 @@ function HomeDemo() {
   const model = demoModels[active] ?? featuredEntries[0];
   const modelId = model ? (chatRoute(model)?.modelId ?? model.upstreamId) : "";
   const lines = requestCode(language, modelId, example.instruction + "\n\n" + example.input);
+  const source = lines.join("\n");
+  const highlighted = useSyntaxHighlight(source, demoSyntaxLanguages[language]);
   const sampleResponse = {
     model: modelId,
     choices: [{ index: 0, message: { role: "assistant", content: example.output } }],
@@ -302,7 +309,7 @@ function HomeDemo() {
                   </button>
                 ))}
               </div>
-              <CopyButton key={language + active} value={lines.join("\n")} label="Copy request" />
+              <CopyButton key={language + active} value={source} label="Copy request" />
             </div>
             <pre className="home-api-code" aria-label={language + " request"}>
               <code>
@@ -310,21 +317,7 @@ function HomeDemo() {
                   // eslint-disable-next-line @eslint-react/no-array-index-key -- source lines never reorder
                   <span className="home-api-line" key={index}>
                     <span aria-hidden="true">{index + 1}</span>
-                    <span>
-                      {line.split(codeToken).map((token, index) =>
-                        index % 2 === 0 ? (
-                          token
-                        ) : (
-                          <span
-                            className={token.startsWith('"') ? "home-api-string" : "home-api-keyword"}
-                            /* eslint-disable-next-line @eslint-react/no-array-index-key -- code tokens never reorder */
-                            key={index}
-                          >
-                            {token}
-                          </span>
-                        ),
-                      )}
-                    </span>
+                    <span>{highlighted ? <SyntaxTokens line={highlighted.tokens[index] ?? []} /> : line}</span>
                   </span>
                 ))}
               </code>
@@ -345,7 +338,7 @@ function HomeDemo() {
             <div className="home-api-result" aria-live="polite">
               {showJson ? (
                 <pre key={active} aria-label="Sample response JSON">
-                  <code>{JSON.stringify(sampleResponse, null, 2)}</code>
+                  <HighlightedCode source={JSON.stringify(sampleResponse, null, 2)} language="json" />
                 </pre>
               ) : (
                 <p key={active} className={active === 1 ? "mono" : undefined}>

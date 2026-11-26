@@ -4,6 +4,7 @@ import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, RateUnit, Route } from "../../../../gen/app__models.ts";
 import type { Board, ProbeState } from "../../../../gen/app__site.ts";
 import { useRemote } from "../../remote.ts";
+import { HighlightedCode } from "../../syntax.tsx";
 import { CopyButton } from "./chrome.tsx";
 import {
   contextFormat,
@@ -193,7 +194,7 @@ function EndpointCard({
             )}
             {example.note && <p className={caption + " mt-2"}>{example.note}</p>}
             <pre aria-label={example.language + " request example"} className="mt-3 max-h-72 overflow-auto lg:max-h-96 border-t border-border pt-3 font-mono text-xs leading-6 whitespace-pre">
-              <code>{example.code}</code>
+              <HighlightedCode source={example.code} language={example.language === "cURL" ? "bash" : "javascript"} />
             </pre>
           </div>
         </div>

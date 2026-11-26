@@ -1,7 +1,7 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes -- playground migration preserves the original form markup, class names and screen structure */
 import { Download } from "lucide-react";
-import { Streamdown } from "streamdown";
 import { z } from "zod";
+import { HighlightedCode, MarkdownContent } from "../../syntax.tsx";
 import type { Workload } from "./playground-inference.tsx";
 
 const ranked = z.array(z.object({ index: z.number().int(), relevance_score: z.number() }));
@@ -49,9 +49,9 @@ export function PlaygroundResultContent({
   if (endpoint === "responses" || endpoint === "convert/file")
     return (
       <div className="playground-markdown">
-        <Streamdown mode="static" disallowedElements={["img", "video", "audio", "source", "iframe"]} controls={false}>
+        <MarkdownContent mode="static" disallowedElements={["img", "video", "audio", "source", "iframe"]} controls={false}>
           {text ?? ""}
-        </Streamdown>
+        </MarkdownContent>
       </div>
     );
 
@@ -95,7 +95,7 @@ export function PlaygroundResultContent({
           <details className="playground-raw-result">
             <summary>View raw JSON</summary>
             <pre tabIndex={0} aria-label="Raw response">
-              {text}
+              <HighlightedCode source={text} language="json" />
             </pre>
           </details>
         )}

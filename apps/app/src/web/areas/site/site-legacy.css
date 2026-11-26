@@ -5050,12 +5050,6 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.site .home-api-keyword {
-  color: light-dark(#874467, #ff9fa6);
-}
-.site .home-api-string {
-  color: light-dark(#324ab0, #c2b7e8);
-}
 .site .home-api-response {
   padding: 10px var(--api-gutter) 12px;
   border-top: 1px solid var(--api-divider);

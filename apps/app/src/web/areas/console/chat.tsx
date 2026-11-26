@@ -19,8 +19,8 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
-import { Streamdown } from "streamdown";
 import type { Chat, Thread } from "../../../../gen/app__console__chat.ts";
+import { MarkdownContent } from "../../syntax.tsx";
 import { useRemote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
 import { readReceiptEnvelope, type ReceiptEnvelope } from "../site/receipt.ts";
@@ -461,9 +461,9 @@ function ChatPlayground() {
                 </div>
                 {message.role === "Assistant" ? (
                   <div className="playground-markdown">
-                    <Streamdown mode="static" disallowedElements={["img", "video", "audio", "source", "iframe"]} controls={false}>
+                    <MarkdownContent mode="static" disallowedElements={["img", "video", "audio", "source", "iframe"]} controls={false}>
                       {message.content}
-                    </Streamdown>
+                    </MarkdownContent>
                   </div>
                 ) : (
                   <p>{message.content}</p>

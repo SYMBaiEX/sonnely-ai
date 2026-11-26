@@ -16,10 +16,10 @@ import {
   Terminal,
 } from "lucide-react";
 import { useId, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { defaultComponents, Streamdown, type Components } from "streamdown";
-import "streamdown/styles.css";
+import { defaultComponents, type Components } from "streamdown";
 import { apiEndpoints, type Endpoint } from "../../../../gen/app__docs.ts";
 import { apiBasePath, apiOrigin, slugify, type Block } from "../../../docs.ts";
+import { HighlightedCode, MarkdownContent } from "../../syntax.tsx";
 
 const ICONS: Record<string, typeof Box> = {
   terminal: Terminal,
@@ -299,7 +299,7 @@ function TryPanel({
   const isPublic = endpoint.method === "GET" && endpoint.path === "/models";
   const [body, setBody] = useState(() => (example ? JSON.stringify(example, null, 2) : ""));
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<{ status: number; ok: boolean; text: string } | null>(null);
+  const [result, setResult] = useState<{ status: number; ok: boolean; text: string; json: boolean } | null>(null);
   const [bodyError, setBodyError] = useState("");
 
   const send = async () => {
@@ -334,9 +334,9 @@ function TryPanel({
       } else {
         text = await response.text();
       }
-      setResult({ status: response.status, ok: response.ok, text: text.slice(0, 4000) });
+      setResult({ status: response.status, ok: response.ok, text: text.slice(0, 4000), json: type.includes("json") });
     } catch (cause) {
-      setResult({ status: 0, ok: false, text: cause instanceof Error ? cause.message : "The request failed to reach the gateway." });
+      setResult({ status: 0, ok: false, text: cause instanceof Error ? cause.message : "The request failed to reach the gateway.", json: false });
     } finally {
       setSending(false);
     }
@@ -393,7 +393,7 @@ function TryPanel({
           <span className="docs-tryit-status" data-ok={result.ok ? "" : undefined}>
             {result.status === 0 ? "Network error" : `HTTP ${result.status}`}
           </span>
-          <pre>{result.text}</pre>
+          <pre>{result.json ? <HighlightedCode source={result.text} language="json" /> : result.text}</pre>
         </div>
       )}
     </div>
@@ -484,7 +484,7 @@ export function Markdown({ lines }: { lines: string[] }) {
   const dedented = dedentMarkdown(text);
   return (
     <div className="docs-prose">
-      <Streamdown
+      <MarkdownContent
         components={mdComponents}
         mode="static"
         normalizeHtmlIndentation
@@ -492,7 +492,7 @@ export function Markdown({ lines }: { lines: string[] }) {
         controls={{ code: { copy: true, download: false }, table: false, image: false }}
       >
         {dedented}
-      </Streamdown>
+      </MarkdownContent>
     </div>
   );
 }
