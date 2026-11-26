@@ -271,7 +271,7 @@ effect function confirmDeposit() {
 
 
 
-// spec/app/billing/index.md, "Credits pay for inference": cross-chain funding is only a quote for USDC
+// spec/app/billing/deposits.md, "Story: Open a payment intent": cross-chain funding is only a quote for USDC
 // that later settles through the same deposit machine; prepared quotes stay server-side and mainnet-only.
 effect function quoteIntent() {
   const request = try HttpServerRequest.HttpServerRequest
