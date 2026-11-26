@@ -2,8 +2,9 @@ module node {
   import { createServer } from "node:http"
   import { readFileSync } from "node:fs"
   import { NodeHttpServer } from "@effect/platform-node"
+  const drainUnderRailwaySigtermWindow = "25 seconds" as const
   export function listening(port: number, create = createServer) {
-    return NodeHttpServer.layer(create, { port, gracefulShutdownTimeout: 0 })
+    return NodeHttpServer.layer(create, { port, gracefulShutdownTimeout: drainUnderRailwaySigtermWindow })
   }
   export function indexHtml(web: string) {
     return readFileSync(web + "/index.html")
