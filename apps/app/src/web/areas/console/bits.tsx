@@ -1,24 +1,44 @@
-// Shared pieces of the console pages: the section heading, a copy button and the money formatting the workspace uses.
-import { useState } from "react";
+/* eslint-disable better-tailwindcss/no-unknown-classes -- shared console controls intentionally use the migrated console class names */
+import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Check, Copy } from "lucide-react";
 
-/** A wallet or key id shortened for display, as the legacy console shows it. */
 export const shorten = (wallet: string) => wallet.slice(0, 4) + "…" + wallet.slice(-4);
 
-/** Micro-USD as "$w.ff" — the console's charge formatting. */
-export function creditBalance(micros: number) {
-  const whole = Math.floor(micros / 1_000_000);
-  const fraction = (micros % 1_000_000).toString().padStart(6, "0").replace(/0+$/, "").padEnd(2, "0");
-  return "$" + whole + (fraction ? "." + fraction : "");
+export function creditDecimal(micros: number, minimumDecimals = 0) {
+  const units = BigInt(Math.trunc(Math.abs(micros)));
+  const whole = units / 1_000_000n;
+  const fraction = (units % 1_000_000n)
+    .toString()
+    .padStart(6, "0")
+    .replace(/0+$/, "")
+    .padEnd(minimumDecimals, "0");
+  return (micros < 0 ? "-" : "") + whole + (fraction ? "." + fraction : "");
 }
 
-/** Micro-USD per million tokens (or per request) as a price string. */
+export const creditBalance = (micros: number) => "$" + creditDecimal(micros, 2);
+
+export function parseCreditAmount(value: string) {
+  const decimal = /^(\d{1,10})(?:\.(\d{1,6}))?$/.exec(value.trim().replace(/^\./, "0."));
+  if (!decimal) return null;
+  const total = BigInt(decimal[1]) * 1_000_000n + BigInt((decimal[2] ?? "").padEnd(6, "0"));
+  return total > 0n && total <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(total) : null;
+}
+
 export function formatRate(micros: number) {
   return "$" + new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 5 }).format(micros / 1_000_000);
 }
 
-/** A section's icon, name, one line on what it is for, and the actions beside them. */
+export const date = (time: number) =>
+  new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(time);
+export const dateTime = (time: number) =>
+  new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(time) + " UTC";
+export const shortDate = (time: number) =>
+  new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" }).format(time);
+export const day = (time: number) => new Date(time).toISOString().slice(0, 10);
+export const amount = (value: number | undefined) => value?.toLocaleString("en");
+export const milliseconds = (value: number | undefined) => (value === undefined ? undefined : amount(value) + " ms");
+
 export function WorkspaceHeading({
   icon: Icon,
   title,
@@ -28,7 +48,7 @@ export function WorkspaceHeading({
   icon: LucideIcon;
   title: string;
   description: string;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
   return (
     <header className="console-title">
@@ -41,37 +61,56 @@ export function WorkspaceHeading({
           <p>{description}</p>
         </div>
       </div>
-      {children && <div className="console-title-actions">{children}</div>}
+      {children ? <div className="console-title-actions">{children}</div> : null}
     </header>
   );
 }
 
-/** Copies `text` to the clipboard; confirms for a moment. */
-export function CopyButton({ text, label = "Copy", quiet = true, className = "" }: { text: string; label?: string; quiet?: boolean; className?: string }) {
-  const [copied, setCopied] = useState(false);
+export function CopyButton({ value, label = "Copy", quiet = true, className = "" }: { value: string; label?: string; quiet?: boolean; className?: string }) {
+  const [status, setStatus] = useState("");
+  const reset = () => setStatus("");
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setStatus("Copied");
+    } catch {
+      setStatus("Copy failed");
+    }
+  }
   return (
     <button
       type="button"
       className={`button ${quiet ? "quiet" : ""} small ${className}`}
-      aria-label={label}
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1600);
-        } catch {
-          setCopied(false);
-        }
-      }}
+      aria-label={status || label}
+      onBlur={reset}
+      onPointerLeave={reset}
+      onClick={() => void copy()}
     >
-      {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
-      {copied ? "Copied" : label}
+      {status === "Copied" ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />}
+      {status || label}
     </button>
   );
 }
 
-/** A small labeled value, as the console's detail grids show it. */
-export function Detail({ label, children, mono = false }: { label: string; children: React.ReactNode; mono?: boolean }) {
+export function Empty({ title, children, icon }: { title: string; children: ReactNode; icon: ReactNode }) {
+  return (
+    <div className="empty">
+      <span className="empty-icon">{icon}</span>
+      <h2>{title}</h2>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+export function Failure({ message }: { message: string }) {
+  return message ? (
+    <p className="error" role="alert">
+      {message}
+    </p>
+  ) : null;
+}
+
+export function Detail({ label, children, mono = false }: { label: string; children: ReactNode; mono?: boolean }) {
   return (
     <div className="detail">
       <dt>{label}</dt>

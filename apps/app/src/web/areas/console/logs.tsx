@@ -14,9 +14,8 @@ import {
   creditBalance,
   creditDecimal,
   milliseconds,
-  providerIds,
-  providerNames,
-} from "./logs-shared.tsx";
+} from "./bits.tsx";
+import { providerIds, providerNames } from "./logs-shared.tsx";
 import "./logs.css";
 
 const defaults = { days: "7", provider: "", model: "", keyName: "", status: "" };

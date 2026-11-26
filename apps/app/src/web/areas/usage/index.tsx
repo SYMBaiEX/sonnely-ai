@@ -16,10 +16,9 @@ import {
   creditDecimal,
   date,
   day,
-  providerIds,
-  providerNames,
   shortDate,
-} from "../console/logs-shared.tsx";
+} from "../console/bits.tsx";
+import { providerIds, providerNames } from "../console/logs-shared.tsx";
 import "../console/logs.css";
 import "./usage.css";
 

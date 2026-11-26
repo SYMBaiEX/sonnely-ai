@@ -288,7 +288,7 @@ export function CatalogSection() {
                           </a>
                         )}
                         <CopyButton
-                          text={id}
+                          value={id}
                           label={`Copy ID for ${model.name} on ${providerNames[model.provider]}`}
                           className="text-xs"
                         />

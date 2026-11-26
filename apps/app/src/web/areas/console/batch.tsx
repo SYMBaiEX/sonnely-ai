@@ -7,7 +7,8 @@ import type { Batch } from "../../../../gen/app__console__batch.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { useRemote, type Remote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
-import { WorkspaceHeading, creditBalance, providerIds, providerNames } from "./logs-shared.tsx";
+import { WorkspaceHeading, creditBalance } from "./bits.tsx";
+import { providerIds, providerNames } from "./logs-shared.tsx";
 import "./logs.css";
 import "./batch.css";
 

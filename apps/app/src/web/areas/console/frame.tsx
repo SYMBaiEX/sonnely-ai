@@ -320,7 +320,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
             <BookOpen size={17} /> Documentation <ArrowUpRight size={13} />
           </a>
           <a href="/contact">
-            <CircleHelp size={17} /> Support <ArrowUpRight size={13} />
+            <CircleHelp size={17} /> Contact us <ArrowUpRight size={13} />
           </a>
           <a className="balance" href="/console/billing">
             <span>Credit balance</span>

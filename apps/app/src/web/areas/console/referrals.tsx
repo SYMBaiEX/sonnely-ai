@@ -1,9 +1,7 @@
 // spec/app/admin/referrals.md, "Story: Invite a wallet"
 import { Users } from "lucide-react";
 import { useConsoleShell } from "./frame.tsx";
-import { CopyButton, WorkspaceHeading } from "./bits.tsx";
-
-const joinedDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
+import { CopyButton, WorkspaceHeading, dateTime } from "./bits.tsx";
 
 export function Referrals() {
   const shell = useConsoleShell();
@@ -37,7 +35,7 @@ export function Referrals() {
         </div>
         {wallet && code && (
           <div className="actions">
-            <CopyButton text={url} label="Copy invite link" />
+            <CopyButton value={url} label="Copy invite link" />
             <a href="/console/settings" className="button quiet">
               {shell.profile?.username ? "Edit username" : "Set username"}
             </a>
@@ -68,7 +66,7 @@ export function Referrals() {
                   {rows.map((item) => (
                     <tr key={item.joined + ":" + item.wallet}>
                       <th scope="row">{item.wallet}</th>
-                      <td>{joinedDate.format(item.joined)}</td>
+                      <td>{dateTime(item.joined)}</td>
                       <td>{item.stage === "SignedUp" ? "Pending" : "Funded"}</td>
                       <td>{item.stage === "Active" ? "Active" : "Pending"}</td>
                     </tr>

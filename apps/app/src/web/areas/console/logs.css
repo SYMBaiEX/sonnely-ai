@@ -1,27 +1,4 @@
 .telemetry-legacy {
-  --surface: #0c0b0e;
-  --card: #19171c;
-  --raised: #28232b;
-  --ink: #faf7f9;
-  --muted: #bcb3bf;
-  --line: #3c343f;
-  --accent: #ff515e;
-  --accent-ink: #fff;
-  --action: #cd2033;
-  --action-hover: #ae1324;
-  --active-fill: #421e2a;
-  --shadow: rgb(0 0 0 / 42%);
-  --focus-ring: #ff8592;
-  --control-edge: #7e7182;
-  --radius: 15px;
-  --font: var(--font-sans);
-  --mono: var(--font-mono);
-  --serif: var(--font-serif);
-  --console-control-size: 2.75rem;
-  --console-text: 1rem;
-  --console-caption: 0.875rem;
-  --console-selected: color-mix(in srgb, var(--active-fill) 82%, var(--surface));
-
   color: var(--ink);
   font-family: var(--font);
   font-size: 15px;
@@ -347,9 +324,9 @@
 }
 
 .telemetry-legacy .error {
-  color: #ffbbbf;
-  background: #391e28;
-  border-color: #7e3b4d;
+  color: light-dark(#782135, #ffbbbf);
+  background: light-dark(#fff0f2, #391e28);
+  border-color: light-dark(#d694a2, #7e3b4d);
 }
 
 .telemetry-legacy .status {

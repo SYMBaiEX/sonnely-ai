@@ -1,24 +1,5 @@
 /* stylelint-disable no-descending-specificity, no-duplicate-selectors, declaration-property-value-keyword-no-deprecated -- the playground stylesheet preserves the source cascade and media overrides */
 .console-playground {
-  --focus-ring: #ff8592;
-  --control-edge: #7e7182;
-  --surface: #0c0b0e;
-  --card: #19171c;
-  --raised: #28232b;
-  --ink: #faf7f9;
-  --muted: #bcb3bf;
-  --line: #3c343f;
-  --accent: #ff515e;
-  --accent-ink: #fff;
-  --action: #cd2033;
-  --action-hover: #ae1324;
-  --active-fill: #421e2a;
-  --glass-solid: #211b24;
-  --shadow: rgb(0 0 0 / 42%);
-  --radius: 15px;
-  --font: "Geist Variable", inter, system-ui, sans-serif;
-  --mono: "Geist Mono Variable", ui-monospace, monospace;
-
   color: var(--ink);
   background: var(--surface);
   font-family: var(--font);
@@ -384,12 +365,12 @@
   }
 
 .console-playground .error {
-    border: 1px solid #7e3b4d;
+    border: 1px solid light-dark(#d694a2, #7e3b4d);
     padding: 11px 14px;
     border-radius: 8px;
     overflow-wrap: anywhere;
-    color: #ffbbbf;
-    background: #391e28;
+    color: light-dark(#782135, #ffbbbf);
+    background: light-dark(#fff0f2, #391e28);
   }
 
 .console-playground .console .chat-main {

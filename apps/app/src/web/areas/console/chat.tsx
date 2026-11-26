@@ -93,8 +93,8 @@ async function streamReply({
     signal,
   });
   if (!response.ok || !response.body || !response.headers.get("content-type")?.startsWith("text/event-stream")) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error ?? "The request did not return a stream.");
+    const payload = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
+    throw new Error(payload?.error ?? payload?.message ?? "The request did not return a stream.");
   }
   let envelope: ReceiptEnvelope | undefined;
   let content = "";

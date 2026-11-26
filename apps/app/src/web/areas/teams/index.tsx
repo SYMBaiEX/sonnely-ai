@@ -9,7 +9,8 @@ import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame } from "../console/frame.tsx";
-import { CopyButton, WorkspaceHeading, WorkspaceLegacy, creditBalance, creditDecimal, parseCreditAmount, shorten } from "./legacy.tsx";
+import { CopyButton, WorkspaceHeading, creditBalance, creditDecimal, date, dateTime, parseCreditAmount, shorten } from "../console/bits.tsx";
+import { WorkspaceLegacy } from "./legacy.tsx";
 
 const roles: Record<Role, string> = { Owner: "Owner", Admin: "Admin", Member: "Member" };
 const usageStatuses: Record<Status, string> = {
@@ -18,8 +19,6 @@ const usageStatuses: Record<Status, string> = {
   Pending: "Reserved",
   Unreported: "Under review",
 };
-const formatDate = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" });
-const formatTime = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
 const sevenDays = 7 * 86_400_000;
 const dayMs = 86_400_000;
 
@@ -339,7 +338,7 @@ function ProjectWorkspace({
                     <p className="caption">
                       {key.cap === 0 ? "No key lifetime cap" : creditBalance(key.cap) + " lifetime"}
                       {key.dailyCap === 0 ? "" : " · " + creditBalance(key.dailyCap) + " daily"}
-                      {key.expiresAt === 0 ? "" : " · Expires " + formatDate.format(key.expiresAt)}
+                      {key.expiresAt === 0 ? "" : " · Expires " + date(key.expiresAt)}
                     </p>
                   </div>
                   {canManage && (
@@ -374,7 +373,7 @@ function ProjectWorkspace({
                   <tr key={row.id}>
                     <th scope="row">
                       <div>{row.model}</div>
-                      <p className="caption">{formatTime.format(row.time)} UTC</p>
+                      <p className="caption">{dateTime(row.time)}</p>
                       <code className="teams-reference">{row.id}</code>
                     </th>
                     <td>{row.keyName}</td>
@@ -581,7 +580,7 @@ function TeamWorkspace({
                     <div>
                       <span title={invite.wallet}>{shorten(invite.wallet)}</span>
                       <p className="caption">
-                        {roles[invite.role]} · Expires {formatDate.format(invite.expiresAt)}
+                        {roles[invite.role]} · Expires {date(invite.expiresAt)}
                       </p>
                     </div>
                     {(role === "Owner" || invite.role === "Member") && canManage && (
@@ -722,7 +721,7 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
                     <div>
                       <strong>{invite.teamName}</strong>
                       <p className="caption">
-                        {roles[invite.role]} · Expires {formatDate.format(invite.expiresAt)}
+                        {roles[invite.role]} · Expires {date(invite.expiresAt)}
                       </p>
                     </div>
                     <div className="teams-row">

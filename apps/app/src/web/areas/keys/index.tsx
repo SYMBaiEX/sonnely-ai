@@ -6,7 +6,7 @@ import type { Page } from "../../../../gen/app__nav.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
-import { CopyButton, Empty, Failure, WorkspaceHeading, creditBalance, date, day, parseCreditAmount } from "../console/logs-shared.tsx";
+import { CopyButton, Empty, Failure, WorkspaceHeading, creditBalance, date, day, parseCreditAmount } from "../console/bits.tsx";
 import "../console/logs.css";
 import "./keys.css";
 

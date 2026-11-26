@@ -7,7 +7,8 @@ import { useRemote, type Remote } from "../../remote.ts";
 import type { Theme as BrowserTheme } from "../site/chrome.tsx";
 import { MotionSwitch } from "../site/motion.tsx";
 import { useConsoleShell, type WorkspaceSessionRemote } from "./frame.tsx";
-import { CopyButton, WorkspaceHeading, WorkspaceLegacy, shorten } from "../teams/legacy.tsx";
+import { CopyButton, Failure, WorkspaceHeading, date, shorten } from "./bits.tsx";
+import { WorkspaceLegacy } from "../teams/legacy.tsx";
 
 const usernameHelp = "Use 3–24 letters, numbers, or underscores. Start with a letter.";
 const themes: { id: ConsoleTheme; label: string }[] = [
@@ -16,16 +17,6 @@ const themes: { id: ConsoleTheme; label: string }[] = [
   { id: "Dark", label: "dark" },
 ];
 const browserThemes: Record<ConsoleTheme, BrowserTheme> = { System: "system", Light: "light", Dark: "dark" };
-const date = (time: number) =>
-  new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(time);
-
-function Failure({ message }: { message: string }) {
-  return message ? (
-    <p className="error" role="alert">
-      {message}
-    </p>
-  ) : null;
-}
 
 function PreferencesPanel({ settings, state }: { settings: Remote<Console>; state?: Console }) {
   const shell = useConsoleShell();

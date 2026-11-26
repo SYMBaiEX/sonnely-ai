@@ -7,9 +7,9 @@ import { useSession } from "../../session.ts";
 import type { Ticket, TicketState, Tickets } from "../../../../gen/app__support.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame } from "../console/frame.tsx";
-import { WorkspaceHeading, WorkspaceLegacy } from "../teams/legacy.tsx";
+import { WorkspaceHeading, dateTime } from "../console/bits.tsx";
+import { WorkspaceLegacy } from "../teams/legacy.tsx";
 
-const localTime = (date: number) => new Date(date).toLocaleString();
 const ticketStates: Record<TicketState, string> = { Open: "Open", InProgress: "In progress", Resolved: "Resolved" };
 const seenKey = "sonnely.supportSeen";
 const topics = ["Workspace support", "Infrastructure partnership", "Billing", "Product feedback"];
@@ -60,13 +60,13 @@ function SupportThread({ ticket, send }: { ticket: Ticket; send: (input: unknown
       <ul className="crm-activity">
         <li>
           <p className="crm-note">{ticket.message}</p>
-          <p className="caption">{localTime(ticket.openedAt)} · You</p>
+          <p className="caption">{dateTime(ticket.openedAt)} · You</p>
         </li>
         {replies.map((item, index) => (
           <li key={item.time + ":" + index}>
             <p className="crm-note">{item.body}</p>
             <p className="caption">
-              {localTime(item.time)} · {item.author === "Customer" ? "You" : "Support"}
+              {dateTime(item.time)} · {item.author === "Customer" ? "You" : "Support"}
             </p>
           </li>
         ))}
@@ -226,7 +226,7 @@ function SignedInSupport({ wallet, reload }: { wallet: string; reload: () => voi
                     <span>
                       <strong>{row.topic}</strong>
                       <span className="caption">
-                        {localTime(lastReplyAt ?? row.updatedAt ?? row.openedAt)}
+                        {dateTime(lastReplyAt ?? row.updatedAt ?? row.openedAt)}
                         {visible.length ? " · " + visible.length + (visible.length === 1 ? " reply" : " replies") : ""}
                       </span>
                     </span>
