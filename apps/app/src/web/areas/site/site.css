@@ -9,6 +9,23 @@
   content: none;
 }
 
+.notfound-recovery {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 0.625rem;
+  margin-block-end: 1.4rem;
+}
+
+.notfound-recovery a {
+  height: 100%;
+  align-items: start;
+}
+
+.notfound-contact {
+  margin: 0 0 clamp(2rem, 4vw, 3.4rem);
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .product-actions {
   display: flex;
   flex-wrap: wrap;
