@@ -1515,6 +1515,13 @@
   color: inherit;
   cursor: pointer;
 }
+/* The inherit reset above outspecifies the semantic button inks, so the accent and danger variants restate theirs. */
+.theme-root.site .console :is(.button.accent, .button.ink) {
+  color: var(--accent-ink);
+}
+.theme-root.site .console .button.danger {
+  color: var(--destructive-foreground);
+}
 .theme-root.site .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item):disabled {
   cursor: not-allowed;
 }

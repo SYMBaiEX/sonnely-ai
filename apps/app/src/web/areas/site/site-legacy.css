@@ -1862,8 +1862,8 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
   font-size: 12px;
 }
 .site .button.danger{
-  background: #923b35;
-  color: white;
+  background: var(--destructive);
+  color: var(--destructive-foreground);
 }
 .site .full{
   width: 100%;
