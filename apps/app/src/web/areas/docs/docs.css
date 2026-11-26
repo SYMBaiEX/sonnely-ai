@@ -1187,7 +1187,7 @@ a.docs-page-action {
 .docs-prose div:has(> [data-streamdown="code-block-actions"]),
 .docs-guide div:has(> [data-streamdown="code-block-actions"]) {
   position: absolute;
-  top: 8px;
+  top: 5px;
   right: 8px;
   z-index: 10;
   display: flex;
@@ -1204,9 +1204,14 @@ a.docs-page-action {
 
 .docs-prose [data-streamdown="code-block-copy-button"],
 .docs-guide [data-streamdown="code-block-copy-button"] {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+
+.docs-prose [data-streamdown="code-block-actions"],
+.docs-guide [data-streamdown="code-block-actions"] {
+  padding-block: 2px;
 }
 
 .docs-prose [data-streamdown="code-block-copy-button"]:is(:hover, :focus-visible),
