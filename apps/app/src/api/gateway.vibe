@@ -339,21 +339,21 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
   const upstream = tryPromise(() => callChatCandidates(selection.input, selection.candidates, cacheSecret)) catch () => undefined
   const providerMs = try Clock.currentTimeMillis - providerAt
   if (upstream == undefined) {
-    try failMeter(meter, true)
-    return try inferenceFailure("The provider did not respond. The reservation is pending reconciliation.", 502, ref)
+    try failMeter(meter, false)
+    return try inferenceFailure("The provider did not respond. Nothing was served, so nothing was charged.", 502, ref)
   }
   const candidate = upstream.candidate
   const requestBody = upstream.body
   const response = upstream.response
   if (!response.ok) {
-    try failMeter(meter, response.status >= 500)
-    return try inferenceFailure("The provider could not complete this request.", 502, ref)
+    try failMeter(meter, false)
+    return try inferenceFailure("The provider could not complete this request. Nothing was served, so nothing was charged.", 502, ref)
   }
   if (!selection.stream) {
     const completed = tryPromise(() => parseChatCompletion(response)) catch () => undefined
     if (completed == undefined) {
-      try failMeter(meter, true)
-      return try inferenceFailure("The provider returned incomplete usage information.", 502, ref)
+      try failMeter(meter, false)
+      return try inferenceFailure("The provider returned incomplete usage information. Nothing was served, so nothing was charged.", 502, ref)
     }
     const usage = completed.completion.usage
     const cached = try Effect.try(() => cachedTokens(usage))
@@ -385,8 +385,8 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
     return HttpServerResponse.setHeaders(answered, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": candidate.provider })
   }
   if (response.body == undefined || !(response.headers.get("content-type") ?? "").startsWith("text/event-stream")) {
-    try failMeter(meter, true)
-    return try inferenceFailure("The provider did not return a stream. The reservation is pending reconciliation.", 502, ref)
+    try failMeter(meter, false)
+    return try inferenceFailure("The provider did not return a stream. Nothing was served, so nothing was charged.", 502, ref)
   }
   const ledger = try Ledger.Machine
   const usageMachine = try Usage.Machine
@@ -394,9 +394,19 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
   const keys = try WorkspaceKeys.Machine
   const teams = try Teams.Machine
   const rememberId = (_id: string) => undefined
-  const settleStream = (final: StreamFinal | undefined, _observedFirstTokenAt: number | undefined) =>
+  const settleStream = (final: StreamFinal | undefined, _observedFirstTokenAt: number | undefined, servedOutputChars: number) =>
     runPromise(effect {
       if (final == undefined) {
+        if (servedOutputChars == 0) {
+          ledger.send({ type: "settleHold", wallet, detail: ref, amount: 0 }) catch () => undefined
+          if (key != undefined) {
+            keys.send({ type: "refundUse", id: key.id, amount: meter.reserve, day: meter.day }, wallet) catch () => undefined
+            if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: meter.reserve }) catch () => undefined
+          }
+          usageMachine.send({ type: "release", id: ref }, wallet) catch () => undefined
+          requestMachine.send({ type: "fault", ref }) catch () => undefined
+          return undefined
+        }
         ledger.send({ type: "settleHold", wallet, detail: ref, amount: meter.reserve }) catch () => undefined
         usageMachine.send({ type: "unreported", id: ref }, wallet) catch () => undefined
         requestMachine.send({ type: "finish", ref, cost: meter.reserve }) catch () => undefined

@@ -384,7 +384,7 @@ type ChatSseOptions = {
   model: string;
   includeUsage: boolean;
   rememberId: (id: string) => void;
-  settle: (usage?: StreamFinal, observedFirstTokenAt?: number) => Promise<unknown>;
+  settle: (usage: StreamFinal | undefined, observedFirstTokenAt: number | undefined, servedOutputChars: number) => Promise<unknown>;
 };
 
 const chatSseHeaders = {
@@ -404,8 +404,9 @@ function chatSseStream(options: ChatSseOptions) {
   let firstTokenAt: number | undefined;
   let settlement: Promise<unknown> | undefined;
   let finished!: Promise<void>;
+  let servedOutputChars = 0;
   const settleOnce = (final?: StreamFinal, observedFirstTokenAt?: number) => {
-    settlement ??= Promise.resolve().then(() => options.settle(final, observedFirstTokenAt));
+    settlement ??= Promise.resolve().then(() => options.settle(final, observedFirstTokenAt, servedOutputChars));
     return settlement;
   };
   const encode = new TextEncoder();
@@ -449,6 +450,9 @@ function chatSseStream(options: ChatSseOptions) {
                 continue;
               }
               if (firstTokenAt === undefined && chunk.choices.some(({ delta }) => delta.content || delta.reasoning_content || delta.tool_calls?.length)) firstTokenAt = Date.now();
+              for (const { delta } of chunk.choices) {
+                servedOutputChars += (delta.content?.length ?? 0) + (delta.reasoning_content?.length ?? 0);
+              }
               send(JSON.stringify({
                 id: chunk.id,
                 object: chunk.object,
