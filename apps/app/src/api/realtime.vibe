@@ -1,0 +1,299 @@
+import * as Realtime from "../../gen/app__gateway__realtime.effect.vibe"
+import type * as Keyring from "../../gen/app__gateway__keyring.effect.vibe"
+import type * as WorkspaceKeys from "../../gen/app__keys.effect.vibe"
+import * as Socket from "effect/socket/Socket"
+import { authenticatedWallet } from "./session.vibe"
+import { bearerKey, failMeter, newRef, openMeter, servedKey, settleMeter } from "./gateway.vibe"
+import type { MeterOpen } from "./gateway.vibe"
+import { openRealtimeUpstream, realtimeRoute } from "./gateway/providers.ts"
+import { parseRealtimeClientFrame, parseRealtimeProviderFrame, realtimeClientMessage, realtimeModelId } from "./gateway/realtime.ts"
+
+const noStore = { "cache-control": "no-store" }
+
+effect function reply(value: unknown, status: number = 200) {
+  return try HttpServerResponse.json(value, { status, headers: noStore })
+}
+
+effect function oops(message: string, status: number, type: string = "invalid_request_error") {
+  return try reply({ error: { message, type } }, status)
+}
+
+function sameOrigin(request: { headers: Record<string, string | undefined> }): boolean {
+  const origin = request.headers["origin"]
+  if (origin == undefined || origin == "") return true
+  try {
+    return new URL(origin).host == (request.headers["host"] ?? "")
+  } catch {
+    return false
+  }
+}
+
+interface BridgeOutcome {
+  status: "complete" | "failed"
+  text: string | undefined
+  message: string
+}
+
+
+function providerFailure(): BridgeOutcome {
+  return { status: "failed", text: undefined, message: "The realtime provider ended the session before completion." }
+}
+
+function invalidFrameFailure(): BridgeOutcome {
+  return { status: "failed", text: undefined, message: "Invalid realtime frame, session state, or audio size." }
+}
+
+// spec/app/gateway/realtime.md, "Story: Run a metered realtime transcription"
+effect function bridgeRealtime(
+  clientReader: Socket.Reader,
+  clientWriter: Socket.Writer,
+  upstreamReader: Socket.Reader,
+  upstreamWriter: Socket.Writer,
+  ref: string,
+  model: string,
+) {
+  const machine = try Realtime.Machine
+  let state = try machine.get()
+  const first = try upstreamReader.pull
+  let created = false
+  for (const frame of first) {
+    const event = parseRealtimeProviderFrame(frame)
+    if (event?.type == "session.created") created = true
+    if (event?.type == "error") return providerFailure()
+  }
+  if (!created) return providerFailure()
+  try upstreamWriter.write(realtimeClientMessage({ type: "session.update", model }))
+  try upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.commit" }))
+  try clientWriter.write(realtimeClientMessage({ type: "session.created", model, sonnely_request_id: ref }))
+
+  while (!state.committed) {
+    const frames = try clientReader.pull
+    for (const frame of frames) {
+      const event = parseRealtimeClientFrame(frame)
+      if (event == undefined) {
+        clientWriter.write(realtimeClientMessage({ type: "error", error: { message: invalidFrameFailure().message } })) catch () => undefined
+        return invalidFrameFailure()
+      }
+      if (event.type == "session.update") continue
+      if (event.type == "input_audio_buffer.append") {
+        if (!Realtime.canAppendAudio(state, event.bytes)) {
+          clientWriter.write(realtimeClientMessage({ type: "error", error: { message: invalidFrameFailure().message } })) catch () => undefined
+          return invalidFrameFailure()
+        }
+        try upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.append", audio: event.audio }))
+        state = try machine.send({ type: "appendAudio", bytes: event.bytes })
+        continue
+      }
+      if (!Realtime.canCommit(state)) {
+        clientWriter.write(realtimeClientMessage({ type: "error", error: { message: invalidFrameFailure().message } })) catch () => undefined
+        return invalidFrameFailure()
+      }
+      try upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.commit", final: true }))
+      state = try machine.send({ type: "commit" })
+    }
+  }
+
+  while (true) {
+    const winner = try raceFirst(
+      effect { return { source: "upstream", frames: try upstreamReader.pull } },
+      effect { return { source: "client", frames: try clientReader.pull } },
+    )
+    if (winner.source == "client") return invalidFrameFailure()
+    for (const frame of winner.frames) {
+      const event = parseRealtimeProviderFrame(frame)
+      if (event == undefined) continue
+      if (event.type == "transcription.delta" && event.delta != undefined) {
+        if (!Realtime.canDelta(state, event.delta.length)) return providerFailure()
+        state = try machine.send({ type: "delta", chars: event.delta.length })
+        try clientWriter.write(realtimeClientMessage({ type: "transcription.delta", delta: event.delta }))
+        continue
+      }
+      if (event.type == "transcription.done" && event.text != undefined) {
+        return { status: "complete", text: event.text, message: "" }
+      }
+      if (event.type == "error") return providerFailure()
+    }
+  }
+}
+
+// spec/app/gateway/realtime.md, "Story: Run a metered realtime transcription"
+effect function runRealtimeBridge(
+  client: Socket.Socket,
+  upstream: Socket.Socket,
+  ref: string,
+  key: Keyring.KeyRecord,
+  model: string,
+  reserve: number,
+) {
+  const machine = try Realtime.Machine
+  const opened = machine.send({ type: "open", ref, key, model, reserve }) catch () => undefined
+  if (opened == undefined) return { upgraded: false, state: Realtime.initial, outcome: undefined, clientWriter: undefined }
+  const upstreamReader = upstream.reader catch () => undefined
+  if (upstreamReader == undefined) {
+    machine.send({ type: "abandon" }) catch () => undefined
+    return { upgraded: false, state: try machine.get(), outcome: undefined, clientWriter: undefined }
+  }
+  const upstreamWriter = try upstream.writer
+  const clientReader = client.reader catch () => undefined
+  if (clientReader == undefined) {
+    machine.send({ type: "abandon" }) catch () => undefined
+    return { upgraded: false, state: try machine.get(), outcome: undefined, clientWriter: undefined }
+  }
+  const clientWriter = try client.writer
+  const outcome = try ensuring(effect {
+    return timeout(bridgeRealtime(clientReader, clientWriter, upstreamReader, upstreamWriter, ref, model), "45 seconds") catch () => undefined
+  }, effect {
+    let state = try machine.get()
+    if (state.phase == "Live") {
+      if (state.committed) {
+        const closing = machine.send({ type: "close" }) catch () => undefined
+        if (closing != undefined) {
+          machine.send({ type: "settleSession", cost: Realtime.proportionalCost(reserve, closing.audioBytes) }) catch () => undefined
+        }
+      } else {
+        machine.send({ type: "abandon" }) catch () => undefined
+      }
+    }
+    upstreamWriter.write(new Socket.CloseEvent(1000)) catch () => undefined
+  })
+  return { upgraded: true, state: try machine.get(), outcome, clientWriter }
+}
+
+effect function closeWriter(writer: Socket.Writer | undefined, code: number) {
+  if (writer == undefined) return
+  writer.write(new Socket.CloseEvent(code)) catch () => undefined
+}
+
+effect function emptyResponse() {
+  return HttpServerResponse.empty({ status: 200, headers: noStore })
+}
+
+effect function serveRealtime(
+  clientSocket: Socket.Socket,
+  upstreamSocket: Socket.Socket,
+  ref: string,
+  key: WorkspaceKeys.Key | undefined,
+  wallet: string,
+  model: string,
+  reserve: number,
+  meter: MeterOpen,
+  providerAt: number,
+) {
+  provide Realtime.machine() {
+    const realtimeMachine = try Realtime.Machine
+    let meterSettled = false
+    return try ensuring(effect {
+      const run = try runRealtimeBridge(clientSocket, upstreamSocket, ref, servedKey(key, wallet), model, reserve)
+      const providerMs = (try Clock.currentTimeMillis) - providerAt
+      if (!run.upgraded) {
+        try failMeter(meter, false)
+        meterSettled = true
+        return try oops("The realtime provider did not open a session. Nothing was served, so nothing was charged.", 502, "sonnely_error")
+      }
+
+      const writer = run.clientWriter
+      if (!run.state.committed) {
+        try failMeter(meter, false)
+        meterSettled = true
+        if (writer != undefined) {
+          writer.write(realtimeClientMessage({ type: "error", error: { message: "Realtime transcription ended before audio was committed. Nothing was charged." }, sonnely_request_id: ref })) catch () => undefined
+        }
+        try closeWriter(writer, 1011)
+        return try emptyResponse()
+      }
+
+      const charge = Realtime.proportionalCost(reserve, run.state.audioBytes)
+      const settled = try settleMeter(meter, 0, 0, -1, charge, providerMs)
+      meterSettled = true
+      if ("refused" in settled) {
+        if (writer != undefined) {
+          writer.write(realtimeClientMessage({ type: "error", error: { message: "Sonnely could not finalize this realtime session. Check Usage before retrying." }, sonnely_request_id: ref })) catch () => undefined
+        }
+        try closeWriter(writer, 1011)
+        return try emptyResponse()
+      }
+      if (writer != undefined) {
+        if (run.outcome?.status == "complete" && run.outcome.text != undefined) {
+          writer.write(realtimeClientMessage({ type: "transcription.done", text: run.outcome.text, sonnely_request_id: ref })) catch () => undefined
+          try closeWriter(writer, 1000)
+        } else {
+          writer.write(realtimeClientMessage({ type: "error", error: { message: "Realtime transcription ended before completion. The charge is proportional to the audio sent upstream." }, sonnely_request_id: ref })) catch () => undefined
+          try closeWriter(writer, 1011)
+        }
+      }
+      return try emptyResponse()
+    }, effect {
+      if (!meterSettled) {
+        const state = try realtimeMachine.get()
+        if (state.committed) {
+          const providerMs = (try Clock.currentTimeMillis) - providerAt
+          try settleMeter(meter, 0, 0, -1, Realtime.proportionalCost(reserve, state.audioBytes), providerMs)
+        } else {
+          try failMeter(meter, false)
+        }
+      }
+    })
+  }
+}
+
+
+// spec/app/gateway/realtime.md, "Story: Run a metered realtime transcription"
+export effect function realtime() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if ((request.headers["upgrade"] ?? "").toLowerCase() != "websocket") {
+    return try oops("Use a WebSocket upgrade for realtime audio.", 426)
+  }
+  const target = try Effect.try(() => new URL(request.originalUrl ?? request.url, "http://sonnely.local"))
+  const model = target.searchParams.get("model") ?? ""
+  if (model != realtimeModelId || target.searchParams.has("intent")) {
+    return try oops("Use model=voxtral-mini-4b-realtime with the native transcription protocol.", 400)
+  }
+
+  let key: WorkspaceKeys.Key | undefined = undefined
+  let wallet = ""
+  if ((request.headers["authorization"] ?? "") != "") {
+    const auth = try bearerKey()
+    if ("refused" in auth) {
+      const r = auth.refused as { error: unknown; status: number }
+      return try reply(r.error, r.status)
+    }
+    key = auth.key
+  } else {
+    if (!sameOrigin(request)) return try oops("The realtime origin does not match this site.", 403)
+    wallet = try authenticatedWallet()
+    if (wallet == "") return try oops("A valid bearer key or signed-in console session is required.", 401)
+  }
+
+  const owner = key?.wallet ?? wallet
+  const selectedResult = try Effect.try(() => realtimeRoute(model))
+  if (!selectedResult.ok) return try oops(selectedResult.message, selectedResult.status)
+  const selection = selectedResult.value
+  const ref = try Effect.try(() => newRef())
+  const opened = try openMeter(ref, owner, key, "Realtime", model, true, selection.reserve, "Tinfoil")
+  if ("refused" in opened) {
+    const r = opened.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
+  const meter = opened.meter
+  const providerAt = try Clock.currentTimeMillis
+  const upstreamWebSocket = tryPromise(() => openRealtimeUpstream(selection)) catch () => undefined
+  if (upstreamWebSocket == undefined) {
+    try failMeter(meter, false)
+    return try oops("The realtime provider is unavailable. Nothing was served, so nothing was charged.", 502, "sonnely_error")
+  }
+  const clientSocket = request.upgrade catch () => undefined
+  if (clientSocket == undefined) {
+    try Effect.try(() => upstreamWebSocket.close(1000))
+    try failMeter(meter, false)
+    return try oops("The WebSocket upgrade could not be completed. Nothing was served, so nothing was charged.", 500, "sonnely_error")
+  }
+  const upstreamSocket = try Socket.fromWebSocket(Effect.acquireRelease(
+    Effect.succeed(upstreamWebSocket),
+    (socket) => Effect.sync(() => socket.close(1000)),
+  ))
+  return try serveRealtime(clientSocket, upstreamSocket, ref, key, owner, model, selection.reserve, meter, providerAt)
+}
+
+export const realtimeApi = Layer.unwrap(effect {
+  return HttpRouter.add("GET", "/api/sonnely/v1/realtime", realtime())
+})
