@@ -287,7 +287,7 @@ describe("gateway inference", () => {
       return (yield* result.ledger.get()).entries;
     }));
     expect(result.response.status).toBe(200);
-    expect(result.response.headers["x-sonnely-provider"] ?? (result.response.headers as Headers).get?.("x-sonnely-provider")).toBe("staging");
+    expect(result.response.headers["x-sonnely-provider"]).toBe("staging");
     expect(ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount > 0)).toBe(true);
   });
 

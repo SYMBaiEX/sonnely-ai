@@ -3,6 +3,7 @@ import { Effect, Layer, Scope } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import { NodeHttpServer } from "@effect/platform-node";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as Admin from "../gen/app__admin.effect.vibe";
 import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
@@ -21,6 +22,7 @@ const stateLayer = () =>
       Ledger.stored("stream-transport-ledger"),
       Usage.stored("stream-transport-usage"),
       Requests.stored("stream-transport-requests"),
+      Admin.stored("stream-transport-admin"),
     ),
     KeyValueStore.layerMemory,
   );
@@ -229,12 +231,18 @@ describe("gateway stream transport", () => {
       });
       const usage = yield* Usage.Machine;
       const first = yield* Effect.promise(() => post("retry-token-abc"));
-      const firstBody = yield* Effect.promise(() => first.text());
+      yield* Effect.promise(() => first.text());
       const second = yield* Effect.promise(() => post("retry-token-abc"));
-      const secondBody = yield* Effect.promise(() => second.text());
+      const secondBody = yield* Effect.promise(() => second.json() as Promise<{ error?: { message?: string; param?: unknown; code?: unknown } }>);
       const third = yield* Effect.promise(() => post("retry-token-other"));
-      const thirdBody = yield* Effect.promise(() => third.text());
-      return { statuses: { first: first.status, second: second.status, third: third.status }, usage };
+      yield* Effect.promise(() => third.text());
+      return {
+        statuses: { first: first.status, second: second.status, third: third.status },
+        firstRef: first.headers.get("x-sonnely-request-id"),
+        secondRef: second.headers.get("x-sonnely-request-id"),
+        secondError: secondBody.error,
+        usage,
+      };
     }));
     const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
     const rows = await Effect.runPromise(Effect.gen(function* () {
@@ -242,6 +250,8 @@ describe("gateway stream transport", () => {
     }));
     expect(result.statuses).toEqual({ first: 200, second: 409, third: 200 });
     expect(rows).toHaveLength(2);
+    expect(result.secondRef).toBe(result.firstRef);
+    expect(result.secondError).toMatchObject({ param: null, code: null });
   });
 
   // spec/app/docs/index.md, "Embeddings, decisions, images, and audio": every endpoint accepts max_cost_microusd.
