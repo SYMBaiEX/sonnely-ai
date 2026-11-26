@@ -969,9 +969,13 @@ a.docs-page-action {
   color: var(--muted);
 }
 
+/* streamdown caps its scroll containers with inline max-heights and expects
+   overflow utilities the Tailwind scan never generates for node_modules
+   sources; without them tall content spills over everything after the frame. */
 .docs-prose [data-streamdown="code-block-body"],
 .docs-guide [data-streamdown="code-block-body"] {
   overflow-x: auto;
+  max-height: none !important;
   border-color: var(--line);
   background: var(--surface);
   scrollbar-width: thin;
@@ -1024,6 +1028,13 @@ a.docs-page-action {
   border-color: var(--line);
   border-radius: var(--radius);
   background: var(--card);
+  scrollbar-width: thin;
+}
+
+.docs-prose [data-streamdown="table-wrapper"] > div:has(> table),
+.docs-guide [data-streamdown="table-wrapper"] > div:has(> table) {
+  overflow-x: auto;
+  max-height: none !important;
   scrollbar-width: thin;
 }
 

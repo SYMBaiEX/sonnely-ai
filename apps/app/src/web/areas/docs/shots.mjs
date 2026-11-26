@@ -67,7 +67,7 @@ await page.screenshot({ path: `${out}/interaction-minitoc-open-mobile-light.png`
 await page.goto(base + "/docs/providers", { waitUntil: "networkidle" });
 await page.waitForTimeout(700);
 const scrolled = await page.evaluate(() => {
-  const w = document.querySelector('[data-streamdown="table-wrapper"]');
+  const w = document.querySelector('[data-streamdown="table-wrapper"] > div:has(> table)');
   if (!w) return "no-wrapper";
   w.scrollLeft = 120;
   w.scrollIntoView({ block: "center" });
