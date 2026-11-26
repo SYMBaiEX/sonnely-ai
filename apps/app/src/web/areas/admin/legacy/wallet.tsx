@@ -267,7 +267,6 @@ function overview(states: Record<string, any>) {
     creditRecovery: { held: held.map((row: any) => ({ id: row.id, wallet: row.keyId || row.keyName, model: row.model, created: row.time, cost: row.cost, status: lowerStatus(row.status), providerRequest: undefined })), recent: [] },
     creditLiability: states["billing-ledger"]?.balance ?? 0,
     treasuryMicros: null,
-    compute: null,
     gateway: { state: "unavailable" },
     payouts: [],
     finance: { reconciled: complete.length, customerMicros: spend, providerNano: 0, availableMicros: 0, paidMicros: 0 },
@@ -389,7 +388,6 @@ export async function request<T>(task: string, data?: unknown): Promise<T> {
   if (task.startsWith("admin-crm")) return (await crmRead(task)) as T;
   const body = (data ?? {}) as any;
   if (task === "admin") return (await overview(await readMachines())) as T;
-  if (task === "compute?admin=capacity") return { state: "unavailable", enabled: false, active: null, limit: null } as T;
   if (task === "admin-invoices") return [] as T;
   if (task.startsWith("admin-gateway")) {
     if (new URLSearchParams(task.split("?")[1]).get("requestId")) throw new Error("UsageMax reporting is not configured in the vibestack staging shell.");
