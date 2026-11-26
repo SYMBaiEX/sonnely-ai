@@ -2,12 +2,15 @@
 // body, rendered as the components they name, markdown around them.
 import {
   ArrowDown,
+  ArrowUpRight,
   Box,
   Braces,
+  ChevronDown,
   Copy,
   Cpu,
   Fingerprint,
   LifeBuoy,
+  Play,
   Rocket,
   ShieldCheck,
   Terminal,
@@ -186,9 +189,56 @@ function Tabs({ block }: { block: Block & { kind: "tabs" } }) {
   );
 }
 
+const TRYIT_KEY_STORAGE = "sonnely.docs.tryit.key";
+
+const JSON_EXAMPLES: Record<string, Record<string, unknown>> = {
+  "/chat/completions": {
+    model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    messages: [{ role: "user", content: "Summarize this request in one sentence." }],
+    max_tokens: 64,
+  },
+  "/embeddings": { model: "Qwen/Qwen3-Embedding-0.6B", input: "Solana transaction" },
+  "/rerank": {
+    model: "Qwen/Qwen3-Reranker-0.6B",
+    query: "Solana network fees",
+    documents: ["Solana charges a small fee per transaction.", "The sky is blue."],
+  },
+  "/images/generations": { model: "black-forest-labs/FLUX.2-klein-4B", prompt: "A watercolor painting of a quiet harbor at dawn" },
+  "/systemone": {
+    model: "levanto/sage-2",
+    state: "The request asks about billing.",
+    questions: { decision: { type: "noul", instructions: "Is this about billing?" } },
+  },
+  "/responses": { model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", input: "Explain what a Solana transaction fee covers.", stream: false, store: false },
+  "/redact": { model: "pii-filter", text: "Contact the sample customer at alice@example.com." },
+  "/audio/speech": { model: "voxtral-tts", input: "Welcome to Sonnely." },
+};
+
+const UPLOAD_ENDPOINTS: Record<string, string> = {
+  "/images/edits": "a multipart image upload",
+  "/audio/transcriptions": "a multipart audio upload",
+  "/audio/translations": "a multipart WAV upload",
+  "/convert/file": "a multipart PDF upload",
+  "/realtime": "a WebSocket session",
+};
+
 function ApiReference() {
   const rows: Endpoint[] = apiEndpoints;
   const baseUrl = apiOrigin + apiBasePath;
+  const [open, setOpen] = useState("");
+  const [apiKey, setApiKeyState] = useState(() => {
+    try {
+      return localStorage.getItem(TRYIT_KEY_STORAGE) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const setApiKey = (key: string) => {
+    setApiKeyState(key);
+    try {
+      localStorage.setItem(TRYIT_KEY_STORAGE, key);
+    } catch {}
+  };
   return (
     <div className="docs-api-entry">
       <div className="docs-api-base">
@@ -200,20 +250,152 @@ function ApiReference() {
         </div>
         <CopyBaseUrl value={baseUrl} />
       </div>
-      <nav className="docs-endpoints" aria-label="API endpoints">
-        {rows.map((endpoint) => (
-          <a href={endpoint.anchor} key={endpoint.path}>
-            <span className="docs-http-method" data-method={endpoint.method}>
-              {endpoint.method}
-            </span>
-            <span>
-              <code>{endpoint.path}</code>
-              <small>{endpoint.description}</small>
-            </span>
-            <ArrowDown size={16} aria-hidden="true" />
-          </a>
-        ))}
-      </nav>
+      <div className="docs-endpoints" role="list" aria-label="API endpoints">
+        {rows.map((endpoint) => {
+          const expanded = open === endpoint.path;
+          return (
+            <div className="docs-endpoint" key={endpoint.path} data-open={expanded ? "" : undefined} role="listitem">
+              <button
+                type="button"
+                className="docs-endpoint-row"
+                aria-expanded={expanded}
+                aria-controls={`tryit-${endpoint.path.replaceAll("/", "-")}`}
+                onClick={() => setOpen(expanded ? "" : endpoint.path)}
+              >
+                <span className="docs-http-method" data-method={endpoint.method}>
+                  {endpoint.method}
+                </span>
+                <span>
+                  <code>{endpoint.path}</code>
+                  <small>{endpoint.description}</small>
+                </span>
+                <ChevronDown size={16} aria-hidden="true" />
+              </button>
+              {expanded && (
+                <TryPanel endpoint={endpoint} apiKey={apiKey} onKeyChange={setApiKey} baseUrl={baseUrl} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TryPanel({
+  endpoint,
+  apiKey,
+  onKeyChange,
+  baseUrl,
+}: {
+  endpoint: Endpoint;
+  apiKey: string;
+  onKeyChange: (key: string) => void;
+  baseUrl: string;
+}) {
+  const example = JSON_EXAMPLES[endpoint.path];
+  const upload = UPLOAD_ENDPOINTS[endpoint.path];
+  const testable = example !== undefined || (endpoint.method === "GET" && upload === undefined);
+  const isPublic = endpoint.method === "GET" && endpoint.path === "/models";
+  const [body, setBody] = useState(() => (example ? JSON.stringify(example, null, 2) : ""));
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ status: number; ok: boolean; text: string } | null>(null);
+  const [bodyError, setBodyError] = useState("");
+
+  const send = async () => {
+    let parsed: string | undefined;
+    if (example !== undefined) {
+      try {
+        parsed = JSON.stringify(JSON.parse(body));
+        setBodyError("");
+      } catch {
+        setBodyError("The body is not valid JSON.");
+        return;
+      }
+    }
+    setSending(true);
+    setResult(null);
+    try {
+      const headers: Record<string, string> = {};
+      if (parsed !== undefined) headers["Content-Type"] = "application/json";
+      if (apiKey.trim() !== "") headers.Authorization = `Bearer ${apiKey.trim()}`;
+      const response = await fetch(apiBasePath + endpoint.path, {
+        method: endpoint.method,
+        headers,
+        body: parsed,
+      });
+      const type = response.headers.get("content-type") ?? "";
+      let text: string;
+      if (type.includes("json")) {
+        text = JSON.stringify(await response.json(), null, 2);
+      } else if (type.startsWith("audio/") || type.includes("octet-stream")) {
+        const bytes = await response.arrayBuffer();
+        text = `Binary ${type || "response"} — ${bytes.byteLength.toLocaleString()} bytes. File responses download in the Playground or your client.`;
+      } else {
+        text = await response.text();
+      }
+      setResult({ status: response.status, ok: response.ok, text: text.slice(0, 4000) });
+    } catch (cause) {
+      setResult({ status: 0, ok: false, text: cause instanceof Error ? cause.message : "The request failed to reach the gateway." });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="docs-tryit" id={`tryit-${endpoint.path.replaceAll("/", "-")}`}>
+      <div className="docs-tryit-url">
+        <code>
+          {endpoint.method} {baseUrl + endpoint.path}
+        </code>
+        <a href={endpoint.anchor} className="docs-tryit-link">
+          Reference <ArrowDown size={12} aria-hidden="true" />
+        </a>
+        <a href="/console/chat" className="docs-tryit-link">
+          Playground <ArrowUpRight size={12} aria-hidden="true" />
+        </a>
+      </div>
+      {!isPublic && testable && (
+        <label className="docs-tryit-key">
+          <span>API key</span>
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(event) => onKeyChange(event.target.value)}
+            placeholder="Paste a workspace key"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </label>
+      )}
+      {example !== undefined && (
+        <label className="docs-tryit-body">
+          <span>JSON body</span>
+          <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={Math.min(12, body.split("\n").length + 1)} spellCheck={false} />
+        </label>
+      )}
+      {bodyError !== "" && <p className="docs-tryit-error">{bodyError}</p>}
+      {testable ? (
+        <div className="docs-tryit-actions">
+          <button type="button" className="docs-tryit-send" disabled={sending} onClick={() => void send()}>
+            <Play size={13} aria-hidden="true" /> {sending ? "Sending…" : `Send ${endpoint.method}`}
+          </button>
+          {endpoint.method !== "GET" && apiKey.trim() === "" && <small>Without a key the gateway answers 401 — itself a live response.</small>}
+        </div>
+      ) : (
+        <p className="docs-tryit-note">
+          This endpoint needs {upload ?? "a file upload"}. Try it in the <a href="/console/chat">console Playground</a> with your signed-in
+          workspace.
+        </p>
+      )}
+      {result !== null && (
+        <div className="docs-tryit-result" data-ok={result.ok ? "" : undefined}>
+          <span className="docs-tryit-status" data-ok={result.ok ? "" : undefined}>
+            {result.status === 0 ? "Network error" : `HTTP ${result.status}`}
+          </span>
+          <pre>{result.text}</pre>
+        </div>
+      )}
     </div>
   );
 }
