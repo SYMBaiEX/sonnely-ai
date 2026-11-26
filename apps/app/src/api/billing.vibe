@@ -175,6 +175,7 @@ effect function prepareDeposit() {
   const now = try Clock.currentTimeMillis
   if (intent.status.tag == "Expired" || intent.expiresAt <= now) {
     if (intent.status.tag == "Pending") deposits.send({ type: "expire", reference, now }) catch () => undefined
+    try dropDraft(reference)
     return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
   }
   const config = billingConfig() catch (e) => e
@@ -220,6 +221,12 @@ effect function prepareDeposit() {
   return try reply({ transaction: (prepared as solana.PaymentDraft).transaction })
 }
 
+/** A finalized or expired intent never needs its prepared transaction again. */
+effect function dropDraft(reference: string) {
+  const kv = try KeyValueStore.KeyValueStore
+  kv.remove("billing-deposit-draft:" + reference) catch () => undefined
+}
+
 // spec/app/billing/deposits.md, "Story: Finalize a paid intent": only a transfer the cluster finalized,
 // bound to the intent's wallet, asset, exact amount and reference, marks the intent Finalized; then the
 // ledger credits its wallet once per reference.
@@ -243,12 +250,17 @@ effect function confirmDeposit() {
   if (intent.status.tag == "Finalized") {
     const ledger = try Ledger.Machine
     ledger.send({ type: "credit", wallet: intent.wallet, detail: reference, amount: intent.amount }) catch () => undefined
+    try dropDraft(reference)
     return try reply({ ok: true, signature: intent.status.signature })
   }
-  if (intent.status.tag == "Expired") return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
+  if (intent.status.tag == "Expired") {
+    try dropDraft(reference)
+    return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
+  }
   const now = try Clock.currentTimeMillis
   if (intent.expiresAt <= now) {
     deposits.send({ type: "expire", reference, now }) catch () => undefined
+    try dropDraft(reference)
     return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
   }
   const config = billingConfig() catch (e) => e
@@ -283,6 +295,7 @@ effect function confirmDeposit() {
   const ledger = try Ledger.Machine
   const credit: Ledger.Event = { type: "credit", wallet: intent.wallet, detail: reference, amount: intent.amount }
   ledger.send(credit) catch () => undefined
+  try dropDraft(reference)
   return try reply({ ok: true, signature: paid })
 }
 
@@ -355,6 +368,7 @@ effect function recoverOne(config: BillingConfig, intent: Deposits.Intent, now: 
   if (finalized instanceof Deposits.Rejected) return false
   const ledger = try Ledger.Machine
   ledger.send({ type: "credit", wallet: intent.wallet, detail: intent.reference, amount: intent.amount }) catch () => undefined
+  try dropDraft(intent.reference)
   return true
 }
 
@@ -369,14 +383,19 @@ effect function sweepDeposits(nextChecks: Map<string, number>) {
     if (intent.status.tag == "Finalized") {
       const ledger = try Ledger.Machine
       ledger.send({ type: "credit", wallet: intent.wallet, detail: intent.reference, amount: intent.amount }) catch () => undefined
+      try dropDraft(intent.reference)
       continue
     }
-    if (intent.status.tag != "Pending") continue
+    if (intent.status.tag == "Expired") {
+      try dropDraft(intent.reference)
+      continue
+    }
     if (intent.expiresAt <= now) {
       // The machine finalizes only while the deadline has not passed, so a transfer discovered
       // now can never be credited: checking the chain before expiring would cost an RPC call
       // and change nothing. Catching those payments has to happen before the deadline below.
       deposits.send({ type: "expire", reference: intent.reference, now }) catch () => undefined
+      try dropDraft(intent.reference)
       continue
     }
     const nextCheckAt = nextChecks.get(intent.reference) ?? 0
