@@ -1939,6 +1939,11 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
   font-size: 14px;
   font-weight: 520;
 }
+.site-nav nav a{
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+}
 .site-nav nav a:hover,.site .footer-inner nav a:hover,.site .text-link:hover{
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -1989,6 +1994,7 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-height: 24px;
   font-weight: 560;
   font-size: 13px;
 }
@@ -3466,9 +3472,9 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
 }
 .site .reader-grid{
   display: grid;
-  grid-template-columns: minmax(170px, 0.45fr) minmax(0, 1.55fr);
+  grid-template-columns: minmax(150px, 0.3fr) minmax(0, 1.7fr);
   align-items: start;
-  gap: clamp(14px, 3vw, 42px);
+  gap: clamp(14px, 2.4vw, 34px);
 }
 .site .reader-toc{
   display: grid;
@@ -6179,6 +6185,10 @@ html[data-initial-theme="light"] .site .home {
 
 .nav-products[open] .nav-toggle svg {
   rotate: 180deg;
+}
+
+.nav-products:not([open]) .nav-panel {
+  display: none;
 }
 
 .nav-panel {

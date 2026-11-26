@@ -880,7 +880,7 @@ function HomeResources() {
             <p>
               Send text Chat Completions requests with up to {limits.messages} messages and request
               up to {limits.maxOutputTokens.toLocaleString("en-US")} output tokens. See{" "}
-              <a href="/docs/api#request-limits">request limits</a> for the JSON size cap.
+              <a href="/docs/api#request-limits" aria-label="Request limits in the API reference">request limits</a> for the JSON size cap.
             </p>
           </details>
           <details name="home-questions" data-reveal="fade">
@@ -890,7 +890,7 @@ function HomeResources() {
             <p>
               It records the model, key label, token counts, request status, and charge. The gateway
               reads prompt text during forwarding. Optional chat history lives in your browser.{" "}
-              <a href="/docs/attestation#data-handling">Read about data handling</a>.
+              <a href="/docs/attestation#data-handling" aria-label="Data handling in the attestation guide">Read about data handling</a>.
             </p>
           </details>
           <details name="home-questions" data-reveal="fade">
@@ -900,7 +900,7 @@ function HomeResources() {
             <p>
               Open Sonnely in Chrome on Seeker and choose Solana mobile wallet when connecting. At
               checkout, you can also open a Solana Pay link or scan its QR code with a compatible
-              wallet. <a href="/docs/billing">See the mobile checkout steps</a>.
+              wallet. <a href="/docs/billing" aria-label="Mobile checkout steps in the billing guide">See the mobile checkout steps</a>.
             </p>
           </details>
         </div>

@@ -2,12 +2,29 @@
 import { ArrowUpRight, Search } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@repo/ui";
-import { articles } from "./journal.ts";
+import { articles, type Article } from "./journal.ts";
 import { SiteLead } from "./chrome.tsx";
 import { PlatformLinks } from "./products.tsx";
+import { ProductIcon } from "./icons.tsx";
 import { buttonSmall, eyebrow, serif, textLink, wrap } from "./ui.ts";
 
 const topics = ["All", ...new Set(articles.map((article) => article.category))];
+
+const categoryIcons: Record<string, string> = {
+  Operations: "Activity",
+  Architecture: "Radio",
+  Solana: "Wallet",
+  Billing: "CreditCard",
+  Guide: "Terminal",
+};
+
+function readingMinutes(article: Article) {
+  const words = article.body
+    .flatMap((block) => (typeof block === "string" ? [block] : block.paragraphs))
+    .join(" ")
+    .split(/\s+/).length;
+  return Math.max(1, Math.round(words / 200));
+}
 
 export function JournalIndex() {
   const [topic, setTopic] = useState("All");
@@ -55,7 +72,9 @@ export function JournalIndex() {
           href={"/blog/" + featured.slug}
         >
           <div>
-            <p className={eyebrow}>{featured.category}</p>
+            <p className={eyebrow}>
+              {featured.category} · {readingMinutes(featured)} min read
+            </p>
             <h3 style={serif} className="my-2 text-[28px] font-normal">
               {featured.title}
             </h3>
@@ -80,7 +99,18 @@ export function JournalIndex() {
             .map((item) => (
               <li key={item.slug}>
                 <a href={"/blog/" + item.slug}>
-                  <span className="market-status">{item.category}</span>
+                  <span className="journal-tile-meta">
+                    <span className="market-status journal-tile-category">
+                      <ProductIcon
+                        name={categoryIcons[item.category] ?? "Box"}
+                        size={13}
+                      />
+                      {item.category}
+                    </span>
+                    <span className="journal-tile-time">
+                      {readingMinutes(item)} min read
+                    </span>
+                  </span>
                   <div>
                     <h3 className="text-base font-medium">{item.title}</h3>
                     <p className="mt-1 text-[13px] text-muted-foreground">{item.summary}</p>

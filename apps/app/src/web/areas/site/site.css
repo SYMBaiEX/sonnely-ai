@@ -292,6 +292,30 @@
   padding-top: 18px;
 }
 
+.journal-tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.site .journal-tile-category {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.journal-tile-category svg {
+  color: var(--accent);
+}
+
+.journal-tile-time {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
 fieldset.contact-topics {
   margin: 0;
   padding: 0;
