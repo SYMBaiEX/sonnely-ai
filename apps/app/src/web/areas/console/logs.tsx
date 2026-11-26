@@ -9,6 +9,7 @@ import { useRemote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
 import {
   CopyButton,
+  FilterPanel,
   WorkspaceHeading,
   amount,
   creditBalance,
@@ -332,7 +333,7 @@ function LogResults({ rows, error, open }: { rows: LogRow[]; error: string | und
         </div>
       )}
       {!!shown.length && (
-        <div className="table-wrap workspace-data-table" role="region" aria-labelledby="request-log-table-heading" tabIndex={0}>
+        <div className="table-wrap workspace-data-table data-rows" role="region" aria-labelledby="request-log-table-heading" tabIndex={0}>
           <table aria-label="Request logs">
             <thead>
               <tr>
@@ -364,13 +365,13 @@ function LogResults({ rows, error, open }: { rows: LogRow[]; error: string | und
                       {row.endpoint && <code className="caption">/{row.endpoint}</code>}
                     </div>
                   </th>
-                  <td>{providerNames[row.provider] ?? row.provider}</td>
-                  <td>
-                    <span className="pill log-status">{statusLabels[row.status]}</span>
+                  <td data-label="Provider">{providerNames[row.provider] ?? row.provider}</td>
+                  <td data-label="Status">
+                    <span className="pill log-status" data-status={row.status}>{statusLabels[row.status]}</span>
                   </td>
-                  <td>{milliseconds(row.durationMs) ?? "—"}</td>
-                  <td>{amount(row.input + row.output)}</td>
-                  <td>{billing(row)}</td>
+                  <td data-label="Duration">{milliseconds(row.durationMs) ?? "—"}</td>
+                  <td data-label="Tokens">{amount(row.input + row.output)}</td>
+                  <td data-label="Billing" data-span>{billing(row)}</td>
                 </tr>
               ))}
             </tbody>
@@ -488,6 +489,21 @@ export function LogsSection() {
             <Search size={16} aria-hidden="true" /> Find request
           </button>
         </form>
+        <FilterPanel
+          label="Filter requests"
+          active={
+            state
+              ? [
+                  state.window !== "Week",
+                  !!state.provider,
+                  !!state.model,
+                  !!state.keyName,
+                  state.showing.tag !== "AnyStatus",
+                ].filter(Boolean).length
+              : 0
+          }
+          className="log-filter-panel"
+        >
         <form className="log-filters-form" onSubmit={(event) => void applyFilters(event)}>
           <div className="log-controls">
             <label>
@@ -552,6 +568,7 @@ export function LogsSection() {
             </button>
           </div>
         </form>
+        </FilterPanel>
       </section>
           <LogResults key={state ? windowDays[state.window] + state.provider + state.model + state.keyName + state.showing.tag : "loading"} rows={rows} error={logs.error} open={openDetail} />
           {requestId && <RequestDetail key={requestId} id={requestId} row={detailRow} close={closeDetail} />}

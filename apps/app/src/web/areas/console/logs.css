@@ -543,6 +543,10 @@
   gap: 18px;
 }
 
+.logs-legacy .panel {
+  min-width: 0;
+}
+
 .logs-legacy .log-filters {
   display: grid;
   gap: 16px;
@@ -623,6 +627,53 @@
 .logs-legacy .log-status {
   width: max-content;
   white-space: nowrap;
+}
+
+.logs-legacy .log-status[data-status="Complete"] {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+  background: color-mix(in srgb, var(--ok) 9%, var(--card));
+}
+
+.logs-legacy .log-status[data-status="Failed"] {
+  color: var(--destructive);
+  border-color: color-mix(in srgb, var(--destructive) 42%, var(--line));
+  background: color-mix(in srgb, var(--destructive) 9%, var(--card));
+}
+
+.logs-legacy .log-status[data-status="Pending"] {
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 42%, var(--line));
+  background: color-mix(in srgb, var(--info) 9%, var(--card));
+}
+
+.logs-legacy .log-status[data-status="Unreported"] {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 48%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--card));
+}
+
+.logs-legacy .log-filter-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.logs-legacy .log-filter-panel .filter-body {
+  display: grid;
+  min-width: 0;
+}
+
+@media (width <= 720px) {
+  .logs-legacy .log-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width <= 400px) {
+  .logs-legacy .log-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .logs-legacy .log-pagination {
