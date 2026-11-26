@@ -1,16 +1,9 @@
 // spec/app/site/index.md, "Story: Check the service status"
-import { ArrowDown, ArrowRight, ArrowUpRight, CircleCheck, Fingerprint, Terminal } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, CircleCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { HighlightedCode } from "../../syntax.tsx";
 import { ReaderNavigation, SiteLead, type SiteBrief } from "./chrome.tsx";
-import { publicHrefReleased } from "../../../feature-availability.ts";
-import {
-  apiBasePath,
-  artifactLimit,
-  computePlans,
-  computeQuote,
-  creditBalance,
-} from "./data.ts";
+import { apiBasePath } from "./data.ts";
 import { entryActions, pages, platformLinks, traceStages, type ProductPageId } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
 import { buttonAccent, caption, textLink, wrap } from "./ui.ts";
@@ -300,236 +293,9 @@ function Inference() {
   );
 }
 
-const computeProductIds = ["blackboxes", "dry-docks"] as const;
-
-const computeComparison = [
-  [
-    "Runs",
-    "A confidential VM you rent: NGINX, playground, or inspector presets, or a public image pinned by digest",
-    "An isolated build for a public GitHub repository at an exact commit",
-  ],
-  ["Machine", computePlans.blackboxes.size, computePlans["dry-docks"].size + " Boat sandbox"],
-  [
-    "Lease terms",
-    computePlans.blackboxes.minutes.join(", ") + " minutes",
-    computePlans["dry-docks"].minutes.join(", ") + " minutes",
-  ],
-  [
-    "Smallest estimate",
-    creditBalance(computeQuote("blackboxes", 15).total) + " for 15 minutes",
-    creditBalance(computeQuote("dry-docks", 5).total) + " for 5 minutes",
-  ],
-  [
-    "You receive",
-    "Attestation evidence, endpoint access, logs, and receipts",
-    "Live build logs and a downloadable artifact archive",
-  ],
-] as const;
-
-function Compute() {
-  return (
-    <>
-      <ProductSection id="products" title="Two ways to run work.">
-        <p>
-          Compute products meter machine time into the same credit balance as inference. Quotes
-          include metered compute cost and service fees for each billable run.
-        </p>
-        <div className="product-computeList">
-          {computeProductIds.map((id) => {
-            const Icon = id === "blackboxes" ? Fingerprint : Terminal;
-            const title = computePlans[id].title;
-            const detail =
-              id === "blackboxes"
-                ? "Attested confidential VMs"
-                : "Isolated public-repository builds on Boat";
-            return (
-              <a id={id} key={id} href={"/" + id}>
-                <Icon aria-hidden="true" size={20} />
-                <span>
-                  <strong>{title}</strong>
-                  <small>{detail}</small>
-                </span>
-                <ArrowUpRight aria-hidden="true" size={16} />
-              </a>
-            );
-          })}
-        </div>
-        <ProductSample label="Blackboxes compared with Dry Docks">
-          <dl className="product-compare">
-            <div className="product-compare-head" aria-hidden="true">
-              <span />
-              <span>Blackboxes</span>
-              <span>Dry Docks</span>
-            </div>
-            {computeComparison.map(([label, blackboxes, dryDocks]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{blackboxes}</dd>
-                <dd>{dryDocks}</dd>
-              </div>
-            ))}
-          </dl>
-        </ProductSample>
-        <NextLink href="/pricing">See pricing</NextLink>
-      </ProductSection>
-      <ProductSection id="lifecycle" title="A rental, start to finish.">
-        <p>
-          Each Blackbox lease is time-limited and expires automatically. Review the credit hold
-          before the machine starts, inspect the workload attestation while it runs, and stop the
-          VM early when the work is done.
-        </p>
-        <ProductSample label="Blackbox lifecycle · example">
-          <ol className="product-buildSteps">
-            <li>
-              <strong>Configure</strong>
-              <span>Preset or pinned image · machine · SSD · term</span>
-            </li>
-            <li>
-              <strong>Review the hold</strong>
-              <span>Quote covers compute and service fees</span>
-            </li>
-            <li>
-              <strong>Inspect</strong>
-              <span>Attestation evidence and lifecycle status</span>
-            </li>
-            <li>
-              <strong>Settle</strong>
-              <span>Stop early or let the lease expire</span>
-            </li>
-          </ol>
-        </ProductSample>
-        <div className="product-actions">
-          <NextLink href="/console/blackboxes">Rent a Blackbox</NextLink>
-          <NextLink href="/blackboxes">Read the Blackboxes overview</NextLink>
-        </div>
-      </ProductSection>
-      <ProductSection id="builds" title="A build, pinned and torn down.">
-        <p>
-          Dry Docks runs one build at a time in a disposable Boat sandbox. Pin the repository URL
-          and commit SHA, follow the streamed log while it runs, and download the artifact archive
-          before retention expires.
-        </p>
-        <ProductSample label="Dry Dock build · example">
-          <SampleFacts
-            rows={[
-              ["Source", "Public GitHub commit"],
-              ["Runtime", computePlans["dry-docks"].size],
-              ["Artifacts", "Archive up to " + artifactLimit / 1024 ** 2 + " MiB"],
-            ]}
-          />
-        </ProductSample>
-        <div className="product-actions">
-          <NextLink href="/console/dry-docks">Open Dry Docks</NextLink>
-          <NextLink href="/dry-docks">Read the Dry Docks overview</NextLink>
-        </div>
-      </ProductSection>
-    </>
-  );
-}
-
-function Blackboxes() {
-  const plan = computePlans.blackboxes;
-  return (
-    <>
-      <ProductSection id="rental" title="Rent an attested VM.">
-        <p>
-          Blackboxes are paid, time-limited confidential VMs. Start from an NGINX, HTTP playground,
-          or request inspector preset, or bring a public image pinned by digest. Choose your TDX
-          machine, temporary SSD size, and rental term before reviewing the credit hold.
-        </p>
-        <ProductSample label="Blackbox pilot configuration">
-          <SampleFacts
-            rows={[
-              ["Starting configuration", plan.size],
-              ["Rental terms", plan.minutes.join(", ") + " minutes"],
-              ["15-minute estimate", creditBalance(computeQuote("blackboxes", 15).total)],
-            ]}
-          />
-        </ProductSample>
-        <p>
-          Quotes include metered compute cost and service fees for a billable run. Pilot availability
-          depends on your account and capacity.
-        </p>
-      </ProductSection>
-      <ProductSection id="attestation" title="Inspect the evidence.">
-        <p>
-          The console displays available workload attestation metadata and lifecycle status. Use the
-          attestation to verify the workload you intended to launch. The lease expires automatically.
-          Stop the VM earlier from the console if you finish before its expiry.
-        </p>
-        <ProductSample label="Rental lifecycle">
-          <SampleFacts
-            rows={[
-              ["Before start", "Review the credit hold"],
-              ["During the lease", "Inspect available attestation"],
-              ["At the end", "Stop or allow expiry"],
-            ]}
-          />
-        </ProductSample>
-        <ProductSample label={"Lease estimates · " + plan.size}>
-          <SampleFacts
-            rows={plan.minutes.map((minutes) => [
-              minutes + " minutes",
-              creditBalance(computeQuote("blackboxes", minutes).total),
-            ])}
-          />
-          <p className={caption}>Estimates include metered compute and service fees.</p>
-        </ProductSample>
-        <NextLink href="/console/blackboxes">Check pilot access</NextLink>
-      </ProductSection>
-    </>
-  );
-}
-
-function DryDocks() {
-  const plan = computePlans["dry-docks"];
-  return (
-    <ProductSection id="workflow" title="A clean environment for each build.">
-      <p>
-        Dry Docks starts from a public GitHub repository and exact commit. A disposable Boat sandbox
-        runs the build with streamed logs and a downloadable output archive.
-      </p>
-      <ProductSample label="Planned build workflow">
-        <ol className="product-buildSteps">
-          <li>
-            <strong>Pin the source</strong>
-            <span>Repository URL and commit SHA</span>
-          </li>
-          <li>
-            <strong>Follow the build</strong>
-            <span>Live logs · {plan.size}</span>
-          </li>
-          <li>
-            <strong>Collect artifacts</strong>
-            <span>Download the archive before retention expires</span>
-          </li>
-          <li>
-            <strong>Auto teardown</strong>
-            <span>Each build runs within a time-limited lease</span>
-          </li>
-        </ol>
-      </ProductSample>
-      <p>Artifact downloads are limited to {artifactLimit / 1024 ** 2} MiB.</p>
-      <ProductSample label="Build estimates">
-        <SampleFacts
-          rows={plan.minutes.map((minutes) => [
-            minutes + " minutes",
-            creditBalance(computeQuote("dry-docks", minutes).total),
-          ])}
-        />
-        <p className={caption}>Estimates include metered compute and service fees.</p>
-      </ProductSample>
-      <NextLink href="/console/dry-docks">Open Dry Docks</NextLink>
-    </ProductSection>
-  );
-}
-
 const pageContent: Record<ProductPageId, () => ReactNode> = {
   inference: Inference,
   observability: Observability,
-  compute: Compute,
-  blackboxes: Blackboxes,
-  "dry-docks": DryDocks,
 };
 
 const pageSections: Record<ProductPageId, readonly (readonly [string, string])[]> = {
@@ -545,16 +311,6 @@ const pageSections: Record<ProductPageId, readonly (readonly [string, string])[]
     ["alerts", "Alerts"],
     ["evaluations", "Evaluations"],
   ],
-  compute: [
-    ["products", "Products"],
-    ["lifecycle", "Rental lifecycle"],
-    ["builds", "Builds"],
-  ],
-  blackboxes: [
-    ["rental", "Rental configuration"],
-    ["attestation", "Attestation"],
-  ],
-  "dry-docks": [],
 };
 
 const pageBriefs: Record<ProductPageId, SiteBrief> = {
@@ -574,57 +330,9 @@ const pageBriefs: Record<ProductPageId, SiteBrief> = {
       ["Reconcile", "UsageMax receipts"],
     ],
   },
-  compute: {
-    title: "Compute products",
-    rows: [
-      ["Blackboxes", "Paid VM rentals"],
-      ["Dry Docks", "Build sandboxes"],
-    ],
-  },
-  blackboxes: {
-    title: "Pilot configuration",
-    rows: [
-      ["Compute", "Confidential cloud"],
-      ["Lease terms", computePlans.blackboxes.minutes.join(" · ") + " min"],
-      ["15-minute estimate", creditBalance(computeQuote("blackboxes", 15).total)],
-    ],
-  },
-  "dry-docks": {
-    title: "Planned build workflow",
-    rows: [
-      ["Source", "Public GitHub commit"],
-      ["Runtime", "Disposable Boat sandbox"],
-      ["Output", "Live logs and artifacts"],
-    ],
-  },
 };
 
-function UnavailableProduct({ page }: { page: ProductPageId }) {
-  const name = page === "compute" ? "Compute" : pages[page][0];
-  const verb = page === "compute" ? "is" : "are";
-  return (
-    <div className={wrap + " inner-page market-page"}>
-      <SiteLead
-        title={`${name} ${verb} not available yet.`}
-        description="This compute feature is still being built. Confidential inference, models, keys and billing are ready today."
-        status="In development"
-      >
-        <div className="product-entry-actions">
-          <a href="/inference" className={buttonAccent}>
-            Explore inference <ArrowRight size={15} aria-hidden="true" />
-          </a>
-          <a href="/models" className={textLink}>
-            Compare models <ArrowRight size={15} aria-hidden="true" />
-          </a>
-        </div>
-      </SiteLead>
-      <PlatformLinks compact />
-    </div>
-  );
-}
-
 export function ProductPage({ page }: { page: ProductPageId }) {
-  if (!publicHrefReleased("/" + page)) return <UnavailableProduct page={page} />;
   const [title, description] = pages[page];
   const entry = entryActions[page];
   const sections = pageSections[page];
@@ -634,7 +342,6 @@ export function ProductPage({ page }: { page: ProductPageId }) {
       <SiteLead
         title={title}
         description={description}
-        status={page === "blackboxes" ? "Paid pilot" : undefined}
         brief={pageBriefs[page]}
       >
         {entry && (

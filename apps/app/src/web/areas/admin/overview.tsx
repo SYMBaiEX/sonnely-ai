@@ -12,10 +12,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { creditBalance } from "../console/bits.tsx";
-import { AdminBoatCapacity } from "./legacy/admin-boat-capacity.tsx";
 import { EmptyState, Pill, Skeleton } from "./legacy/admin/ui.tsx";
 import { CreditRecovery } from "./legacy/credit-recovery.tsx";
-import { computePlans } from "./legacy/lib/compute.ts";
 import { models, shorten } from "./legacy/lib/models.ts";
 import { payWithWallet, request } from "./legacy/wallet.tsx";
 import { CopyButton } from "./legacy/shared.tsx";
@@ -71,11 +69,6 @@ export type AdminOverviewData = {
   creditRecovery: React.ComponentProps<typeof CreditRecovery>["data"];
   creditLiability: number | null;
   treasuryMicros: number | null;
-  compute: {
-    truncated: boolean;
-    blackboxes: ComputeRow;
-    "dry-docks": ComputeRow;
-  } | null;
   gateway?: {
     state: "ready" | "unavailable" | "disabled";
     count: number;
@@ -100,20 +93,6 @@ export type AdminOverviewData = {
   models: Record<string, ModelMetric | undefined>;
   truncated: boolean;
   hasUnreconciled: boolean;
-};
-
-type ComputeRow = {
-  runs: number;
-  active: number;
-  teardown: number;
-  completed: number;
-  failed: number;
-  meteredSeconds: number;
-  delayedTeardown: number;
-  held: number;
-  charged: number;
-  base: number;
-  fee: number;
 };
 
 export type NavBadges = { openTickets: number; overdueTasks: number };
@@ -623,73 +602,6 @@ export function AdminOverview({ wallet, badges }: { wallet: string; badges: NavB
                 <p className="caption">Analytics powered by UsageMax</p>
               </>
             )}
-          </section>
-        )}
-        {data.compute && (
-          <section className="panel stack-panel">
-            <h2>Compute over 30 days</h2>
-            <AdminBoatCapacity />
-            {(["blackboxes", "dry-docks"] as const).map((kind) => {
-              const row = data.compute?.[kind];
-              if (!row) return null;
-              return (
-                <div key={kind}>
-                  <h3>{computePlans[kind].title}</h3>
-                  <dl className="admin-metrics">
-                    <div>
-                      <dt>Runs</dt>
-                      <dd>{row.runs}</dd>
-                    </div>
-                    <div>
-                      <dt>Active</dt>
-                      <dd>{row.active}</dd>
-                    </div>
-                    <div>
-                      <dt>Pending deletion</dt>
-                      <dd>{row.teardown}</dd>
-                    </div>
-                    {kind === "dry-docks" && (
-                      <>
-                        <div>
-                          <dt>Completed builds</dt>
-                          <dd>{row.completed}</dd>
-                        </div>
-                        <div>
-                          <dt>Failed builds</dt>
-                          <dd>{row.failed}</dd>
-                        </div>
-                        <div>
-                          <dt>Metered runtime</dt>
-                          <dd>{row.meteredSeconds}s</dd>
-                        </div>
-                        <div>
-                          <dt>Cleanup over 2 min</dt>
-                          <dd>{row.delayedTeardown}</dd>
-                        </div>
-                      </>
-                    )}
-                    <div>
-                      <dt>Credits held</dt>
-                      <dd>{creditBalance(row.held)}</dd>
-                    </div>
-                    <div>
-                      <dt>Customer charges</dt>
-                      <dd>{creditBalance(row.charged)}</dd>
-                    </div>
-                    <div>
-                      <dt>Metered base</dt>
-                      <dd>{creditBalance(row.base)}</dd>
-                    </div>
-                    <div>
-                      <dt>Platform fees</dt>
-                      <dd>{creditBalance(row.fee)}</dd>
-                    </div>
-                  </dl>
-                </div>
-              );
-            })}
-            <p className="caption">Fees are gross revenue before provider plan charges or invoice adjustments.</p>
-            {data.compute.truncated && <p className="caption">Showing totals for the latest 100 runs.</p>}
           </section>
         )}
         <section className="panel stack-panel">

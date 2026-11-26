@@ -5,7 +5,7 @@ const base = process.env.DOCS_URL ?? "http://localhost:3119";
 const pages = process.argv[2] ? process.argv[2].split(",") : [
   "", "/quickstart", "/sdks", "/keys", "/billing", "/workspace", "/teams", "/api",
   "/providers", "/streaming", "/batch", "/attestation", "/observability",
-  "/blackboxes", "/dry-docks", "/troubleshooting", "/migration",
+  "/troubleshooting", "/migration",
 ];
 const widths = [390, 1440];
 

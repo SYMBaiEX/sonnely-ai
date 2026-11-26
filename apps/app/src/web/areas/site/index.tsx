@@ -75,15 +75,6 @@ export function render(page: Page): React.ReactNode {
     case "Observability":
       body = <ProductPage page="observability" />;
       break;
-    case "Compute":
-      body = <ProductPage page="compute" />;
-      break;
-    case "Blackboxes":
-      body = <ProductPage page="blackboxes" />;
-      break;
-    case "DryDocks":
-      body = <ProductPage page="dry-docks" />;
-      break;
     case "Models":
       body = <ModelsPage />;
       break;

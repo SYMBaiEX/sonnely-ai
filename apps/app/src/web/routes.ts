@@ -8,8 +8,6 @@ const sections: Record<string, Section> = {
   usage: "Usage",
   logs: "Logs",
   batch: "Batch",
-  blackboxes: "Consoles",
-  "dry-docks": "Docks",
   billing: "Billing",
   teams: "Teams",
   referrals: "Referrals",
@@ -25,9 +23,6 @@ export function pathOf(page: Page): string {
     case "Home": return "/";
     case "Inference": return "/inference";
     case "Observability": return "/observability";
-    case "Compute": return "/compute";
-    case "Blackboxes": return "/blackboxes";
-    case "DryDocks": return "/dry-docks";
     case "Models": return "/models";
     case "Pricing": return "/pricing";
     case "Model": return `/models/${page.provider}/${page.model}`;
@@ -56,9 +51,6 @@ export function pageOf(path: string): Page {
   switch (parts[0]) {
     case "inference": return { tag: "Inference" };
     case "observability": return { tag: "Observability" };
-    case "compute": return { tag: "Compute" };
-    case "blackboxes": return { tag: "Blackboxes" };
-    case "dry-docks": return { tag: "DryDocks" };
     case "models":
       return parts.length > 2
         ? { tag: "Model", provider: decodeURIComponent(parts[1]), model: parts.slice(2).map(decodeURIComponent).join("/") }

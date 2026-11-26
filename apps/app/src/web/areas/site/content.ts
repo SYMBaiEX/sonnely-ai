@@ -1,9 +1,8 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import type { Endpoint, ProviderId } from "../../../../gen/app__models.ts";
-import { publicHrefReleased } from "../../../feature-availability.ts";
 import { apiBasePath, apiOrigin, endpointPaths, providerSlugs } from "./data.ts";
 
-const allProductsMenu = [
+export const productsMenu = [
   {
     href: "/inference",
     label: "Confidential inference",
@@ -11,12 +10,7 @@ const allProductsMenu = [
     icon: "Fingerprint",
   },
   { href: "/observability", label: "Observability", detail: "Traces and UsageMax", icon: "Radio" },
-  { href: "/compute", label: "Compute", detail: "Explore compute products", icon: "Box" },
-  { href: "/blackboxes", label: "Blackboxes", detail: "Attested VM rentals", icon: "Container" },
-  { href: "/dry-docks", label: "Dry Docks", detail: "Isolated build sandboxes", icon: "Terminal" },
 ] as const;
-
-export const productsMenu = allProductsMenu.filter(({ href }) => publicHrefReleased(href));
 
 export const headerLinks = [
   ["/models", "Models"],
@@ -35,18 +29,6 @@ export const pages = {
     "Inference observability",
     "Trace inference through the gateway, compare usage and latency, and reconcile compute costs with UsageMax.",
   ],
-  compute: [
-    "Compute on Sonnely",
-    "Explore attested confidential VMs and isolated build sandboxes on Sonnely.",
-  ],
-  blackboxes: [
-    "Blackboxes",
-    "Rent an attested confidential VM. Deploy a pinned container image and inspect the workload attestation.",
-  ],
-  "dry-docks": [
-    "Dry Docks",
-    "An isolated build sandbox for pinned public GitHub commits, live logs, and downloadable artifacts.",
-  ],
   models: [
     "Model catalog",
     "Compare the models you can run, what they cost, and the context they support.",
@@ -55,7 +37,7 @@ export const pages = {
 } as const;
 
 export type SitePageId = keyof typeof pages;
-export const productPageIds = ["inference", "observability", "compute", "blackboxes", "dry-docks"] as const;
+export const productPageIds = ["inference", "observability"] as const;
 export type ProductPageId = (typeof productPageIds)[number];
 
 export const entryActions = {
@@ -71,24 +53,6 @@ export const entryActions = {
     next: "/docs/observability",
     action: "Read the guide",
   },
-  compute: {
-    section: "#products",
-    label: "Compare compute products",
-    next: "/pricing",
-    action: "See pricing",
-  },
-  blackboxes: {
-    section: "#rental",
-    label: "Explore the rental",
-    next: "/console/blackboxes",
-    action: "Check pilot access",
-  },
-  "dry-docks": {
-    section: "#workflow",
-    label: "Explore the planned workflow",
-    next: "/contact",
-    action: "Talk to us",
-  },
   models: {
     section: "#available-models",
     label: "Explore models",
@@ -103,7 +67,7 @@ export const entryActions = {
   },
 } as const;
 
-const allPlatformLinks = [
+export const platformLinks = [
   {
     href: "/inference",
     label: "Confidential inference",
@@ -116,15 +80,7 @@ const allPlatformLinks = [
     description: "Follow gateway traces, compare latency and costs, and surface operational alerts.",
     icon: "Activity",
   },
-  {
-    href: "/compute",
-    label: "Compute",
-    description: "Check availability for confidential VMs and isolated build sandboxes.",
-    icon: "Boxes",
-  },
 ] as const;
-
-export const platformLinks = allPlatformLinks.filter(({ href }) => publicHrefReleased(href));
 
 export const traceStages = [
   {
@@ -215,7 +171,6 @@ const allFooterGroups = [
     links: [
       ["/inference", "Confidential inference"],
       ["/observability", "Observability"],
-      ["/compute", "Compute"],
       ["/models", "Model catalog"],
       ["/pricing", "Pricing"],
       ["/console/chat", "Playground"],
@@ -247,12 +202,7 @@ const allFooterGroups = [
   },
 ] as const;
 
-export const footerGroups = allFooterGroups
-  .map((group) => ({
-    ...group,
-    links: group.links.filter(([href]) => publicHrefReleased(href)),
-  }))
-  .filter((group) => group.links.length > 0);
+export const footerGroups = allFooterGroups;
 
 export const demoExamples = [
   {

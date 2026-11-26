@@ -1,7 +1,6 @@
 // spec/app/docs/index.md, "Story: Serve the documentation as markdown"
 import { isDoc } from "../../gen/app__docs.effect.vibe"
 import { llmsFull, llmsIndex, pageMarkdown, searchDocs } from "../docs.ts"
-import { docReleased } from "../feature-availability.ts"
 import { openApiDocument } from "./openapi.ts"
 
 const markdown = { "content-type": "text/markdown; charset=utf-8" }
@@ -26,8 +25,7 @@ effect function indexMd() {
 effect function docMd() {
   const params = try HttpRouter.params
   const slug = params.slug ?? ""
-  const released = try Effect.orDie(Effect.try(() => docReleased(slug)))
-  if (!isDoc(slug) || !released) return HttpServerResponse.text("Not found", { status: 404, headers: plain })
+  if (!isDoc(slug)) return HttpServerResponse.text("Not found", { status: 404, headers: plain })
   const text = try Effect.orDie(Effect.try(() => pageMarkdown(slug)))
   return HttpServerResponse.text(text, { headers: markdown })
 }

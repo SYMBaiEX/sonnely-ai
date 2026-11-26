@@ -17,5 +17,4 @@ workspace is run from, and the inference API, all served from `apps/app`.
 - [Teams](./teams.md): workspaces shared with a team.
 - [Support](./support.md): support tickets and referrals.
 - [Admin](./admin/): the operator surface.
-- [Compute](./compute/): blackboxes, dry docks and the compute marketplace.
 - [Gateway](./gateway/): the OpenAI-compatible inference API and its receipts.

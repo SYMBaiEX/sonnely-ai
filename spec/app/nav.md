@@ -17,12 +17,12 @@ opened to inspect. `Contact` is the baseline contact page; `ContactOne`,
 
 ```quint
 type Section =
-  | Chat | Catalog | Keys | Usage | Logs | Batch | Consoles | Docks
+  | Chat | Catalog | Keys | Usage | Logs | Batch
   | Billing | Teams | Referrals | Support | Settings | Admin
 
 type Page =
   | Home
-  | Inference | Observability | Compute | Blackboxes | DryDocks
+  | Inference | Observability
   | Models | Pricing | Model({ provider: str, model: str })
   | Status | Journal | Post({ slug: str }) | Privacy | Terms | Verify | Contact
   | ContactOne | ContactTwo | ContactThree | ContactFour
