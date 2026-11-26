@@ -17,11 +17,10 @@ import {
 } from "../../../../gen/app__models.ts";
 import type { Board, ProbeState } from "../../../../gen/app__site.ts";
 import { useRemote } from "../../remote.ts";
-import { CopyButton, SiteLead } from "./chrome.tsx";
+import { SiteLead } from "./chrome.tsx";
 import {
   apiBasePath,
   computeQuote,
-  contextFormat,
   creditBalance,
   endpointDocs,
   endpointPaths,
@@ -47,14 +46,10 @@ import { entryActions, pages } from "./content.ts";
 import { PlatformLinks } from "./products.tsx";
 import {
   buttonAccent,
-  caption,
   faqBody,
   faqCard,
   faqSummary,
   featureIcon,
-  markColors,
-  modelMark,
-  monoSm,
   panel,
   searchBox,
   sectionHead,
@@ -63,30 +58,74 @@ import {
   textLink,
   wrap,
 } from "./ui.ts";
+import { groupCatalog, type CanonicalModel } from "./catalog-groups.ts";
+import {
+  CatalogCards,
+  type CatalogDisplayEntry,
+  type CatalogRateKind,
+  type CatalogStatus,
+} from "./catalog-cards.tsx";
 
 const endpointIds = Object.keys(workloadNames) as Endpoint[];
 
-function RateList({ rates }: { rates: Partial<Record<RateUnit, number>> }) {
-  const labels: readonly (readonly [RateUnit, string])[] = [
-    ["Input", "input / 1M tokens"],
-    ["Cached", "cached input / 1M tokens"],
-    ["Output", "output / 1M tokens"],
-    ["PerRequest", "per request"],
-    ["PerSession", "per session"],
-  ];
-  return (
-    <ul className="grid gap-1 text-[13px]" role="list">
-      {labels.map(([key, label]) =>
-        rates[key] === undefined ? null : (
-          <li key={key}>
-            <strong className="font-medium">{formatRate(rates[key])}</strong>{" "}
-            <span className="text-muted-foreground">{label}</span>
-          </li>
-        ),
-      )}
-    </ul>
-  );
+const rateKinds: Record<RateUnit, CatalogRateKind> = {
+  Input: "input",
+  Cached: "cache",
+  Output: "output",
+  PerRequest: "request",
+  PerSession: "session",
+};
+
+const rateDescriptions: Record<RateUnit, string> = {
+  Input: "input / 1M tokens",
+  Cached: "cached input / 1M tokens",
+  Output: "output / 1M tokens",
+  PerRequest: "per request",
+  PerSession: "per session",
+};
+
+const rateOrder: readonly RateUnit[] = ["Input", "Cached", "Output", "PerRequest", "PerSession"];
+
+function displayEntry(model: CatalogEntry): CatalogDisplayEntry {
+  const key = model.provider + "/" + model.upstreamId;
+  return {
+    key,
+    provider: model.provider,
+    upstreamId: model.upstreamId,
+    name: model.name,
+    workload: model.workload,
+    summary: model.summary,
+    context: model.context,
+    mark: model.mark,
+    providerName: providerNames[model.provider],
+    privacyLabel: routeLabels[model.privacy],
+    workloadLabel: upstreamWorkloadLabel(model.workload),
+    detailHref: modelDetailHref(model),
+    status: model.routes.length
+      ? { label: "Routed", tone: "info" }
+      : { label: "Catalog only", tone: "muted" },
+    routes: model.routes.map((route) => {
+      const rates = routeRates(route);
+      return {
+        endpoint: route.endpoint,
+        endpointLabel: workloadNames[route.endpoint],
+        endpointPath: endpointPaths[route.endpoint],
+        docsHref: endpointDocs(route.endpoint),
+        modelId: route.modelId,
+        chatHref: route.endpoint === "ChatCompletions" ? modelPlaygroundHref(route.modelId, model.provider) : undefined,
+        rates: rateOrder.flatMap((unit) => {
+          const value = rates[unit];
+          return value === undefined || value < 0
+            ? []
+            : [{ kind: rateKinds[unit], label: rateDescriptions[unit], value, text: formatRate(value) }];
+        }),
+      };
+    }),
+  };
 }
+
+const catalogEntries = catalog.map(displayEntry);
+const canonicalGroups = groupCatalog(catalogEntries);
 
 function probeStates(board: Board | undefined): Partial<Record<ProviderId, ProbeState>> {
   if (board?.tag !== "Live") return {};
@@ -96,6 +135,16 @@ function probeStates(board: Board | undefined): Partial<Record<ProviderId, Probe
     if (provider) states[provider] = probe.state;
   }
   return states;
+}
+
+function statusFor(model: CatalogEntry, probes: Partial<Record<ProviderId, ProbeState>>, probed: boolean): CatalogStatus {
+  if (model.routes.length === 0) return { label: "Catalog only", tone: "muted" };
+  if (!probed) return { label: "Routed", tone: "info" };
+  const state = probes[model.provider];
+  if (state === "Ok") return { label: "Available", tone: "ok" };
+  if (state === "Down") return { label: "Provider down", tone: "warn" };
+  if (state === "Disabled") return { label: "Probe disabled", tone: "warn" };
+  return { label: "Probe pending", tone: "info" };
 }
 
 function CatalogTools({
@@ -108,96 +157,114 @@ function CatalogTools({
   const providerValue = filter.provider.tag === "Only" ? filter.provider.provider : "";
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "";
   return (
-    <div className="mb-5 grid gap-3 min-[900px]:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,1fr))] min-[900px]:items-end">
-        <label className={searchBox}>
-          <Search size={17} aria-hidden="true" />
-          <Input
-            type="search"
-            value={filter.query}
-            onChange={(event) => void send({ type: "search", query: event.target.value })}
-            placeholder="Find a model"
-            aria-label="Find a model"
-            className="border-0 bg-transparent px-0 shadow-none"
-          />
-        </label>
-        <label className="grid gap-1.5 text-xs text-muted-foreground">
-          <span>Provider</span>
-          <select
-            className={selectClass}
-            value={providerValue}
-            onChange={(event) =>
-              void send({
-                type: "chooseProvider",
-                provider: event.target.value
-                  ? { tag: "Only", provider: event.target.value as ProviderId }
-                  : { tag: "EveryProvider" },
-              })
-            }
-          >
-            <option value="">All providers</option>
-            {(Object.keys(providerNames) as ProviderId[]).map((id) => (
-              <option key={id} value={id}>
-                {providerNames[id]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-xs text-muted-foreground">
-          <span>Workload</span>
-          <select
-            className={selectClass}
-            value={workloadValue}
-            onChange={(event) =>
-              void send({
-                type: "chooseWorkload",
-                workload: event.target.value
-                  ? { tag: "OnEndpoint", endpoint: event.target.value as Endpoint }
-                  : { tag: "EveryWorkload" },
-              })
-            }
-          >
-            <option value="">All workloads</option>
-            {endpointIds.map((id) => (
-              <option key={id} value={id}>
-                {workloadNames[id]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-xs text-muted-foreground">
-          <span>Availability</span>
-          <select
-            className={selectClass}
-            value={filter.availability}
-            onChange={(event) =>
-              void send({
-                type: "chooseAvailability",
-                availability: event.target.value as Availability,
-              })
-            }
-          >
-            <option value="AnyAvailability">All models</option>
-            <option value="Available">Available on Sonnely</option>
-            <option value="CatalogOnly">Provider catalog only</option>
-          </select>
-        </label>
-        <label className="grid gap-1.5 text-xs text-muted-foreground">
-          <span>Sort models</span>
-          <select
-            className={selectClass}
-            value={filter.sort}
-            onChange={(event) =>
-              void send({ type: "chooseSort", sort: event.target.value as Sort })
-            }
-          >
-            <option value="AvailableFirst">Available first</option>
-            <option value="ByName">Model name</option>
-            <option value="ByInputRate">Lowest input token rate</option>
-            <option value="ByOutputRate">Lowest output token rate</option>
-          </select>
-        </label>
+    <div className="mb-4 grid grid-cols-2 gap-3 min-[900px]:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] min-[900px]:items-end">
+      <label className={searchBox + " col-span-2 min-[900px]:col-span-1"}>
+        <Search size={17} aria-hidden="true" />
+        <Input
+          type="search"
+          value={filter.query}
+          onChange={(event) => void send({ type: "search", query: event.target.value })}
+          placeholder="Find a model"
+          aria-label="Find a model"
+          className="border-0 bg-transparent px-0 shadow-none"
+        />
+      </label>
+      <label className="grid gap-1.5 text-xs text-muted-foreground">
+        <span>Provider</span>
+        <select
+          className={selectClass}
+          value={providerValue}
+          onChange={(event) =>
+            void send({
+              type: "chooseProvider",
+              provider: event.target.value
+                ? { tag: "Only", provider: event.target.value as ProviderId }
+                : { tag: "EveryProvider" },
+            })
+          }
+        >
+          <option value="">All providers</option>
+          {(Object.keys(providerNames) as ProviderId[]).map((id) => (
+            <option key={id} value={id}>
+              {providerNames[id]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1.5 text-xs text-muted-foreground">
+        <span>Workload</span>
+        <select
+          className={selectClass}
+          value={workloadValue}
+          onChange={(event) =>
+            void send({
+              type: "chooseWorkload",
+              workload: event.target.value
+                ? { tag: "OnEndpoint", endpoint: event.target.value as Endpoint }
+                : { tag: "EveryWorkload" },
+            })
+          }
+        >
+          <option value="">All workloads</option>
+          {endpointIds.map((id) => (
+            <option key={id} value={id}>
+              {workloadNames[id]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1.5 text-xs text-muted-foreground">
+        <span>Sort models</span>
+        <select
+          className={selectClass}
+          value={filter.sort}
+          onChange={(event) =>
+            void send({ type: "chooseSort", sort: event.target.value as Sort })
+          }
+        >
+          <option value="AvailableFirst">Available first</option>
+          <option value="ByName">Model name</option>
+          <option value="ByInputRate">Lowest input token rate</option>
+          <option value="ByOutputRate">Lowest output token rate</option>
+        </select>
+      </label>
     </div>
   );
+}
+
+function bestDisplayRate(group: CanonicalModel<CatalogDisplayEntry>, kind: CatalogRateKind) {
+  let best = Infinity;
+  for (const entry of group.entries) {
+    for (const route of entry.routes) {
+      for (const rate of route.rates) {
+        if (rate.kind === kind) best = Math.min(best, rate.value);
+      }
+    }
+  }
+  return best;
+}
+
+function matchesQuery(group: CanonicalModel<CatalogDisplayEntry>, query: readonly string[]) {
+  if (!query.length) return true;
+  const searchable = [
+    group.searchText,
+    ...group.entries.flatMap((entry) => [
+      entry.providerName,
+      entry.privacyLabel,
+      entry.workloadLabel,
+      ...entry.routes.flatMap((route) => [route.endpointLabel, route.endpointPath]),
+    ]),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return query.every((term) => searchable.includes(term));
+}
+
+function statusRank(status: CatalogStatus) {
+  if (status.tone === "ok") return 0;
+  if (status.tone === "info") return 1;
+  if (status.tone === "warn") return 2;
+  return 3;
 }
 
 export function ModelCatalog() {
@@ -213,183 +280,81 @@ export function ModelCatalog() {
     sort: "AvailableFirst" as Sort,
   };
 
-  const isAvailable = (entry: CatalogEntry) =>
-    entry.routes.length > 0 && (!probed || probes[entry.provider] === "Ok");
+  const statuses = new Map(
+    catalog.map((model) => [model.provider + "/" + model.upstreamId, statusFor(model, probes, probed)]),
+  );
   const chosenProvider = filter.provider.tag === "Only" ? filter.provider.provider : undefined;
   const chosenEndpoint =
     filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : undefined;
   const query = filter.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const inventory = filter.availability === "CatalogOnly";
 
-  const displayed = catalog.flatMap((model) => {
-    const available = isAvailable(model);
-    if (chosenProvider && chosenProvider !== model.provider) return [];
-    if (filter.availability === "Available" && !available) return [];
-    if (filter.availability === "CatalogOnly" && model.routes.length > 0) return [];
-
-    const routes =
-      chosenEndpoint === undefined
-        ? model.routes
-        : model.routes.filter((route) => route.endpoint === chosenEndpoint);
+  const displayed = canonicalGroups.filter((group) => {
+    if (inventory !== group.catalogOnly) return false;
+    if (chosenProvider && !group.entries.some((entry) => entry.provider === chosenProvider)) return false;
     if (
       chosenEndpoint !== undefined &&
-      !routes.length &&
-      (model.routes.length || !upstreamCoversEndpoint(model.workload, chosenEndpoint))
+      !group.entries.some(
+        (entry) =>
+          entry.routes.some((route) => route.endpoint === chosenEndpoint) ||
+          (entry.routes.length === 0 && upstreamCoversEndpoint(entry.workload, chosenEndpoint)),
+      )
     )
-      return [];
-
-    const searchable = [
-      model.name,
-      model.upstreamId,
-      providerNames[model.provider],
-      model.provider,
-      routeLabels[model.privacy],
-      model.workload,
-      model.summary,
-      ...model.routes.flatMap((route) => [
-        route.modelId,
-        endpointPaths[route.endpoint],
-        workloadNames[route.endpoint],
-      ]),
-    ]
-      .join(" ")
-      .toLowerCase();
-    return query.every((term) => searchable.includes(term))
-      ? [{ model, routes, available }]
-      : [];
+      return false;
+    return matchesQuery(group, query);
   });
 
   if (filter.sort === "ByInputRate" || filter.sort === "ByOutputRate") {
-    const unit: RateUnit = filter.sort === "ByInputRate" ? "Input" : "Output";
-    const price = (entry: (typeof displayed)[number]) =>
-      Math.min(...entry.routes.map((route) => routeRates(route)[unit] ?? Infinity));
-    displayed.sort((a, b) => price(a) - price(b));
+    const unit: CatalogRateKind = filter.sort === "ByInputRate" ? "input" : "output";
+    displayed.sort((a, b) => bestDisplayRate(a, unit) - bestDisplayRate(b, unit));
   } else if (filter.sort === "ByName") {
-    displayed.sort((a, b) => a.model.name.localeCompare(b.model.name));
+    displayed.sort((a, b) => a.name.localeCompare(b.name));
   } else {
-    displayed.sort((a, b) => Number(b.available) - Number(a.available));
+    const rank = (group: CanonicalModel<CatalogDisplayEntry>) =>
+      Math.min(...group.entries.map((entry) => statusRank(statuses.get(entry.key) ?? entry.status)));
+    displayed.sort((a, b) => rank(a) - rank(b));
   }
+
+  const routableCount = canonicalGroups.filter((group) => !group.catalogOnly).length;
+  const inventoryCount = canonicalGroups.length - routableCount;
+  const providerValue = filter.provider.tag === "Only" ? filter.provider.provider : "every";
+  const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "every";
+  const filterSignature = [filter.query, providerValue, workloadValue, filter.availability, filter.sort].join("|");
+  const activeSurface = "border-primary bg-primary text-primary-foreground";
+  const inactiveSurface = "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground";
 
   return (
     <>
+      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Catalog inventory">
+        <button
+          type="button"
+          aria-pressed={!inventory}
+          onClick={() => void send({ type: "chooseAvailability", availability: "Available" })}
+          className={"min-h-10 rounded-full border px-4 text-sm font-medium transition-colors " + (inventory ? inactiveSurface : activeSurface)}
+        >
+          On Sonnely · {routableCount}
+        </button>
+        <button
+          type="button"
+          aria-pressed={inventory}
+          onClick={() => void send({ type: "chooseAvailability", availability: "CatalogOnly" })}
+          className={"min-h-10 rounded-full border px-4 text-sm font-medium transition-colors " + (inventory ? activeSurface : inactiveSurface)}
+        >
+          Provider inventory · {inventoryCount}
+        </button>
+      </div>
       <CatalogTools filter={filter} send={send} />
-      <p className={caption + " mb-3"} role="status">
-        {displayed.length === 0
-          ? "No models match your filters."
-          : `${displayed.length} provider ${displayed.length === 1 ? "entry" : "entries"}`}
-      </p>
-      {displayed.length > 0 && (
-        <div className={panel + " overflow-x-auto p-0"} id="model-rates">
-          <table aria-label="Model rates and context" className="w-full min-w-200 text-sm">
-            <thead>
-              <tr className="border-b border-border text-start text-[11px] uppercase tracking-wider text-muted-foreground [&>th]:px-5 [&>th]:py-3 [&>th]:text-start [&>th]:font-medium">
-                <th scope="col">Model</th>
-                <th scope="col">Context</th>
-                <th scope="col">Endpoints and rates</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayed.map(({ model, routes, available }) => {
-                const id = routes[0]?.modelId ?? model.upstreamId;
-                const chat =
-                  available && routes.find((route) => route.endpoint === "ChatCompletions");
-                return (
-                  <tr
-                    key={model.provider + "/" + model.upstreamId}
-                    className="border-b border-border align-top last:border-b-0 [&>td]:px-5 [&>td]:py-4.5 [&>th]:px-5 [&>th]:py-4.5 [&>th]:text-start [&>th]:font-normal"
-                  >
-                    <th scope="row">
-                      <div className="flex min-w-0 items-center gap-3.5">
-                        <span
-                          aria-hidden="true"
-                          className={modelMark + " " + (markColors[model.color] ?? markColors.smoke)}
-                        >
-                          {model.mark ||
-                            (model.name.match(/[a-z0-9]/i)?.[0].toUpperCase() ?? "•")}
-                        </span>
-                        <div>
-                          <h3 className="text-[15px] font-medium">
-                            <a href={modelDetailHref(model)} className="hover:underline">{model.name}</a>
-                          </h3>
-                          <span className="block text-xs text-muted-foreground">
-                            {providerNames[model.provider]} · {routeLabels[model.privacy]}
-                          </span>
-                          <code className={monoSm + " block text-muted-foreground"}>{id}</code>
-                        </div>
-                      </div>
-                    </th>
-                    <td className="whitespace-nowrap">
-                      <span className="text-xs text-muted-foreground min-[900px]:hidden" aria-hidden="true">
-                        Context
-                      </span>
-                      {model.context ? `${contextFormat.format(model.context)} tokens` : "—"}
-                    </td>
-                    <td className="min-w-75">
-                      {routes.length ? (
-                        <>
-                          {!available && (
-                            <p className={caption + " text-warn"}>Unavailable</p>
-                          )}
-                          <ul className="grid gap-2.5" role="list">
-                            {routes.map((route) => (
-                              <li key={route.endpoint}>
-                                <a
-                                  href={endpointDocs(route.endpoint)}
-                                  className={textLink}
-                                  aria-label={`/${endpointPaths[route.endpoint]} · ${workloadNames[route.endpoint]} guide`}
-                                >
-                                  <code>/{endpointPaths[route.endpoint]}</code>
-                                </a>
-                                {route.modelId !== id && (
-                                  <code className={monoSm + " block text-muted-foreground"}>{route.modelId}</code>
-                                )}
-                                <RateList rates={routeRates(route)} />
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-xs font-medium">Provider catalog only</span>
-                          <span className={caption}>
-                            {upstreamWorkloadLabel(model.workload)}
-                          </span>
-                        </>
-                      )}
-                    </td>
-                    <td className="w-40">
-                      <div className="flex flex-col items-start gap-2">
-                        {chat && (
-                          <a
-                            href={modelPlaygroundHref(chat.modelId, model.provider)}
-                            className={textLink}
-                          >
-                            Open in chat <ArrowUpRight size={15} aria-hidden="true" />
-                          </a>
-                        )}
-                        <CopyButton
-                          value={id}
-                          label={`Copy ID for ${model.name} on ${providerNames[model.provider]}`}
-                          text="Copy ID"
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <p className={caption + " mt-3 [&_a]:underline [&_a]:underline-offset-3"}>
+      <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
+      <aside className="mt-4 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
         Sonnely rates include a {markupPercent}% markup.{" "}
-        <a href="/docs/providers#compare-prices">How pricing works</a>
+        <a className="text-primary hover:underline" href="/docs/providers#compare-prices">How pricing works</a>
         {" · "}
-        <a href={apiBasePath + "/provider-models"}>Catalog JSON</a>
-      </p>
+        <a className="text-primary hover:underline" href={apiBasePath + "/provider-models"}>Catalog JSON</a>
+      </aside>
     </>
   );
 }
+
 
 function ModelGuide() {
   const entries = featuredUpstreamIds
@@ -537,19 +502,18 @@ function CostExample() {
 export function ModelsPage() {
   const [title, description] = pages.models;
   const entry = entryActions.models;
-  const runnable = new Set(
-    catalog.flatMap((model) => model.routes.map((route) => route.modelId)),
-  ).size;
+  const sonnelyModels = canonicalGroups.filter((group) => !group.catalogOnly).length;
+  const inventoryModels = canonicalGroups.length - sonnelyModels;
   return (
-    <div className={wrap + " inner-page market-page"}>
+    <div className={wrap + " py-8 md:py-14"}>
       <SiteLead
         title={title}
         description={description}
         brief={{
           title: "Sonnely catalog",
           rows: [
-            ["Available model IDs", String(runnable)],
-            ["Provider entries", String(catalog.length)],
+            ["Sonnely models", String(sonnelyModels)],
+            ["Provider inventory", String(inventoryModels)],
             ["Providers", "NEAR AI, Phala, Tinfoil"],
           ],
         }}
