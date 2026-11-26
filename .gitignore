@@ -36,3 +36,5 @@ test/__traces__/
 /test-results/
 /playwright-report/
 !packages/vibestack/dist/
+!packages/studio/
+!packages/studio/dist/
