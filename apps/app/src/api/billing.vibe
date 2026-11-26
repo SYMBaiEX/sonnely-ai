@@ -13,7 +13,7 @@ import type { PaymentOrder } from "./billing/solana.ts"
 import * as intents from "./billing/intents.ts"
 import * as solana from "./billing/solana.ts"
 import { machineRegistration } from "../machines.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
 
 /** Solana checkout is not configured (treasury, RPC or cluster missing). */
@@ -508,7 +508,7 @@ export const billingApi = Layer.unwrap(effect {
 
 /** The billing machines' state, kept under `dir`. */
 export function billingState(dir: string) {
-  const storage = store(dir)
+  const storage = stateStore(dir)
   const machines = Layer.mergeAll(
     Layer.provide(Ledger.stored("billing-ledger"), storage),
     Layer.provide(Deposits.stored("billing-deposits"), storage),

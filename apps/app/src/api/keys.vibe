@@ -2,7 +2,7 @@
 // boundary. Reads project only the requesting wallet's keys, and every write's trusted sender is
 // that wallet — never a wallet or sender supplied by the client.
 import * as Keys from "../../gen/app__keys.effect.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
 
 const noStore = { "cache-control": "no-store" }
@@ -70,5 +70,5 @@ export effect function dispatch(input: unknown, by: unknown) {
 }
 
 export function keysState(dir: string) {
-  return Layer.provide(keys, store(dir))
+  return Layer.provide(keys, stateStore(dir))
 }

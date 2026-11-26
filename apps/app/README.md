@@ -29,4 +29,8 @@ Intents deposit addresses require `NEAR_INTENTS_API_KEY` and the mainnet billing
 cluster; dry quotes remain available without it.
 
 State persists under `dist/data/` (filesystem KeyValueStore) when built, or
-alongside the dev entry. Set `PORT` to choose the server port (default: random).
+alongside the dev entry. Set `DATABASE_URL` to persist machine state in
+PostgreSQL instead: startup takes a single-writer advisory lock, imports any
+missing keys from the data directory without overwriting existing rows, and
+refuses to start when another instance holds the lock. Set `PORT` to choose
+the server port (default: random).

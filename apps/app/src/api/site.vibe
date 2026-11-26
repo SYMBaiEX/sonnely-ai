@@ -3,7 +3,7 @@ import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import { Machine, stored } from "../../gen/app__site.effect.vibe"
 import type { Probe, Report } from "../../gen/app__site.ts"
 import { machineRegistration } from "../machines.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 
 module upstream {
   // spec/app/site/index.md, "A probe watches one dependency"
@@ -107,7 +107,7 @@ export const siteApi = Layer.unwrap(effect {
 })
 
 export function siteState(dir: string) {
-  return Layer.provideMerge(site, store(dir))
+  return Layer.provideMerge(site, stateStore(dir))
 }
 
 // spec/app/site/index.md, "The board waits for its first report, then shows the latest"

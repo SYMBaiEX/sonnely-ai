@@ -3,7 +3,7 @@ import * as Admin from "../../gen/app__admin.effect.vibe"
 import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Payouts from "../../gen/app__billing__payouts.effect.vibe"
 import * as Usage from "../../gen/app__usage.effect.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { billingConfig, CheckoutUnavailable } from "./billing.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
 import * as solana from "./billing/solana.ts"
@@ -310,7 +310,7 @@ export const payoutsApi = Layer.unwrap(effect {
 export const payoutsMachine = Payouts.stored("billing-payouts")
 
 export function payoutsState(dir: string) {
-  return Layer.provide(payoutsMachine, store(dir))
+  return Layer.provide(payoutsMachine, stateStore(dir))
 }
 
 export effect function dispatchPayouts(input: unknown) {

@@ -12,7 +12,7 @@ import * as Usage from "../../gen/app__usage.effect.vibe"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
@@ -857,8 +857,8 @@ export const gatewayApi = Layer.unwrap(effect {
 /** The gateway machines' state, kept under `dir`. */
 export function gatewayState(dir: string) {
   return Layer.mergeAll(
-    Layer.provide(Keyring.stored("keys"), store(dir)),
-    Layer.provide(Requests.stored("gateway-requests"), store(dir)),
-    Layer.provide(Batch.stored("gateway-batch"), store(dir)),
+    Layer.provide(Keyring.stored("keys"), stateStore(dir)),
+    Layer.provide(Requests.stored("gateway-requests"), stateStore(dir)),
+    Layer.provide(Batch.stored("gateway-batch"), stateStore(dir)),
   )
 }

@@ -3,7 +3,7 @@ import * as Instances from "../../../gen/app__compute__instances.effect.vibe"
 import * as Ledger from "../../../gen/app__billing__ledger.effect.vibe"
 import type { Compute } from "../../../gen/app__compute__instances.ts"
 import { machineReadApi } from "../../machines.vibe"
-import { store } from "../../serve.vibe"
+import { stateStore } from "../../serve.vibe"
 import { authenticatedWallet } from "../session.vibe"
 
 /** The runs, kept under "instances". */
@@ -83,7 +83,7 @@ export const instancesApi = Layer.unwrap(effect {
 })
 
 export function instancesState(dir: string) {
-  return Layer.provide(instances, store(dir))
+  return Layer.provide(instances, stateStore(dir))
 }
 
 /** An event from anywhere untrusted, decoded before the rules see it. */

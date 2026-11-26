@@ -6,7 +6,7 @@ import * as Crm from "../../gen/app__admin__crm.effect.vibe"
 import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
 import { machineApi } from "../machines.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
 
 const noStore = { "cache-control": "no-store" }
@@ -313,9 +313,9 @@ export const adminApi = Layer.unwrap(effect {
 
 export function adminState(dir: string) {
   return Layer.mergeAll(
-    Layer.provide(Admin.stored("admin"), store(dir)),
-    Layer.provide(Crm.stored("admin-crm"), store(dir)),
-    Layer.provide(Referrals.stored("admin-referrals"), store(dir)),
+    Layer.provide(Admin.stored("admin"), stateStore(dir)),
+    Layer.provide(Crm.stored("admin-crm"), stateStore(dir)),
+    Layer.provide(Referrals.stored("admin-referrals"), stateStore(dir)),
   )
 }
 

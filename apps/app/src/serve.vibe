@@ -10,11 +10,11 @@ module node {
   }
 }
 import { indexHtml, listening } from node
-import { store } from "./store.ts"
+import { stateStore, store } from "./store.ts"
 
 export { listening }
 
-export { store }
+export { stateStore, store }
 
 const fileRequest = (url: string) => /\.[A-Za-z0-9]+$/.test(url.split("?")[0] ?? "")
 

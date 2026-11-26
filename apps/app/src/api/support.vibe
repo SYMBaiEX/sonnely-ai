@@ -2,7 +2,7 @@
 import { Machine, stored } from "../../gen/app__support.effect.vibe"
 import type { Tickets } from "../../gen/app__support.ts"
 import { machineApi } from "../machines.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 
 function project(state: Tickets, wallet: string): Tickets {
   return {
@@ -26,5 +26,5 @@ export effect function dispatch(input: unknown) {
 }
 
 export function supportState(dir: string) {
-  return Layer.provide(support, store(dir))
+  return Layer.provide(support, stateStore(dir))
 }

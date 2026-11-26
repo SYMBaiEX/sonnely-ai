@@ -1,5 +1,5 @@
 // A domain area (spec/app/<area>.md -> gen/app__<area>.ts) mounts `machineApi("<area>", try Machine)`
-// in its src/api/<area>.vibe, stored server-side as `Layer.provide(stored("<area>"), store(dir))`.
+// in its src/api/<area>.vibe, stored server-side as `Layer.provide(stored("<area>"), stateStore(dir))`.
 // Every write over HTTP passes the verified-session boundary: the event type must be one a user may
 // originate, identity fields are forced to the session wallet, and the machine's trusted sender is
 // the session wallet — never anything the client supplied.

@@ -2,7 +2,7 @@
 // boundary. Reads project only the requesting wallet's rows, and every write's trusted sender is
 // that wallet — never a wallet or sender supplied by the client.
 import * as Usage from "../../gen/app__usage.effect.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
 
 const noStore = { "cache-control": "no-store" }
@@ -49,5 +49,5 @@ export effect function dispatch(input: unknown, by: unknown) {
 }
 
 export function usageState(dir: string) {
-  return Layer.provide(usage, store(dir))
+  return Layer.provide(usage, stateStore(dir))
 }
