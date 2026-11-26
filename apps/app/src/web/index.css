@@ -3,6 +3,7 @@
 @import "@fontsource/instrument-serif";
 @import "@repo/design-system/theme.css";
 @import "@repo/ui/styles.css";
+@source "../../node_modules/streamdown/dist/*.js";
 
 body {
   font-family: var(--font-sans);
