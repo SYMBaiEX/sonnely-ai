@@ -11,6 +11,7 @@ import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
 import {
   CopyButton,
   Failure,
+  FilterPanel,
   WorkspaceHeading,
   creditBalance,
   creditDecimal,
@@ -312,18 +313,20 @@ function UsageConsole() {
       {error && <div className="actions"><Failure message={error} /></div>}
       {signedIn && (
         <section className="panel usage-filters" aria-label="Usage filters">
-          <div className="usage-filter-grid">
-            <label className="control-label">Provider<select ref={providerFilterRef} value={filters.provider} onChange={(event) => updateFilter("provider", event.target.value)}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</select></label>
-            <label className="control-label">Model<select value={filters.model} onChange={(event) => updateFilter("model", event.target.value)}><option value="">All models</option>{filters.model && !modelIds.includes(filters.model) && <option value={filters.model}>{usageModelName(filters.model)}</option>}{modelIds.map((id) => <option key={id} value={id}>{usageModelName(id)}</option>)}</select></label>
-            <label className="control-label">API key<select value={filters.key} onChange={(event) => updateFilter("key", event.target.value)}><option value="">All keys</option>{filters.key && !keyLabels.has(filters.key) && <option value={filters.key}>Selected key</option>}{keyOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-            <label className="control-label">Status<select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}><option value="">All statuses</option>{Object.entries(statusValues).map(([value, status]) => <option key={value} value={value}>{usageStates[status]}</option>)}</select></label>
-          </div>
-          {state && (
-            <div className="usage-sample">
-              <p className="caption" role="status">{usageCount.format(rows.length)} of {usageCount.format(source.length)} requests shown.{capped && " Analytics and CSV cover the 1,000 most recent requests in this date range."}</p>
-              {filtered && <button type="button" className="button quiet small" onClick={() => { setFilters(noUsageFilters); providerFilterRef.current?.focus(); }}>Clear filters</button>}
+          <FilterPanel label="Filter usage" active={Object.values(filters).filter(Boolean).length} className="usage-filter-panel">
+            <div className="usage-filter-grid">
+              <label className="control-label">Provider<select ref={providerFilterRef} value={filters.provider} onChange={(event) => updateFilter("provider", event.target.value)}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</select></label>
+              <label className="control-label">Model<select value={filters.model} onChange={(event) => updateFilter("model", event.target.value)}><option value="">All models</option>{filters.model && !modelIds.includes(filters.model) && <option value={filters.model}>{usageModelName(filters.model)}</option>}{modelIds.map((id) => <option key={id} value={id}>{usageModelName(id)}</option>)}</select></label>
+              <label className="control-label">API key<select value={filters.key} onChange={(event) => updateFilter("key", event.target.value)}><option value="">All keys</option>{filters.key && !keyLabels.has(filters.key) && <option value={filters.key}>Selected key</option>}{keyOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+              <label className="control-label">Status<select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}><option value="">All statuses</option>{Object.entries(statusValues).map(([value, status]) => <option key={value} value={value}>{usageStates[status]}</option>)}</select></label>
             </div>
-          )}
+            {state && (
+              <div className="usage-sample">
+                <p className="caption" role="status">{usageCount.format(rows.length)} of {usageCount.format(source.length)} requests shown.{capped && " Analytics and CSV cover the 1,000 most recent requests in this date range."}</p>
+                {filtered && <button type="button" className="button quiet small" onClick={() => { setFilters(noUsageFilters); providerFilterRef.current?.focus(); }}>Clear filters</button>}
+              </div>
+            )}
+          </FilterPanel>
         </section>
       )}
       <div className="stat-grid usage-stats" role="group" aria-label="Usage summary">
@@ -336,12 +339,12 @@ function UsageConsole() {
       </section>
       <section className="panel breakdown">
         <div className="between controls"><h2 id="request-breakdown">Request breakdown</h2><div className="actions"><div className="segmented" aria-label="Group usage">{usageGroups.map((value) => <button type="button" key={value} aria-pressed={value === group} onClick={() => setGroup(value)}>By {value.toLowerCase()}</button>)}</div><label className="control-label">Sort groups<select value={order} onChange={(event) => setOrder(event.target.value as typeof order)}>{Object.entries(breakdownOrders).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></div>
-        {breakdown.length ? <div className="table-wrap workspace-data-table" role="region" aria-labelledby="request-breakdown" tabIndex={0}><table><thead><tr>{[group, "Requests", "Failed", "Input", "Cached input", "Output", "Spend", "Held"].map((value) => <th scope="col" key={value}>{value}</th>)}</tr></thead><tbody>{breakdown.map((entry) => <tr key={entry.id}><th scope="row">{entry.label}</th><td>{usageCount.format(entry.requests)}</td><td>{usageCount.format(entry.failed)}</td><td>{usageCount.format(entry.input)}</td><td>{entry.cacheSamples ? usageCount.format(entry.cached) : "—"}</td><td>{usageCount.format(entry.output)}</td><td>{creditBalance(entry.spend)}</td><td>{creditBalance(entry.held)}</td></tr>)}</tbody></table></div> : <p className="caption">{activityStatus}</p>}
+        {breakdown.length ? <div className="table-wrap workspace-data-table data-rows" role="region" aria-labelledby="request-breakdown" tabIndex={0}><table><thead><tr>{[group, "Requests", "Failed", "Input", "Cached input", "Output", "Spend", "Held"].map((value) => <th scope="col" key={value}>{value}</th>)}</tr></thead><tbody>{breakdown.map((entry) => <tr key={entry.id}><th scope="row">{entry.label}</th><td data-label="Requests">{usageCount.format(entry.requests)}</td><td data-label="Failed">{usageCount.format(entry.failed)}</td><td data-label="Input">{usageCount.format(entry.input)}</td><td data-label="Cached input">{entry.cacheSamples ? usageCount.format(entry.cached) : "—"}</td><td data-label="Output">{usageCount.format(entry.output)}</td><td data-label="Spend">{creditBalance(entry.spend)}</td><td data-label="Held">{creditBalance(entry.held)}</td></tr>)}</tbody></table></div> : <p className="caption">{activityStatus}</p>}
       </section>
       {rows.length > 0 && (
         <section className="panel breakdown">
           <div className="between controls"><h2 id="recent-request-references">Recent requests</h2><a className="text-link" href="/console/logs">Open request logs <ArrowUpRight size={15} aria-hidden="true" /></a></div>
-          <div className="table-wrap workspace-data-table" role="region" aria-labelledby="recent-request-references" tabIndex={0}><table><thead><tr><th>Request</th><th>Tokens</th><th>Billing</th></tr></thead><tbody>{rows.slice(0, 25).map((row) => <tr key={row.id}><th scope="row">{usageModelName(row.model)}<div className="caption">{date(row.time)} · {providerNames[providerIdsByMachine[row.provider]]} · <CopyButton value={row.id} label="Copy request reference" /></div><a className="text-link" href={"/console/logs?request=" + encodeURIComponent(row.id)}>View request details</a></th><td>{(row.input + row.output).toLocaleString()}</td><td>{row.status === "Complete" ? `Charged ${creditBalance(row.cost)}` : row.status === "Failed" ? "Released" : `${row.status === "Unreported" ? "Under review" : "Reserved"} · ${creditBalance(row.cost)}`}</td></tr>)}</tbody></table></div>
+          <div className="table-wrap workspace-data-table data-rows" role="region" aria-labelledby="recent-request-references" tabIndex={0}><table><thead><tr><th>Request</th><th>Tokens</th><th>Billing</th></tr></thead><tbody>{rows.slice(0, 25).map((row) => <tr key={row.id}><th scope="row">{usageModelName(row.model)}<div className="caption">{date(row.time)} · {providerNames[providerIdsByMachine[row.provider]]} · <CopyButton value={row.id} label="Copy request reference" /></div><a className="text-link" href={"/console/logs?request=" + encodeURIComponent(row.id)}>View request details</a></th><td data-label="Tokens">{(row.input + row.output).toLocaleString()}</td><td data-label="Billing">{row.status === "Complete" ? `Charged ${creditBalance(row.cost)}` : row.status === "Failed" ? "Released" : `${row.status === "Unreported" ? "Under review" : "Reserved"} · ${creditBalance(row.cost)}`}</td></tr>)}</tbody></table></div>
           <a className="text-link" href="/contact">Get help with a charge <ArrowUpRight size={15} /></a>
         </section>
       )}
