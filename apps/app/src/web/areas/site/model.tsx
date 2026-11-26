@@ -2,8 +2,6 @@
 import { ArrowLeft, ArrowUpRight, ChevronDown } from "lucide-react";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, RateUnit, Route } from "../../../../gen/app__models.ts";
-import type { Board, ProbeState } from "../../../../gen/app__site.ts";
-import { useRemote } from "../../remote.ts";
 import { HighlightedCode } from "../../syntax.tsx";
 import { CopyButton } from "./chrome.tsx";
 import {
@@ -25,6 +23,7 @@ import {
 import { modelApiExample } from "./content.ts";
 import { buttonAccent, caption, serif, textLink, wrap } from "./ui.ts";
 import { cleanModelName, groupCatalog } from "./catalog-groups.ts";
+import { availabilityStatus, useLiveAvailability, type LiveAvailability } from "./catalog-data.ts";
 
 const canonicalGroups = groupCatalog(catalog);
 
@@ -50,7 +49,7 @@ type Availability = {
   readonly runnable: boolean;
 };
 
-function availabilityFor(entry: CatalogEntry, probeState: ProbeState | undefined): Availability {
+function availabilityFor(entry: CatalogEntry, live: LiveAvailability): Availability {
   if (entry.routes.length === 0) {
     return {
       label: "Provider catalog only",
@@ -59,34 +58,34 @@ function availabilityFor(entry: CatalogEntry, probeState: ProbeState | undefined
       runnable: false,
     };
   }
-  if (probeState === "Ok") {
+  if (entry.routes.every((route) => route.endpoint === "Realtime")) {
+    return {
+      label: "Planned",
+      tone: "muted",
+      body: "Realtime transcription over WebSocket is planned and not yet served. Examples below are reference examples, not currently runnable requests.",
+      runnable: false,
+    };
+  }
+  if (!live.loaded) {
+    return {
+      label: "Checking availability",
+      tone: "info",
+      body: "Sonnely is reading the live gateway configuration. Examples below are reference examples until availability is confirmed.",
+      runnable: false,
+    };
+  }
+  if (availabilityStatus(entry, live).tone === "ok") {
     return {
       label: "Available on Sonnely",
       tone: "ok",
-      body: "The latest provider probe is healthy. Examples below can be run with a funded Sonnely API key.",
+      body: "The live gateway lists a configured route for this entry. Examples below can be run with a funded Sonnely API key.",
       runnable: true,
     };
   }
-  if (probeState === "Down") {
-    return {
-      label: "Provider down",
-      tone: "warn",
-      body: "The latest provider probe failed. Examples below are reference examples, not currently runnable requests; check status or choose another provider route.",
-      runnable: false,
-    };
-  }
-  if (probeState === "Disabled") {
-    return {
-      label: "Probe disabled",
-      tone: "warn",
-      body: "Provider probing is disabled in this environment, so Sonnely cannot confirm route health. Examples below are reference examples, not evidence of a runnable endpoint.",
-      runnable: false,
-    };
-  }
   return {
-    label: "Probe unavailable",
-    tone: "info",
-    body: "Sonnely has not received a current probe result for this provider. Examples below are reference examples until route health is confirmed.",
+    label: "Unavailable",
+    tone: "warn",
+    body: "The live gateway has no configured route for this entry in this deployment. Examples below are reference examples, not currently runnable requests.",
     runnable: false,
   };
 }
@@ -279,14 +278,9 @@ export function ModelPage({ provider, model }: { provider: string; model: string
   const entry = catalog.find(
     (row) => row.provider === providerId && row.upstreamId === model,
   );
-  const remote = useRemote<Board>("site");
+  const live = useLiveAvailability();
   if (!entry) return null;
-  const probes =
-    remote.state?.tag === "Live"
-      ? new Map(remote.state.report.probes.map((probe) => [probe.provider, probe.state]))
-      : undefined;
-  const probeState = providerId ? probes?.get(provider) : undefined;
-  const availability = availabilityFor(entry, probeState);
+  const availability = availabilityFor(entry, live);
   const providerName = providerNames[entry.provider];
   const chat = entry.routes.find((route) => route.endpoint === "ChatCompletions");
   const alternates = alternatesFor(entry);
