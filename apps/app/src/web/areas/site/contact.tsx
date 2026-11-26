@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import type { Tickets } from "../../../../gen/app__support.ts";
 import { useRemote } from "../../remote.ts";
 import { useSession } from "../../session.ts";
-import { WalletControl } from "../console/wallet.tsx";
+import { useBillingCluster, WalletControl } from "../console/wallet.tsx";
 import { SiteLead } from "./chrome.tsx";
 import { entryActions, pages, supportTopics } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
@@ -23,6 +23,7 @@ function ContactForm() {
   const [busy, setBusy] = useState(false);
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   const checkingAccount = session.state === undefined && !session.error;
+  const cluster = useBillingCluster();
 
   async function signIn(signedWallet: string) {
     const state = await session.refresh();
@@ -118,7 +119,7 @@ function ContactForm() {
         </div>
         <WalletControl
           wallet={wallet}
-          cluster="mainnet"
+          cluster={cluster}
           checkingAccount={checkingAccount}
           onSignIn={signIn}
           onSignOut={signOut}
