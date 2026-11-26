@@ -92,7 +92,7 @@ effect function getSessionStream() {
     `data: ${JSON.stringify(publicSession(state, digest, Date.now()))}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive" },
+    headers: noStore,
   })
 }
 

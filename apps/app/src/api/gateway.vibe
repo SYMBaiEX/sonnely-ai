@@ -12,7 +12,7 @@ import * as Usage from "../../gen/app__usage.effect.vibe"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
-import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseResponse, configuredProviders, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge, upstreamChatBody } from "./gateway/providers.ts"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -312,7 +312,7 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
     ])
     return HttpServerResponse.stream(Stream.encodeText(stagedChunks), {
       contentType: "text/event-stream",
-      headers: { ...noStore, connection: "keep-alive", "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" },
+      headers: { ...noStore, "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" },
     })
   }
   const selectedResult = try Effect.try(() => selectChat(parsedResult.value))
@@ -410,14 +410,14 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
       if (withReceipt !== true) return undefined
       return try receiptFor(selection.input, candidate, final.id, final.reportedModel, requestBody, final.responseHash, charge, cached, (try Effect.try(() => providerRequestReference(candidate.provider, response, final.id))), upstream.evidence)
     })
-  const stream = try Effect.try(() => chatSseResponse({
+  const stream = try Effect.try(() => chatSseNodeResponse({
     upstream: response.body!,
     model: selection.input.model,
     includeUsage: selection.input.stream_options?.include_usage === true,
     rememberId,
     settle: settleStream,
   }))
-  return HttpServerResponse.raw(stream.response.body, { status: 200, contentType: "text/event-stream; charset=utf-8", headers: { ...noStore, "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": candidate.provider, "x-accel-buffering": "no" } })
+  return HttpServerResponse.raw(stream.body, { status: 200, contentType: "text/event-stream; charset=utf-8", headers: { ...noStore, "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": candidate.provider, "x-accel-buffering": "no" } })
 }
 
 const chatBody = (input: unknown): { model: string; stream: boolean; bytes: number } => {
@@ -458,7 +458,7 @@ effect function getStream(m: ReadMachine) {
   const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive" },
+    headers: noStore,
   })
 }
 
@@ -505,7 +505,7 @@ effect function chatCompletions() {
   ])
   return HttpServerResponse.stream(Stream.encodeText(chunks), {
     contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive", "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" },
+    headers: { ...noStore, "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" },
   })
 }
 
