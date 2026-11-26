@@ -255,7 +255,7 @@ function UsageConsole() {
   const totals = summarize(rows);
   const resolved = totals.complete + totals.failed;
   const providerDuration = providerP95(rows);
-  const balance = signedIn ? ledger.state?.entries.reduce((sum, entry) => sum + (entry.kind === "Charge" ? -entry.amount : entry.amount), 0) : undefined;
+  const balance = signedIn ? ledger.state?.entries.reduce((sum, entry) => sum + (entry.kind === "Charge" || entry.kind === "AdjustDebit" ? -entry.amount : entry.amount), 0) : undefined;
   const stats: [string, string, string | undefined][] = [
     ["Credit balance", balance === undefined ? "—" : creditBalance(balance), "Available workspace credits"],
     ["Spend", displayState ? creditBalance(totals.spend) : "—", "Settled charges"],

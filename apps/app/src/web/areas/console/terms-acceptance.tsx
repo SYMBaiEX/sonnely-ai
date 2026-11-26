@@ -1,7 +1,10 @@
 import { ArrowRight, FileCheck2 } from "lucide-react";
 import { useState } from "react";
 
-export function TermsAcceptance({ inSetup = false }: { inSetup?: boolean }) {
+// The current terms version a workspace must accept before funding or live inference, ported from legacy lib/policy.ts.
+export const termsVersion = "2026-11-21";
+
+export function TermsAcceptance({ accept, inSetup = false }: { accept: () => Promise<boolean>; inSetup?: boolean }) {
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -23,12 +26,18 @@ export function TermsAcceptance({ inSetup = false }: { inSetup?: boolean }) {
         <form
           className="terms-banner-form"
           aria-busy={busy}
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
             if (!accepted || busy) return;
             setBusy(true);
-            setError("Terms acceptance is not available on this deployment yet.");
-            setBusy(false);
+            setError("");
+            try {
+              if (!(await accept())) setError("Could not save acceptance.");
+            } catch {
+              setError("Could not save acceptance.");
+            } finally {
+              setBusy(false);
+            }
           }}
         >
           <div className="terms-consent">

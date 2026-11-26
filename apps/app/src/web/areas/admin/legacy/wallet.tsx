@@ -39,8 +39,7 @@ function taskRow(task: any, customers: any[]) {
 }
 
 function customerBalance(states: Record<string, any>, wallet: string) {
-  const ledgerBalance = (states["billing-ledger"]?.entries ?? []).reduce((sum: number, entry: any) => sum + (entry.wallet === wallet ? (entry.kind === "Charge" ? -entry.amount : entry.amount) : 0), 0);
-  return ledgerBalance + crmOf(states).adjustments.filter((row) => row.account === wallet).reduce((sum: number, row) => sum + row.delta, 0);
+  return (states["billing-ledger"]?.entries ?? []).reduce((sum: number, entry: any) => sum + (entry.wallet === wallet ? (entry.kind === "Charge" || entry.kind === "AdjustDebit" ? -entry.amount : entry.amount) : 0), 0);
 }
 
 async function readMachine(name: string) {
@@ -83,10 +82,10 @@ const upperTicketState = (state: string) => (state === "in_progress" ? "InProgre
 const lowerStatus = (status: string) => status.toLowerCase();
 const providerId = (provider: string) => (provider === "NearAI" ? "near-ai" : provider.toLowerCase());
 
-function ticketRow(ticket: any, account = "") {
+function ticketRow(ticket: any, account?: string) {
   return {
     id: ticket.id,
-    account,
+    account: account ?? ticket.wallet ?? "",
     email: ticket.email,
     topic: ticket.topic,
     message: ticket.message,
@@ -98,13 +97,13 @@ function ticketRow(ticket: any, account = "") {
   };
 }
 
-function supportRows(support: any, customers: any[]) {
-  return (support?.tickets ?? []).map((ticket: any) => ticketRow(ticket, customers[0]?.id ?? ""));
+function supportRows(support: any) {
+  return (support?.tickets ?? []).map((ticket: any) => ticketRow(ticket));
 }
 
 function thread(ticket: any, customers: any[]) {
   if (!ticket) return null;
-  const row = ticketRow(ticket, customers[0]?.id ?? "");
+  const row = ticketRow(ticket);
   const customer = customers.find((item) => item.id === row.account) ?? { id: row.account, wallet: "", name: "", username: "" };
   return {
     ...row,
@@ -182,7 +181,7 @@ function customerDetail(id: string, states: Record<string, any>) {
   const crm = crmOf(states);
   const profile = crm.profiles.find((row) => row.wallet === id);
   const traces = (states.usage?.rows ?? []).map((row: any) => traceRow(row, id));
-  const tickets = supportRows(states.support, customers);
+  const tickets = supportRows(states.support).filter((row: any) => row.account === id);
   const keys = (states["workspace-keys"]?.keys ?? []).map((key: any) => ({
     id: key.id,
     name: key.label,
@@ -349,7 +348,7 @@ async function crmRead(task: string) {
   if (view === "support") {
     const search = String(params.get("search") ?? "").toLowerCase();
     const filter = params.get("filter") ?? "all";
-    const rows = supportRows(states.support, customers).filter((row) => (filter === "all" || row.state === filter) && (!search || (row.topic + row.email + row.message).toLowerCase().includes(search))).sort((a, b) => b.updated - a.updated);
+    const rows = supportRows(states.support).filter((row) => (filter === "all" || row.state === filter) && (!search || (row.topic + row.email + row.message).toLowerCase().includes(search))).sort((a, b) => b.updated - a.updated);
     return cursorPage(rows, params.get("cursor") ?? undefined);
   }
   if (view === "traces") {
@@ -459,11 +458,13 @@ export async function request<T>(task: string, data?: unknown): Promise<T> {
     return { ok: true } as T;
   }
   if (task === "admin-adjust-balance") {
-    const admin = await actingOperator();
-    const ledger = await readMachine("billing-ledger");
-    const balanceBefore = customerBalance({ "billing-ledger": ledger, "admin-crm": await readMachine("admin-crm") }, body.account);
-    const delta = Number(body.delta);
-    await postMachine("admin-crm", { type: "recordAdjustment", id: crypto.randomUUID(), activityId: crypto.randomUUID(), account: body.account, admin, delta, reason: String(body.reason ?? ""), balanceBefore, summary: "Balance adjusted by " + delta, now: Date.now() });
+    const response = await fetch("/api/admin/adjust", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: crypto.randomUUID(), activityId: crypto.randomUUID(), account: body.account, delta: Number(body.delta), reason: String(body.reason ?? "") }),
+    });
+    const answer = await response.json().catch(() => ({}));
+    if (!response.ok || answer.ok === false) throw new Error(answer.error ?? "The adjustment was refused.");
     return { ok: true } as T;
   }
   if (task === "admin-reset-sessions" || task === "admin-resolve-credit") return { ok: true } as T;

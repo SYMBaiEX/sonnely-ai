@@ -65,7 +65,10 @@ A profile carries the customer's display identity and lifecycle metadata.
 Empty `name`, `username`, `termsVersion` and `inviter` mean unknown or unset;
 `joined` and `termsAcceptedAt` are milliseconds, with `0` meaning unknown or
 unset. `onboarding` is empty, `pending`, `fund` or `later`. Saving a profile
-upserts the one row for its wallet.
+upserts the one row for its wallet. A terms acceptance is an audited fact
+and onboarding a one-way lifecycle — unknown, then `pending`, then `fund` or
+`later` — so the save is refused where it would erase a terms acceptance or
+move onboarding backwards; the writer carries the fields it does not change.
 
 ```quint
 type CustomerProfile = {
@@ -90,6 +93,12 @@ pure def canSaveProfile(s: Crm, wallet: str, name: str, username: str, joined: i
   wallet != "" and joined >= 0 and termsAcceptedAt >= 0 and now >= 0
   and onboardingOk(onboarding)
   and (termsAcceptedAt == 0 or termsVersion != "")
+  and profileRows(s, wallet).every(p =>
+    (p.termsAcceptedAt == 0 or termsAcceptedAt != 0)
+    and (p.termsVersion == "" or termsVersion != "")
+    and (p.onboarding == ""
+         or onboarding == p.onboarding
+         or (p.onboarding == "pending" and (onboarding == "fund" or onboarding == "later"))))
 
 pure def saveProfile(s: Crm, wallet: str, name: str, username: str, joined: int, onboarding: str, termsVersion: str, termsAcceptedAt: int, inviter: str, now: int): Crm =
   val row = { wallet: wallet, name: name, username: username, joined: joined, onboarding: onboarding, termsVersion: termsVersion, termsAcceptedAt: termsAcceptedAt, inviter: inviter, updatedAt: now }

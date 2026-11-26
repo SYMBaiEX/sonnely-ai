@@ -3,9 +3,11 @@
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import * as Crm from "../../gen/app__admin__crm.effect.vibe"
+import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
 import { machineApi, machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
+import { authenticatedWallet } from "./session.vibe"
 
 const noStore = { "cache-control": "no-store" }
 
@@ -73,11 +75,67 @@ effect function overview(admin: Admin.Machine.Shape) {
   return try HttpServerResponse.json(states, { headers: noStore })
 }
 
+// spec/app/billing/ledger.md, "Story: Adjust a balance": the operator's adjustment moves credit in
+// the ledger itself and is recorded in the CRM, both naming the one adjustment record — so the
+// audited record and the balance never disagree. The operator is the session wallet, checked
+// against the roster; an empty roster is the bootstrap every staging shell starts from.
+effect function postAdjust() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const operator = try authenticatedWallet()
+  if (operator == "") return try HttpServerResponse.json({ ok: false, error: "sign in required" }, { status: 401, headers: noStore })
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
+  }
+  const admin = try Admin.Machine
+  const registry = try admin.get()
+  if (registry.ops.roster.length > 0 && !registry.ops.roster.some((o) => o.wallet == operator)) {
+    return try HttpServerResponse.json({ ok: false, error: "operator access required" }, { status: 403, headers: noStore })
+  }
+  const raw = request.json catch () => undefined
+  const input = raw as { id?: unknown; activityId?: unknown; account?: unknown; delta?: unknown; reason?: unknown } | undefined
+  const id = typeof input?.id == "string" ? input.id : ""
+  const activityId = typeof input?.activityId == "string" ? input.activityId : ""
+  const account = typeof input?.account == "string" ? input.account : ""
+  const delta = typeof input?.delta == "number" && Number.isSafeInteger(input.delta) ? input.delta : 0
+  const reason = typeof input?.reason == "string" ? input.reason.trim() : ""
+  if (id == "" || activityId == "" || account == "") {
+    return try HttpServerResponse.json({ ok: false, error: "An adjustment id, activity id and account are required." }, { status: 400, headers: noStore })
+  }
+  if (delta == 0 || Math.abs(delta) > 1_000_000_000) {
+    return try HttpServerResponse.json({ ok: false, error: "Adjust by a whole credit amount within 1,000 USD." }, { status: 400, headers: noStore })
+  }
+  if (reason.length < 8 || reason.length > 500) {
+    return try HttpServerResponse.json({ ok: false, error: "Record an evidence note of 8 to 500 characters." }, { status: 400, headers: noStore })
+  }
+  const ledger = try Ledger.Machine
+  const before = try ledger.get()
+  const balanceBefore = Ledger.balanceOf(before, account)
+  if (balanceBefore + delta < 0) {
+    return try HttpServerResponse.json({ ok: false, error: "This adjustment would overdraw the account balance." }, { status: 409, headers: noStore })
+  }
+  const amount = Math.abs(delta)
+  const movement = delta > 0
+    ? ledger.send({ type: "adjustCredit", wallet: account, detail: id, amount }) catch (e) => e
+    : ledger.send({ type: "adjustDebit", wallet: account, detail: id, amount }) catch (e) => e
+  if (movement instanceof Ledger.Rejected) {
+    return try HttpServerResponse.json({ ok: false, error: "The ledger refused the adjustment." }, { status: 409, headers: noStore })
+  }
+  const crm = try Crm.Machine
+  const now = try Clock.currentTimeMillis
+  const summary = "Balance adjusted by operations: " + reason.slice(0, 120)
+  const recorded = crm.send({ type: "recordAdjustment", id, activityId, account, admin: operator, delta, reason, balanceBefore, summary, now }) catch (e) => e
+  if (recorded instanceof Crm.Rejected) {
+    return try HttpServerResponse.json({ ok: false, error: "The ledger moved the credit but the record was refused." }, { status: 500, headers: noStore })
+  }
+  return try HttpServerResponse.json({ ok: true, balanceAfter: balanceBefore + delta }, { headers: noStore })
+}
+
 export const adminApi = Layer.unwrap(effect {
   const admin = try Admin.Machine
   const crm = try Crm.Machine
   const referrals = try Referrals.Machine
   return Layer.mergeAll(
+    HttpRouter.add("POST", "/api/admin/adjust", provideService(postAdjust(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
     HttpRouter.add("GET", "/api/machines/admin", getState(admin)),
     HttpRouter.add("POST", "/api/machines/admin", provideService(postSender(admin), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("GET", "/api/machines/admin/stream", getStream(admin)),

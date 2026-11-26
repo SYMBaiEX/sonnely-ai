@@ -241,3 +241,73 @@ lemma release_ensures(l: Ledger, wallet: string, detail: string)
     assert !(exists e :: e in after.entries && !((!e.kind.Credit?) || (|ProofLib.Filter((j: Entry) => (j.kind.Credit? && (j.detail == e.detail)), after.entries)| == 1)));
   }
 }
+
+// spec/app/billing/ledger.md, "An adjustment credits or debits once per record": the appended
+// entry is never a credit, so the credit-once counts are the ledger's own; a retried write is
+// the empty append.
+
+lemma adjustCredit_ensures(l: Ledger, wallet: string, detail: string, amount: int)
+  ensures (inv(l) ==> canAdjustCredit(l, wallet, detail, amount) ==> alwaysBalanceIsTheSum(adjustCredit(l, wallet, detail, amount)))
+  ensures (inv(l) ==> canAdjustCredit(l, wallet, detail, amount) ==> alwaysBalanceIsNotNegative(adjustCredit(l, wallet, detail, amount)))
+  ensures (inv(l) ==> canAdjustCredit(l, wallet, detail, amount) ==> alwaysCreditsOnce(adjustCredit(l, wallet, detail, amount)))
+  ensures (inv(l) ==> canAdjustCredit(l, wallet, detail, amount) ==> stepEntriesAppendOnly(l, adjustCredit(l, wallet, detail, amount)))
+  ensures (inv(l) ==> canAdjustCredit(l, wallet, detail, amount) ==> stepChargeIsCovered(l, "adjustCredit", adjustCredit(l, wallet, detail, amount)))
+{
+  if inv(l) && canAdjustCredit(l, wallet, detail, amount) {
+    var x := Entry(wallet, EntryKind.AdjustCredit, detail, amount);
+    var after := adjustCredit(l, wallet, detail, amount);
+    if !adjustmentWritten(l, detail) {
+      assert after.entries == l.entries + [x];
+      assert after.balance == l.balance + amount;
+      assert contribution(x) == amount;
+      sumAppend(l, x);
+      prefixSelf(l.entries, [x]);
+      creditsOnceP(l);
+      creditsOnceP(after);
+      forall e | e in after.entries
+        ensures (!e.kind.Credit?) || (|ProofLib.Filter((j: Entry) => (j.kind.Credit? && (j.detail == e.detail)), after.entries)| == 1)
+      {
+        if e.kind.Credit? {
+          assert e != x;
+          assert e in l.entries;
+          ProofLib.FilterAppend((j: Entry) => (j.kind.Credit? && (j.detail == e.detail)), l.entries, x);
+        }
+      }
+      assert !(exists e :: e in after.entries && !((!e.kind.Credit?) || (|ProofLib.Filter((j: Entry) => (j.kind.Credit? && (j.detail == e.detail)), after.entries)| == 1)));
+    } else {
+      assert after == l;
+      assert l.entries + [] == l.entries;
+      prefixSelf(l.entries, []);
+    }
+  }
+}
+
+lemma adjustDebit_ensures(l: Ledger, wallet: string, detail: string, amount: int)
+  ensures (inv(l) ==> canAdjustDebit(l, wallet, detail, amount) ==> alwaysBalanceIsTheSum(adjustDebit(l, wallet, detail, amount)))
+  ensures (inv(l) ==> canAdjustDebit(l, wallet, detail, amount) ==> alwaysBalanceIsNotNegative(adjustDebit(l, wallet, detail, amount)))
+  ensures (inv(l) ==> canAdjustDebit(l, wallet, detail, amount) ==> alwaysCreditsOnce(adjustDebit(l, wallet, detail, amount)))
+  ensures (inv(l) ==> canAdjustDebit(l, wallet, detail, amount) ==> stepEntriesAppendOnly(l, adjustDebit(l, wallet, detail, amount)))
+  ensures (inv(l) ==> canAdjustDebit(l, wallet, detail, amount) ==> stepChargeIsCovered(l, "adjustDebit", adjustDebit(l, wallet, detail, amount)))
+{
+  if inv(l) && canAdjustDebit(l, wallet, detail, amount) {
+    var x := Entry(wallet, EntryKind.AdjustDebit, detail, amount);
+    var after := adjustDebit(l, wallet, detail, amount);
+    assert after.entries == l.entries + [x];
+    assert after.balance == l.balance - amount;
+    assert contribution(x) == 0 - amount;
+    sumAppend(l, x);
+    prefixSelf(l.entries, [x]);
+    creditsOnceP(l);
+    creditsOnceP(after);
+    forall e | e in after.entries
+      ensures (!e.kind.Credit?) || (|ProofLib.Filter((j: Entry) => (j.kind.Credit? && (j.detail == e.detail)), after.entries)| == 1)
+    {
+      if e.kind.Credit? {
+        assert e != x;
+        assert e in l.entries;
+        ProofLib.FilterAppend((j: Entry) => (j.kind.Credit? && (j.detail == e.detail)), l.entries, x);
+      }
+    }
+    assert !(exists e :: e in after.entries && !((!e.kind.Credit?) || (|ProofLib.Filter((j: Entry) => (j.kind.Credit? && (j.detail == e.detail)), after.entries)| == 1)));
+  }
+}

@@ -90,7 +90,7 @@ function SupportThread({ ticket, send }: { ticket: Ticket; send: (input: unknown
   );
 }
 
-function NewRequest({ email, send }: { email?: string; send: (input: unknown) => Promise<boolean> }) {
+function NewRequest({ email, wallet, send }: { email?: string; wallet: string; send: (input: unknown) => Promise<boolean> }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
   const [notice, setNotice] = useState("");
@@ -109,6 +109,7 @@ function NewRequest({ email, send }: { email?: string; send: (input: unknown) =>
         email: String(fields.get("email") ?? "").trim(),
         topic: String(fields.get("topic") ?? "").trim(),
         message: String(fields.get("message") ?? "").trim(),
+        wallet,
         now: Date.now(),
       });
       if (!ok) {
@@ -167,10 +168,10 @@ function NewRequest({ email, send }: { email?: string; send: (input: unknown) =>
   );
 }
 
-function SignedInSupport({ reload }: { reload: () => void }) {
+function SignedInSupport({ wallet, reload }: { wallet: string; reload: () => void }) {
   const support = useRemote<Tickets>("support");
   const [seen, setSeen] = useState<Record<string, number>>(readSeen);
-  const tickets = [...(support.state?.tickets ?? [])].reverse();
+  const tickets = [...(support.state?.tickets ?? [])].filter((row) => row.wallet === wallet).reverse();
 
   function markSeen(id: string, time?: number) {
     if (!time) return;
@@ -239,7 +240,7 @@ function SignedInSupport({ reload }: { reload: () => void }) {
           </div>
         )}
       </section>
-      <NewRequest email={tickets[0]?.email} send={support.send} />
+      <NewRequest email={tickets[0]?.email} wallet={wallet} send={support.send} />
     </>
   );
 }
@@ -262,7 +263,7 @@ function SupportSession() {
           <p>Connect a Solana wallet to open a request and follow replies here.</p>
         </section>
       ) : (
-        <SignedInSupport key={revision} reload={() => setRevision((current) => current + 1)} />
+        <SignedInSupport key={revision} wallet={session.state?.tag === "SignedIn" ? session.state.wallet : ""} reload={() => setRevision((current) => current + 1)} />
       )}
     </>
   );

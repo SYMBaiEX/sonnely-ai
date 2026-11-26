@@ -28,6 +28,7 @@ import type { Console as ConsoleSettings, Theme as ConsoleTheme } from "../../..
 import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Referrals as ReferralState } from "../../../../gen/app__admin__referrals.ts";
 import type { Registry as AdminRegistry } from "../../../../gen/app__admin.ts";
+import type { Crm } from "../../../../gen/app__admin__crm.ts";
 import { useRemote, type Remote } from "../../remote.ts";
 import { useSession, type SessionSnapshot, type WorkspaceSession } from "../../session.ts";
 import { Brand, ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
@@ -35,6 +36,7 @@ import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
 import { CommandMenu } from "./command-menu.tsx";
 import { Onboarding } from "./onboarding.tsx";
+import { TermsAcceptance, termsVersion } from "./terms-acceptance.tsx";
 import { useBillingCluster, WalletControl } from "./wallet.tsx";
 import "./console.css";
 
@@ -77,7 +79,7 @@ const all = groups.flatMap((group) => group.items);
 
 function walletBalance(ledger: Ledger | undefined, wallet: string) {
   return (ledger?.entries ?? []).reduce(
-    (total, entry) => (entry.wallet === wallet ? total + (entry.kind === "Charge" ? -entry.amount : entry.amount) : total),
+    (total, entry) => (entry.wallet === wallet ? total + (entry.kind === "Charge" || entry.kind === "AdjustDebit" ? -entry.amount : entry.amount) : total),
     0,
   );
 }
@@ -104,12 +106,16 @@ export interface ConsoleShell {
   settings: Remote<ConsoleSettings>;
   ledger: Remote<Ledger>;
   referrals: Remote<ReferralState>;
+  crm: Remote<Crm>;
   profile: ConsoleProfile | null;
+  termsRequired: boolean;
   theme: Theme;
   motion: boolean;
   signIn: (wallet: string) => Promise<boolean>;
   signOut: () => Promise<boolean>;
   saveProfile: (name: string, username: string) => Promise<boolean>;
+  acceptTerms: () => Promise<boolean>;
+  finishOnboarding: (funding: "fund" | "later") => Promise<boolean>;
   chooseTheme: (theme: Theme) => Promise<boolean>;
 }
 
@@ -128,11 +134,13 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   const ledger = useRemote<Ledger>("billing-ledger");
   const referrals = useRemote<ReferralState>("admin-referrals");
   const admin = useRemote<AdminRegistry>("admin");
+  const crm = useRemote<Crm>("admin-crm");
   const theme = useTheme();
   const motion = useAmbientMotion();
   const [palette, setPalette] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [dismissedWallet, setDismissedWallet] = useState<string>();
   const navToggle = useRef<HTMLButtonElement>(null);
   const navPanel = useRef<HTMLElement>(null);
   const selected = all.find((item) => item.section === section) ?? all[0];
@@ -142,6 +150,8 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   const operator = signedIn ? roster?.find((row) => row.wallet === signedIn) : undefined;
   const bootstrapOperator = Boolean(signedIn && admin.state && roster?.length === 0);
   const role: ConsoleProfile["role"] = operator ? operatorRoles[operator.role] : bootstrapOperator ? "admin" : "member";
+  const crmProfile = signedIn ? crm.state?.profiles.find((row) => row.wallet === signedIn) : undefined;
+  const termsRequired = Boolean(signedIn) && crm.state !== undefined && crmProfile?.termsVersion !== termsVersion;
   const profile: ConsoleProfile | null = signedIn
     ? {
         wallet: signedIn,
@@ -197,8 +207,36 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     return session.send({ type: "signOut" });
   }
 
+  async function saveCrmProfile(fields: Partial<{ name: string; username: string; onboarding: string; termsVersion: string; termsAcceptedAt: number }>) {
+    if (!signedIn) return false;
+    const now = Date.now();
+    return crm.send({
+      type: "saveProfile",
+      wallet: signedIn,
+      name: fields.name ?? crmProfile?.name ?? "",
+      username: fields.username ?? crmProfile?.username ?? "",
+      joined: crmProfile?.joined ?? now,
+      onboarding: fields.onboarding ?? crmProfile?.onboarding ?? "pending",
+      termsVersion: fields.termsVersion ?? crmProfile?.termsVersion ?? "",
+      termsAcceptedAt: fields.termsAcceptedAt ?? crmProfile?.termsAcceptedAt ?? 0,
+      inviter: crmProfile?.inviter ?? "",
+      now,
+    });
+  }
+
   async function saveProfile(name: string, username: string) {
-    return settings.send({ type: "saveProfile", name, username });
+    const deviceChanged = name !== settings.state?.name || username !== settings.state?.username;
+    if (deviceChanged && !(await settings.send({ type: "saveProfile", name, username }))) return false;
+    return saveCrmProfile({ name, username });
+  }
+
+  async function acceptTerms() {
+    if (crmProfile?.termsVersion === termsVersion) return true;
+    return saveCrmProfile({ termsVersion, termsAcceptedAt: Date.now() });
+  }
+
+  async function finishOnboarding(funding: "fund" | "later") {
+    return saveCrmProfile({ onboarding: funding });
   }
 
   async function chooseTheme(next: Theme) {
@@ -212,12 +250,16 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     settings,
     ledger,
     referrals,
+    crm,
     profile,
+    termsRequired,
     theme,
     motion,
     signIn,
     signOut,
     saveProfile,
+    acceptTerms,
+    finishOnboarding,
     chooseTheme,
   };
   const visibleGroups = groups.map((group) => ({
@@ -227,6 +269,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   const visibleItems = visibleGroups.flatMap((group) => group.items);
   const PageIcon = selected.Icon;
   const inviteUrl = profile?.referral ? `${window.location.origin}/console?ref=${profile.referral}` : undefined;
+  const showSetup = Boolean(serviceEnabled && (setupOpen || (signedIn && crmProfile?.onboarding === "pending" && signedIn !== dismissedWallet)));
   const sidebar = (items: typeof all) =>
     items.map(({ id, title, path, Icon }) => (
       <a key={id} href={path} onClick={() => setNavOpen(false)} aria-current={id === selected.id ? "page" : undefined}>
@@ -362,17 +405,24 @@ export function ConsoleFrame({ section, children }: { section: Section; children
                   </button>
                 </div>
               )}
-              {setupOpen && (
+              {termsRequired && !showSetup && <TermsAcceptance accept={acceptTerms} />}
+              {showSetup && (
                 <Onboarding
                   wallet={signedIn || undefined}
                   settings={settings.state}
                   cluster={cluster}
                   canFund
+                  termsRequired={termsRequired}
                   onSignIn={signIn}
                   onSignOut={signOut}
                   onSaveProfile={saveProfile}
+                  onAcceptTerms={acceptTerms}
+                  onFinish={finishOnboarding}
                   onChooseTheme={chooseTheme}
-                  close={() => setSetupOpen(false)}
+                  close={() => {
+                    setSetupOpen(false);
+                    setDismissedWallet(signedIn || undefined);
+                  }}
                 />
               )}
               {children}

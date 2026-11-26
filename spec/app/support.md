@@ -5,9 +5,11 @@ opens it with an email, a topic and a message, and either side replies in the
 open. Its state is `open`, `in_progress` or `resolved` (the legacy labels):
 a staff reply on an open request moves it to `in_progress`, the customer
 replying on a resolved request reopens it to `open`, and staff set the state
-directly. A ticket carries its assigned operator's wallet, empty while
-unassigned. Replies are `public` — shown to the customer — or `internal`,
-staff notes only; a staff reply carries its author's wallet.
+directly. A ticket carries the wallet of the workspace that opened it —
+empty when the request arrived without a sign-in — and its assigned
+operator's wallet, empty while unassigned. Replies are `public` — shown to
+the customer — or `internal`, staff notes only; a staff reply carries its
+author's wallet.
 
 ## Domain
 
@@ -34,6 +36,7 @@ type Ticket = {
   openedAt: int,
   updatedAt: int,
   assignedTo: str,
+  wallet: str,
   replies: List[Reply],
 }
 
@@ -69,16 +72,19 @@ pure val walletValues = Set("", "operator", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLV
 
 ### A request needs valid fields and a fresh id
 
+The wallet is the workspace the shell authenticated for the request, or the
+empty string when the request arrived without a sign-in.
+
 ```quint
-pure def canOpen(s: Tickets, id: str, email: str, topic: str, message: str, now: int): bool =
+pure def canOpen(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int): bool =
   id != "" and email != "" and topic != "" and message != ""
   and now >= 0
   and s.tickets.every(t => t.id != id)
 
-pure def open(s: Tickets, id: str, email: str, topic: str, message: str, now: int): Tickets =
+pure def open(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int): Tickets =
   { tickets: s.tickets.append({
       id: id, email: email, topic: topic, message: message,
-      state: Open, openedAt: now, updatedAt: now, assignedTo: "", replies: List() }) }
+      state: Open, openedAt: now, updatedAt: now, assignedTo: "", wallet: wallet, replies: List() }) }
 ```
 
 ### Every ticket stays well formed and uniquely identified
@@ -96,6 +102,12 @@ pure def alwaysTicketsAreWellFormed(s: Tickets): bool =
 
 ```quint
 pure def sometimesOpen(s: Tickets): bool = s.tickets.some(t => t.state == Open)
+```
+
+### A request can carry its workspace's wallet
+
+```quint
+pure def sometimesWorkspaceTicket(s: Tickets): bool = s.tickets.some(t => t.wallet != "")
 ```
 
 ## Story: Converse on a request
@@ -210,14 +222,14 @@ pure def sometimesResolved(s: Tickets): bool = s.tickets.some(t => t.state == Re
 ### The lifecycle as the customer and the team run it
 
 ```quint
-pure def lawCustomerReplyReopensResolved(s: Tickets, id: str, email: str, topic: str, message: str, now: int, body: str): bool =
-  val t1 = open(s, id, email, topic, message, now)
+pure def lawCustomerReplyReopensResolved(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int, body: str): bool =
+  val t1 = open(s, id, email, topic, message, wallet, now)
   val t2 = setState(t1, id, Resolved, now)
   val t3 = reply(t2, id, body, now)
   findTicket(s, id).length() != 0 or findTicket(t3, id).every(t => t.state == Open)
 
-pure def lawStaffReplyStartsProgress(s: Tickets, id: str, email: str, topic: str, message: str, now: int, body: str, visibility: Visibility, author: str): bool =
-  val t1 = open(s, id, email, topic, message, now)
+pure def lawStaffReplyStartsProgress(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int, body: str, visibility: Visibility, author: str): bool =
+  val t1 = open(s, id, email, topic, message, wallet, now)
   val t2 = staffReply(t1, id, body, visibility, author, now)
   findTicket(s, id).length() != 0 or findTicket(t2, id).every(t => t.state == InProgress)
 ```

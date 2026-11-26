@@ -275,7 +275,7 @@ function BillingConsole() {
 
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   const entries = ledger.state?.entries.filter((entry) => entry.wallet === wallet) ?? [];
-  const balance = entries.reduce((total, entry) => total + (entry.kind === "Charge" ? -entry.amount : entry.amount), 0);
+  const balance = entries.reduce((total, entry) => total + (entry.kind === "Charge" || entry.kind === "AdjustDebit" ? -entry.amount : entry.amount), 0);
   const profile = wallet ? { wallet, balance } : null;
   const cluster = config.cluster ?? "devnet";
   const billingEnabled = config.enabled;

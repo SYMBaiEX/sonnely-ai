@@ -143,13 +143,9 @@ function SettingsContent() {
     setError("");
     setNotice("");
     try {
-      const ok = await settings.send({
-        type: "saveProfile",
-        name: String(fields.get("name") ?? ""),
-        username: String(fields.get("username") ?? ""),
-      });
+      const ok = await shell.saveProfile(String(fields.get("name") ?? ""), String(fields.get("username") ?? ""));
       if (ok) setNotice("Profile saved.");
-      else setError("Nothing changed to save.");
+      else setError("The profile could not be saved.");
     } finally {
       setBusy(false);
     }

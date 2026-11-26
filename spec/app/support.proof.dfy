@@ -32,16 +32,16 @@ lemma sameIdIsSame(s: Tickets, a: Ticket, b: Ticket)
   assert b == ProofLib.Filter((o: Ticket) => (o.id == a.id), s.tickets)[0];
 }
 
-lemma open_ensures(s: Tickets, id: string, email: string, topic: string, message: string, now: int)
-  ensures (inv(s) ==> canOpen(s, id, email, topic, message, now) ==> alwaysTicketsAreWellFormed(open(s, id, email, topic, message, now)))
-  ensures (inv(s) ==> canOpen(s, id, email, topic, message, now) ==> stepCustomerReplyReopens(s, "open", open(s, id, email, topic, message, now)))
-  ensures (inv(s) ==> canOpen(s, id, email, topic, message, now) ==> stepStaffReplyProgresses(s, "open", open(s, id, email, topic, message, now)))
-  ensures (inv(s) ==> canOpen(s, id, email, topic, message, now) ==> stepRepliesOnlyGrow(s, open(s, id, email, topic, message, now)))
-  ensures (inv(s) ==> canOpen(s, id, email, topic, message, now) ==> stepStatesMoveByListedTransitions(s, "open", open(s, id, email, topic, message, now)))
+lemma open_ensures(s: Tickets, id: string, email: string, topic: string, message: string, wallet: string, now: int)
+  ensures (inv(s) ==> canOpen(s, id, email, topic, message, wallet, now) ==> alwaysTicketsAreWellFormed(open(s, id, email, topic, message, wallet, now)))
+  ensures (inv(s) ==> canOpen(s, id, email, topic, message, wallet, now) ==> stepCustomerReplyReopens(s, "open", open(s, id, email, topic, message, wallet, now)))
+  ensures (inv(s) ==> canOpen(s, id, email, topic, message, wallet, now) ==> stepStaffReplyProgresses(s, "open", open(s, id, email, topic, message, wallet, now)))
+  ensures (inv(s) ==> canOpen(s, id, email, topic, message, wallet, now) ==> stepRepliesOnlyGrow(s, open(s, id, email, topic, message, wallet, now)))
+  ensures (inv(s) ==> canOpen(s, id, email, topic, message, wallet, now) ==> stepStatesMoveByListedTransitions(s, "open", open(s, id, email, topic, message, wallet, now)))
 {
-  if inv(s) && canOpen(s, id, email, topic, message, now) {
-    var x := Ticket(id, email, topic, message, TicketState.Open, now, now, "", []);
-    var after := open(s, id, email, topic, message, now);
+  if inv(s) && canOpen(s, id, email, topic, message, wallet, now) {
+    var x := Ticket(id, email, topic, message, TicketState.Open, now, now, "", wallet, []);
+    var after := open(s, id, email, topic, message, wallet, now);
     assert after.tickets == s.tickets + [x];
     wellP(s);
     forall t | t in after.tickets
@@ -330,11 +330,11 @@ lemma assignOwner_ensures(s: Tickets, id: string, wallet: string, now: int)
 // spec/app/support.md, "The lifecycle as the customer and the team run it": the opened ticket
 // is the only one with its id; each map only touches that last element.
 
-lemma lawCustomerReplyReopensResolved_ensures(s: Tickets, id: string, email: string, topic: string, message: string, now: int, body: string)
-  ensures (lawCustomerReplyReopensResolved(s, id, email, topic, message, now, body) == true)
+lemma lawCustomerReplyReopensResolved_ensures(s: Tickets, id: string, email: string, topic: string, message: string, wallet: string, now: int, body: string)
+  ensures (lawCustomerReplyReopensResolved(s, id, email, topic, message, wallet, now, body) == true)
 {
-  var x := Ticket(id, email, topic, message, TicketState.Open, now, now, "", []);
-  var t1 := open(s, id, email, topic, message, now);
+  var x := Ticket(id, email, topic, message, TicketState.Open, now, now, "", wallet, []);
+  var t1 := open(s, id, email, topic, message, wallet, now);
   var t2 := setState(t1, id, TicketState.Resolved, now);
   var t3 := reply(t2, id, body, now);
   if |findTicket(s, id)| == 0 {
@@ -357,11 +357,11 @@ lemma lawCustomerReplyReopensResolved_ensures(s: Tickets, id: string, email: str
   }
 }
 
-lemma lawStaffReplyStartsProgress_ensures(s: Tickets, id: string, email: string, topic: string, message: string, now: int, body: string, visibility: Visibility, author: string)
-  ensures (lawStaffReplyStartsProgress(s, id, email, topic, message, now, body, visibility, author) == true)
+lemma lawStaffReplyStartsProgress_ensures(s: Tickets, id: string, email: string, topic: string, message: string, wallet: string, now: int, body: string, visibility: Visibility, author: string)
+  ensures (lawStaffReplyStartsProgress(s, id, email, topic, message, wallet, now, body, visibility, author) == true)
 {
-  var x := Ticket(id, email, topic, message, TicketState.Open, now, now, "", []);
-  var t1 := open(s, id, email, topic, message, now);
+  var x := Ticket(id, email, topic, message, TicketState.Open, now, now, "", wallet, []);
+  var t1 := open(s, id, email, topic, message, wallet, now);
   var t2 := staffReply(t1, id, body, visibility, author, now);
   if |findTicket(s, id)| == 0 {
     assert t1.tickets == s.tickets + [x];

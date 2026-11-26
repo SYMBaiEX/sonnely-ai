@@ -1,6 +1,7 @@
 // spec/app/session.md, "Story: Sign in with a wallet": the HTTP shell around the signing-session
 // machine. The shell creates the exact message, verifies the wallet signature, and only then sends
 // the establishing event. Session cookies bear a random token; the machine stores only its digest.
+import * as Crm from "../../gen/app__admin__crm.effect.vibe"
 import * as Session from "../../gen/app__session.effect.vibe"
 import { store } from "../serve.vibe"
 import * as signin from "./session/signin.ts"
@@ -168,6 +169,13 @@ effect function postVerify() {
   const digest = signin.sessionDigest(token)
   const established = sessions.send({ type: "establish", nonce: challenge.nonce, digest, wallet: challenge.wallet, now, expiresAt: now + sessionMs }) catch (e) => e
   if (established instanceof Session.Rejected) return try reply({ ok: false, error: "Start a new sign-in challenge." }, 401)
+  // spec/app/admin/crm.md, "Customer profiles are keyed by wallet": the first sign-in opens the
+  // workspace's profile as legacy's account creation did, joined now and pending onboarding.
+  const crm = try Crm.Machine
+  const profiles = (try crm.get()).profiles
+  if (!profiles.some((p) => p.wallet == challenge.wallet)) {
+    crm.send({ type: "saveProfile", wallet: challenge.wallet, name: "", username: "", joined: now, onboarding: "pending", termsVersion: "", termsAcceptedAt: 0, inviter: "", now }) catch () => undefined
+  }
   const response = try reply({ ok: true, wallet })
   return HttpServerResponse.expireCookieUnsafe(
     HttpServerResponse.setCookieUnsafe(response, "sonnely_session", token, cookieOptions(where.secure, sessionMs)),

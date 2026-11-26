@@ -52,6 +52,7 @@ function ContactForm() {
         email: field("email"),
         topic: field("topic"),
         message: field("message"),
+        wallet: wallet ?? "",
         now: Date.now(),
       });
       if (!ok) {

@@ -21,6 +21,8 @@ export function Onboarding({
   onSignIn,
   onSignOut,
   onSaveProfile,
+  onAcceptTerms,
+  onFinish,
   onChooseTheme,
   close,
 }: {
@@ -32,6 +34,8 @@ export function Onboarding({
   onSignIn: (wallet: string) => Promise<boolean>;
   onSignOut: () => Promise<boolean>;
   onSaveProfile: (name: string, username: string) => Promise<boolean>;
+  onAcceptTerms: () => Promise<boolean>;
+  onFinish: (funding: "fund" | "later") => Promise<boolean>;
   onChooseTheme: (theme: Theme) => Promise<boolean>;
   close: () => void;
 }) {
@@ -62,10 +66,15 @@ export function Onboarding({
     }
   }
 
-  async function finish(href: string) {
+  async function finish(funding: "fund" | "later", href: string) {
     setBusy(true);
-    close();
-    window.location.assign(href);
+    setError("");
+    try {
+      await onFinish(funding);
+    } finally {
+      close();
+      window.location.assign(href);
+    }
   }
 
   const heading = {
@@ -146,7 +155,7 @@ export function Onboarding({
             {step === "terms" && (
               <>
                 <p>Accept the current terms to fund your balance and run live inference.</p>
-                <TermsAcceptance inSetup />
+                <TermsAcceptance accept={onAcceptTerms} inSetup />
               </>
             )}
             {step === "profile" && (
@@ -170,7 +179,7 @@ export function Onboarding({
                 </p>
                 <div className="onboarding-actions">
                   {canFund && (
-                    <button className="button accent" type="button" disabled={busy} onClick={() => void finish("/console/billing#buy-credits")}>
+                    <button className="button accent" type="button" disabled={busy} onClick={() => void finish("fund", "/console/billing#buy-credits")}>
                       <Wallet size={16} aria-hidden /> Add credits
                     </button>
                   )}
@@ -193,7 +202,7 @@ export function Onboarding({
                   ))}
                 </div>
                 <div className="onboarding-actions">
-                  <button className="button accent" type="button" disabled={busy} onClick={() => void finish(active.href)}>
+                  <button className="button accent" type="button" disabled={busy} onClick={() => void finish("later", active.href)}>
                     Open {active.name} <ArrowRight size={16} aria-hidden />
                   </button>
                   {canFund && (

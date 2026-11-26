@@ -12,12 +12,14 @@ can never go below zero.
 
 Every entry belongs to a wallet, carries a positive amount in micro-dollars
 and names what caused it: `Credit` for a deposit, `Reserve` for a hold,
-`Charge` for settled spend, and `Release` or `Refund` for credit returned.
-A credit's detail is the payment reference it came from; every other entry's
+`Charge` for settled spend, `Release` or `Refund` for credit returned, and
+`AdjustCredit` or `AdjustDebit` for an operator's audited balance adjustment.
+A credit's detail is the payment reference it came from, an adjustment's
+detail is the audited adjustment record it carries out; every other entry's
 detail is the request or rental it belongs to.
 
 ```quint
-type EntryKind = Credit | Reserve | Charge | Release | Refund
+type EntryKind = Credit | Reserve | Charge | Release | Refund | AdjustCredit | AdjustDebit
 
 type Entry = { wallet: str, kind: EntryKind, detail: str, amount: int }
 
@@ -28,7 +30,7 @@ pure val initial: Ledger = { balance: 0, entries: List() }
 
 ```quint
 pure def contribution(e: Entry): int =
-  if (e.kind == Charge or e.kind == Reserve) 0 - e.amount else e.amount
+  if (e.kind == Charge or e.kind == Reserve or e.kind == AdjustDebit) 0 - e.amount else e.amount
 
 pure def sumOf(entries: List[Entry]): int =
   entries.foldl(0, (total, e) => total + contribution(e))
@@ -252,4 +254,61 @@ pure def lawCreditIsIdempotent(l: Ledger, wallet: str, detail: str, amount: int)
 pure def lawChargeDebitsExactly(l: Ledger, wallet: str, detail: str, amount: int): bool =
   amount <= 0 or balanceOf(l, wallet) < amount or l.balance < amount or
     charge(l, wallet, detail, amount).balance == l.balance - amount
+```
+
+## Story: Adjust a balance
+
+> As an operator, I want a balance adjustment to move the customer's credit
+> exactly once, so that the audited record and the balance never disagree.
+
+### An adjustment credits or debits once per record
+
+A positive adjustment credits the wallet; a negative one debits only what
+the wallet holds. Both name the audited adjustment record they carry out,
+so a retried write — the operator retrying a failed request — changes
+nothing.
+
+```quint
+pure def adjustmentWritten(l: Ledger, detail: str): bool =
+  l.entries.some(e => e.detail == detail and (e.kind == AdjustCredit or e.kind == AdjustDebit))
+
+pure def canAdjustCredit(l: Ledger, wallet: str, detail: str, amount: int): bool =
+  wallet != "" and detail != "" and amount > 0
+  and not(adjustmentWritten(l, detail))
+
+pure def adjustCredit(l: Ledger, wallet: str, detail: str, amount: int): Ledger =
+  if (adjustmentWritten(l, detail)) l
+  else {
+    balance: l.balance + amount,
+    entries: l.entries.concat(List({ wallet: wallet, kind: AdjustCredit, detail: detail, amount: amount })),
+  }
+
+pure def canAdjustDebit(l: Ledger, wallet: str, detail: str, amount: int): bool =
+  wallet != "" and detail != "" and amount > 0
+  and balanceOf(l, wallet) >= amount and l.balance >= amount
+  and not(adjustmentWritten(l, detail))
+
+pure def adjustDebit(l: Ledger, wallet: str, detail: str, amount: int): Ledger =
+  if (canAdjustDebit(l, wallet, detail, amount)) {
+    balance: l.balance - amount,
+    entries: l.entries.concat(List({ wallet: wallet, kind: AdjustDebit, detail: detail, amount: amount })),
+  } else l
+```
+
+### An adjustment can arrive in either direction
+
+```quint
+pure def sometimesAdjustCredited(l: Ledger): bool = l.entries.some(e => e.kind == AdjustCredit)
+
+pure def sometimesAdjustDebited(l: Ledger): bool = l.entries.some(e => e.kind == AdjustDebit)
+```
+
+### Adjusting a record twice adjusts it once
+
+```quint
+pure def lawAdjustCreditIsIdempotent(l: Ledger, wallet: str, detail: str, amount: int): bool =
+  adjustCredit(adjustCredit(l, wallet, detail, amount), wallet, detail, amount) == adjustCredit(l, wallet, detail, amount)
+
+pure def lawAdjustDebitIsIdempotent(l: Ledger, wallet: str, detail: str, amount: int): bool =
+  adjustDebit(adjustDebit(l, wallet, detail, amount), wallet, detail, amount) == adjustDebit(l, wallet, detail, amount)
 ```
