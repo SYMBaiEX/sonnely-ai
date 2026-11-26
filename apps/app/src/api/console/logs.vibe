@@ -2,11 +2,10 @@
 import { Machine, stored, initial } from "../../../gen/app__console__logs.effect.vibe"
 import type { Event } from "../../../gen/app__console__logs.ts"
 import type { Logs } from "../../../gen/app__console__logs.ts"
-import { machineApi } from "../../machines.vibe"
-import { store } from "../../serve.vibe"
+import { fleetMachineApi } from "../../machines.vibe"
 
 export const logsApi = Layer.unwrap(effect {
-  return machineApi("console__logs", try Machine, { events: ["resetFilters", "setKeyName", "setModel", "setProvider", "setShowing", "setWindow"] })
+  return fleetMachineApi("console__logs", { events: ["resetFilters", "setKeyName", "setModel", "setProvider", "setShowing", "setWindow"] })
 })
 
 export function logsState(dir: string) {

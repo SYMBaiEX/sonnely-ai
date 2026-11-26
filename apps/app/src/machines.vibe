@@ -4,6 +4,7 @@
 // originate, identity fields are forced to the session wallet, and the machine's trusted sender is
 // the session wallet — never anything the client supplied.
 import { authenticatedWallet } from "./api/session.vibe"
+import { Fleet, fleetMachineNames, type FleetMachine } from "./fleet.vibe"
 
 export interface MachineLike {
   get(): unknown!!
@@ -116,7 +117,62 @@ effect function getStream(m: MachineLike, scoping: Scoping) {
   })
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive" },
+    headers: noStore,
+  })
+}
+
+effect function getFleetState(fleet: Fleet.Shape, name: string) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  const machine = try fleet.machine(name, wallet)
+  return try HttpServerResponse.json(try machine.get(), { headers: noStore })
+}
+
+effect function getFleetStream(fleet: Fleet.Shape, name: string) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  const machine = try fleet.machine(name, wallet)
+  const pushes = Stream.map(machine.changes, (state) => `data: ${JSON.stringify(state)}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: noStore,
+  })
+}
+
+effect function postFleetEvent(fleet: Fleet.Shape, name: string, policy: WritePolicy) {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
+  }
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ ok: false, error: "sign in required" }, { status: 401, headers: noStore })
+  const input = (request.json catch () => undefined) as { type?: unknown } | undefined
+  if (input == undefined || typeof input.type != "string" || !policy.events.includes(input.type as string)) {
+    return try HttpServerResponse.json({ ok: false, error: "This event is not yours to send." }, { status: 403, headers: noStore })
+  }
+  const bound = input as Record<string, unknown>
+  for (const field of policy.bind ?? []) {
+    if (field in bound) bound[field] = wallet
+  }
+  const machine = try fleet.machine(name, wallet)
+  const sent = machine.receive(bound) catch (error) => error
+  const rejected = sent as { _tag?: string; state?: unknown }
+  if (rejected && typeof rejected === "object" && "_tag" in rejected) {
+    const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
+    return try HttpServerResponse.json({ ok: false, error: rejected._tag, state: rejected.state }, { status, headers: noStore })
+  }
+  return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
+}
+
+/** state, event and stream endpoints over the requesting wallet's own instance of a per-wallet machine. */
+export function fleetMachineApi(name: string, policy: WritePolicy = { events: [] }) {
+  return Layer.unwrap(effect {
+    const fleet = try Fleet
+    return Layer.mergeAll(
+      HttpRouter.add("GET", `/api/machines/${name}`, getFleetState(fleet, name)),
+      HttpRouter.add("POST", `/api/machines/${name}`, provideService(postFleetEvent(fleet, name, policy), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+      HttpRouter.add("GET", `/api/machines/${name}/stream`, getFleetStream(fleet, name)),
+    )
   })
 }
 
@@ -128,9 +184,16 @@ effect function getMultiplexedStream(registry: MachineRegistry.Shape) {
     const state = entry.scoping.project != undefined && wallet != "" ? entry.scoping.project(raw, wallet) : raw
     return `data: ${JSON.stringify({ machine: name, state })}\n\n`
   }))
+  if (wallet != "") {
+    const fleet = try Fleet
+    for (const name of fleetMachineNames) {
+      const instance = try fleet.machine(name, wallet)
+      streams.push(Stream.map(instance.changes, (state) => `data: ${JSON.stringify({ machine: name, state })}\n\n`))
+    }
+  }
   return HttpServerResponse.stream(Stream.encodeText(Stream.mergeAll(streams, { concurrency: "unbounded" })), {
     contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive" },
+    headers: noStore,
   })
 }
 

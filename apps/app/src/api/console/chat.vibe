@@ -5,7 +5,8 @@ import type { Chat } from "../../../gen/app__console__chat.ts"
 import type { LogEntry } from "../../../gen/app__console__logs.ts"
 import type { Endpoint as GatewayEndpoint } from "../../../gen/app__gateway__requests.ts"
 import { catalog, providerOf } from "../../../gen/app__console__catalog.ts"
-import { machineApi } from "../../machines.vibe"
+import { fleetMachineApi } from "../../machines.vibe"
+import { Fleet, type FleetMachine } from "../../fleet.vibe"
 import { store } from "../../serve.vibe"
 import { inferChat, inferSpecialized } from "../gateway.vibe"
 import { authenticatedWallet } from "../session.vibe"
@@ -84,10 +85,14 @@ function lastPrompt(state: Chat, id: string) {
   return message?.role === "User" ? message.content : undefined
 }
 
-export effect function completeReply(id: string, model: string) {
-  const machine = try Machine
+interface ChatMachine {
+  get(): unknown!!
+  send(event: unknown): unknown!unknown
+}
+
+export effect function completeReply(machine: ChatMachine, logs: ChatMachine, id: string, model: string) {
   const responder = try Responder
-  const state = try machine.get()
+  const state = (try machine.get()) as Chat
   const prompt = lastPrompt(state, id)
   if (prompt === undefined) throw new NoPrompt({ id })
   const started = try Clock.currentTimeMillis
@@ -98,7 +103,6 @@ export effect function completeReply(id: string, model: string) {
     try Effect.sleep("40 millis")
   }
   const entry = recordEntry(id, model, prompt, answer, try Clock.currentTimeMillis - started)
-  const logs = try LogsMachine
   const _logged = logs.send({ type: "record", entry }) catch () => undefined
   return entry
 }
@@ -137,8 +141,9 @@ effect function replyRoute() {
   if (!parsed || typeof parsed.id !== "string" || typeof parsed.model !== "string") {
     return try HttpServerResponse.json({ error: "send {id, model}" }, { status: 400, headers: noStore })
   }
-  const machine = try Machine
-  const state = try machine.get()
+  const fleet = try Fleet
+  const machine = try fleet.machine("console__chat", wallet)
+  const state = (try machine.get()) as Chat
   const thread = state.threads.find((item) => item.id === parsed.id)
   if (thread == undefined || thread.messages[thread.messages.length - 1]?.role !== "User") {
     return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
@@ -167,8 +172,9 @@ effect function streamRoute() {
   if (!parsed || typeof parsed.id !== "string" || typeof parsed.model !== "string") {
     return try HttpServerResponse.json({ error: "send {id, model}" }, { status: 400, headers: noStore })
   }
-  const machine = try Machine
-  const state = try machine.get()
+  const fleet = try Fleet
+  const machine = try fleet.machine("console__chat", wallet)
+  const state = (try machine.get()) as Chat
   const thread = state.threads.find((item) => item.id === parsed.id)
   if (thread == undefined || thread.messages[thread.messages.length - 1]?.role !== "User") {
     return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
@@ -265,7 +271,7 @@ function playgroundRoute(path: string, endpoint: string) {
 
 export const chatApi = Layer.unwrap(effect {
   return Layer.mergeAll(
-    machineApi("console__chat", try Machine, { events: ["newChat", "pickModel", "send", "reply", "edit", "open", "remove"] }),
+    fleetMachineApi("console__chat", { events: ["newChat", "pickModel", "send", "reply", "edit", "open", "remove"] }),
     playgroundRoute("responses", "responses"),
     playgroundRoute("embeddings", "embeddings"),
     playgroundRoute("rerank", "rerank"),

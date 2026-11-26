@@ -48,7 +48,7 @@ effect function getScopedStream(admin: Admin.Machine.Shape, m: SenderMachine, pr
   const pushes = Stream.map(m.changes, (raw) => `data: ${JSON.stringify(full ? raw : project(raw, wallet))}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive" },
+    headers: noStore,
   })
 }
 
@@ -146,7 +146,7 @@ effect function getStream(admin: Admin.Machine.Shape, m: SenderMachine) {
   const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive" },
+    headers: noStore,
   })
 }
 

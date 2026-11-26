@@ -458,7 +458,7 @@ effect function getStream(m: ReadMachine) {
   const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
-    headers: { ...noStore, connection: "keep-alive" },
+    headers: noStore,
   })
 }
 

@@ -1,0 +1,107 @@
+// The console machines (settings, playground, logs, batch) are single-user by shape: the spec models one
+// person's workspace, so the server keeps one machine instance per wallet instead of one shared instance
+// every account would see and mutate. Each instance is backed by the store under "<name>:<wallet>"; the
+// machine's own load-step-keep keeps concurrent writers correct, and the cache keeps streams stable.
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
+import * as Console from "../gen/app__console.effect.vibe"
+import * as Chat from "../gen/app__console__chat.effect.vibe"
+import * as Logs from "../gen/app__console__logs.effect.vibe"
+import * as Batch from "../gen/app__console__batch.effect.vibe"
+
+export interface FleetMachine {
+  get(): unknown!!
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the channel payload type is erased at the protocol boundary
+  receive(input: unknown): any!any
+  changes: Stream.Stream<unknown>
+}
+
+export const fleetMachineNames = ["console", "console__chat", "console__logs", "console__batch"]
+
+interface Storekv {
+  get(key: string): (string | undefined)!any
+  set(key: string, value: string): void!any
+}
+
+effect function buildConsole(kv: Storekv, key: string) {
+  effect function load() {
+    const found = try Effect.orDie(kv.get(key))
+    if (found === undefined) return Console.initial
+    const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Console.NotAState({ input: found }) }))
+    return try Effect.orDie(Console.decodeState(parsed))
+  }
+  return try Effect.orDie(Console.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
+}
+
+interface Storekv {
+  get(key: string): (string | undefined)!any
+  set(key: string, value: string): void!any
+}
+
+effect function buildChat(kv: Storekv, key: string) {
+  effect function load() {
+    const found = try Effect.orDie(kv.get(key))
+    if (found === undefined) return Chat.initial
+    const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Chat.NotAState({ input: found }) }))
+    return try Effect.orDie(Chat.decodeState(parsed))
+  }
+  return try Effect.orDie(Chat.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
+}
+
+interface Storekv {
+  get(key: string): (string | undefined)!any
+  set(key: string, value: string): void!any
+}
+
+effect function buildLogs(kv: Storekv, key: string) {
+  effect function load() {
+    const found = try Effect.orDie(kv.get(key))
+    if (found === undefined) return Logs.initial
+    const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Logs.NotAState({ input: found }) }))
+    return try Effect.orDie(Logs.decodeState(parsed))
+  }
+  return try Effect.orDie(Logs.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
+}
+
+interface Storekv {
+  get(key: string): (string | undefined)!any
+  set(key: string, value: string): void!any
+}
+
+effect function buildBatch(kv: Storekv, key: string) {
+  effect function load() {
+    const found = try Effect.orDie(kv.get(key))
+    if (found === undefined) return Batch.initial
+    const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Batch.NotAState({ input: found }) }))
+    return try Effect.orDie(Batch.decodeState(parsed))
+  }
+  return try Effect.orDie(Batch.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
+}
+
+export service Fleet {
+  static readonly key = "@repo/app/fleet"
+  machine(name: string, wallet: string): FleetMachine!!
+}
+
+export const fleetLive = Layer.effect(Fleet, effect {
+  const cache = try Ref.make(new Map<string, FleetMachine>())
+  const kv = try KeyValueStore.KeyValueStore
+  return {
+    effect machine(name: string, wallet: string) {
+      const key = name + ":" + wallet
+      const cached = (try Ref.get(cache)).get(key)
+      if (cached != undefined) return cached
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the four machine shapes unify only as erasure
+      const built: any = name == "console" ? try buildConsole(kv, key)
+        : name == "console__chat" ? try buildChat(kv, key)
+        : name == "console__logs" ? try buildLogs(kv, key)
+        : try buildBatch(kv, key)
+      return try Ref.modify(cache, (current: Map<string, FleetMachine>) => {
+        const existing = current.get(key)
+        if (existing != undefined) return [existing, current] as const
+        const next = new Map(current)
+        next.set(key, built as FleetMachine)
+        return [built as FleetMachine, next] as const
+      })
+    },
+  }
+})

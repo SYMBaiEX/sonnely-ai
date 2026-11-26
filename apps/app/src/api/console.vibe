@@ -1,11 +1,12 @@
 // spec/app/console/index.md: the settings machine, the workspace sub-machines and the catalog endpoint.
 import { Machine, stored, initial } from "../../gen/app__console.effect.vibe"
 import { catalog } from "../../gen/app__console__catalog.ts"
-import { machineApi } from "../machines.vibe"
+import { fleetMachineApi } from "../machines.vibe"
+import { fleetLive } from "../fleet.vibe"
 import { store } from "../serve.vibe"
-import { batchApi, batchState } from "./console/batch.vibe"
-import { chatApi, chatState } from "./console/chat.vibe"
-import { logsApi, logsState } from "./console/logs.vibe"
+import { batchApi } from "./console/batch.vibe"
+import { chatApi } from "./console/chat.vibe"
+import { logsApi } from "./console/logs.vibe"
 
 effect function catalogRows() {
   return try HttpServerResponse.json({ catalog }, { headers: { "cache-control": "no-store" } })
@@ -13,7 +14,7 @@ effect function catalogRows() {
 
 export const consoleApi = Layer.unwrap(effect {
   return Layer.mergeAll(
-    machineApi("console", try Machine, { events: ["chooseTheme", "saveProfile", "setPlain", "setSaveOnDevice"] }),
+    fleetMachineApi("console", { events: ["chooseTheme", "saveProfile", "setPlain", "setSaveOnDevice"] }),
     chatApi,
     logsApi,
     batchApi,
@@ -22,12 +23,7 @@ export const consoleApi = Layer.unwrap(effect {
 })
 
 export function consoleState(dir: string) {
-  return Layer.mergeAll(
-    Layer.provide(stored("console"), store(dir)),
-    chatState(dir),
-    logsState(dir),
-    batchState(dir),
-  )
+  return Layer.provide(fleetLive, store(dir))
 }
 
 /** The settings machine's store, for tests and drivers. */
