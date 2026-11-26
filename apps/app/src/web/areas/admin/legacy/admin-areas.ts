@@ -5,6 +5,7 @@ export const adminAreas = [
   "traces",
   "gateway",
   "operators",
+  "payouts",
   "privacy-rings",
   "analytics",
   "logs",

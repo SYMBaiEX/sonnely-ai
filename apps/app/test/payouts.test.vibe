@@ -1,0 +1,50 @@
+import { assert, layer } from "@effect/vitest"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
+import { stored } from "../gen/app__billing__payouts.effect.vibe"
+import { dispatchPayouts } from "../src/api/payouts.vibe"
+import type { Payouts } from "../gen/app__billing__payouts.ts"
+
+const operator = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+const destination = "9Bn8PpGhhp2a2xR1AnkpENPJNZe1m3Av852p993QdxUQ"
+
+function prepare(reference: string, amount: number, chargeTotal: number = 110) {
+  return { type: "prepare", reference, destination, amount, throughEntry: 4, chargeTotal, preparedAt: 1, preparedBy: operator }
+}
+
+layer(KeyValueStore.layerMemory)((it) => {
+  // spec/app/billing/payouts.md, "A payout covers only the markup share of the revenue window"
+  it.effect("margin caps payouts and only one payout is live", () => effect {
+    provide stored("payouts-j1") {
+      try dispatchPayouts(prepare("ref-a", 10))
+      const over = dispatchPayouts(prepare("ref-b", 1)) catch (error) => (error as { _tag: string })._tag
+      try Effect.try(() => assert.strictEqual(typeof over === "string" ? over : "accepted", "Rejected"))
+    }
+  })
+
+  // spec/app/billing/payouts.md, "Verification requires the same signature and exact prepared terms"
+  it.effect("verification binds the same signature and exact prepared terms", () => effect {
+    provide stored("payouts-j2") {
+      try dispatchPayouts(prepare("ref-a", 5))
+      try dispatchPayouts({ type: "execute", reference: "ref-a", signature: "sig-a", executedAt: 2 })
+      const wrong = dispatchPayouts({ type: "markVerified", reference: "ref-a", signature: "sig-a", destination, amount: 6, verifiedAt: 3 }) catch (error) => (error as { _tag: string })._tag
+      try Effect.try(() => assert.strictEqual(typeof wrong === "string" ? wrong : "accepted", "Rejected"))
+      const verified = try dispatchPayouts({ type: "markVerified", reference: "ref-a", signature: "sig-a", destination, amount: 5, verifiedAt: 3 }) as Payouts
+      const again = try dispatchPayouts({ type: "markVerified", reference: "ref-a", signature: "sig-a", destination, amount: 5, verifiedAt: 4 }) as Payouts
+      try Effect.try(() => {
+        assert.strictEqual(verified.payouts[0]?.status.tag, "Verified")
+        assert.deepStrictEqual(again, verified)
+      })
+    }
+  })
+
+  // spec/app/billing/payouts.md, "A failed execution releases the reservation, but a verified payout never fails"
+  it.effect("failed margin becomes available again", () => effect {
+    provide stored("payouts-j3") {
+      try dispatchPayouts(prepare("ref-a", 10))
+      try dispatchPayouts({ type: "execute", reference: "ref-a", signature: "sig-a", executedAt: 2 })
+      try dispatchPayouts({ type: "markFailed", reference: "ref-a", signature: "sig-a", failedAt: 3, reason: "transaction failed" })
+      const after = try dispatchPayouts(prepare("ref-b", 10)) as Payouts
+      try Effect.try(() => assert.strictEqual(after.payouts.length, 2))
+    }
+  })
+})

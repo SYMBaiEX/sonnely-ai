@@ -36,7 +36,7 @@ export service PaymentVerifier {
 const usdcWindow = 24 * 60 * 60_000
 const noStore = { "cache-control": "no-store" }
 
-effect function billingConfig(): BillingConfig!CheckoutUnavailable {
+export effect function billingConfig(): BillingConfig!CheckoutUnavailable {
   const cluster = Config.withDefault(Config.String("SOLANA_BILLING_CLUSTER"), "devnet") catch () => "devnet"
   const rpc = Config.withDefault(Config.String("SOLANA_RPC_URL"), "") catch () => ""
   const recipient = Config.withDefault(Config.String("SOLANA_TREASURY"), "") catch () => ""

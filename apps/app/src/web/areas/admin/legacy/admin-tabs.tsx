@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   LayoutDashboard,
+  Landmark,
   LifeBuoy,
   ListTree,
   ScrollText,
@@ -19,6 +20,7 @@ import { AdminGateway } from "./admin-gateway.tsx";
 import { AdminLogs } from "./admin-logs.tsx";
 import { AdminOperators } from "./admin-operators.tsx";
 import { AdminPrivacyRings } from "./admin-privacy-rings.tsx";
+import { AdminPayouts } from "../payouts.tsx";
 
 export type AdminTab = {
   id: AdminArea;
@@ -64,6 +66,13 @@ export const adminTabs: AdminTab[] = [
     group: "Operations",
     Icon: UserCog,
     render: (wallet) => <AdminOperators key={wallet} />,
+  },
+  {
+    id: "payouts",
+    label: "Payouts",
+    group: "Operations",
+    Icon: Landmark,
+    render: () => <AdminPayouts />,
   },
   {
     id: "privacy-rings",

@@ -1,0 +1,308 @@
+// spec/app/billing/payouts.md, "Story: Record and verify the external execution"
+import * as Admin from "../../gen/app__admin.effect.vibe"
+import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
+import * as Payouts from "../../gen/app__billing__payouts.effect.vibe"
+import * as Usage from "../../gen/app__usage.effect.vibe"
+import { machineRegistration } from "../machines.vibe"
+import { store } from "../serve.vibe"
+import { billingConfig, CheckoutUnavailable } from "./billing.vibe"
+import type { PaymentOrder } from "./billing/solana.ts"
+import * as solana from "./billing/solana.ts"
+import { authenticatedWallet } from "./session.vibe"
+
+const noStore = { "cache-control": "no-store" }
+
+interface PayoutPosition {
+  throughEntry: number
+  chargeTotal: number
+  marginMicros: number
+  committedMicros: number
+  liveMicros: number
+  paidMicros: number
+  availableMicros: number
+  creditLiabilityMicros: number
+}
+
+interface AccessDenied {
+  error: string
+  status: number
+}
+
+effect function reply(value: unknown, status: number = 200) {
+  return try HttpServerResponse.json(value, { status, headers: noStore })
+}
+
+function payoutPosition(ledger: Ledger.Ledger, usage: Usage.Usage, payouts: Payouts.Payouts): PayoutPosition {
+  const inference = new Set(usage.rows.map((row) => row.id))
+  let chargeTotal = 0
+  for (const entry of ledger.entries) {
+    if (!inference.has(entry.detail)) continue
+    if (entry.kind == "Charge") chargeTotal += entry.amount
+    if (entry.kind == "Refund") chargeTotal -= entry.amount
+  }
+  const marginMicros = Payouts.marginOf(chargeTotal)
+  const committedMicros = Payouts.committed(payouts)
+  const liveMicros = payouts.payouts.reduce((sum, payout) => sum + (Payouts.liveStatus(payout.status) ? payout.amount : 0), 0)
+  const paidMicros = payouts.payouts.reduce((sum, payout) => sum + (Payouts.verifiedStatus(payout.status) ? payout.amount : 0), 0)
+  return {
+    throughEntry: ledger.entries.length,
+    chargeTotal,
+    marginMicros,
+    committedMicros,
+    liveMicros,
+    paidMicros,
+    availableMicros: Math.max(0, marginMicros - committedMicros),
+    creditLiabilityMicros: ledger.balance,
+  }
+}
+
+effect function readPosition() {
+  const ledger = try Ledger.Machine
+  const usage = try Usage.Machine
+  const payouts = try Payouts.Machine
+  return payoutPosition(try ledger.get(), try usage.get(), try payouts.get())
+}
+
+effect function operatorAccess() {
+  const operator = try authenticatedWallet()
+  if (operator == "") return { error: "sign in required", status: 401 }
+  const admin = try Admin.Machine
+  const registry = try admin.get()
+  if (!registry.ops.roster.some((row) => row.wallet == operator)) {
+    return { error: "operator access required", status: 403 }
+  }
+  return { operator }
+}
+
+function denied(access: { operator: string } | AccessDenied): access is AccessDenied {
+  return "error" in access
+}
+
+function orderFor(config: { recipient: string; mint: string }, payout: Payouts.Payout): PaymentOrder {
+  return {
+    reference: payout.reference,
+    recipient: payout.destination,
+    mint: config.mint,
+    asset: "USDC",
+    atomic: payout.amount,
+  }
+}
+
+effect function payoutStateResponse() {
+  const access = try operatorAccess()
+  if (denied(access)) return try reply({ ok: false, error: access.error }, access.status)
+  const payouts = try Payouts.Machine
+  const state = try payouts.get()
+  const position = try readPosition()
+  const config = billingConfig() catch (e) => e
+  const enabled = !(config instanceof CheckoutUnavailable)
+  return try reply({
+    ok: true,
+    enabled,
+    cluster: enabled ? config.cluster : undefined,
+    treasury: enabled ? config.recipient : undefined,
+    payoutWallet: Payouts.payoutWallet,
+    position,
+    payouts: state.payouts,
+  })
+}
+
+effect function preparePayout() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try reply({ error: "send application/json" }, 415)
+  }
+  const access = try operatorAccess()
+  if (denied(access)) return try reply({ ok: false, error: access.error }, access.status)
+  const raw = request.json catch () => undefined
+  const input = raw as { amount?: unknown; version?: unknown } | undefined
+  const amount = typeof input?.amount == "number" && Number.isSafeInteger(input.amount) ? input.amount : 0
+  const version = input?.version === 0 ? 0 : input?.version === 1 ? 1 : 1
+  if (amount <= 0 || amount > 1_000_000_000_000) {
+    return try reply({ ok: false, error: "A positive whole micro-USD payout amount is required." }, 400)
+  }
+  const position = try readPosition()
+  if (amount > position.availableMicros) {
+    return try reply({ ok: false, error: "Only reconciled markup margin is available for payout." }, 409)
+  }
+  const config = billingConfig() catch (e) => e
+  if (config instanceof CheckoutUnavailable) return try reply({ ok: false, error: "Payout preparation is unavailable." }, 503)
+  const reference = solana.newReference()
+  const payout = {
+    reference,
+    destination: Payouts.payoutWallet,
+    amount,
+    preparedAt: try Clock.currentTimeMillis,
+    throughEntry: position.throughEntry,
+    chargeTotal: position.chargeTotal,
+    preparedBy: (access as { operator: string }).operator,
+    status: { tag: "Prepared" },
+  } as Payouts.Payout
+  const prepared = tryPromise({
+    try: () => solana.preparePaymentEnvelope(config.rpc, config.recipient, orderFor(config, payout), version),
+    catch: (e) => e,
+  }) catch (e) => e
+  if (prepared instanceof solana.PaymentPreparationRejected) return try reply({ ok: false, error: prepared.message }, 400)
+  if (prepared instanceof Error) return try reply({ ok: false, error: "Solana RPC could not prepare the payout." }, 503)
+  const payouts = try Payouts.Machine
+  const sent = payouts.send({
+    type: "prepare",
+    reference,
+    destination: payout.destination,
+    amount,
+    throughEntry: position.throughEntry,
+    chargeTotal: position.chargeTotal,
+    preparedAt: payout.preparedAt,
+    preparedBy: payout.preparedBy,
+  }) catch (e) => e
+  if (sent instanceof Payouts.Rejected) {
+    return try reply({ ok: false, error: "The payout rules refused this preparation." }, 409)
+  }
+  return try reply({
+    ok: true,
+    payout: Payouts.findPayout(sent as Payouts.Payouts, reference)[0],
+    transaction: (prepared as solana.PaymentDraft).transaction,
+    lastValidBlockHeight: (prepared as solana.PaymentDraft).lastValidBlockHeight,
+  })
+}
+
+effect function executePayout() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try reply({ error: "send application/json" }, 415)
+  }
+  const access = try operatorAccess()
+  if (denied(access)) return try reply({ ok: false, error: access.error }, access.status)
+  const raw = request.json catch () => undefined
+  const input = raw as { reference?: unknown; signature?: unknown } | undefined
+  const reference = typeof input?.reference == "string" ? input.reference : ""
+  const signature = typeof input?.signature == "string" ? input.signature.trim() : ""
+  if (reference == "" || signature == "") {
+    return try reply({ ok: false, error: "A payout reference and transaction signature are required." }, 400)
+  }
+  const payouts = try Payouts.Machine
+  const before = try payouts.get()
+  const payout = Payouts.findPayout(before, reference)[0]
+  if (payout == undefined) return try reply({ ok: false, error: "Payout unavailable." }, 404)
+  if (payout.status.tag == "Verified") {
+    if (payout.status.signature == signature) return try reply({ ok: true, status: "verified", signature })
+    return try reply({ ok: false, error: "This payout is already verified with a different signature." }, 409)
+  }
+  if (payout.status.tag == "Cancelled") return try reply({ ok: false, error: "This payout was cancelled." }, 409)
+  if (payout.status.tag == "Failed") {
+    if (payout.status.signature == signature) return try reply({ ok: false, error: "This transaction finalized unsuccessfully." }, 409)
+    return try reply({ ok: false, error: "This payout already has a different execution signature." }, 409)
+  }
+  if (payout.status.tag == "Executed" && payout.status.signature != signature) {
+    return try reply({ ok: false, error: "This payout already has a different execution signature." }, 409)
+  }
+  const config = billingConfig() catch (e) => e
+  if (config instanceof CheckoutUnavailable) return try reply({ ok: false, error: "Payout verification is unavailable." }, 503)
+  const inspected = tryPromise({
+    try: () => solana.inspectPayment(config.rpc, signature, config.recipient, orderFor(config, payout), config.cluster),
+    catch: (e) => e,
+  }) catch (e) => e
+  if (inspected instanceof solana.PaymentRejected) return try reply({ ok: false, error: inspected.message }, 400)
+  if (inspected instanceof Error) return try reply({ ok: false, error: "Solana RPC could not verify the payout." }, 503)
+  const inspection = inspected as solana.PaymentInspection
+  if (inspection == "mismatch") {
+    return try reply({ ok: false, error: "The finalized transfer does not match the prepared payout." }, 400)
+  }
+  const now = try Clock.currentTimeMillis
+  let current = payout
+  if (payout.status.tag == "Prepared") {
+    const executed = payouts.send({ type: "execute", reference, signature, executedAt: now }) catch (e) => e
+    if (executed instanceof Payouts.Rejected) {
+      const state = try payouts.get()
+      const again = Payouts.findPayout(state, reference)[0]
+      if (again == undefined || Payouts.signatureOf(again.status) != signature) {
+        return try reply({ ok: false, error: "The payout rules refused this execution." }, 409)
+      }
+      current = again
+    } else {
+      current = Payouts.findPayout(executed as Payouts.Payouts, reference)[0] ?? payout
+    }
+  }
+  if (inspection == "pending") return try reply({ ok: true, status: "executed", pending: true, signature })
+  if (inspection == "failed") {
+    const failed = payouts.send({ type: "markFailed", reference, signature, failedAt: now, reason: "transaction finalized unsuccessfully" }) catch (e) => e
+    if (failed instanceof Payouts.Rejected) return try reply({ ok: false, error: "The payout rules refused the failed execution." }, 409)
+    return try reply({ ok: false, error: "This transaction finalized unsuccessfully." }, 409)
+  }
+  const verified = payouts.send({
+    type: "markVerified",
+    reference,
+    signature,
+    destination: current.destination,
+    amount: current.amount,
+    verifiedAt: now,
+  }) catch (e) => e
+  if (verified instanceof Payouts.Rejected) {
+    return try reply({ ok: false, error: "The payout rules refused this verification." }, 409)
+  }
+  return try reply({ ok: true, status: "verified", signature })
+}
+
+effect function cancelPayout() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try reply({ error: "send application/json" }, 415)
+  }
+  const access = try operatorAccess()
+  if (denied(access)) return try reply({ ok: false, error: access.error }, access.status)
+  const raw = request.json catch () => undefined
+  const input = raw as { reference?: unknown; reason?: unknown } | undefined
+  const reference = typeof input?.reference == "string" ? input.reference : ""
+  const reason = typeof input?.reason == "string" && input.reason.trim() != "" ? input.reason.trim() : "abandoned by operator"
+  if (reference == "") return try reply({ ok: false, error: "A payout reference is required." }, 400)
+  const payouts = try Payouts.Machine
+  const before = try payouts.get()
+  const payout = Payouts.findPayout(before, reference)[0]
+  if (payout == undefined) return try reply({ ok: false, error: "Payout unavailable." }, 404)
+  if (payout.status.tag == "Cancelled") return try reply({ ok: true, status: "cancelled" })
+  if (payout.status.tag != "Prepared") return try reply({ ok: false, error: "Only a prepared payout can be cancelled." }, 409)
+  const cancelled = payouts.send({ type: "cancel", reference, cancelledAt: try Clock.currentTimeMillis, reason }) catch (e) => e
+  if (cancelled instanceof Payouts.Rejected) return try reply({ ok: false, error: "The payout rules refused this cancellation." }, 409)
+  return try reply({ ok: true, status: "cancelled" })
+}
+
+interface ReadMachine {
+  get(): unknown!!
+  changes: Stream.Stream<unknown>
+}
+
+effect function getState(m: ReadMachine) {
+  return try reply(try m.get())
+}
+
+effect function getStream(m: ReadMachine) {
+  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  return HttpServerResponse.stream(Stream.encodeText(pushes), {
+    contentType: "text/event-stream",
+    headers: { ...noStore, connection: "keep-alive" },
+  })
+}
+
+export const payoutsApi = Layer.unwrap(effect {
+  const payouts = try Payouts.Machine
+  return Layer.mergeAll(
+    HttpRouter.add("GET", "/api/admin/payouts", payoutStateResponse()),
+    HttpRouter.add("POST", "/api/admin/payouts/prepare", provideService(preparePayout(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
+    HttpRouter.add("POST", "/api/admin/payouts/execute", provideService(executePayout(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
+    HttpRouter.add("POST", "/api/admin/payouts/cancel", provideService(cancelPayout(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
+    HttpRouter.add("GET", "/api/machines/billing-payouts", getState(payouts)),
+    HttpRouter.add("GET", "/api/machines/billing-payouts/stream", getStream(payouts)),
+    machineRegistration("billing-payouts", payouts),
+  )
+})
+
+export const payoutsMachine = Payouts.stored("billing-payouts")
+
+export function payoutsState(dir: string) {
+  return Layer.provide(payoutsMachine, store(dir))
+}
+
+export effect function dispatchPayouts(input: unknown) {
+  const machine = try Payouts.Machine
+  return try machine.receive(input)
+}

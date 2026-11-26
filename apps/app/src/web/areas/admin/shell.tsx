@@ -15,6 +15,7 @@ const descriptions: Record<string, string> = {
   traces: "Inspect request metadata, provider outcomes, and settlement amounts.",
   gateway: "UsageMax reporting, operational alerts, request traces, and invoice reconciliation.",
   operators: "Admin, support, and finance wallets for this deployment.",
+  payouts: "Ledger-derived margin, unsigned treasury payout preparation, and execution verification.",
   "privacy-rings": "Register the treasury for confidential transfers and review private payments.",
   analytics: "Platform requests, spend, signups, and deposits by UTC day.",
   logs: "Privileged admin actions recorded across the workspace.",

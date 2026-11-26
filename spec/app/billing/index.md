@@ -8,3 +8,5 @@ wallet, asset and exact amount, carrying its reference.
 - [Ledger](./ledger.md): the credit balance and its append-only entry log.
 - [Deposits](./deposits.md): Solana payment intents and how a finalized
   transfer becomes credit.
+- [Profit payouts](./payouts.md): margin accounting and externally signed
+  treasury payouts.

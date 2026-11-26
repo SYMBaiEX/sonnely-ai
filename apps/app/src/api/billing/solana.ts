@@ -539,6 +539,38 @@ export async function verifyPayment(
   verifyTransfer(tx.data, wallet, order);
 }
 
+export type PaymentInspection = "pending" | "failed" | "mismatch" | "verified";
+
+export async function inspectPayment(
+  rpc: string,
+  signature: string,
+  wallet: string,
+  order: PaymentOrder,
+  cluster: string,
+): Promise<PaymentInspection> {
+  if (!isSignature(signature)) throw new PaymentRejected("This payment signature is invalid.");
+  await verifyCluster(rpc, cluster);
+  const result = await readRpc(
+    createSolanaRpc(rpc).getTransaction(signature, {
+      commitment: "finalized",
+      encoding: "json",
+      maxSupportedTransactionVersion: 1,
+    }),
+  );
+  if (result === null) return "pending";
+  const tx = transaction.safeParse(result);
+  if (!tx.success) throw new RpcUnavailable("Solana RPC returned an unreadable transaction.");
+  if (tx.data.transaction.signatures[0] !== signature) return "mismatch";
+  if (tx.data.meta.err !== null) return "failed";
+  try {
+    verifyTransfer(tx.data, wallet, order);
+    return "verified";
+  } catch (error) {
+    if (error instanceof PaymentRejected) return "mismatch";
+    throw error;
+  }
+}
+
 export async function findPaymentSignatures(rpc: string, reference: string, commitment: "confirmed" | "finalized" = "finalized") {
   if (!isAddress(reference)) throw new PaymentRejected("This payment reference is invalid.");
   const result = await readRpc(
