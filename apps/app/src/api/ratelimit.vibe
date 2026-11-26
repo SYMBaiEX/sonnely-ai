@@ -1,0 +1,58 @@
+const windowMs = 60_000
+const attemptsPerWindow = 10
+const pruneBeyond = 10_000
+
+function bucketFor(method: string, path: string): string {
+  if (method != "POST") return ""
+  if (path == "/api/session/challenge") return "session-challenge"
+  if (path.startsWith("/api/billing/deposits")) return "billing-deposits"
+  return ""
+}
+
+function clientIp(headers: Record<string, string | undefined>, remote: Option.Option<string>): string {
+  const forwarded = headers["x-forwarded-for"]
+  if (forwarded != undefined && forwarded.trim() != "") {
+    return (forwarded.split(",")[0] ?? "").trim()
+  }
+  return Option.getOrElse(remote, () => "unknown")
+}
+
+interface Window {
+  start: number
+  count: number
+}
+
+function throttle(windows: Map<string, Window>, key: string, now: number) {
+  if (windows.size > pruneBeyond) {
+    for (const [held, window] of windows) {
+      if (now - window.start >= windowMs) windows.delete(held)
+    }
+  }
+  const current = windows.get(key)
+  if (current == undefined || now - current.start >= windowMs) {
+    windows.set(key, { start: now, count: 1 })
+    return { count: 1, retryAfterSeconds: 0 }
+  }
+  current.count += 1
+  return { count: current.count, retryAfterSeconds: Math.ceil((current.start + windowMs - now) / 1000) }
+}
+
+export const ratelimitApi = HttpRouter.middleware(effect {
+  const windows = new Map<string, Window>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the router passes the route effect with its error channel opaque
+  return (next: HttpServerResponse.HttpServerResponse!any!any): HttpServerResponse.HttpServerResponse!any!HttpServerRequest.HttpServerRequest => effect {
+    const request = try HttpServerRequest.HttpServerRequest
+    const bucket = bucketFor(request.method, (request.url.split("?")[0] ?? ""))
+    if (bucket == "") return try next
+    const now = try Clock.currentTimeMillis
+    const key = bucket + "|" + clientIp(request.headers, request.remoteAddress)
+    const outcome = throttle(windows, key, now)
+    if (outcome.count > attemptsPerWindow) {
+      return try HttpServerResponse.json({ ok: false, error: "Too many requests." }, {
+        status: 429,
+        headers: { "cache-control": "no-store", "retry-after": String(outcome.retryAfterSeconds) },
+      })
+    }
+    return try next
+  }
+}, { global: true })

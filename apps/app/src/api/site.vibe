@@ -1,9 +1,11 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
+import * as Admin from "../../gen/app__admin.effect.vibe"
 import { Machine, stored } from "../../gen/app__site.effect.vibe"
 import type { Probe, Report } from "../../gen/app__site.ts"
 import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
+import { authenticatedWallet } from "./session.vibe"
 
 module upstream {
   // spec/app/site/index.md, "A probe watches one dependency"
@@ -87,7 +89,26 @@ effect function getStream(m: Machine.Shape) {
   })
 }
 
-effect function postReport(m: Machine.Shape) {
+effect function reportOnce(m: Machine.Shape) {
+  const found = try check()
+  m.send({ type: "report", found }) catch () => undefined
+}
+
+effect function probeLoop(m: Machine.Shape) {
+  for (;;) {
+    reportOnce(m) catch () => undefined
+    try sleep("60 seconds")
+  }
+}
+
+// spec/app/admin/index.md, "Only an operator can grant access"
+effect function postReport(m: Machine.Shape, admin: Admin.Machine.Shape) {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return try HttpServerResponse.json({ ok: false, error: "sign in required" }, { status: 401, headers: noStore })
+  const registry = try admin.get()
+  if (!registry.ops.roster.some((o) => o.wallet == wallet)) {
+    return try HttpServerResponse.json({ ok: false, error: "operator access required" }, { status: 403, headers: noStore })
+  }
   const found = try check()
   const outcome = m.send({ type: "report", found }) catch () => undefined
   const state = outcome ?? (try m.get())
@@ -97,12 +118,13 @@ effect function postReport(m: Machine.Shape) {
 // spec/app/site/index.md, "The board waits for its first report, then shows the latest"
 export const siteApi = Layer.unwrap(effect {
   const machine = try Machine
-  postReport(machine) catch () => undefined
+  const admin = try Admin.Machine
+  fork.scoped probeLoop(machine)
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/machines/site", getState(machine)),
     HttpRouter.add("GET", "/api/machines/site/stream", getStream(machine)),
     machineRegistration("site", machine, { visibility: "public" }),
-    HttpRouter.add("POST", "/api/site/status", postReport(machine)),
+    HttpRouter.add("POST", "/api/site/status", postReport(machine, admin)),
   )
 })
 

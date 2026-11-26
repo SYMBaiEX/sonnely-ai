@@ -2,8 +2,9 @@ module node {
   import { createServer } from "node:http"
   import { readFileSync } from "node:fs"
   import { NodeHttpServer } from "@effect/platform-node"
+  const drainUnderRailwaySigtermWindow = "25 seconds" as const
   export function listening(port: number, create = createServer) {
-    return NodeHttpServer.layer(create, { port, gracefulShutdownTimeout: 0 })
+    return NodeHttpServer.layer(create, { port, gracefulShutdownTimeout: drainUnderRailwaySigtermWindow })
   }
   export function indexHtml(web: string) {
     return readFileSync(web + "/index.html")
@@ -11,10 +12,42 @@ module node {
 }
 import { indexHtml, listening } from node
 import { store } from "./store.ts"
+import { validWallet } from "./api/session/signin.ts"
 
 export { listening }
 
 export { store }
+
+/** Production boot misconfiguration: the process must not come up to serve traffic. */
+export error StartupConfig { missing: string[] }
+
+function setting(name: string) {
+  return Config.withDefault(Config.String(name), "")
+}
+
+/** Fails fast when production would boot open: no operator seed, wrong cluster or no billing target.
+ * An empty SONNELY_OPERATORS leaves the roster bootstrap open to the first signer, so production
+ * refuses to start without one. */
+export effect function validateStartup() {
+  const env = setting("NODE_ENV") catch () => ""
+  if (env != "production") return
+  const missing: string[] = []
+  const operators = try setting("SONNELY_OPERATORS")
+  const wallets = operators.split(",").map((wallet) => wallet.trim()).filter((wallet) => wallet != "")
+  if (wallets.length == 0) {
+    missing.push("SONNELY_OPERATORS must seed at least one operator wallet")
+  } else if (wallets.some((wallet) => !validWallet(wallet))) {
+    missing.push("SONNELY_OPERATORS holds a wallet that is not a Solana address")
+  }
+  if ((try setting("SOLANA_BILLING_CLUSTER")) != "mainnet") {
+    missing.push("SOLANA_BILLING_CLUSTER must be mainnet in production")
+  }
+  if ((try setting("SOLANA_TREASURY")) == "") missing.push("SOLANA_TREASURY is required in production")
+  if ((try setting("SOLANA_RPC_URL")) == "") missing.push("SOLANA_RPC_URL is required in production")
+  if (missing.length == 0) return
+  try Console.error("Refusing to start in production:\n" + missing.map((line) => "  - " + line).join("\n"))
+  throw new StartupConfig({ missing })
+}
 
 const fileRequest = (url: string) => /\.[A-Za-z0-9]+$/.test(url.split("?")[0] ?? "")
 

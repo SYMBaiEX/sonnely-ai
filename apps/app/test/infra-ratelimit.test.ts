@@ -1,0 +1,77 @@
+import { Layer, Scheduler } from "effect";
+import { HttpRouter, HttpServer, HttpServerResponse } from "effect/http";
+import { afterEach, describe, expect, it } from "vitest";
+import { ratelimitApi } from "../src/api/ratelimit.vibe";
+
+const cleanups: Array<() => void | Promise<void>> = [];
+
+function makeApi() {
+  const scheduler = Layer.succeed(Scheduler.Scheduler, new Scheduler.MixedScheduler("sync"));
+  const ok = HttpServerResponse.json({ ok: true });
+  const routes = Layer.mergeAll(
+    ratelimitApi,
+    HttpRouter.add("POST", "/api/session/challenge", ok),
+    HttpRouter.add("POST", "/api/billing/deposits", ok),
+    HttpRouter.add("POST", "/api/billing/deposits/prepare", ok),
+    HttpRouter.add("GET", "/api/machines/site", ok),
+  );
+  const appLayer = routes.pipe(
+    Layer.provide(HttpServer.layerServices),
+    Layer.provideMerge(scheduler),
+  );
+  const app = HttpRouter.toWebHandler(appLayer);
+  cleanups.push(() => app.dispose());
+  return app.handler;
+}
+
+function post(path: string, ip?: string) {
+  return new Request("http://localhost" + path, {
+    method: "POST",
+    headers: ip == undefined ? {} : { "x-forwarded-for": ip },
+  });
+}
+
+afterEach(async () => {
+  for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
+});
+
+describe("rate limiting", () => {
+  it("allows ten challenge requests a minute and refuses the eleventh", async () => {
+    const handler = makeApi();
+    const ip = "203.0.113.7";
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const response = await handler(post("/api/session/challenge", ip));
+      if (response.status != 200) throw new Error("attempt " + attempt + " was throttled early: " + response.status);
+    }
+    const refused = await handler(post("/api/session/challenge", ip));
+    expect({ status: refused.status, retryAfter: refused.headers.get("retry-after") != null }).toEqual({
+      status: 429,
+      retryAfter: true,
+    });
+  });
+
+  it("counts each ip and each bucket apart", async () => {
+    const handler = makeApi();
+    const ip = "203.0.113.8";
+    for (let attempt = 0; attempt < 10; attempt++) await handler(post("/api/session/challenge", ip));
+    const otherIp = await handler(post("/api/session/challenge", "203.0.113.9"));
+    const otherBucket = await handler(post("/api/billing/deposits", ip));
+    expect({ otherIp: otherIp.status, otherBucket: otherBucket.status }).toEqual({ otherIp: 200, otherBucket: 200 });
+  });
+
+  it("throttles deposit creation", async () => {
+    const handler = makeApi();
+    const ip = "203.0.113.10";
+    for (let attempt = 0; attempt < 10; attempt++) await handler(post("/api/billing/deposits", ip));
+    const refused = await handler(post("/api/billing/deposits/prepare", ip));
+    expect(refused.status).toBe(429);
+  });
+
+  it("leaves reads and other paths alone", async () => {
+    const handler = makeApi();
+    const ip = "203.0.113.11";
+    for (let attempt = 0; attempt < 12; attempt++) await handler(post("/api/session/challenge", ip));
+    const read = await handler(new Request("http://localhost/api/machines/site", { headers: { "x-forwarded-for": ip } }));
+    expect(read.status).toBe(200);
+  });
+});

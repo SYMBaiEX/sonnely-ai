@@ -1,5 +1,64 @@
-effect function health() {
-  return try HttpServerResponse.json({ ok: true, service: "sonnely" }, { headers: { "cache-control": "no-store" } })
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
+import * as Admin from "../../gen/app__admin.effect.vibe"
+import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
+import * as Session from "../../gen/app__session.effect.vibe"
+
+const noStore = { "cache-control": "no-store" }
+const probeKey = ".readiness-probe"
+
+function setting(name: string) {
+  return Config.withDefault(Config.String(name), "")
 }
 
-export const healthApi = HttpRouter.add("GET", "/api/health", health())
+effect function health() {
+  return try HttpServerResponse.json({ ok: true, service: "sonnely" }, { headers: noStore })
+}
+
+effect function storeWritable() {
+  const probe = effect {
+    const kv = try KeyValueStore.KeyValueStore
+    try kv.set(probeKey, "probe")
+    const read = try kv.get(probeKey)
+    try kv.remove(probeKey)
+    return read == "probe"
+  }
+  return probe catch () => false
+}
+
+effect function stateDecodes(key: string, decode: (input: unknown) => unknown!unknown) {
+  const check = effect {
+    const kv = try KeyValueStore.KeyValueStore
+    const found = try kv.get(key)
+    if (found == undefined) return true
+    const parsed = try Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new CorruptProbe() })
+    try decode(parsed)
+    return true
+  }
+  return check catch () => false
+}
+
+error CorruptProbe {}
+
+effect function billingConfigured() {
+  const cluster = setting("SOLANA_BILLING_CLUSTER") catch () => ""
+  const treasury = setting("SOLANA_TREASURY") catch () => ""
+  const rpc = setting("SOLANA_RPC_URL") catch () => ""
+  return cluster != "" && treasury != "" && rpc != ""
+}
+
+effect function ready() {
+  const checks = {
+    store: try storeWritable(),
+    ledger: try stateDecodes("billing-ledger", Ledger.decodeState),
+    session: try stateDecodes("session", Session.decodeState),
+    admin: try stateDecodes("admin", Admin.decodeState),
+    billingConfig: try billingConfigured(),
+  }
+  const ok = checks.store && checks.ledger && checks.session && checks.admin && checks.billingConfig
+  return try HttpServerResponse.json({ ok, checks }, { status: ok ? 200 : 503, headers: noStore })
+}
+
+export const healthApi = Layer.mergeAll(
+  HttpRouter.add("GET", "/api/health", health()),
+  HttpRouter.add("GET", "/api/ready", ready()),
+)
