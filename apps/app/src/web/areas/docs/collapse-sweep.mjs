@@ -6,7 +6,7 @@ function watch(page, tag) {
   page.on("pageerror", (e) => errors.push(`${tag} pageerror: ${String(e).slice(0, 120)}`));
 }
 const shots = "../../../../../../shots/docs";
-const pages = ["", "/quickstart", "/sdks", "/api-keys", "/credits", "/workspaces", "/teams", "/api", "/models", "/streaming", "/batch", "/confidentiality", "/usage", "/blackboxes", "/dry-docks", "/errors", "/migrate"];
+const pages = ["", "/quickstart", "/sdks", "/api-keys", "/credits", "/workspaces", "/teams", "/api", "/models", "/streaming", "/batch", "/confidentiality", "/usage", "/errors", "/migrate"];
 
 // all-pages width sweep: expanded + collapsed, desktop + mobile
 for (const collapsed of [false, true]) {
