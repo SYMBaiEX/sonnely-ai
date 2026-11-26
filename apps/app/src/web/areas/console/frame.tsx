@@ -35,7 +35,7 @@ import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
 import { CommandMenu } from "./command-menu.tsx";
 import { Onboarding } from "./onboarding.tsx";
-import { WalletControl } from "./wallet.tsx";
+import { useBillingCluster, WalletControl } from "./wallet.tsx";
 import "./console.css";
 
 export type { WorkspaceSession };
@@ -154,6 +154,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     : null;
   const serviceEnabled = session.state !== undefined;
   const checkingAccount = session.state === undefined && !session.error;
+  const cluster = useBillingCluster();
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
@@ -319,7 +320,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
             <span className="console-theme">
               <ThemeSwitch choose={(next) => void chooseTheme(next)} />
             </span>
-            <WalletControl wallet={signedIn || undefined} cluster="mainnet" checkingAccount={checkingAccount} onSignIn={signIn} onSignOut={signOut} />
+            <WalletControl wallet={signedIn || undefined} cluster={cluster} checkingAccount={checkingAccount} onSignIn={signIn} onSignOut={signOut} />
             <button
               type="button"
               className="mobile-menu-control console-menu-toggle"
@@ -365,7 +366,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
                 <Onboarding
                   wallet={signedIn || undefined}
                   settings={settings.state}
-                  cluster="mainnet"
+                  cluster={cluster}
                   canFund
                   onSignIn={signIn}
                   onSignOut={signOut}

@@ -4,6 +4,13 @@ import { ArrowUpRight, Wallet } from "lucide-react";
 import QRCode from "qrcode";
 import { Suspense, use, useState, type ReactNode } from "react";
 import { z } from "zod";
+import {
+  getBase58Decoder,
+  getBase64Encoder,
+  getCompiledTransactionMessageDecoder,
+  getTransactionDecoder,
+  isTransactionSendingSigner,
+} from "@solana/kit";
 import { getAddress } from "ethers";
 import { Input } from "@repo/ui";
 import type { Deposits, Intent } from "../../../../gen/app__billing__deposits.ts";
@@ -11,6 +18,7 @@ import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
+import { solanaWalletClients } from "../console/solana-wallet.ts";
 import { ConfidentialCheckout } from "./confidential-checkout.tsx";
 import { IntentsCheckout } from "./intents-checkout.tsx";
 import {
@@ -102,6 +110,10 @@ const confirmDepositSchema = z.object({
   signature: z.string().optional(),
   expired: z.boolean().optional(),
 });
+const prepareDepositSchema = z.object({
+  transaction: z.string(),
+  error: z.string().optional(),
+});
 
 async function postBilling<T extends { error?: string }>(path: string, body: unknown, schema: z.ZodType<T>): Promise<T> {
   const response = await fetch(path, {
@@ -114,6 +126,34 @@ async function postBilling<T extends { error?: string }>(path: string, body: unk
   if (!parsed.success) throw new Error("The payment service returned an unreadable answer.");
   if (!response.ok) throw new Error(parsed.data.error || "The request failed.");
   return parsed.data;
+}
+
+async function payWithWallet(walletAddress: string, reference: string, cluster: string) {
+  if (cluster !== "mainnet" && cluster !== "devnet") throw new Error("Unsupported Solana network.");
+  const { wallet } = solanaWalletClients[cluster];
+  await wallet.whenReady();
+  const connected = wallet.getState().connected;
+  if (connected?.account.address !== walletAddress || !connected.account.chains.includes(`solana:${cluster}`)) {
+    throw new Error("Connect your signed-in wallet from the console header, or use the Solana Pay link.");
+  }
+  const { signer, supportedTransactionVersions } = connected;
+  const version = ([1, 0] as const).find((candidate) => supportedTransactionVersions.has(candidate));
+  if (!signer || !isTransactionSendingSigner(signer) || version === undefined) {
+    throw new Error("Use a wallet that supports sending Solana v0 or v1 transactions.");
+  }
+  const { transaction } = await postBilling("/api/billing/deposits/prepare", { reference, version }, prepareDepositSchema);
+  const current = wallet.getState().connected;
+  if (current?.account !== connected.account || current.signer !== signer) {
+    throw new Error("The wallet changed while preparing this transaction. Review it again before paying.");
+  }
+  const prepared = getTransactionDecoder().decode(getBase64Encoder().encode(transaction));
+  const message = getCompiledTransactionMessageDecoder().decode(prepared.messageBytes);
+  if (message.version !== version || message.staticAccounts[0] !== walletAddress) {
+    throw new Error("The prepared transaction does not match the selected wallet or transaction version.");
+  }
+  const [signature] = await signer.signAndSendTransactions([prepared]);
+  if (signature?.length !== 64) throw new Error("The wallet did not return a signature. Check the payment status.");
+  return getBase58Decoder().decode(signature);
 }
 
 async function qrFor(uri: string) {
@@ -157,92 +197,38 @@ async function quoteFunding(
   wallet: string,
   input: { asset: IntentFund; amount: string; refundTo?: string; prepare?: boolean },
 ): Promise<FundingQuote> {
-  const fund = intentFunds[input.asset];
-  const amountIn = fundingAtomic(input.amount, fund.decimals);
-  if (amountIn === null) throw new Error("Enter a positive amount within the token's precision.");
-  let refundTo = wallet;
-  if (input.asset !== "sol") {
-    try {
-      refundTo = getAddress(input.refundTo ?? "");
-      if (refundTo === "0x0000000000000000000000000000000000000000") throw new Error();
-    } catch {
-      throw new Error("Enter a valid refund wallet for the selected network.");
-    }
-  }
-  const deadline = new Date(Date.now() + (input.prepare ? 15 : 3) * 60_000).toISOString();
-  const quoteRequest = {
-    dry: !input.prepare,
-    swapType: "EXACT_INPUT",
-    slippageTolerance: 100,
-    originAsset: fund.id,
-    depositType: "ORIGIN_CHAIN",
-    destinationAsset,
-    amount: amountIn,
-    recipient: wallet,
-    recipientType: "DESTINATION_CHAIN",
-    refundTo,
-    refundType: "ORIGIN_CHAIN",
-    deadline,
-  };
-  const result = await fetch("https://1click.chaindefuser.com/v0/quote", {
+  if (!wallet) throw new Error("Connect your Solana wallet to quote a swap.");
+  const response = await fetch("/api/billing/intents/quote", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    redirect: "error",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
     cache: "no-store",
-    signal: AbortSignal.timeout(12_000),
-    body: JSON.stringify(quoteRequest),
-  }).catch(() => null);
+  });
   const parsed = z
     .object({
-      quoteRequest: z.record(z.string(), z.unknown()),
-      quote: z.object({
-        amountIn: atomicString,
-        amountOut: atomicString,
-        minAmountOut: atomicString,
-        depositAddress: z.string().min(1).max(128).optional(),
-        depositMemo: z.string().min(1).max(100).optional(),
-        deadline: z.iso.datetime().optional(),
-      }),
+      amountOut: atomicString.optional(),
+      minAmountOut: atomicString.optional(),
+      depositAddress: z.string().optional(),
+      depositMemo: z.string().optional(),
+      deadline: z.string().optional(),
+      recipient: z.string().optional(),
+      refundTo: z.string().optional(),
+      error: z.string().optional(),
     })
-    .safeParse(result?.ok ? await result.json().catch(() => null) : null);
-  if (!parsed.success) throw new Error("No quote was available. Check the amount and try again.");
-  const { quote: expected, quoteRequest: echoed } = parsed.data;
-  const acceptUntil =
-    expected.deadline && Date.parse(expected.deadline) < Date.parse(deadline) ? expected.deadline : deadline;
-  const deliverable = BigInt(expected.minAmountOut) > 0n && BigInt(expected.amountOut) >= BigInt(expected.minAmountOut);
-  const matches = [
-    "dry",
-    "swapType",
-    "originAsset",
-    "depositType",
-    "destinationAsset",
-    "amount",
-    "recipient",
-    "recipientType",
-    "refundTo",
-    "refundType",
-    "slippageTolerance",
-    "deadline",
-  ].every((key) => echoed[key] === quoteRequest[key as keyof typeof quoteRequest]);
-  const validDeposit =
-    expected.depositAddress &&
-    (input.asset === "sol"
-      ? expected.depositAddress.length >= 32
-      : /^0x[0-9a-fA-F]{40}$/.test(expected.depositAddress) && !/^0x0{40}$/.test(expected.depositAddress));
-  if (
-    !deliverable ||
-    !matches ||
-    BigInt(expected.amountIn) !== BigInt(amountIn) ||
-    (input.prepare && (!validDeposit || !expected.deadline || Date.parse(acceptUntil) <= Date.now()))
-  )
+    .safeParse(await response.json().catch(() => null));
+  if (!parsed.success) throw new Error("The quote service returned an unreadable answer.");
+  const data = parsed.data;
+  if (!response.ok) throw new Error(data.error || "No quote was available. Check the amount and try again.");
+  if (!data.amountOut || !data.minAmountOut || !data.deadline || !data.recipient || !data.refundTo) {
     throw new Error("NEAR Intents returned inconsistent swap details. Request a new quote.");
+  }
   return {
-    amountOut: expected.amountOut,
-    minAmountOut: expected.minAmountOut,
-    deadline: acceptUntil,
-    recipient: wallet,
-    refundTo,
-    ...(input.prepare ? { depositAddress: expected.depositAddress, depositMemo: expected.depositMemo } : {}),
+    amountOut: data.amountOut,
+    minAmountOut: data.minAmountOut,
+    deadline: data.deadline,
+    recipient: data.recipient,
+    refundTo: data.refundTo,
+    ...(input.prepare ? { depositAddress: data.depositAddress, depositMemo: data.depositMemo } : {}),
   };
 }
 
@@ -769,9 +755,12 @@ function BillingConsole() {
                     className="button accent"
                     disabled={!billingEnabled || !!pending}
                     onClick={() =>
-                      void run("pay", () =>
-                        Promise.reject(new Error("Connect your signed-in wallet from the console header, or use the Solana Pay link.")),
-                      )
+                      void run("pay", async () => {
+                        if (!profile) throw new Error("Connect your signed-in wallet from the console header, or use the Solana Pay link.");
+                        const sent = await payWithWallet(profile.wallet, order.intent.reference, order.cluster);
+                        setSignature(sent);
+                        setSubmittedSignature(sent);
+                      })
                     }
                   >
                     {pending === "pay" ? "Waiting for wallet…" : "Pay with connected wallet"}

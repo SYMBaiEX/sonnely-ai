@@ -4,15 +4,49 @@
 import { randomBytes } from "node:crypto";
 import bs58 from "bs58";
 import QRCode from "qrcode";
-import { createSolanaRpc, getBase58Encoder, isAddress, isSignature } from "@solana/kit";
 import {
+  AccountRole,
+  address as solanaAddress,
+  appendTransactionMessageInstructions,
+  blockhash,
+  compileTransaction,
+  createDefaultRpcTransport,
+  createNoopSigner,
+  createSolanaRpc,
+  createSolanaRpcFromTransport,
+  createTransactionMessage,
+  estimateResourceLimitsFactory,
+  getBase58Encoder,
+  getBase64EncodedWireTransaction,
+  getTransactionDecoder,
+  getTransactionVersionDecoder,
+  isAddress,
+  isSignature,
+  isSolanaError,
+  lamports,
+  pipe,
+  setTransactionMessageConfig,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+  SOLANA_ERROR__TRANSACTION__FAILED_TO_ESTIMATE_COMPUTE_LIMIT,
+  type NoopSigner,
+  type RpcTransport,
+  type TransactionMessage,
+} from "@solana/kit";
+import {
+  getTransferSolInstruction,
   getTransferSolInstructionDataDecoder,
   SYSTEM_PROGRAM_ADDRESS,
   TRANSFER_SOL_DISCRIMINATOR,
 } from "@solana-program/system";
 import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstructionAsync,
+  getTokenSize,
+  getTransferCheckedInstruction,
   getTransferCheckedInstructionDataDecoder,
   getTransferInstructionDataDecoder,
+  TOKEN_ERROR__INSUFFICIENT_FUNDS,
   TOKEN_PROGRAM_ADDRESS,
   TRANSFER_CHECKED_DISCRIMINATOR,
   TRANSFER_DISCRIMINATOR,
@@ -30,6 +64,7 @@ export type PaymentOrder = {
 
 export class RpcUnavailable extends Error {}
 export class PaymentRejected extends Error {}
+export class PaymentPreparationRejected extends Error {}
 
 export const address = z.string().refine(isAddress);
 export const genesisHashes: Record<string, string> = {
@@ -115,6 +150,222 @@ export async function verifyCluster(rpc: string, cluster: string) {
   if (!expected) throw new RpcUnavailable("The configured Solana network is unsupported.");
   const result = await readRpc(createSolanaRpc(rpc).getGenesisHash());
   if (result !== expected) throw new RpcUnavailable("The configured Solana RPC is on a different network.");
+}
+
+export type PaymentTransactionVersion = 0 | 1;
+
+export type PaymentDraft = { transaction: string; lastValidBlockHeight: number };
+
+/** @throws {never} */
+export function encodePaymentDraft(draft: PaymentDraft) {
+  return JSON.stringify(draft);
+}
+
+/** @throws {never} */
+export function decodePaymentDraft(raw: string): PaymentDraft | undefined {
+  try {
+    const parsed = JSON.parse(raw) as Partial<PaymentDraft>;
+    return typeof parsed.transaction === "string" &&
+      typeof parsed.lastValidBlockHeight === "number" &&
+      Number.isSafeInteger(parsed.lastValidBlockHeight) &&
+      parsed.lastValidBlockHeight >= 0
+      ? { transaction: parsed.transaction, lastValidBlockHeight: parsed.lastValidBlockHeight }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+
+
+const prepareCommitment = "confirmed" as const;
+const rpcTimeout = 10_000;
+const accountDataPage = 32 * 1024;
+const accountMetadataSize = 64;
+const maxComputeUnits = 1_400_000;
+const maxLoadedAccountData = 64 * 1024 * 1024;
+const simulationRequest = z.object({ method: z.literal("simulateTransaction") });
+const simulationReply = z.object({ result: z.object({ value: z.object({ err: z.unknown() }) }) });
+const resourceEstimate = z.object({
+  computeUnitLimit: z.int().positive().max(maxComputeUnits),
+  loadedAccountsDataSizeLimit: z.int().nonnegative().max(maxLoadedAccountData),
+});
+const latestBlockhash = z.object({
+  value: z.object({
+    blockhash: z.string(),
+    lastValidBlockHeight: z.bigint().min(0n).max(BigInt(Number.MAX_SAFE_INTEGER)),
+  }),
+});
+const insufficientUsdc = z.object({
+  InstructionError: z.tuple([
+    z.union([z.literal(1), z.literal(1n)]),
+    z.object({
+      Custom: z.union([
+        z.literal(TOKEN_ERROR__INSUFFICIENT_FUNDS),
+        z.literal(BigInt(TOKEN_ERROR__INSUFFICIENT_FUNDS)),
+      ]),
+    }),
+  ]),
+});
+
+function validateSimulation(err: unknown, order: PaymentOrder) {
+  if (err === null) return;
+  if (order.asset === "USDC" && insufficientUsdc.safeParse(err).success)
+    throw new PaymentPreparationRejected(
+      `Your wallet needs ${creditDecimal(order.atomic)} USDC on this Solana network for this transfer.`,
+    );
+  if (err === "InsufficientFundsForFee")
+    throw new PaymentPreparationRejected("Your wallet needs more SOL on this network to pay the transaction fee.");
+  throw new PaymentPreparationRejected(
+    order.asset === "SOL"
+      ? "This transfer did not pass simulation. Check your SOL balance and network fee."
+      : "This transfer did not pass simulation. Check your wallet’s USDC and SOL balances.",
+  );
+}
+
+function paymentRpc(url: string, order: PaymentOrder) {
+  const transport = createDefaultRpcTransport({ url });
+  const checkedTransport: RpcTransport = async <TResponse>(request: Parameters<RpcTransport>[0]) => {
+    const response = await transport<TResponse>(request);
+    if (simulationRequest.safeParse(request.payload).success) {
+      const simulation = simulationReply.safeParse(response);
+      if (!simulation.success) throw new RpcUnavailable("Solana RPC could not simulate the payment.");
+      validateSimulation(simulation.data.result.value.err, order);
+    }
+    return response;
+  };
+  return createSolanaRpcFromTransport(checkedTransport);
+}
+
+function getPaymentTransactionVersion(encoded: string) {
+  try {
+    const { messageBytes } = getTransactionDecoder().decode(Buffer.from(encoded, "base64"));
+    return getTransactionVersionDecoder().decode(messageBytes);
+  } catch {
+    throw new PaymentPreparationRejected("The saved payment draft could not be read. Wait for it to expire.");
+  }
+}
+
+/** The saved envelope only when it has the wallet's transaction version. */
+export function paymentEnvelopeResponse(transaction: string, version: PaymentTransactionVersion) {
+  if (getPaymentTransactionVersion(transaction) !== version)
+    throw new PaymentPreparationRejected(
+      "A transaction for this payment is still active. Use the original wallet or wait for it to expire.",
+    );
+  return { transaction };
+}
+
+async function paymentInstructions(order: PaymentOrder, payer: NoopSigner) {
+  const owner = solanaAddress(order.recipient);
+  const reference = { address: solanaAddress(order.reference), role: AccountRole.READONLY } as const;
+  if (order.asset === "SOL") {
+    const transfer = getTransferSolInstruction({
+      source: payer,
+      destination: owner,
+      amount: lamports(BigInt(order.atomic)),
+    });
+    return [{ ...transfer, accounts: [...transfer.accounts, reference] }];
+  }
+
+  const mint = solanaAddress(order.mint);
+  const [source, destination] = await Promise.all([
+    findAssociatedTokenPda({ owner: payer.address, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS }),
+    findAssociatedTokenPda({ owner, mint, tokenProgram: TOKEN_PROGRAM_ADDRESS }),
+  ]);
+  const createRecipient = await getCreateAssociatedTokenIdempotentInstructionAsync({
+    payer,
+    owner,
+    mint,
+    ata: destination,
+  });
+  const transfer = getTransferCheckedInstruction({
+    source,
+    destination,
+    mint,
+    authority: payer,
+    amount: BigInt(order.atomic),
+    decimals: 6,
+  });
+  return [createRecipient, { ...transfer, accounts: [...transfer.accounts, reference] }];
+}
+
+/** Build and simulate the unsigned v0/v1 deposit transaction the connected wallet signs and sends. */
+export async function preparePaymentEnvelope(
+  rpcUrl: string,
+  wallet: string,
+  order: PaymentOrder,
+  version: PaymentTransactionVersion = 1,
+) {
+  const rpc = paymentRpc(rpcUrl, order);
+  const payer = createNoopSigner(solanaAddress(wallet));
+  const instructions = await paymentInstructions(order, payer);
+
+  function paymentMessage<TMessage extends TransactionMessage>(message: TMessage) {
+    return pipe(
+      message,
+      (tx) => setTransactionMessageFeePayer(payer.address, tx),
+      (tx) => appendTransactionMessageInstructions(instructions, tx),
+    );
+  }
+
+  async function estimateV1Message() {
+    const message = paymentMessage(createTransactionMessage({ version: 1 }));
+    const provisional = setTransactionMessageLifetimeUsingBlockhash(
+      { blockhash: blockhash("11111111111111111111111111111111"), lastValidBlockHeight: 0n },
+      message,
+    );
+    const estimate = resourceEstimate.parse(
+      await estimateResourceLimitsFactory({ rpc })(provisional, {
+        commitment: prepareCommitment,
+        abortSignal: AbortSignal.timeout(rpcTimeout),
+      }),
+    );
+    const recipientAccountHeadroom = order.asset === "SOL" ? 0 : getTokenSize() + accountMetadataSize;
+    const loadedAccountPages = Math.ceil(
+      (estimate.loadedAccountsDataSizeLimit + recipientAccountHeadroom) / accountDataPage,
+    );
+    return setTransactionMessageConfig(
+      {
+        computeUnitLimit: Math.min(maxComputeUnits, Math.ceil(estimate.computeUnitLimit * 1.15)),
+        loadedAccountsDataSizeLimit: Math.min(
+          maxLoadedAccountData,
+          Math.max(1, loadedAccountPages) * accountDataPage,
+        ),
+      },
+      message,
+    );
+  }
+
+  try {
+    const message =
+      version === 1 ? await estimateV1Message() : paymentMessage(createTransactionMessage({ version: 0 }));
+    const { value } = latestBlockhash.parse(
+      await rpc.getLatestBlockhash({ commitment: prepareCommitment }).send({ abortSignal: AbortSignal.timeout(rpcTimeout) }),
+    );
+    const ready = setTransactionMessageLifetimeUsingBlockhash(
+      { blockhash: blockhash(value.blockhash), lastValidBlockHeight: value.lastValidBlockHeight },
+      message,
+    );
+    const transaction = getBase64EncodedWireTransaction(compileTransaction(ready));
+    await rpc
+      .simulateTransaction(transaction, { encoding: "base64", commitment: prepareCommitment, sigVerify: false })
+      .send({ abortSignal: AbortSignal.timeout(rpcTimeout) });
+    return { transaction, lastValidBlockHeight: Number(value.lastValidBlockHeight) };
+  } catch (error) {
+    const failure = isSolanaError(error, SOLANA_ERROR__TRANSACTION__FAILED_TO_ESTIMATE_COMPUTE_LIMIT)
+      ? error.cause
+      : error;
+    if (failure instanceof PaymentPreparationRejected || failure instanceof RpcUnavailable) throw failure;
+    throw new RpcUnavailable("Solana RPC could not prepare the payment.");
+  }
+}
+
+/** The cluster's finalized block height, bounded to a safe integer. */
+export async function finalizedBlockHeight(rpc: string) {
+  const height = await readRpc(createSolanaRpc(rpc).getBlockHeight({ commitment: "finalized" }));
+  if (typeof height !== "bigint" || height < 0n || height > BigInt(Number.MAX_SAFE_INTEGER))
+    throw new RpcUnavailable("Solana finalized block height is unavailable.");
+  return Number(height);
 }
 
 const amount = z.string().regex(/^\d+$/);
@@ -270,12 +521,14 @@ export async function verifyPayment(
   wallet: string,
   order: PaymentOrder,
   cluster: string,
+  commitment: "confirmed" | "finalized" = "finalized",
+  verifyNetwork = true,
 ) {
   if (!isSignature(signature)) throw new PaymentRejected("This payment signature is invalid.");
-  await verifyCluster(rpc, cluster);
+  if (verifyNetwork) await verifyCluster(rpc, cluster);
   const result = await readRpc(
     createSolanaRpc(rpc).getTransaction(signature, {
-      commitment: "finalized",
+      commitment,
       encoding: "json",
       maxSupportedTransactionVersion: 1,
     }),
@@ -286,10 +539,10 @@ export async function verifyPayment(
   verifyTransfer(tx.data, wallet, order);
 }
 
-export async function findPaymentSignatures(rpc: string, reference: string) {
+export async function findPaymentSignatures(rpc: string, reference: string, commitment: "confirmed" | "finalized" = "finalized") {
   if (!isAddress(reference)) throw new PaymentRejected("This payment reference is invalid.");
   const result = await readRpc(
-    createSolanaRpc(rpc).getSignaturesForAddress(reference, { commitment: "finalized", limit: 20 }),
+    createSolanaRpc(rpc).getSignaturesForAddress(reference, { commitment, limit: 20 }),
   );
   const parsed = z.array(z.object({ signature: signatureSchema, err: z.unknown() })).safeParse(result);
   if (!parsed.success) throw new RpcUnavailable("Solana RPC could not check the payment history.");
@@ -297,23 +550,24 @@ export async function findPaymentSignatures(rpc: string, reference: string) {
 }
 
 /** The finalized signature paying `order`, or null when none was found yet. */
-export async function findFinalizedPayment(
+export async function findPayment(
   rpc: string,
   wallet: string,
   order: PaymentOrder,
   cluster: string,
+  commitment: "confirmed" | "finalized",
   signature?: string,
 ): Promise<string | null> {
   if (signature) {
-    await verifyPayment(rpc, signature, wallet, order, cluster);
+    await verifyPayment(rpc, signature, wallet, order, cluster, commitment);
     return signature;
   }
   await verifyCluster(rpc, cluster);
-  for (const candidate of await findPaymentSignatures(rpc, order.reference)) {
+  for (const candidate of await findPaymentSignatures(rpc, order.reference, commitment)) {
     try {
       const result = await readRpc(
         createSolanaRpc(rpc).getTransaction(candidate, {
-          commitment: "finalized",
+          commitment,
           encoding: "json",
           maxSupportedTransactionVersion: 1,
         }),
@@ -328,6 +582,17 @@ export async function findFinalizedPayment(
     }
   }
   return null;
+}
+
+/** The finalized signature paying `order`, or null when none was found yet. */
+export async function findFinalizedPayment(
+  rpc: string,
+  wallet: string,
+  order: PaymentOrder,
+  cluster: string,
+  signature?: string,
+): Promise<string | null> {
+  return findPayment(rpc, wallet, order, cluster, "finalized", signature);
 }
 
 const ticker = z.object({ price: z.string().max(26), time: z.iso.datetime() });

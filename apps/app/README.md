@@ -18,5 +18,15 @@ here keeps state outside a spec machine.
 | `src/web/remote.ts` | `useRemote(name)`: server machine state over SSE |
 | `test/drivers/` | Conformance drivers: the stored machines replayed against their spec |
 
+## Solana billing
+
+Checkout reads `SOLANA_BILLING_CLUSTER` (`mainnet` or `devnet`), `SOLANA_RPC_URL`
+and `SOLANA_TREASURY`. The treasury and RPC must belong to the selected cluster;
+without all three, checkout is disabled. `SOLANA_TREASURY` is the recipient for
+server-prepared SOL and USDC deposits. Set `SONNELY_DEPOSIT_RECOVERY=true` to
+run the mainnet finalized-payment sweep in the server process. Cross-chain NEAR
+Intents deposit addresses require `NEAR_INTENTS_API_KEY` and the mainnet billing
+cluster; dry quotes remain available without it.
+
 State persists under `dist/data/` (filesystem KeyValueStore) when built, or
 alongside the dev entry. Set `PORT` to choose the server port (default: random).

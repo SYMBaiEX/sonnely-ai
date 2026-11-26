@@ -34,6 +34,23 @@ async function sessionRequest<T>(task: string, data?: unknown): Promise<T> {
   return payload as T;
 }
 
+export function useBillingCluster() {
+  const [cluster, setCluster] = useState<"mainnet" | "devnet">("mainnet");
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/billing/config", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((config) => {
+        if (active && config?.cluster === "devnet") setCluster("devnet");
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  return cluster;
+}
+
 export function WalletControl({
   wallet: signedInWallet,
   cluster,

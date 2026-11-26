@@ -1,11 +1,12 @@
 // The sign-in gate: what a signed-out visitor sees where a signed-in section would be.
 import { Lock } from "lucide-react";
 import { useConsoleShell } from "./frame.tsx";
-import { WalletControl } from "./wallet.tsx";
+import { useBillingCluster, WalletControl } from "./wallet.tsx";
 
 /** Asks for a wallet where the section needs one; wallet authentication opens the workspace. */
 export function SignInGate({ message }: { message: string }) {
   const shell = useConsoleShell();
+  const cluster = useBillingCluster();
   return (
     <div className="empty panel workspace-signin">
       <span className="empty-icon">
@@ -13,7 +14,7 @@ export function SignInGate({ message }: { message: string }) {
       </span>
       <h2>Workspace sign-in</h2>
       <p>{message}</p>
-      <WalletControl cluster="mainnet" onSignIn={shell.signIn} onSignOut={shell.signOut} />
+      <WalletControl cluster={cluster} onSignIn={shell.signIn} onSignOut={shell.signOut} />
       <p className="caption">Signing in proves control of a Solana wallet. It never sends a transaction or moves funds.</p>
     </div>
   );

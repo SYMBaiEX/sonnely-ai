@@ -2,9 +2,11 @@
 // under "billing-ledger" and "billing-deposits", read-only over HTTP. The deposit endpoints quote,
 // bind and credit a transfer only after the configured cluster finalized it; the machines' own
 // guards decide what each event may do.
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Deposits from "../../gen/app__billing__deposits.effect.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
+import * as intents from "./billing/intents.ts"
 import * as solana from "./billing/solana.ts"
 import { machineRegistration } from "../machines.vibe"
 import { store } from "../serve.vibe"
@@ -131,6 +133,76 @@ effect function openDeposit() {
   return try reply({ ok: true, intent, uri, qr })
 }
 
+
+// spec/app/billing/deposits.md, "Story: Open a payment intent": the server prepares the exact transfer
+// once per live blockhash; the wallet signs and submits it, then finalization remains machine truth.
+effect function prepareDeposit() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try reply({ error: "send application/json" }, 415)
+  }
+  const raw = request.json catch () => undefined
+  const input = raw as { reference?: unknown; version?: unknown } | undefined
+  const sessionWallet = try authenticatedWallet()
+  if (sessionWallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
+  const reference = typeof input?.reference == "string" ? input.reference : ""
+  const version = input?.version === 0 ? 0 : input?.version === 1 ? 1 : undefined
+  if (reference == "" || version == undefined) {
+    return try reply({ ok: false, error: "A payment reference and supported transaction version are required." }, 400)
+  }
+  const deposits = try Deposits.Machine
+  const state = try deposits.get()
+  const intent = Deposits.findIntent(state, reference)[0]
+  if (intent == undefined || intent.wallet != sessionWallet) return try reply({ ok: false, error: "Payment request unavailable." }, 404)
+  if (intent.status.tag == "Finalized") return try reply({ ok: false, error: "This payment is already finalized." }, 409)
+  const now = try Clock.currentTimeMillis
+  if (intent.status.tag == "Expired" || intent.expiresAt <= now) {
+    if (intent.status.tag == "Pending") deposits.send({ type: "expire", reference, now }) catch () => undefined
+    return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
+  }
+  const config = billingConfig() catch (e) => e
+  if (config instanceof CheckoutUnavailable) return try reply({ ok: false, error: config.reason }, 503)
+  const order: PaymentOrder = {
+    reference: intent.reference,
+    recipient: config.recipient,
+    mint: config.mint,
+    asset: intent.asset,
+    atomic: intent.atomic,
+  }
+  const network = tryPromise({ try: () => solana.verifyCluster(config.rpc, config.cluster), catch: () => new VerificationUnavailable({ reason: "network" }) }) catch (e) => e
+  if (network instanceof VerificationUnavailable) {
+    return try reply({ ok: false, error: "The configured Solana RPC is on a different network." }, 503)
+  }
+  const submitted = tryPromise({
+    try: () => solana.findPayment(config.rpc, intent.wallet, order, config.cluster, "confirmed"),
+    catch: () => new VerificationUnavailable({ reason: "history" }),
+  }) catch (e) => e
+  if (submitted instanceof VerificationUnavailable) return try reply({ ok: false, error: "Solana RPC could not check the payment history." }, 503)
+  if (submitted != null) return try reply({ ok: false, error: "This payment is on chain. Wait for finality before trying again." }, 409)
+  const height = tryPromise({ try: () => solana.finalizedBlockHeight(config.rpc), catch: () => new VerificationUnavailable({ reason: "height" }) }) catch (e) => e
+  if (height instanceof VerificationUnavailable) return try reply({ ok: false, error: "Solana finalized block height is unavailable." }, 503)
+  const kv = try KeyValueStore.KeyValueStore
+  const key = "billing-deposit-draft:" + reference
+  const stored = kv.get(key) catch () => undefined
+  const draft = typeof stored == "string" ? solana.decodePaymentDraft(stored) : undefined
+  if (draft != undefined && draft.lastValidBlockHeight >= (height as number)) {
+    const reused = Effect.try({
+      try: () => solana.paymentEnvelopeResponse(draft.transaction, version),
+      catch: (e) => e,
+    }) catch (e) => e
+    if (reused instanceof solana.PaymentPreparationRejected) return try reply({ ok: false, error: reused.message }, 409)
+    if (!(reused instanceof Error)) return try reply(reused)
+  }
+  const prepared = tryPromise({
+    try: () => solana.preparePaymentEnvelope(config.rpc, intent.wallet, order, version),
+    catch: (e) => e,
+  }) catch (e) => e
+  if (prepared instanceof solana.PaymentPreparationRejected) return try reply({ ok: false, error: prepared.message }, 400)
+  if (prepared instanceof Error) return try reply({ ok: false, error: "Solana RPC could not prepare the payment." }, 503)
+  try kv.set(key, solana.encodePaymentDraft(prepared as solana.PaymentDraft))
+  return try reply({ transaction: (prepared as solana.PaymentDraft).transaction })
+}
+
 // spec/app/billing/deposits.md, "Story: Finalize a paid intent": only a transfer the cluster finalized,
 // bound to the intent's wallet, asset, exact amount and reference, marks the intent Finalized; then the
 // ledger credits its wallet once per reference.
@@ -151,7 +223,11 @@ effect function confirmDeposit() {
   const intent = Deposits.findIntent(state, reference)[0]
   if (intent == undefined) return try reply({ ok: false, error: "Payment request unavailable." }, 404)
   if (intent.wallet != sessionWallet) return try reply({ ok: false, error: "Payment request unavailable." }, 404)
-  if (intent.status.tag == "Finalized") return try reply({ ok: true, signature: intent.status.signature })
+  if (intent.status.tag == "Finalized") {
+    const ledger = try Ledger.Machine
+    ledger.send({ type: "credit", wallet: intent.wallet, detail: reference, amount: intent.amount }) catch () => undefined
+    return try reply({ ok: true, signature: intent.status.signature })
+  }
   if (intent.status.tag == "Expired") return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
   const now = try Clock.currentTimeMillis
   if (intent.expiresAt <= now) {
@@ -176,7 +252,7 @@ effect function confirmDeposit() {
   const event: Deposits.Event = {
     type: "finalize",
     reference,
-    signature: paid,
+    signature: paid as string,
     wallet: intent.wallet,
     asset: intent.asset,
     amount: intent.amount,
@@ -192,6 +268,121 @@ effect function confirmDeposit() {
   ledger.send(credit) catch () => undefined
   return try reply({ ok: true, signature: paid })
 }
+
+
+
+// spec/app/billing/index.md, "Credits pay for inference": cross-chain funding is only a quote for USDC
+// that later settles through the same deposit machine; prepared quotes stay server-side and mainnet-only.
+effect function quoteIntent() {
+  const request = try HttpServerRequest.HttpServerRequest
+  if (!request.headers["content-type"]?.startsWith("application/json")) {
+    return try reply({ error: "send application/json" }, 415)
+  }
+  const raw = request.json catch () => undefined
+  const input = raw as { asset?: unknown; amount?: unknown; refundTo?: unknown; prepare?: unknown } | undefined
+  const sessionWallet = try authenticatedWallet()
+  if (sessionWallet == "") return try reply({ error: "sign in required" }, 401)
+  const asset = typeof input?.asset == "string" ? input.asset : ""
+  const amount = typeof input?.amount == "string" ? input.amount : ""
+  const refundTo = typeof input?.refundTo == "string" ? input.refundTo : undefined
+  const prepare = input?.prepare == true
+  if (!(asset in intents.intentFunds) || amount == "") return try reply({ error: "Choose a supported funding asset and amount." }, 400)
+  const config = billingConfig() catch (e) => e
+  const cluster = config instanceof CheckoutUnavailable ? "devnet" : config.cluster
+  const token = Config.withDefault(Config.String("NEAR_INTENTS_API_KEY"), "") catch () => ""
+  const quoted = tryPromise({
+    try: () =>
+      intents.quoteIntentFunding(
+        sessionWallet,
+        { asset: asset as intents.IntentFund, amount, refundTo, prepare },
+        token as string,
+        cluster as string,
+      ),
+    catch: (e) => e,
+  }) catch (e) => e
+  if (quoted instanceof intents.IntentQuoteRejected) return try reply({ error: quoted.message }, quoted.status)
+  if (quoted instanceof Error) return try reply({ error: "NEAR Intents is unavailable." }, 503)
+  return try reply(quoted)
+}
+
+// spec/app/billing/deposits.md, "Story: Finalize a paid intent": recovery asks the finalized chain
+// history for the same bound transfer, so a payment whose client never returned is still credited once.
+effect function recoverOne(config: BillingConfig, intent: Deposits.Intent, now: number, nextChecks: Map<string, number>) {
+  const nextCheckAt = now + (now - intent.createdAt < 3_600_000 ? 120_000 : 3_600_000)
+  const order: PaymentOrder = {
+    reference: intent.reference,
+    recipient: config.recipient,
+    mint: config.mint,
+    asset: intent.asset,
+    atomic: intent.atomic,
+  }
+  const paid = tryPromise({
+    try: () => solana.findPayment(config.rpc, intent.wallet, order, config.cluster, "finalized"),
+    catch: (e) => e,
+  }) catch (e) => e
+  nextChecks.set(intent.reference, nextCheckAt)
+  if (paid instanceof Error || paid == null) return false
+  const deposits = try Deposits.Machine
+  const finalized = deposits.send({
+    type: "finalize",
+    reference: intent.reference,
+    signature: paid as string,
+    wallet: intent.wallet,
+    asset: intent.asset,
+    amount: intent.amount,
+    atomic: intent.atomic,
+    now,
+  }) catch (e) => e
+  if (finalized instanceof Deposits.Rejected) return false
+  const ledger = try Ledger.Machine
+  ledger.send({ type: "credit", wallet: intent.wallet, detail: intent.reference, amount: intent.amount }) catch () => undefined
+  return true
+}
+
+effect function sweepDeposits(nextChecks: Map<string, number>) {
+  const config = billingConfig() catch (e) => e
+  if (config instanceof CheckoutUnavailable || config.cluster != "mainnet") return { checked: 0, credited: 0 }
+  const network = tryPromise({ try: () => solana.verifyCluster(config.rpc, "mainnet"), catch: (e) => e }) catch (e) => e
+  if (network instanceof Error) return { checked: 0, credited: 0 }
+  const deposits = try Deposits.Machine
+  const state = try deposits.get()
+  const now = try Clock.currentTimeMillis
+  const candidates: Deposits.Intent[] = []
+  for (const intent of state.intents) {
+    if (intent.status.tag == "Finalized") {
+      const ledger = try Ledger.Machine
+      ledger.send({ type: "credit", wallet: intent.wallet, detail: intent.reference, amount: intent.amount }) catch () => undefined
+      continue
+    }
+    if (intent.status.tag != "Pending") continue
+    if (intent.expiresAt <= now) {
+      deposits.send({ type: "expire", reference: intent.reference, now }) catch () => undefined
+      continue
+    }
+    const nextCheckAt = nextChecks.get(intent.reference) ?? 0
+    if (candidates.length < 48 && nextCheckAt <= now) candidates.push(intent)
+  }
+  let credited = 0
+  for (let offset = 0; offset < candidates.length; offset += 8) {
+    const batch = candidates.slice(offset, offset + 8)
+    const results = try all(batch.map((intent) => recoverOne(config, intent, now, nextChecks)), { concurrency: "unbounded" })
+    credited += results.filter((did) => did).length
+  }
+  return { checked: candidates.length, credited }
+}
+
+effect function recoveryLoop() {
+  const nextChecks = new Map<string, number>()
+  for (;;) {
+    sweepDeposits(nextChecks) catch () => undefined
+    try sleep("2 minutes")
+  }
+}
+
+export const depositRecoveryWorker = Layer.effectDiscard(effect {
+  const active = Config.withDefault(Config.String("SONNELY_DEPOSIT_RECOVERY"), "false") catch () => "false"
+  if (active == "true") fork.detached recoveryLoop()
+})
 
 /** What the console needs to build payment links: the treasury and cluster, or nothing when checkout is off. */
 effect function configRoute() {
@@ -236,6 +427,8 @@ export const billingApi = Layer.unwrap(effect {
     HttpRouter.add("GET", "/api/machines/billing-deposits/stream", getStream(deposits)),
     machineRegistration("billing-deposits", deposits),
     HttpRouter.add("POST", "/api/billing/deposits", provideService(openDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("POST", "/api/billing/deposits/prepare", provideService(prepareDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("POST", "/api/billing/intents/quote", provideService(quoteIntent(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("POST", "/api/billing/deposits/confirm", provideService(confirmDeposit(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     paymentVerifier,
   )
@@ -243,8 +436,11 @@ export const billingApi = Layer.unwrap(effect {
 
 /** The billing machines' state, kept under `dir`. */
 export function billingState(dir: string) {
-  return Layer.mergeAll(
-    Layer.provide(Ledger.stored("billing-ledger"), store(dir)),
-    Layer.provide(Deposits.stored("billing-deposits"), store(dir)),
+  const storage = store(dir)
+  const machines = Layer.mergeAll(
+    Layer.provide(Ledger.stored("billing-ledger"), storage),
+    Layer.provide(Deposits.stored("billing-deposits"), storage),
+    storage,
   )
+  return Layer.provideMerge(depositRecoveryWorker, machines)
 }
