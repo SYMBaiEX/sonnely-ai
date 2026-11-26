@@ -5,7 +5,7 @@ import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
-import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
+import { balanceOf, type Ledger } from "../../../../gen/app__billing__ledger.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
 import {
@@ -219,6 +219,7 @@ function UsageConsole() {
   const [filters, setFilters] = useState(noUsageFilters);
   const providerFilterRef = useRef<HTMLSelectElement>(null);
   const signedIn = session.state?.tag === "SignedIn";
+  const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   const allRows = useMemo(() => state?.rows ?? [], [state]);
   const [now] = useState(() => Date.now());
   const ranged = useMemo(() => {
@@ -255,7 +256,7 @@ function UsageConsole() {
   const totals = summarize(rows);
   const resolved = totals.complete + totals.failed;
   const providerDuration = providerP95(rows);
-  const balance = signedIn ? ledger.state?.entries.reduce((sum, entry) => sum + (entry.kind === "Charge" || entry.kind === "AdjustDebit" ? -entry.amount : entry.amount), 0) : undefined;
+  const balance = signedIn && ledger.state && wallet ? balanceOf(ledger.state, wallet) : undefined;
   const stats: [string, string, string | undefined][] = [
     ["Credit balance", balance === undefined ? "—" : creditBalance(balance), "Available workspace credits"],
     ["Spend", displayState ? creditBalance(totals.spend) : "—", "Settled charges"],

@@ -308,7 +308,9 @@ effect function quoteIntent() {
 // spec/app/billing/deposits.md, "Story: Finalize a paid intent": recovery asks the finalized chain
 // history for the same bound transfer, so a payment whose client never returned is still credited once.
 effect function recoverOne(config: BillingConfig, intent: Deposits.Intent, now: number, nextChecks: Map<string, number>) {
-  const nextCheckAt = now + (now - intent.createdAt < 3_600_000 ? 120_000 : 3_600_000)
+  const age = now - intent.createdAt
+  const spacing = age < 600_000 ? 15_000 : age < 3_600_000 ? 120_000 : 3_600_000
+  const nextCheckAt = now + spacing
   const order: PaymentOrder = {
     reference: intent.reference,
     recipient: config.recipient,
@@ -342,8 +344,6 @@ effect function recoverOne(config: BillingConfig, intent: Deposits.Intent, now: 
 effect function sweepDeposits(nextChecks: Map<string, number>) {
   const config = billingConfig() catch (e) => e
   if (config instanceof CheckoutUnavailable || config.cluster != "mainnet") return { checked: 0, credited: 0 }
-  const network = tryPromise({ try: () => solana.verifyCluster(config.rpc, "mainnet"), catch: (e) => e }) catch (e) => e
-  if (network instanceof Error) return { checked: 0, credited: 0 }
   const deposits = try Deposits.Machine
   const state = try deposits.get()
   const now = try Clock.currentTimeMillis
@@ -362,6 +362,9 @@ effect function sweepDeposits(nextChecks: Map<string, number>) {
     const nextCheckAt = nextChecks.get(intent.reference) ?? 0
     if (candidates.length < 48 && nextCheckAt <= now) candidates.push(intent)
   }
+  if (candidates.length == 0) return { checked: 0, credited: 0 }
+  const network = tryPromise({ try: () => solana.verifyCluster(config.rpc, "mainnet"), catch: (e) => e }) catch (e) => e
+  if (network instanceof Error) return { checked: 0, credited: 0 }
   let credited = 0
   for (let offset = 0; offset < candidates.length; offset += 8) {
     const batch = candidates.slice(offset, offset + 8)
@@ -375,7 +378,7 @@ effect function recoveryLoop() {
   const nextChecks = new Map<string, number>()
   for (;;) {
     sweepDeposits(nextChecks) catch () => undefined
-    try sleep("2 minutes")
+    try sleep("15 seconds")
   }
 }
 

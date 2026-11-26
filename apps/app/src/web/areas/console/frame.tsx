@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import type { Section } from "../../../../gen/app__nav.ts";
 import type { Console as ConsoleSettings, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
-import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
+import { balanceOf, type Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Referrals as ReferralState } from "../../../../gen/app__admin__referrals.ts";
 import type { Registry as AdminRegistry } from "../../../../gen/app__admin.ts";
 import type { Crm } from "../../../../gen/app__admin__crm.ts";
@@ -79,10 +79,7 @@ const groups = [
 const all = groups.flatMap((group) => group.items);
 
 function walletBalance(ledger: Ledger | undefined, wallet: string) {
-  return (ledger?.entries ?? []).reduce(
-    (total, entry) => (entry.wallet === wallet ? total + (entry.kind === "Charge" || entry.kind === "AdjustDebit" ? -entry.amount : entry.amount) : total),
-    0,
-  );
+  return ledger ? balanceOf(ledger, wallet) : 0;
 }
 
 function machineTheme(theme: Theme): ConsoleTheme {

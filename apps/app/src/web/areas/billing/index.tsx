@@ -13,7 +13,7 @@ import {
 } from "@solana/kit";
 import { Input } from "@repo/ui";
 import type { Deposits, Intent } from "../../../../gen/app__billing__deposits.ts";
-import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
+import { balanceOf, type Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
@@ -271,8 +271,7 @@ function BillingConsole() {
   const [meta, setMeta] = useState<Record<string, PaymentMeta>>(() => readPaymentMeta());
 
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
-  const entries = ledger.state?.entries.filter((entry) => entry.wallet === wallet) ?? [];
-  const balance = entries.reduce((total, entry) => total + (entry.kind === "Charge" || entry.kind === "AdjustDebit" ? -entry.amount : entry.amount), 0);
+  const balance = ledger.state && wallet ? balanceOf(ledger.state, wallet) : 0;
   const profile = wallet ? { wallet, balance } : null;
   const cluster = config.cluster ?? "devnet";
   const billingEnabled = config.enabled;
@@ -301,7 +300,9 @@ function BillingConsole() {
   const reference = order?.intent.reference;
   const archived = order?.archivedAt !== undefined;
   const quoteExpired = Boolean(order?.intent.expiresAt && isPast(order.intent.expiresAt));
-  const submitted = Boolean(submittedSignature);
+  const liveStatus = (reference ? mine.find((item) => item.reference === reference)?.status : undefined) ?? order?.intent.status;
+  const finalizedSignature = liveStatus?.tag === "Finalized" ? liveStatus.signature : undefined;
+  const submitted = Boolean(submittedSignature) && !finalizedSignature;
 
   function saveMeta(next: Record<string, PaymentMeta>) {
     setMeta(next);
@@ -739,9 +740,13 @@ function BillingConsole() {
                     ? `${creditBalance(order.intent.amount)} in credits at $${inferredSolPrice(order.intent)} per SOL. Quote expires at ${new Date(order.intent.expiresAt).toLocaleTimeString()}. Network fees are separate.`
                     : "Your wallet shows the transfer before you approve. A small SOL fee and token account setup may apply."}
               </p>
-              {submitted ? (
+              {finalizedSignature ? (
                 <p role="status" className="status">
-                  Payment submitted. Waiting for Solana finality…
+                  Payment confirmed. Credits added to your balance.
+                </p>
+              ) : submitted ? (
+                <p role="status" className="status">
+                  Payment submitted. Waiting for Solana finality — usually under a minute.
                 </p>
               ) : archived ? null : quoteExpired ? (
                 <p role="status">SOL quote expired. Continue to payment to request a new quote.</p>
