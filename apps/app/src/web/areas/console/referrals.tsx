@@ -1,12 +1,34 @@
 // spec/app/admin/referrals.md, "Story: Invite a wallet"
 import { Users } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useConsoleShell } from "./frame.tsx";
 import { CopyButton, WorkspaceHeading, dateTime, shorten } from "./bits.tsx";
+
+const codeChars = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+function inviteCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  return Array.from(bytes, (byte) => codeChars[byte % codeChars.length]).join("");
+}
 
 export function Referrals() {
   const shell = useConsoleShell();
   const wallet = shell.session.state?.tag === "SignedIn" ? shell.session.state.wallet : "";
   const owned = wallet ? shell.referrals.state?.codes.filter((code) => code.owner === wallet) ?? [] : [];
+  const issuing = useRef(false);
+
+  // spec/app/admin/referrals.md, "Each wallet issues one code"
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- send is a stable useCallback closure held on the remote, not a this-bound method
+  const send = shell.referrals.send;
+  const loaded = shell.referrals.state !== undefined;
+  useEffect(() => {
+    if (!wallet || !loaded || owned.length > 0 || issuing.current) return;
+    issuing.current = true;
+    void send({ type: "issueCode", wallet, code: inviteCode() }).then(() => {
+      issuing.current = false;
+    });
+  }, [wallet, loaded, owned.length, send]);
+
   const code = owned[0]?.code ?? "";
   const url = code ? `${window.location.origin}/console?ref=${code}` : "";
   const rows = code ? shell.referrals.state?.signups.filter((signup) => signup.code === code) ?? [] : [];
@@ -28,7 +50,7 @@ export function Referrals() {
               <code className="secret-code">{url}</code>
             </>
           ) : wallet ? (
-            <p>Your invite link is being prepared. Referral code issuance is not connected to this deployment yet.</p>
+            <p role="status">Your invite link is being prepared…</p>
           ) : (
             <p>Connect a Solana wallet to get your personal invite link.</p>
           )}

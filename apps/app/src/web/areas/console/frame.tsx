@@ -82,6 +82,39 @@ function walletBalance(ledger: Ledger | undefined, wallet: string) {
   return ledger ? balanceOf(ledger, wallet) : 0;
 }
 
+const inviteParamKey = "sonnely:invite";
+
+function readInvite() {
+  try {
+    return sessionStorage.getItem(inviteParamKey);
+  } catch {
+    return null;
+  }
+}
+
+function forgetInvite() {
+  try {
+    sessionStorage.removeItem(inviteParamKey);
+  } catch {
+    // Storage can be unavailable; the machine refuses repeated sign-ups either way.
+  }
+}
+
+// spec/app/admin/referrals.md, "Story: Invite a wallet"
+function stashInviteParam() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("ref");
+  if (!code) return;
+  try {
+    sessionStorage.setItem(inviteParamKey, code);
+  } catch {
+    return;
+  }
+  params.delete("ref");
+  const search = params.toString();
+  window.history.replaceState(null, "", window.location.pathname + (search ? "?" + search : "") + window.location.hash);
+}
+
 function machineTheme(theme: Theme): ConsoleTheme {
   return theme === "light" ? "Light" : theme === "system" ? "System" : "Dark";
 }
@@ -173,6 +206,28 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     document.addEventListener("keydown", shortcut);
     return () => document.removeEventListener("keydown", shortcut);
   }, []);
+
+  useEffect(() => {
+    stashInviteParam();
+  }, []);
+
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- send is a stable useCallback closure held on the remote, not a this-bound method
+  const sendReferral = referrals.send;
+  const referralState = referrals.state;
+  useEffect(() => {
+    if (!signedIn || referralState === undefined) return;
+    const code = readInvite();
+    if (!code) return;
+    const alreadyReferred = referralState.signups.some((signup) => signup.wallet === signedIn);
+    const ownCode = referralState.codes.some((owned) => owned.code === code);
+    if (alreadyReferred || ownCode) {
+      forgetInvite();
+      return;
+    }
+    void sendReferral({ type: "signup", code, wallet: signedIn, joined: Date.now() }).then((ok) => {
+      if (ok) forgetInvite();
+    });
+  }, [signedIn, referralState, sendReferral]);
 
   useEffect(() => {
     if (!navOpen) return;
