@@ -48,46 +48,6 @@ export const date = (time: number) =>
 
 export const shorten = (value: string) => (value.length > 12 ? value.slice(0, 4) + "…" + value.slice(-4) : value);
 
-export const solflarePrivateModeGuide = "https://www.solflare.com/guides/how-to-use-private-mode/";
-export const confidentialUsdcMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-export const confidentialPaymentHoldMs = 60 * 60 * 1000;
-
-export type ConfidentialReviewReason = "details-encrypted" | "amount-mismatch" | "asset-mismatch";
-
-export const confidentialPaymentSchema = z.object({
-  reference: z.string(),
-  payer: z.string(),
-  treasury: z.string(),
-  cluster: z.literal("mainnet"),
-  mint: z.string(),
-  amount: z.number(),
-  status: z.enum(["awaiting_payment", "under_review", "credited", "rejected", "cancelled", "expired"]),
-  createdAt: z.number(),
-  expiresAt: z.number(),
-  cancelledAt: z.number().optional(),
-  signature: z.string().optional(),
-  slot: z.number().optional(),
-  blockTime: z.number().optional(),
-  submittedAt: z.number().optional(),
-  resolvedAt: z.number().optional(),
-  reason: z.string().optional(),
-  reviewReason: z.enum(["details-encrypted", "amount-mismatch", "asset-mismatch"]).optional(),
-});
-
-export type ConfidentialPayment = z.infer<typeof confidentialPaymentSchema>;
-
-export function confidentialPaymentStatus(payment: ConfidentialPayment, now = Date.now()) {
-  if (payment.status === "awaiting_payment" && payment.expiresAt <= now) return "Expired";
-  return {
-    awaiting_payment: "Awaiting payment",
-    under_review: "Under review",
-    credited: "Credited",
-    rejected: "Needs attention",
-    cancelled: "Cancelled",
-    expired: "Expired",
-  }[payment.status];
-}
-
 export const intentFunds = {
   sol: { symbol: "SOL", network: "Solana", decimals: 9, id: "nep141:sol.omft.near" },
   eth: { symbol: "ETH", network: "Ethereum", decimals: 18, id: "nep141:eth.omft.near" },

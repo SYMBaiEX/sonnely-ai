@@ -548,41 +548,6 @@
   overflow-wrap: anywhere;
 }
 
-.billing-area .confidential-payment-details {
-  display: grid;
-  gap: 0.625rem;
-  margin: 0;
-  min-inline-size: 0;
-}
-
-.billing-area .confidential-payment-details > div {
-  display: grid;
-  gap: 0.375rem;
-  padding-block-end: 0.625rem;
-  border-block-end: 1px solid var(--border);
-}
-
-.billing-area .confidential-payment-details dt {
-  color: var(--muted-foreground);
-  font-size: var(--console-caption);
-}
-
-.billing-area .confidential-payment-details dd,
-.billing-area .confidential-payment-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-  margin: 0;
-  min-inline-size: 0;
-}
-
-.billing-area .confidential-payment-details code {
-  min-inline-size: 0;
-  overflow-wrap: anywhere;
-  font-size: var(--console-caption);
-}
-
 .billing-area .intents-checkout {
   --intents-padding: clamp(16px, 2.6vw, 24px);
 

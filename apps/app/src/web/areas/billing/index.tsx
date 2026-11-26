@@ -18,13 +18,8 @@ import type { Page } from "../../../../gen/app__nav.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
 import { solanaWalletClients } from "../console/solana-wallet.ts";
-import { ConfidentialCheckout } from "./confidential-checkout.tsx";
 import { IntentsCheckout } from "./intents-checkout.tsx";
 import {
-  confidentialPaymentHoldMs,
-  confidentialPaymentSchema,
-  confidentialPaymentStatus,
-  confidentialUsdcMint,
   CopyButton,
   creditBalance,
   date,
@@ -39,14 +34,13 @@ import {
   shorten,
   solDecimal,
   writePaymentMeta,
-  type ConfidentialPayment,
   type FundingQuote,
   type IntentFund,
   type PaymentMeta,
 } from "./shared.tsx";
 import "./billing.css";
 
-type PaymentMethod = "usdc" | "sol" | "confidential" | "other";
+type PaymentMethod = "usdc" | "sol" | "other";
 
 type Opened = {
   intent: Intent;
@@ -162,32 +156,6 @@ async function qrFor(uri: string) {
   }
 }
 
-const confidentialStoreSchema = z.record(z.string(), z.array(confidentialPaymentSchema));
-type ConfidentialStore = z.infer<typeof confidentialStoreSchema>;
-
-function readConfidentialStore(): ConfidentialStore {
-  try {
-    return confidentialStoreSchema.parse(JSON.parse(localStorage.getItem("sonnely.billing.confidential") ?? "{}"));
-  } catch {
-    return {};
-  }
-}
-
-function writeConfidentialStore(value: ConfidentialStore) {
-  localStorage.setItem("sonnely.billing.confidential", JSON.stringify(value));
-}
-
-function upsertPayment(history: readonly ConfidentialPayment[], payment: ConfidentialPayment) {
-  const rest = history.filter((item) => item.reference !== payment.reference);
-  return [payment, ...rest];
-}
-
-function newReference() {
-  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
-}
-
 const atomicString = z.string().regex(/^\d+$/);
 
 async function quoteFunding(
@@ -252,11 +220,6 @@ function BillingConsole() {
   const deposits = useRemote<Deposits>("billing-deposits");
   const [dollars, setDollars] = useState("5");
   const [method, setMethod] = useState<PaymentMethod>("usdc");
-  const [confidentialSelection, setConfidentialSelection] = useState<{
-    wallet: string;
-    order: ConfidentialPayment | null;
-  }>();
-  const [confidentialStore, setConfidentialStore] = useState<ConfidentialStore>(() => readConfidentialStore());
   const [fund, setFund] = useState<IntentFund>("sol");
   const [fundAmount, setFundAmount] = useState("0.1");
   const [refundTo, setRefundTo] = useState("");
@@ -278,22 +241,10 @@ function BillingConsole() {
   const paymentVerificationEnabled = config.enabled;
   const termsRequired = false;
   const showSol = Boolean(billingEnabled && cluster === "mainnet");
-  const showConfidential = Boolean(profile && cluster === "mainnet");
   const showOther = cluster === "mainnet";
   const intentsWidgetUrl = undefined;
-  const confidentialHistoryForWallet = wallet ? (confidentialStore[wallet] ?? []) : [];
-  const selectedPayment = confidentialSelection?.wallet === wallet ? confidentialSelection : undefined;
-  const activeConfidential = confidentialHistoryForWallet.find((item) =>
-    ["awaiting_payment", "under_review"].includes(item.status),
-  );
-  const confidentialOrder = selectedPayment ? selectedPayment.order : (activeConfidential ?? null);
-  const confidentialMap = new Map(confidentialHistoryForWallet.map((payment) => [payment.reference, payment]));
-  if (confidentialOrder) confidentialMap.set(confidentialOrder.reference, confidentialOrder);
   const mine = deposits.state?.intents.filter((item) => item.wallet === wallet) ?? [];
-  const paymentHistory = [
-    ...mine.map((item) => ({ kind: "public" as const, item, time: item.createdAt })),
-    ...Array.from(confidentialMap.values(), (item) => ({ kind: "confidential" as const, item, time: item.createdAt })),
-  ].sort((left, right) => right.time - left.time);
+  const paymentHistory = mine.map((item) => ({ item, time: item.createdAt })).sort((left, right) => right.time - left.time);
   const fundingDetails = intent?.recipient === wallet ? intent : null;
   const swapAsset = intentFunds[fund];
   const quoting = pending === "quote" || pending === "prepare-swap";
@@ -349,56 +300,6 @@ function BillingConsole() {
     rememberPayment(presented);
   }
 
-  function selectConfidentialPayment(payment: ConfidentialPayment | null) {
-    if (!wallet) return;
-    setConfidentialSelection({ wallet, order: payment });
-  }
-
-  function updateConfidential(updated: ConfidentialPayment) {
-    const current = confidentialStore[updated.payer] ?? [];
-    const next = { ...confidentialStore, [updated.payer]: upsertPayment(current, updated) };
-    setConfidentialStore(next);
-    writeConfidentialStore(next);
-    setConfidentialSelection({ wallet: updated.payer, order: updated });
-    return updated;
-  }
-
-  function createConfidentialOrder(amountText: string) {
-    if (!wallet || !config.recipient) throw new Error("Confidential USDC checkout is unavailable for this account.");
-    const amount = parseCreditAmount(amountText);
-    if (amount === null) throw new Error("Enter a positive USDC amount with up to six decimal places.");
-    const now = Date.now();
-    return updateConfidential({
-      reference: newReference(),
-      payer: wallet,
-      treasury: config.recipient,
-      cluster: "mainnet",
-      mint: confidentialUsdcMint,
-      amount,
-      status: "awaiting_payment",
-      createdAt: now,
-      expiresAt: now + confidentialPaymentHoldMs,
-    });
-  }
-
-  function submitConfidentialOrder(referenceValue: string, submitted: string) {
-    const current = wallet ? confidentialStore[wallet]?.find((item) => item.reference === referenceValue) : undefined;
-    if (!current) throw new Error("Payment request unavailable.");
-    return updateConfidential({ ...current, status: "under_review", signature: submitted, submittedAt: Date.now() });
-  }
-
-  function cancelConfidentialOrder(referenceValue: string) {
-    const current = wallet ? confidentialStore[wallet]?.find((item) => item.reference === referenceValue) : undefined;
-    if (!current) throw new Error("Payment request unavailable.");
-    return updateConfidential({ ...current, status: "cancelled", cancelledAt: Date.now() });
-  }
-
-  function refreshConfidentialOrder(referenceValue: string) {
-    const current = wallet ? confidentialStore[wallet]?.find((item) => item.reference === referenceValue) : undefined;
-    if (!current) throw new Error("Payment request unavailable.");
-    return updateConfidential(current);
-  }
-
   async function run(name: string, action: () => Promise<void>) {
     setPending(name);
     setFailure(undefined);
@@ -451,7 +352,7 @@ function BillingConsole() {
             <h2>Buy credits</h2>
             <span className="pill">{billingEnabled ? cluster : "Solana Pay"}</span>
           </div>
-          {(showSol || showConfidential || showOther) && (
+          {(showSol || showOther) && (
             <fieldset className="billing-payment-method">
               <legend>Payment method</legend>
               <div className="billing-payment-options">
@@ -459,7 +360,6 @@ function BillingConsole() {
                   [
                     { id: "usdc", label: "USDC", available: true },
                     { id: "sol", label: "SOL", available: showSol },
-                    { id: "confidential", label: "Confidential USDC", available: showConfidential },
                     { id: "other", label: "Other crypto", available: showOther },
                   ] as const
                 )
@@ -560,23 +460,6 @@ function BillingConsole() {
               </form>
               {failure?.action === "deposit" && <Failure message={failure.message} />}
             </>
-          )}
-          {method === "confidential" && showConfidential && (
-            <ConfidentialCheckout
-              key={wallet}
-              order={confidentialOrder}
-              available={Boolean(billingEnabled && config.recipient)}
-              loading={false}
-              lookupError=""
-              retry={() => setFailure(undefined)}
-              amount={dollars}
-              changeAmount={setDollars}
-              onOrder={selectConfidentialPayment}
-              createOrder={createConfidentialOrder}
-              submitOrder={submitConfidentialOrder}
-              cancelOrder={cancelConfidentialOrder}
-              refreshOrder={refreshConfidentialOrder}
-            />
           )}
           {method === "other" && showOther && intentsWidgetUrl && (
             <IntentsCheckout
@@ -833,29 +716,7 @@ function BillingConsole() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paymentHistory.map(({ kind, item, time }) =>
-                    kind === "confidential" ? (
-                      <tr key={item.reference}>
-                        <td data-label="Date (UTC)">{date(time)}</td>
-                        <td data-label="Network">{item.cluster}</td>
-                        <td data-label="Credits">{creditBalance(item.amount)}</td>
-                        <td data-label="Paid with">Confidential USDC</td>
-                        <td data-label="Status">{confidentialPaymentStatus(item)}</td>
-                        <td data-label="Reference">
-                          <button
-                            type="button"
-                            className="text-link"
-                            disabled={Boolean(pending) || submitted}
-                            onClick={() => {
-                              setMethod("confidential");
-                              selectConfidentialPayment(item);
-                            }}
-                          >
-                            View payment
-                          </button>
-                        </td>
-                      </tr>
-                    ) : (
+                  {paymentHistory.map(({ item }) => (
                       <tr key={item.reference}>
                         <td data-label="Date (UTC)">{date(item.createdAt)}</td>
                         <td data-label="Network">{meta[item.reference]?.cluster ?? cluster}</td>
@@ -940,8 +801,7 @@ function BillingConsole() {
                           <CopyButton value={item.reference} label="Copy payment reference" />
                         </td>
                       </tr>
-                    ),
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
