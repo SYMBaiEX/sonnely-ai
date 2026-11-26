@@ -477,7 +477,7 @@ export function LogsSection() {
               placeholder="Paste a request reference"
               minLength={20}
               maxLength={80}
-              pattern="[a-zA-Z0-9]{20,80}"
+              pattern="[a-zA-Z0-9-]{20,80}"
               spellCheck={false}
               autoComplete="off"
               required

@@ -1,6 +1,4 @@
-// spec/app/console/logs.md, "Served requests are recorded newest first": the pipeline in
-// src/api/console/logs.vibe records one row on the owning wallet's logs machine once the usage
-// meter settles a request, joining the served-request ledger for the endpoint.
+// spec/app/console/logs.md, "Served requests are recorded newest first"
 import { Effect, Layer } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import { describe, expect, it } from "vitest";
@@ -29,12 +27,8 @@ function readLogs() {
   });
 }
 
-function runPipe<A, E>(program: Effect.Effect<A, E, never>) {
-  return Effect.runPromise(program as Effect.Effect<A, E, never>);
-}
-
-function providePipe<A, E, R>(program: Effect.Effect<A, E, R>) {
-  return runPipe(Effect.provide(program, stateLayer()) as Effect.Effect<A, E, never>);
+function providePipe<A, E, R>(program: Effect.Effect<A, E, R>): Promise<A> {
+  return Effect.runPromise(Effect.provide(program, stateLayer()) as Effect.Effect<A, E, never>);
 }
 
 describe("console logs pipeline", () => {
