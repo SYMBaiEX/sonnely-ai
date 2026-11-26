@@ -616,8 +616,8 @@ export function providerModelsPayload() {
 }
 
 const embeddingsInput = z.strictObject({ model: z.string(), input: z.union([z.string().min(1).max(8192), z.array(z.string().min(1).max(8192)).min(1).max(32)]), encoding_format: z.enum(["float", "base64"]).optional(), max_cost_microusd: z.int().positive().optional() });
-const rerankInput = z.strictObject({ model: z.string(), query: z.string().min(1).max(4096), documents: z.array(z.string().min(1).max(8192)).min(1).max(16), max_cost_microusd: z.int().positive().optional() });
-const responsesInput = z.strictObject({ model: z.string(), input: z.string().min(1).max(32_000), max_output_tokens: z.int().min(1).max(4096).optional(), max_cost_microusd: z.int().positive().optional() });
+const rerankInput = z.strictObject({ model: z.string(), query: z.string().min(1).max(4096), documents: z.array(z.string().min(1).max(8192)).min(1).max(16), top_n: z.int().min(1).max(16).optional(), max_cost_microusd: z.int().positive().optional() });
+const responsesInput = z.strictObject({ model: z.string(), input: z.string().min(1).max(32_000), instructions: z.string().max(32_000).optional(), store: z.literal(false).optional(), stream: z.literal(false).optional(), max_output_tokens: z.int().min(1).max(4096).optional(), max_cost_microusd: z.int().positive().optional() });
 const redactInput = z.strictObject({ model: z.string().optional(), text: z.string().min(1).max(32_000), max_cost_microusd: z.int().positive().optional() });
 const systemoneInput = z.strictObject({ model: z.string().optional(), state: z.string().min(1).max(32_000), questions: z.record(z.string(), z.object({ type: z.literal("noul"), instructions: z.unknown() }).loose()), max_cost_microusd: z.int().positive().optional() });
 const imageInput = z.strictObject({ model: z.string(), prompt: z.string().min(1).max(4096), size: z.string().max(40).optional(), n: z.literal(1).optional(), max_cost_microusd: z.int().positive().optional() });
@@ -644,6 +644,10 @@ export function specializedInputTokens(endpoint: string, body: Record<string, un
   if (endpoint === "embeddings") {
     const input = body.input;
     return Array.isArray(input) ? (input as unknown[]).reduce((sum: number, item) => sum + count(item), 0) : count(input);
+  }
+  if (endpoint === "rerank") {
+    const documents = body.documents;
+    return count(body.query) + (Array.isArray(documents) ? (documents as unknown[]).reduce((sum: number, item) => sum + count(item), 0) : 0);
   }
   if (endpoint === "responses" || endpoint === "redact" || endpoint === "systemone" || endpoint === "audio/speech") return count(body.input ?? body.text ?? body.state);
   return 0;
@@ -695,6 +699,11 @@ export async function callSpecialized(endpoint: string, selection: SpecializedSe
   } finally {
     deadline.headersReceived();
   }
+}
+/** Reranking honors top_n whether or not the upstream does. */
+export function sliceTopResults(endpoint: string, body: Record<string, unknown>, topN: unknown): Record<string, unknown> {
+  if (endpoint !== "rerank" || typeof topN !== "number" || !Array.isArray(body.results)) return body;
+  return { ...body, results: body.results.slice(0, topN) };
 }
 export function extractUsage(endpoint: string, value: unknown): { input: number; output: number; costTokens: number } {
   if (typeof value === "object" && value !== null && "usage" in value) {

@@ -296,4 +296,46 @@ describe("gateway stream transport", () => {
     expect(statuses).toEqual({ under: 400, invalid: 400, over: 200 });
     expect(upstreamCalls).toBe(1);
   });
+
+  // spec/app/docs/index.md, "Embeddings, decisions, images, and audio": reranking optionally accepts top_n.
+  it("serves rerank requests with top_n and slices the results", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "https://cloud-api.near.ai/v1/rerank") {
+        return Promise.resolve(new Response(
+          JSON.stringify({ object: "list", results: [{ index: 0, relevance_score: 0.9 }, { index: 1, relevance_score: 0.4 }], usage: { prompt_tokens: 9, completion_tokens: 0, total_tokens: 9 } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ));
+      }
+      return realFetch(input, init);
+    });
+    const program = Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "rerank-key", label: "Inference", prefix: "sonnely_live_rerank", hash: "rerank-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "rerank-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const app = inferSpecialized("rerank", "Rerank", "Qwen/Qwen3-Reranker-0.6B", { model: "Qwen/Qwen3-Reranker-0.6B", query: "q", documents: ["a", "b"], top_n: 1 }, key, "", "rerank-ref");
+      const scope = yield* Scope.Scope;
+      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+      const server = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => handler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const address = server.address();
+      if (typeof address !== "object" || address === null) throw new Error("missing server address");
+      const response = yield* Effect.promise(() => globalThis.fetch(`http://127.0.0.1:${address.port}/`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "Qwen/Qwen3-Reranker-0.6B", query: "q", documents: ["a", "b"], top_n: 1 }),
+      }));
+      const body = yield* Effect.promise(() => response.json() as Promise<{ results?: unknown[] }>);
+      return { status: response.status, results: body.results?.length };
+    }));
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    expect(result).toEqual({ status: 200, results: 1 });
+  });
 });

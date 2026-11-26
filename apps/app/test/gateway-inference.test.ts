@@ -10,7 +10,7 @@ import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
 import { inferChat } from "../src/api/gateway.vibe";
-import { callChatCandidates, chatSseResponse, keyStatusPayload, upstreamTimeouts, type ChatRoute, type StreamFinal } from "../src/api/gateway/providers.ts";
+import { callChatCandidates, chatSseResponse, keyStatusPayload, parseSpecialized, sliceTopResults, upstreamTimeouts, type ChatRoute, type StreamFinal } from "../src/api/gateway/providers.ts";
 
 const wallet = "test-wallet";
 const stateLayer = () =>
@@ -357,6 +357,21 @@ describe("gateway inference", () => {
       daily: { cap_microusd: null, used_microusd: 0, remaining_microusd: null },
       lifetime: { cap_microusd: null, remaining_microusd: null },
     });
+  });
+
+  // spec/app/docs/index.md, "Additional Tinfoil endpoints": Responses accepts instructions with stream/store false.
+  it("accepts the documented Responses fields and rejects live streaming or storage", () => {
+    const accepted = parseSpecialized("responses", { model: "tinfoil/gpt-oss-120b", input: "hello", instructions: "be brief", store: false, stream: false });
+    const streaming = parseSpecialized("responses", { model: "tinfoil/gpt-oss-120b", input: "hello", stream: true });
+    const storing = parseSpecialized("responses", { model: "tinfoil/gpt-oss-120b", input: "hello", store: true });
+    expect([accepted.ok, streaming.ok, storing.ok]).toEqual([true, false, false]);
+  });
+
+  // spec/app/docs/index.md, "Embeddings, decisions, images, and audio": reranking optionally accepts top_n.
+  it("accepts rerank top_n and slices results to it", () => {
+    const parsed = parseSpecialized("rerank", { model: "Qwen/Qwen3-Reranker-0.6B", query: "q", documents: ["a", "b"], top_n: 1 });
+    const sliced = sliceTopResults("rerank", { results: [{ index: 0 }, { index: 1 }], usage: { prompt_tokens: 1, completion_tokens: 0 } }, 1);
+    expect([parsed.ok, (sliced.results as unknown[]).length, "usage" in sliced]).toEqual([true, 1, true]);
   });
 
 });

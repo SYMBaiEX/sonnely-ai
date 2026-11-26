@@ -13,7 +13,7 @@ import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { store } from "../serve.vibe"
-import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, multipartForm, multipartInput, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, sliceTopResults, multipartForm, multipartInput, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -662,7 +662,8 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
     return try reply(r.error, r.status)
   }
   const body = typeof output == "object" && output != null && !Array.isArray(output) ? output as Record<string, unknown> : { data: output }
-  const answered = try reply({ ...body, model: named, sonnely_request_id: servingRef, sonnely_provider: selected.provider })
+  const trimmed = try Effect.try(() => sliceTopResults(path, body, fields.top_n))
+  const answered = try reply({ ...trimmed, model: named, sonnely_request_id: servingRef, sonnely_provider: selected.provider })
   return HttpServerResponse.setHeaders(answered, { "X-Sonnely-Request-Id": servingRef, "X-Sonnely-Provider": selected.provider })
 }
 
