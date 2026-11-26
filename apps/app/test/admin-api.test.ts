@@ -79,6 +79,44 @@ afterEach(async () => {
 });
 
 describe("admin API", () => {
+  // spec/app/admin/operators.md, "Only an operator can grant access": the deployment
+  // environment names the first operators, each role through its own variable
+  it("bootstraps the role-specific operator wallets from the deployment environment", async () => {
+    const support = "4vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2d";
+    const finance = "7vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2e";
+    const legacy = "8vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2f";
+    const saved = {
+      SONNELY_ADMIN_WALLETS: process.env.SONNELY_ADMIN_WALLETS,
+      SONNELY_SUPPORT_WALLETS: process.env.SONNELY_SUPPORT_WALLETS,
+      SONNELY_FINANCE_WALLETS: process.env.SONNELY_FINANCE_WALLETS,
+      SONNELY_OPERATORS: process.env.SONNELY_OPERATORS,
+    };
+    process.env.SONNELY_ADMIN_WALLETS = operator + ", " + account;
+    process.env.SONNELY_SUPPORT_WALLETS = support;
+    process.env.SONNELY_FINANCE_WALLETS = finance;
+    process.env.SONNELY_OPERATORS = legacy;
+    try {
+      const { handler } = makeAdminApi();
+      const response = await handler(new Request("http://localhost/api/machines/admin", { headers: { cookie: "sonnely_session=" + token } }));
+      const body = await response.json() as Admin.Registry;
+      expect({ status: response.status, roster: body.ops.roster }).toEqual({
+        status: 200,
+        roster: [
+          { wallet: operator, role: "Admin" },
+          { wallet: account, role: "Admin" },
+          { wallet: legacy, role: "Admin" },
+          { wallet: support, role: "Support" },
+          { wallet: finance, role: "Finance" },
+        ],
+      });
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
   // spec/app/admin/index.md, "What the admin reads elsewhere"
   it("joins the keys and billing states the machines persist", async () => {
     const { handler, dir } = makeAdminApi();
