@@ -1,5 +1,6 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import {
+  Activity,
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
@@ -17,7 +18,7 @@ import {
   Terminal,
   Wallet,
 } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, Route } from "../../../../gen/app__models.ts";
 import { CopyButton, useAmbientMotion } from "./chrome.tsx";
@@ -51,9 +52,7 @@ import {
   markColors,
   modelMark,
   sectionHead,
-  sectionIntro,
   textLink,
-  wrap,
 } from "./ui.ts";
 
 const featured = (id: string): CatalogEntry | undefined =>
@@ -378,7 +377,7 @@ function RouteSample() {
     <div className="gateway-sample gateway-route">
       <p>Example route</p>
       <ul>
-        <li>
+        <li data-selected="">
           <Server size={15} aria-hidden="true" /> <strong>Confidential TEE</strong>
           <span>
             <Check size={13} aria-hidden="true" /> Selected
@@ -471,17 +470,21 @@ const capabilities = [
 
 function HomeCapabilities() {
   return (
-    <section className="home-capabilities" aria-labelledby="capabilities-heading">
+    <section className="section home-capabilities" aria-labelledby="capabilities-heading">
       <header className={sectionHead}>
         <div>
           <p className={eyebrow}>The gateway</p>
           <h2 id="capabilities-heading">From request to receipt.</h2>
         </div>
-        <p className={sectionIntro}>Send a request, set a limit, and see what you were charged.</p>
+        <p>Send a request, set a limit, and see what you were charged.</p>
       </header>
       <ul className="gateway-grid" role="list">
         {capabilities.map(({ id, icon: Icon, title, body, href, action, Sample }) => (
-          <li key={id} className="gateway-tile">
+          <li
+            key={id}
+            className={"gateway-tile gateway-tile-" + id}
+            data-reveal={id === "route" ? "fade" : "rise"}
+          >
             <div className="gateway-tile-copy">
               <span className="home-feature-icon">
                 <Icon size={19} aria-hidden="true" />
@@ -504,21 +507,21 @@ function HomeCapabilities() {
 
 function HomeModelList() {
   return (
-    <section className="home-model-list" aria-labelledby="home-models-heading">
+    <section className="section home-models" aria-labelledby="home-models-heading">
       <div className={sectionHead}>
         <h2 id="home-models-heading">Choose your model.</h2>
         <a href="/models#available-models" className={textLink}>
           Compare models and pricing <ArrowRight size={16} aria-hidden="true" />
         </a>
       </div>
-      <div className="panel home-model-catalog">
+      <div className="home-model-catalog" data-reveal="fade">
         <div className="home-model-columns" aria-hidden="true">
           <span>Model</span>
           <span>Privacy route</span>
           <span>Context window</span>
           <span>Input / output per 1M tokens</span>
         </div>
-        <ul role="list">
+        <ul className="home-model-list" role="list">
           {featuredEntries.map((model) => {
             const route = chatRoute(model);
             const rates = route ? routeRates(route) : {};
@@ -529,7 +532,7 @@ function HomeModelList() {
                   href={route ? modelPlaygroundHref(route.modelId, model.provider) : "/console/chat"}
                   className="home-model-row"
                 >
-                  <div className="home-model-identity">
+                  <div className="catalog-identity">
                     <span
                       className={modelMark + " " + (markColors[model.color] ?? markColors.smoke)}
                       aria-hidden="true"
@@ -543,7 +546,7 @@ function HomeModelList() {
                   </div>
                   <span className="home-model-route">{routeLabels[model.privacy]}</span>
                   <span className="home-model-context">
-                    {featuredType?.context ?? "—"} <small>tokens</small>
+                    {featuredType?.context ?? "—"} <span>tokens</span>
                   </span>
                   <span className="home-model-rates">
                     {formatRate(rates.Input ?? 0)} <span>/</span> {formatRate(rates.Output ?? 0)}
@@ -585,7 +588,7 @@ const workloads = [
 
 function HomeWorkloads() {
   return (
-    <section className="home-workloads" aria-labelledby="workloads-heading">
+    <section className="section home-workloads" aria-labelledby="workloads-heading">
       <div className={sectionHead}>
         <h2 id="workloads-heading">Start with a real task.</h2>
       </div>
@@ -594,7 +597,7 @@ function HomeWorkloads() {
           const entry = featuredEntries[model];
           const route = entry ? chatRoute(entry) : undefined;
           return (
-            <article key={title}>
+            <article className="workload-card" key={title} data-reveal="rise">
               <span className="home-feature-icon">
                 <Icon size={20} aria-hidden="true" />
               </span>
@@ -616,8 +619,8 @@ function HomeWorkloads() {
 function KeyPreview() {
   return (
     <>
-      <p className="preview-name">docs-assistant</p>
-      <dl className="preview-data">
+      <p className="mono preview-name">docs-assistant</p>
+      <dl>
         <div>
           <dt>Daily cap</dt>
           <dd>$5.00</dd>
@@ -638,12 +641,12 @@ function KeyPreview() {
 function UsagePreview() {
   return (
     <>
-      <p className="preview-name">GLM 5.3 Flash</p>
+      <p className="mono preview-name">GLM 5.3 Flash</p>
       <div className="preview-usage-bar" aria-hidden="true">
         <span />
         <span />
       </div>
-      <dl className="preview-data">
+      <dl>
         <div>
           <dt>Input tokens</dt>
           <dd>1,240</dd>
@@ -664,8 +667,8 @@ function UsagePreview() {
 function PaymentPreview() {
   return (
     <>
-      <p className="preview-name">5.00 USDC</p>
-      <dl className="preview-data">
+      <p className="mono preview-name">5.00 USDC</p>
+      <dl>
         <div>
           <dt>Network</dt>
           <dd>Solana mainnet</dd>
@@ -700,7 +703,7 @@ const workspaceCards = [
     id: "usage",
     label: "Usage",
     previewTitle: "Request ledger",
-    icon: ArrowUpRight,
+    icon: Activity,
     title: "See what a request cost",
     description:
       "Look up a request to see which model and key ran it, how many tokens it used, and what you paid.",
@@ -724,54 +727,102 @@ const workspaceCards = [
 
 function WorkspacePreview() {
   const [active, setActive] = useState(0);
-  const card = workspaceCards[active];
+
+  function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next: number;
+    switch (event.key) {
+      case "ArrowUp":
+        next = (index + workspaceCards.length - 1) % workspaceCards.length;
+        break;
+      case "ArrowDown":
+        next = (index + 1) % workspaceCards.length;
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = workspaceCards.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    setActive(next);
+    event.currentTarget.parentElement?.querySelectorAll("button")[next]?.focus();
+  }
+
   return (
-    <section className="home-split" aria-labelledby="workspace-title">
+    <section className="section home-workspace" aria-labelledby="workspace-title">
       <div className={sectionHead}>
         <h2 id="workspace-title">Keys, usage, and credits.</h2>
         <a className={textLink} href="/models#billing">
           See pricing <ArrowUpRight size={16} aria-hidden="true" />
         </a>
       </div>
-      <div className="workspace-switch">
-        <div role="tablist" aria-label="Workspace preview">
+      <div className="workspace-showcase" data-reveal="fade">
+        <div
+          className="workspace-tabs"
+          role="tablist"
+          aria-orientation="vertical"
+          aria-label="Workspace preview"
+        >
           {workspaceCards.map(({ id, label, icon: Icon }, index) => (
             <button
+              id={"workspace-tab-" + id}
               type="button"
               role="tab"
               key={id}
               aria-selected={active === index}
+              aria-controls={"workspace-panel-" + id}
+              tabIndex={active === index ? 0 : -1}
               onClick={() => setActive(index)}
+              onKeyDown={(event) => navigate(event, index)}
             >
               <Icon size={18} aria-hidden="true" /> {label}
             </button>
           ))}
         </div>
-        <div className="workspace-card" role="tabpanel" key={card.id}>
-          <div className="workspace-shot">
-            <img
-              src={"/homepage/" + card.id + ".webp"}
-              alt=""
-              width={840}
-              height={560}
-              loading="lazy"
-            />
-            <figure className="workspace-callout">
-              <figcaption>
-                <card.icon size={15} aria-hidden="true" /> <strong>{card.previewTitle}</strong>
-                <small>Example</small>
-              </figcaption>
-              <card.Preview />
-            </figure>
-          </div>
-          <div className="workspace-copy">
-            <h3>{card.title}</h3>
-            <p>{card.description}</p>
-            <a className={textLink} href={card.link}>
-              {card.action} <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
-          </div>
-        </div>
+        {workspaceCards.map(
+          ({ id, previewTitle, icon: Icon, title, description, link, action, Preview }, index) => (
+            <div
+              className="workspace-preview"
+              id={"workspace-panel-" + id}
+              role="tabpanel"
+              aria-labelledby={"workspace-tab-" + id}
+              hidden={index !== active}
+              tabIndex={0}
+              key={id}
+            >
+              {index === active && (
+                <>
+                  <div className="workspace-visual">
+                    <img
+                      src={"/homepage/" + id + ".webp"}
+                      alt=""
+                      width={840}
+                      height={560}
+                      loading="lazy"
+                    />
+                    <figure className="preview-data">
+                      <figcaption>
+                        <Icon size={15} aria-hidden="true" /> <strong>{previewTitle}</strong>
+                        <small>Example</small>
+                      </figcaption>
+                      <Preview />
+                    </figure>
+                  </div>
+                  <div className="workspace-preview-copy">
+                    <h3>{title}</h3>
+                    <p>{description}</p>
+                    <a className={textLink} href={link}>
+                      {action} <ArrowUpRight size={16} aria-hidden="true" />
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
+          ),
+        )}
       </div>
     </section>
   );
@@ -782,18 +833,18 @@ const featuredArticles = ["read-a-gateway-trace", "choose-a-model", "credits-and
 function HomeResources() {
   return (
     <>
-      <section className="home-resources home-guides" aria-labelledby="guides-heading">
+      <section className="section home-guides" aria-labelledby="guides-heading">
         <div className={sectionHead}>
           <h2 id="guides-heading">Practical guides.</h2>
           <a className={textLink} href="/blog">
             Read the journal <ArrowRight size={16} aria-hidden="true" />
           </a>
         </div>
-        <div className="home-guide-list">
+        <div className="home-resources">
           {featuredArticles.map((slug) => {
             const article = articles.find((item) => item.slug === slug)!;
             return (
-              <a href={"/blog/" + slug} key={slug}>
+              <a href={"/blog/" + slug} className="resource-row" key={slug} data-reveal="rise">
                 <span>{article.category}</span>
                 <div>
                   <h3>{article.title}</h3>
@@ -805,15 +856,15 @@ function HomeResources() {
           })}
         </div>
       </section>
-      <section className="home-resources home-faq" aria-labelledby="questions-heading">
-        <div className={sectionHead}>
+      <section className="section home-split home-faq" aria-labelledby="questions-heading">
+        <div className="home-section-intro" data-reveal="rise">
           <h2 id="questions-heading">Good to know.</h2>
           <a className={textLink} href="/contact">
             Contact Sonnely <ArrowUpRight size={16} aria-hidden="true" />
           </a>
         </div>
         <div className="faq">
-          <details name="home-questions">
+          <details name="home-questions" data-reveal="fade">
             <summary>
               What can I try without a wallet? <Plus size={17} aria-hidden="true" />
             </summary>
@@ -822,7 +873,7 @@ function HomeResources() {
               connect an eligible wallet and add credits.
             </p>
           </details>
-          <details name="home-questions">
+          <details name="home-questions" data-reveal="fade">
             <summary>
               What can I send through the API? <Plus size={17} aria-hidden="true" />
             </summary>
@@ -832,7 +883,7 @@ function HomeResources() {
               <a href="/docs/api#request-limits">request limits</a> for the JSON size cap.
             </p>
           </details>
-          <details name="home-questions">
+          <details name="home-questions" data-reveal="fade">
             <summary>
               What does the usage ledger store? <Plus size={17} aria-hidden="true" />
             </summary>
@@ -842,7 +893,7 @@ function HomeResources() {
               <a href="/docs/attestation#data-handling">Read about data handling</a>.
             </p>
           </details>
-          <details name="home-questions">
+          <details name="home-questions" data-reveal="fade">
             <summary>
               Can I use a Solana Seeker? <Plus size={17} aria-hidden="true" />
             </summary>
@@ -882,9 +933,9 @@ export function Home() {
         </div>
         <RequestPath />
       </section>
-      <div className={wrap}>
+      <div className="wrap home">
         <HomeDemo />
-        <nav className="home-platform" aria-label="Platform integrations">
+        <nav className="home-platform" data-reveal="fade" aria-label="Platform integrations">
           <a href="/docs/billing">
             <span className="home-platform-icon">
               <Wallet size={18} aria-hidden="true" />
@@ -922,7 +973,11 @@ export function Home() {
         <WorkspacePreview />
         <PlatformLinks className="home-directory" />
         <HomeResources />
-        <section className="closing home-closing" aria-labelledby="home-closing-heading">
+        <section
+          className="closing home-closing"
+          aria-labelledby="home-closing-heading"
+          data-reveal="fade"
+        >
           <Scene />
           <div>
             <h2 id="home-closing-heading">Start in the console.</h2>
