@@ -8,7 +8,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { footerGroups, headerLinks, productsMenu } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
@@ -126,6 +126,20 @@ export function ThemeSwitch({ choose = setTheme }: { choose?: (theme: Theme) => 
       </span>
     </button>
   );
+}
+
+export const accentTokenAliases = {
+  "--action": "var(--primary)",
+  // eslint-disable-next-line design-system/no-literal-colors -- the hover weight derives from the live primary by darkening it
+  "--action-hover": "color-mix(in oklch, var(--primary) 85%, black)",
+  "--accent": "var(--ring)",
+  "--focus-ring": "var(--ring)",
+} as CSSProperties;
+
+const shellRules = ".theme-root.site button:disabled{filter:saturate(.3)}";
+
+export function ShellRules() {
+  return <style>{shellRules}</style>;
 }
 
 export function Brand({ href = "/" }: { href?: string }) {
@@ -281,7 +295,9 @@ export function ThemeSurface({ children }: { children: ReactNode }) {
       data-area="site"
       data-theme={theme}
       data-motion={motion ? "on" : "off"}
+      style={accentTokenAliases}
     >
+      <ShellRules />
       <a href="#content" className="skip">
         Skip to content
       </a>

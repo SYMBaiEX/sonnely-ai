@@ -36,7 +36,7 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
             <button
               key={id}
               type="button"
-              aria-pressed={(state?.theme ?? "Dark") === id}
+              aria-pressed={shell.theme === browserThemes[id]}
               onClick={() => void shell.chooseTheme(browserThemes[id])}
             >
               {label}
