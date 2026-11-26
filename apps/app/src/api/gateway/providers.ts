@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { Readable } from "node:stream";
 import { createParser, type EventSourceMessage } from "eventsource-parser";
 import { verifyMessage } from "ethers";
 import { SecureClient } from "tinfoil";
@@ -316,33 +317,41 @@ export async function phalaEvidence(reference: string | undefined, key: string, 
   return { status: "aci_payload_matched" as const, aci_receipt_id: receiptId, aci_keyset_digest: receipt.workload_keyset_digest, operator_route: selected, upstream_session_id: upstream.session_id };
 }
 
-async function* readSse(body: ReadableStream<Uint8Array>, onBytes?: (bytes: Uint8Array) => void) {
+function readSse(body: ReadableStream<Uint8Array>, onBytes?: (bytes: Uint8Array) => void) {
   const reader = body.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: true });
-  const events: string[] = [];
-  const parser = createParser({ onEvent: ({ data }: EventSourceMessage) => events.push(data) });
+  const pending: string[] = [];
+  const parser = createParser({ onEvent: ({ data }: EventSourceMessage) => pending.push(data) });
   let size = 0;
   let ended = false;
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) {
-        ended = true;
-        parser.feed(decoder.decode());
-      } else {
-        size += value.byteLength;
-        if (size > 2_000_000) throw new Error("Stream exceeded the response size limit.");
-        onBytes?.(value);
-        parser.feed(decoder.decode(value, { stream: true }));
+  const events = (async function* () {
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) {
+          ended = true;
+          parser.feed(decoder.decode());
+        } else {
+          size += value.byteLength;
+          if (size > 2_000_000) throw new Error("Stream exceeded the response size limit.");
+          onBytes?.(value);
+          parser.feed(decoder.decode(value, { stream: true }));
+        }
+        yield* pending;
+        pending.length = 0;
+        if (done) break;
       }
-      yield* events;
-      events.length = 0;
-      if (done) break;
+    } finally {
+      if (!ended) void reader.cancel().catch(() => null);
+      reader.releaseLock();
     }
-  } finally {
-    if (!ended) void reader.cancel().catch(() => null);
-    reader.releaseLock();
-  }
+  })();
+  return {
+    events,
+    async cancel() {
+      await reader.cancel().catch(() => undefined);
+    },
+  };
 }
 
 const toolDelta = z.object({
@@ -370,16 +379,38 @@ const chunkSchema = z.object({
 });
 type Chunk = z.infer<typeof chunkSchema>;
 export type StreamFinal = { id: string; reportedModel?: string; usage: UpstreamUsage; responseHash: string; firstTokenAt?: number };
-export function chatSseResponse(options: {
+type ChatSseOptions = {
   upstream: ReadableStream<Uint8Array>;
   model: string;
   includeUsage: boolean;
   rememberId: (id: string) => void;
   settle: (usage?: StreamFinal, observedFirstTokenAt?: number) => Promise<unknown>;
-}) {
+};
+
+const chatSseHeaders = {
+  "Content-Type": "text/event-stream; charset=utf-8",
+  "Cache-Control": "no-store, no-transform",
+  "X-Accel-Buffering": "no",
+} as const;
+
+const asNodeWebStream = (body: ReadableStream<Uint8Array>) => {
+  if (typeof body.getReader !== "function" || typeof body.cancel !== "function") throw new TypeError("The chat stream is not a web ReadableStream.");
+  return body as Parameters<typeof Readable.fromWeb>[0];
+};
+
+function chatSseStream(options: ChatSseOptions) {
   let readable = true;
-  let finished: Promise<void>;
+  let canceled = false;
+  let firstTokenAt: number | undefined;
+  let settlement: Promise<unknown> | undefined;
+  let finished!: Promise<void>;
+  const settleOnce = (final?: StreamFinal, observedFirstTokenAt?: number) => {
+    settlement ??= Promise.resolve().then(() => options.settle(final, observedFirstTokenAt));
+    return settlement;
+  };
   const encode = new TextEncoder();
+  const digest = createHash("sha256");
+  const source = readSse(options.upstream, (bytes) => digest.update(bytes));
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       const send = (data: string) => {
@@ -388,14 +419,13 @@ export function chatSseResponse(options: {
       finished = (async () => {
         let error = "The stream ended without complete provider usage. The reservation is pending reconciliation.";
         try {
-          const digest = createHash("sha256");
           let id: string | undefined;
           let terminal: Chunk | undefined;
-          let firstTokenAt: number | undefined;
           let done = false;
           let malformed = false;
           try {
-            for await (const event of readSse(options.upstream, (bytes) => digest.update(bytes))) {
+            for await (const event of source.events) {
+              if (canceled) break;
               if (event === "[DONE]") {
                 if (done || !terminal) malformed = true;
                 done = true;
@@ -431,12 +461,16 @@ export function chatSseResponse(options: {
           } catch {
             malformed = true;
           }
+          if (canceled) {
+            await settleOnce(undefined, firstTokenAt);
+            return;
+          }
           if (malformed || !done || !terminal?.usage) {
-            await options.settle(undefined, firstTokenAt);
+            await settleOnce(undefined, firstTokenAt);
             throw new Error(error);
           }
           error = "Sonnely could not finalize this stream. Check the usage ledger before retrying.";
-          const receipt = await options.settle({
+          const receipt = await settleOnce({
             id: terminal.id,
             ...(terminal.model ? { reportedModel: terminal.model } : {}),
             usage: terminal.usage,
@@ -456,27 +490,38 @@ export function chatSseResponse(options: {
           }
           send("[DONE]");
         } catch (cause) {
-          if (cause instanceof Error && cause.message !== error) error = cause.message;
-          send(JSON.stringify({ error: { message: error, type: "sonnely_error", code: 502 } }));
+          if (!canceled) {
+            if (cause instanceof Error && cause.message !== error) error = cause.message;
+            send(JSON.stringify({ error: { message: error, type: "sonnely_error", code: 502 } }));
+          }
         } finally {
           if (readable) controller.close();
         }
       })();
       return undefined;
     },
-    cancel() {
+    async cancel() {
+      canceled = true;
       readable = false;
+      await Promise.allSettled([source.cancel(), settleOnce(undefined, firstTokenAt)]);
     },
   });
+  return { finished, body, headers: chatSseHeaders };
+}
+
+export function chatSseResponse(options: ChatSseOptions) {
+  const stream = chatSseStream(options);
   return {
-    finished: finished!,
-    response: new Response(body, {
-      headers: {
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-store, no-transform",
-        "X-Accel-Buffering": "no",
-      },
-    }),
+    finished: stream.finished,
+    response: new Response(stream.body, { headers: stream.headers }),
+  };
+}
+
+export function chatSseNodeResponse(options: ChatSseOptions) {
+  const stream = chatSseStream(options);
+  return {
+    finished: stream.finished,
+    body: Readable.fromWeb(asNodeWebStream(stream.body)),
   };
 }
 

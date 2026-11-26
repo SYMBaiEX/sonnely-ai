@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import { text as readStreamText } from "node:stream/consumers";
 import { Effect, Layer } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -164,8 +166,8 @@ describe("gateway inference", () => {
     });
     const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
     const body = result.response.body;
-    if (body._tag !== "Raw" || !(body.body instanceof ReadableStream)) throw new Error("expected a stream response");
-    const streamed = await new Response(body.body).text();
+    if (body._tag !== "Raw" || !(body.body instanceof Readable)) throw new Error("expected a stream response");
+    const streamed = await readStreamText(body.body);
     const state = await Effect.runPromise(Effect.gen(function* () {
       return {
         rows: (yield* result.usage.get()).rows,
