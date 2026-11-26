@@ -251,7 +251,7 @@ export function ConfidentialCheckout({
               </button>
             )}
             {canSend && !cancel && (
-              <button type="button" className="text-link" disabled={Boolean(pending)} onClick={() => setCancel(true)}>
+              <button type="button" className="text-link destructive" disabled={Boolean(pending)} onClick={() => setCancel(true)}>
                 Cancel request
               </button>
             )}

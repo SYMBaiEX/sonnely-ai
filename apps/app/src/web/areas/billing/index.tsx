@@ -11,7 +11,6 @@ import {
   getTransactionDecoder,
   isTransactionSendingSigner,
 } from "@solana/kit";
-import { getAddress } from "ethers";
 import { Input } from "@repo/ui";
 import type { Deposits, Intent } from "../../../../gen/app__billing__deposits.ts";
 import type { Ledger } from "../../../../gen/app__billing__ledger.ts";
@@ -31,7 +30,6 @@ import {
   date,
   Failure,
   focusHeading,
-  fundingAtomic,
   inferredSolPrice,
   intentFunds,
   isPast,
@@ -190,7 +188,6 @@ function newReference() {
   return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 }
 
-const destinationAsset = "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near";
 const atomicString = z.string().regex(/^\d+$/);
 
 async function quoteFunding(
@@ -425,7 +422,7 @@ function BillingConsole() {
   const historyError = deposits.error;
 
   return (
-    <div className="billing-legacy">
+    <div className="billing-area">
       <WorkspaceHeading title="Billing" description="Add compute credits, check your balance, and track wallet payments." />
       <Failure message={failure && !["deposit", "pay", "confirm"].includes(failure.action) ? failure.message : historyError} />
       <p role="status" className={status ? "status" : "visually-hidden"}>
@@ -769,7 +766,7 @@ function BillingConsole() {
                   <details>
                     <summary>Use a Solana Pay link or QR code</summary>
                     <div className="payment-qr">
-                      {order.qr && <img src={order.qr} width={176} height={176} alt="Scan with a Solana Pay wallet" />}
+                      {order.qr && <img className="payment-qr-image" src={order.qr} width={176} height={176} alt="Scan with a Solana Pay wallet" />}
                       <div>
                         <p>Open the payment in a compatible wallet on {order.cluster}.</p>
                         {order.uri && (
@@ -834,12 +831,12 @@ function BillingConsole() {
                   {paymentHistory.map(({ kind, item, time }) =>
                     kind === "confidential" ? (
                       <tr key={item.reference}>
-                        <td>{date(time)}</td>
-                        <td>{item.cluster}</td>
-                        <td>{creditBalance(item.amount)}</td>
-                        <td>Confidential USDC</td>
-                        <td>{confidentialPaymentStatus(item)}</td>
-                        <td>
+                        <td data-label="Date (UTC)">{date(time)}</td>
+                        <td data-label="Network">{item.cluster}</td>
+                        <td data-label="Credits">{creditBalance(item.amount)}</td>
+                        <td data-label="Paid with">Confidential USDC</td>
+                        <td data-label="Status">{confidentialPaymentStatus(item)}</td>
+                        <td data-label="Reference">
                           <button
                             type="button"
                             className="text-link"
@@ -855,11 +852,11 @@ function BillingConsole() {
                       </tr>
                     ) : (
                       <tr key={item.reference}>
-                        <td>{date(item.createdAt)}</td>
-                        <td>{meta[item.reference]?.cluster ?? cluster}</td>
-                        <td>{creditBalance(item.amount)}</td>
-                        <td>{item.asset === "SOL" ? solDecimal(item.atomic) + " SOL" : "USDC"}</td>
-                        <td>
+                        <td data-label="Date (UTC)">{date(item.createdAt)}</td>
+                        <td data-label="Network">{meta[item.reference]?.cluster ?? cluster}</td>
+                        <td data-label="Credits">{creditBalance(item.amount)}</td>
+                        <td data-label="Paid with">{item.asset === "SOL" ? solDecimal(item.atomic) + " SOL" : "USDC"}</td>
+                        <td data-label="Status">
                           {item.status.tag === "Finalized" ? (
                             <div className="payment-status">
                               <a
@@ -881,7 +878,7 @@ function BillingConsole() {
                             <div className="payment-status">
                               <span className="caption">Archive this payment request?</span>
                               <button
-                                className="text-link"
+                                className="text-link destructive"
                                 type="button"
                                 disabled={!!pending}
                                 onClick={() => {
@@ -900,7 +897,7 @@ function BillingConsole() {
                               >
                                 Confirm archive
                               </button>
-                              <button className="text-link" type="button" disabled={!!pending} onClick={() => setArchive("")}>
+                              <button className="text-link subtle" type="button" disabled={!!pending} onClick={() => setArchive("")}>
                                 Keep
                               </button>
                             </div>
@@ -925,7 +922,7 @@ function BillingConsole() {
                                     {meta[item.reference]?.archivedAt !== undefined ? "Check status" : "Resume"}
                                   </button>
                                   {meta[item.reference]?.archivedAt === undefined && (
-                                    <button className="text-link" type="button" disabled={!!pending} onClick={() => setArchive(item.reference)}>
+                                    <button className="text-link destructive" type="button" disabled={!!pending} onClick={() => setArchive(item.reference)}>
                                       Archive request
                                     </button>
                                   )}
@@ -934,7 +931,7 @@ function BillingConsole() {
                             </div>
                           )}
                         </td>
-                        <td>
+                        <td data-label="Reference">
                           <CopyButton value={item.reference} label="Copy payment reference" />
                         </td>
                       </tr>
@@ -962,7 +959,7 @@ function BillingConsole() {
 
 function BillingFallback() {
   return (
-    <div className="billing-legacy">
+    <div className="billing-area">
       <WorkspaceHeading title="Billing" description="Add compute credits, check your balance, and track wallet payments." />
       <div className="billing-grid">
         <section className="panel stack-panel billing-balance">
