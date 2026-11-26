@@ -10,7 +10,7 @@ import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame } from "../console/frame.tsx";
 import { CopyButton, WorkspaceHeading, creditBalance, creditDecimal, date, dateTime, parseCreditAmount, shorten } from "../console/bits.tsx";
-import { WorkspaceLegacy } from "./legacy.tsx";
+import "./teams.css";
 
 const roles: Record<Role, string> = { Owner: "Owner", Admin: "Admin", Member: "Member" };
 const usageStatuses: Record<Status, string> = {
@@ -87,7 +87,7 @@ function FieldForm({
   return (
     <form className="teams-form" onSubmit={handle}>
       <fieldset disabled={pending}>
-        <legend className="teams-hidden">{label}</legend>
+        <legend className="visually-hidden">{label}</legend>
         {children}
         <button className="button accent" type="submit">
           {label}
@@ -680,7 +680,7 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
         </div>
       )}
       {!teams.state && !teams.error && <p role="status">Loading teams…</p>}
-      <p role="status" aria-live="polite" className={notice ? "caption" : "teams-hidden"}>
+      <p role="status" aria-live="polite" className={notice ? "caption" : "visually-hidden"}>
         {notice}
       </p>
       {failure && (
@@ -804,8 +804,8 @@ function TeamsSession() {
 
 export function TeamsWorkspace() {
   return (
-    <WorkspaceLegacy>
+    <div className="workspace-surface">
       <TeamsSession />
-    </WorkspaceLegacy>
+    </div>
   );
 }

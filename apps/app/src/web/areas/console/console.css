@@ -147,6 +147,17 @@
   max-width: 1580px;
 }
 
+.theme-root.site .console .workspace-surface {
+  min-width: 0;
+  color: var(--ink);
+  font-family: var(--font);
+  isolation: isolate;
+}
+
+.theme-root.site .console .workspace-surface select {
+  background-image: none;
+}
+
 .theme-root.site .console .console-title {
   display: flex;
   flex-wrap: wrap;

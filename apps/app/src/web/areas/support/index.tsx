@@ -8,7 +8,6 @@ import type { Ticket, TicketState, Tickets } from "../../../../gen/app__support.
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame } from "../console/frame.tsx";
 import { WorkspaceHeading, dateTime } from "../console/bits.tsx";
-import { WorkspaceLegacy } from "../teams/legacy.tsx";
 
 const ticketStates: Record<TicketState, string> = { Open: "Open", InProgress: "In progress", Resolved: "Resolved" };
 const seenKey = "sonnely.supportSeen";
@@ -271,8 +270,8 @@ function SupportSession() {
 
 export function SupportWorkspace() {
   return (
-    <WorkspaceLegacy>
+    <div className="workspace-surface">
       <SupportSession />
-    </WorkspaceLegacy>
+    </div>
   );
 }

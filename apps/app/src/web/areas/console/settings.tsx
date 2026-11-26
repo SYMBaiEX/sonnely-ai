@@ -8,7 +8,6 @@ import type { Theme as BrowserTheme } from "../site/chrome.tsx";
 import { MotionSwitch } from "../site/motion.tsx";
 import { useConsoleShell, type WorkspaceSessionRemote } from "./frame.tsx";
 import { CopyButton, Failure, WorkspaceHeading, date, shorten } from "./bits.tsx";
-import { WorkspaceLegacy } from "../teams/legacy.tsx";
 
 const usernameHelp = "Use 3–24 letters, numbers, or underscores. Start with a letter.";
 const themes: { id: ConsoleTheme; label: string }[] = [
@@ -208,8 +207,8 @@ function SettingsContent() {
 
 export function SettingsSection() {
   return (
-    <WorkspaceLegacy>
+    <div className="workspace-surface">
       <SettingsContent />
-    </WorkspaceLegacy>
+    </div>
   );
 }

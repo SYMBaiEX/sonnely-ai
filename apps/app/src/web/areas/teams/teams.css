@@ -1,0 +1,144 @@
+.workspace-surface .teams-stack,
+.workspace-surface .teams-panel {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.workspace-surface .teams-panel {
+  min-width: 0;
+  align-content: start;
+  padding: clamp(1rem, 2.6vw, 1.5rem);
+}
+
+.workspace-surface .teams-panel label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.workspace-surface .teams-panel input:not([type="checkbox"], [type="radio"]),
+.workspace-surface .teams-panel select {
+  width: 100%;
+  min-width: 0;
+}
+
+.workspace-surface .teams-panel details {
+  min-width: 0;
+}
+
+.workspace-surface .teams-panel details > summary {
+  width: fit-content;
+  min-height: 2rem;
+  cursor: pointer;
+}
+
+.workspace-surface .teams-form {
+  margin-block: 0.75rem;
+}
+
+.workspace-surface .teams-form fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: 0.75rem;
+}
+
+.workspace-surface .teams-form label {
+  flex: 1 1 9rem;
+}
+
+.workspace-surface .teams-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.875rem;
+}
+
+.workspace-surface .teams-row,
+.workspace-surface .teams-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workspace-surface .teams-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-surface .teams-list li {
+  justify-content: space-between;
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace-surface .teams-list li > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.workspace-surface .teams-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin: 0;
+}
+
+.workspace-surface .teams-metrics dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.workspace-surface .teams-metrics dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.workspace-surface .teams-new-key {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.workspace-surface .teams-new-key code,
+.workspace-surface .teams-reference {
+  overflow-wrap: anywhere;
+}
+
+.workspace-surface .teams-stack :is(th, td) {
+  vertical-align: top;
+}
+
+.workspace-surface .teams-dialog {
+  width: min(30rem, calc(100% - 2rem));
+  height: fit-content;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 1rem;
+  overflow: auto;
+  inset: 0;
+}
+
+.workspace-surface .teams-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.workspace-surface .teams-dialog p {
+  margin-block: 0.75rem;
+}
+
+@media (width <= 850px) {
+  .workspace-surface .teams-columns {
+    grid-template-columns: 1fr;
+  }
+}
