@@ -550,22 +550,7 @@ pure val bodies: List[List[str]] = List(
         "",
         "## Realtime transcription",
         "",
-        "The SDKs return the URL and bearer headers for a server-side WebSocket client. Wait for `session.created` before sending audio, and wait for `transcription.done` before treating it as settled. Follow the [realtime protocol](/docs/providers#additional-tinfoil-endpoints) for audio limits and events.",
-        "",
-        "```typescript",
-        "",
-        "const { url, headers } = sonnely.realtimeConnection();",
-        "const socket = new WebSocket(url, { headers, followRedirects: false });",
-        "```",
-        "",
-        "```python",
-        "from websockets.sync.client import connect",
-        "",
-        "url, headers = sonnely.realtime_connection()",
-        "with connect(url, additional_headers=headers) as socket:",
-        "    print(socket.recv())",
-        "    # Stream PCM16 chunks while the connection is open.",
-        "```"
+        "Realtime transcription over WebSocket is planned and not yet served. The TypeScript `realtimeConnection` and Python `realtime_connection` helpers prepare the URL and bearer headers for a server-side WebSocket client ahead of the endpoint’s release. For audio transcription today, use [`POST /audio/transcriptions`](/docs/providers#embeddings-decisions-images-and-audio) through `infer`."
     ),
     List(
         "## Create a key",
@@ -761,7 +746,7 @@ pure val bodies: List[List[str]] = List(
         "@apiref",
         "",
         "",
-        "The [OpenAPI 3.1 specification](/api/openapi) describes the request and response schemas. The examples below use `https://sonnely.com/api/sonnely/v1` as the base URL. Existing clients can also use `https://sonnely.com/v1`.",
+        "The [OpenAPI 3.1 specification](/api/openapi) describes the request and response schemas. The examples below use `https://sonnely.com/api/sonnely/v1` as the base URL.",
         "",
         "## List models",
         "",
@@ -788,7 +773,7 @@ pure val bodies: List[List[str]] = List(
         "",
         "## Specialized inference",
         "",
-        "`POST /embeddings`, `POST /rerank`, image generation and edits, System One, redaction, document conversion, Responses, and the audio endpoints use the same Sonnely API key and credit controls as Chat Completions. [Realtime and additional Tinfoil endpoints](/docs/providers#additional-tinfoil-endpoints) describe their request formats. Choose an endpoint in the [Playground](/console) to try these operations with your signed-in workspace credits. See [model IDs and accepted request fields](/docs/providers#embeddings-decisions-images-and-audio).",
+        "`POST /embeddings`, `POST /rerank`, image generation and edits, System One, redaction, document conversion, Responses, and the audio endpoints use the same Sonnely API key and credit controls as Chat Completions. [Additional Tinfoil endpoints](/docs/providers#additional-tinfoil-endpoints) describe their request formats. Choose an endpoint in the [Playground](/console) to try these operations with your signed-in workspace credits. See [model IDs and accepted request fields](/docs/providers#embeddings-decisions-images-and-audio).",
         "",
         "## Create a completion",
         "",
@@ -884,11 +869,10 @@ pure val bodies: List[List[str]] = List(
         "| `POST /convert/file` | `doc-upload` | Multipart `files`, one PDF up to 2 MB, returning Markdown with OCR for scans |",
         "| `POST /redact` | `pii-filter` | JSON `text`, up to 4,096 UTF-8 bytes |",
         "| `POST /responses` | A mapped Tinfoil text model | JSON `input` string, optional `instructions` and `max_output_tokens` |",
-        "| `GET /realtime?model=voxtral-mini-4b-realtime` | `voxtral-mini-4b-realtime` | WebSocket with one native PCM16 transcription turn |",
         "",
         "Responses accepts single-turn text with `stream: false` and `store: false`. Audio translation returns `text` in English. Tinfoil processes the audio and translates the transcript through an attested text route. PDF conversion returns `document.md_content`. Redaction returns `redacted_text` and charges the request fee plus an input estimate based on UTF-8 bytes with a 256-token allowance. Review redacted output before sharing it. A detector can miss sensitive information.",
         "",
-        "For realtime transcription, authenticate the WebSocket upgrade with a bearer key and wait for `session.created`. Send `input_audio_buffer.append` messages with base64-encoded mono 16 kHz PCM16 chunks up to 32 KiB each and 30 seconds total. Send `input_audio_buffer.commit` to finalize. Sonnely emits `transcription.delta` updates and `transcription.done` after settlement. Use a server-side WebSocket client that can set the Authorization header, or select **Realtime transcription** and upload a WAV in the [Playground](/console).",
+        "Realtime transcription over WebSocket (`voxtral-mini-4b-realtime`) is planned and not yet served. Audio transcription is available today through `POST /audio/transcriptions`.",
         "",
         "## Compare prices",
         "",
@@ -1222,7 +1206,7 @@ pure val bodies: List[List[str]] = List(
         "@end",
         "",
         "",
-        "> **Compatibility.** Existing inference integrations using `/v1` can migrate at their own pace. The original app’s media APIs and CLI are retired.",
+        "> **Compatibility.** The retired `/api/v1` endpoints answer HTTP 410 and bare `/v1` paths are not served. Update existing clients to the `/api/sonnely/v1` base URL before switching traffic. The original app’s media APIs and CLI are retired.",
         "",
         "",
         "@box {‖kind‖:‖next‖,‖label‖:‖Related guides and resources‖}",
@@ -1254,8 +1238,7 @@ pure val apiEndpoints: List[Endpoint] = List(
     { method: "POST", path: "/audio/translations", anchor: "/docs/providers#additional-tinfoil-endpoints", description: "Translate a WAV recording into English" },
     { method: "POST", path: "/convert/file", anchor: "/docs/providers#additional-tinfoil-endpoints", description: "Convert a PDF to Markdown" },
     { method: "POST", path: "/redact", anchor: "/docs/providers#additional-tinfoil-endpoints", description: "Redact detected personal information" },
-    { method: "POST", path: "/responses", anchor: "/docs/providers#additional-tinfoil-endpoints", description: "Generate a single-turn text response" },
-    { method: "GET", path: "/realtime", anchor: "/docs/providers#additional-tinfoil-endpoints", description: "Transcribe PCM16 audio over WebSocket" }
+    { method: "POST", path: "/responses", anchor: "/docs/providers#additional-tinfoil-endpoints", description: "Generate a single-turn text response" }
 )
 ```
 
