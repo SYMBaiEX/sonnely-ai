@@ -35,7 +35,10 @@ export function App({ runtime, path }: AppProps) {
   }, [runtime, path]);
 
   useEffect(() => {
-    const onPop = () => void runtime.runPromiseExit(back());
+    const onPop = () => {
+      scrollTo(0, 0);
+      void runtime.runPromiseExit(back());
+    };
     addEventListener("popstate", onPop);
     return () => removeEventListener("popstate", onPop);
   }, [runtime]);
@@ -79,7 +82,10 @@ export function App({ runtime, path }: AppProps) {
 
 export async function navigate(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>, page: Page) {
   const exit = await runtime.runPromiseExit(open(page));
-  if (Exit.isSuccess(exit)) history.pushState(null, "", pathOf(page));
+  if (Exit.isSuccess(exit)) {
+    history.pushState(null, "", pathOf(page));
+    scrollTo(0, 0);
+  }
   return exit;
 }
 export function navigateWith(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>) {
