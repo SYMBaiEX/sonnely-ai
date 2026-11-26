@@ -349,7 +349,6 @@ function UsageConsole() {
         </section>
       )}
       {signedIn && displayState && <UsageMax days={range} hasUsage={source.some((row) => row.status === "Complete")} />}
-      <section className="panel workspace-compute-links" aria-label="Compute usage"><h2>Compute usage</h2><p className="caption">Blackboxes · Coming soon</p><p className="caption">Dry Docks · Coming soon</p></section>
     </div>
   );
 }

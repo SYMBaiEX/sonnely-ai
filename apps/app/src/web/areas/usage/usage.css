@@ -135,19 +135,3 @@
   background: var(--raised);
 }
 
-.usage-legacy .workspace-compute-links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 18px;
-  padding: 14px 18px;
-}
-
-.usage-legacy .workspace-compute-links h2 {
-  font-size: 15px;
-  margin-right: 10px;
-}
-
-.usage-legacy .workspace-compute-links p {
-  margin: 0;
-}

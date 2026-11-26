@@ -35,6 +35,7 @@ import { Brand, ShellRules, ThemeSwitch, accentTokenAliases, setTheme as applyTh
 import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
 import { CommandMenu } from "./command-menu.tsx";
+import { sectionReleased } from "./features.ts";
 import { Onboarding } from "./onboarding.tsx";
 import { TermsAcceptance, termsVersion } from "./terms-acceptance.tsx";
 import { useBillingCluster, WalletControl } from "./wallet.tsx";
@@ -262,10 +263,12 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     finishOnboarding,
     chooseTheme,
   };
-  const visibleGroups = groups.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => item.id !== "admin" || (profile?.role ?? "member") !== "member"),
-  }));
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => sectionReleased(item.section) && (item.id !== "admin" || (profile?.role ?? "member") !== "member")),
+    }))
+    .filter((group) => group.items.length > 0);
   const visibleItems = visibleGroups.flatMap((group) => group.items);
   const PageIcon = selected.Icon;
   const inviteUrl = profile?.referral ? `${window.location.origin}/console?ref=${profile.referral}` : undefined;
