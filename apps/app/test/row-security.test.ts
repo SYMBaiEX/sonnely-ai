@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Layer, Scheduler } from "effect";
@@ -9,9 +10,15 @@ import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as Deposits from "../gen/app__billing__deposits.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Support from "../gen/app__support.effect.vibe";
+import * as Keyring from "../gen/app__gateway__keyring.effect.vibe";
+import * as Requests from "../gen/app__gateway__requests.effect.vibe";
+import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
+import * as Usage from "../gen/app__usage.effect.vibe";
+import * as Admin from "../gen/app__admin.effect.vibe";
 import { billingApi } from "../src/api/billing.vibe";
 import { teamsApi } from "../src/api/teams.vibe";
 import { supportApi } from "../src/api/support.vibe";
+import { gatewayApi } from "../src/api/gateway.vibe";
 import { fleetMachineApi } from "../src/machines.vibe";
 import { fleetLive } from "../src/fleet.vibe";
 import { sessionDigest } from "../src/api/session/signin.ts";
@@ -23,7 +30,30 @@ const walletOp = "4vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2d";
 const tokenA = "row-security-session-a";
 const tokenB = "row-security-session-b";
 const tokenOp = "row-security-session-op";
+const apiTokenA = "row-security-api-key-a";
+const apiTokenB = "row-security-api-key-b";
 const cleanups: Array<() => void | Promise<void>> = [];
+
+function apiKey(id: string, token: string, wallet: string) {
+  return {
+    id,
+    label: id,
+    prefix: "sonnely_live_" + id,
+    hash: createHash("sha256").update(token).digest("hex"),
+    wallet,
+    project: "",
+    scopes: ["inference"],
+    cap: 0,
+    dailyCap: 0,
+    expiresAt: 0,
+    status: "Active",
+    createdAt: 1,
+    lastUsedAt: 0,
+    spent: 0,
+    dayKey: "",
+    daySpent: 0,
+  };
+}
 
 function writeSessions(dir: string) {
   writeFileSync(join(dir, "session"), JSON.stringify({
@@ -70,6 +100,9 @@ function seed(dir: string) {
     active: "thread-a",
     model: "m",
   }));
+  writeFileSync(join(dir, "workspace-keys"), JSON.stringify({
+    keys: [apiKey("key-a", apiTokenA, walletA), apiKey("key-b", apiTokenB, walletB)],
+  }));
 }
 
 function makeApp() {
@@ -82,6 +115,7 @@ function makeApp() {
     billingApi,
     teamsApi,
     supportApi,
+    gatewayApi,
     fleetMachineApi("console__chat", { events: ["newChat", "send"] }),
   );
   const state = Layer.provideMerge(
@@ -91,6 +125,10 @@ function makeApp() {
       Teams.stored("teams"),
       Support.stored("support"),
       Session.stored("session"),
+      Keyring.stored("keys"),
+      Requests.stored("gateway-requests"),
+      WorkspaceKeys.stored("workspace-keys"),
+      Usage.stored("usage"),
       Admin.stored("admin"),
       fleetLive,
     ),
@@ -107,6 +145,21 @@ function makeApp() {
 
 function get(handler: (request: Request) => Promise<Response>, path: string, token?: string) {
   return handler(new Request("http://localhost" + path, token ? { headers: { cookie: "sonnely_session=" + token } } : {}));
+}
+
+const jobA = "123e4567-e89b-42d3-a456-426614174000";
+const jobB = "123e4567-e89b-42d3-a456-426614174001";
+
+function batchRead(handler: (request: Request) => Promise<Response>, token: string) {
+  return handler(new Request("http://localhost/api/sonnely/batch", { headers: { authorization: "Bearer " + token } }));
+}
+
+function batchWrite(handler: (request: Request) => Promise<Response>, method: string, path: string, token: string, body?: unknown) {
+  return handler(new Request("http://localhost" + path, {
+    method,
+    headers: { "content-type": "application/json", authorization: "Bearer " + token },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }));
 }
 
 afterEach(async () => {
@@ -244,5 +297,63 @@ describe("row-level access", () => {
       aIds: a.threads.map((t) => t.id),
       bIds: b.threads.map((t) => t.id),
     }).toEqual({ writeOk: 200, aIds: ["thread-a"], bIds: ["thread-b"] });
+  });
+
+  // spec/app/gateway/batch.md, "Story: Run a resumable batch"
+  it("keeps each wallet's batch job in its own instance", async () => {
+    const handler = makeApp();
+    const created = await batchWrite(handler, "POST", "/api/sonnely/batch", apiTokenA, { id: jobA, filename: "a.jsonl", customIds: ["row-1", "row-2"] });
+    const a = await (await batchRead(handler, apiTokenA)).json() as { tag: string; job?: { id: string; rows: { status: string }[] } };
+    const b = await (await batchRead(handler, apiTokenB)).json() as { tag: string };
+    const anon = await handler(new Request("http://localhost/api/sonnely/batch"));
+    expect({
+      created: created.status,
+      aTag: a.tag,
+      aId: a.job?.id,
+      aRows: a.job?.rows.map((row) => row.status),
+      bTag: b.tag,
+      anonStatus: anon.status,
+    }).toEqual({ created: 200, aTag: "Running", aId: jobA, aRows: ["Queued", "Queued"], bTag: "Empty", anonStatus: 401 });
+  });
+
+  // spec/app/gateway/batch.md, "Story: Run a resumable batch"
+  it("writes to a wallet's own batch instance without touching another wallet's", async () => {
+    const handler = makeApp();
+    await batchWrite(handler, "POST", "/api/sonnely/batch", apiTokenA, { id: jobA, filename: "a.jsonl", customIds: ["row-1"] });
+    const clearedByB = await batchWrite(handler, "DELETE", "/api/sonnely/batch", apiTokenB);
+    const interruptedByB = await batchWrite(handler, "POST", "/api/sonnely/batch/interrupt", apiTokenB, { customId: "row-1" });
+    const createdByB = await batchWrite(handler, "POST", "/api/sonnely/batch", apiTokenB, { id: jobB, filename: "b.jsonl", customIds: ["row-9"] });
+    const a = await (await batchRead(handler, apiTokenA)).json() as { tag: string; job?: { id: string; rows: { customId: string }[] } };
+    const b = await (await batchRead(handler, apiTokenB)).json() as { tag: string; job?: { id: string; rows: { customId: string }[] } };
+    expect({
+      clearedByB: clearedByB.status,
+      interruptedByB: interruptedByB.status,
+      createdByB: createdByB.status,
+      aId: a.job?.id,
+      aRows: a.job?.rows.map((row) => row.customId),
+      bId: b.job?.id,
+      bRows: b.job?.rows.map((row) => row.customId),
+    }).toEqual({ clearedByB: 409, interruptedByB: 409, createdByB: 200, aId: jobA, aRows: ["row-1"], bId: jobB, bRows: ["row-9"] });
+  });
+
+  // spec/app/gateway/batch.md, "Story: Run a resumable batch"
+  it("resolves the console session wallet to the same batch instance as its bearer key", async () => {
+    const handler = makeApp();
+    const created = await handler(new Request("http://localhost/api/sonnely/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + tokenA },
+      body: JSON.stringify({ id: jobA, filename: "a.jsonl", customIds: ["row-1"] }),
+    }));
+    const sessionView = await (await get(handler, "/api/sonnely/batch", tokenA)).json() as { tag: string; job?: { id: string } };
+    const bearerView = await (await batchRead(handler, apiTokenA)).json() as { tag: string; job?: { id: string } };
+    const otherSession = await (await get(handler, "/api/sonnely/batch", tokenB)).json() as { tag: string };
+    expect({
+      created: created.status,
+      sessionTag: sessionView.tag,
+      sessionId: sessionView.job?.id,
+      bearerTag: bearerView.tag,
+      bearerId: bearerView.job?.id,
+      otherTag: otherSession.tag,
+    }).toEqual({ created: 200, sessionTag: "Running", sessionId: jobA, bearerTag: "Running", bearerId: jobA, otherTag: "Empty" });
   });
 });
