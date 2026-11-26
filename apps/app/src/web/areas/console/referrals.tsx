@@ -1,7 +1,7 @@
 // spec/app/admin/referrals.md, "Story: Invite a wallet"
 import { Users } from "lucide-react";
 import { useConsoleShell } from "./frame.tsx";
-import { CopyButton, WorkspaceHeading, dateTime } from "./bits.tsx";
+import { CopyButton, WorkspaceHeading, dateTime, shorten } from "./bits.tsx";
 
 export function Referrals() {
   const shell = useConsoleShell();
@@ -52,7 +52,7 @@ export function Referrals() {
               Showing {rows.length} sign-ups · {rows.filter((row) => row.stage !== "SignedUp").length} funded ·{" "}
               {rows.filter((row) => row.stage === "Active").length} active
             </p>
-            <div className="table-wrap">
+            <div className="table-wrap data-rows">
               <table>
                 <thead>
                   <tr>
@@ -65,10 +65,23 @@ export function Referrals() {
                 <tbody>
                   {rows.map((item) => (
                     <tr key={item.joined + ":" + item.wallet}>
-                      <th scope="row">{item.wallet}</th>
-                      <td>{dateTime(item.joined)}</td>
-                      <td>{item.stage === "SignedUp" ? "Pending" : "Funded"}</td>
-                      <td>{item.stage === "Active" ? "Active" : "Pending"}</td>
+                      <th scope="row">
+                        <span className="referral-wallet">
+                          <span className="mono" title={item.wallet}>{shorten(item.wallet)}</span>
+                          <CopyButton value={item.wallet} label="Copy wallet" />
+                        </span>
+                      </th>
+                      <td data-label="Joined (UTC)">{dateTime(item.joined)}</td>
+                      <td data-label="Mainnet funding">
+                        <span className="pill referral-stage" data-complete={item.stage !== "SignedUp" || undefined}>
+                          {item.stage === "SignedUp" ? "Pending" : "Funded"}
+                        </span>
+                      </td>
+                      <td data-label="Paid inference">
+                        <span className="pill referral-stage" data-complete={item.stage === "Active" || undefined}>
+                          {item.stage === "Active" ? "Active" : "Pending"}
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
