@@ -1,6 +1,6 @@
 // spec/app/teams.md, "Story: Form a team"; spec/app/keys.md, "Story: Issue a key": teams, members and roles,
 // invitations, project budgets, project-scoped keys and the project request table.
-import { UsersRound } from "lucide-react";
+import { Activity, KeyRound, UsersRound } from "lucide-react";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { useSession } from "../../session.ts";
@@ -9,7 +9,7 @@ import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame } from "../console/frame.tsx";
-import { CopyButton, WorkspaceHeading, creditBalance, creditDecimal, date, dateTime, parseCreditAmount, shorten } from "../console/bits.tsx";
+import { CopyButton, Empty, WorkspaceHeading, creditBalance, creditDecimal, date, dateTime, parseCreditAmount, shorten } from "../console/bits.tsx";
 import "./teams.css";
 
 const roles: Record<Role, string> = { Owner: "Owner", Admin: "Admin", Member: "Member" };
@@ -20,7 +20,7 @@ const usageStatuses: Record<Status, string> = {
   Unreported: "Under review",
 };
 const sevenDays = 7 * 86_400_000;
-const dayMs = 86_400_000;
+const budgetWarningRatio = 0.8;
 
 type SendEvent = (input: unknown) => Promise<boolean>;
 type RunAction = (send: SendEvent, event: object, success?: () => void, message?: string) => void;
@@ -60,10 +60,13 @@ async function sha256(text: string) {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, aside, className = "", children }: { title: string; aside?: ReactNode; className?: string; children: ReactNode }) {
   return (
-    <section className="panel teams-panel" aria-label={title}>
-      <h2>{title}</h2>
+    <section className={`panel teams-panel ${className}`} aria-label={title}>
+      <div className="teams-panel-head">
+        <h2>{title}</h2>
+        {aside}
+      </div>
       {children}
     </section>
   );
@@ -102,11 +105,13 @@ function ConfirmAction({
   message,
   action,
   pending,
+  danger,
 }: {
   label: string;
   message: string;
   action: () => void;
   pending: boolean;
+  danger?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -129,7 +134,7 @@ function ConfirmAction({
             Cancel
           </button>
           <button
-            className="button accent"
+            className={danger ? "button danger" : "button accent"}
             type="button"
             disabled={pending}
             onClick={() => {
@@ -210,7 +215,9 @@ function ProjectWorkspace({
   const canManage = role !== "Member" && !project.archived;
   const projectKeys = keys.filter((key) => key.project === project.id && key.status === "Active");
   const requests = entries.filter((entry) => entry.project === project.id).slice(0, 30);
-  const now = Date.now();
+  const budgetRatio = project.budget <= 0 ? 0 : project.spent / project.budget;
+  const budgetPercent = Math.min(Math.max(budgetRatio, 0), 1) * 100;
+  const budgetState = project.spent > project.budget ? "over" : budgetRatio >= budgetWarningRatio ? "warning" : "within";
 
   async function createKey(fields: FormData) {
     const name = field(fields, "name").trim();
@@ -243,8 +250,16 @@ function ProjectWorkspace({
 
   return (
     <div className="teams-stack">
-      <Section title={project.name}>
-        {project.archived && <p className="pill">Archived</p>}
+      <Section
+        title={project.name}
+        aside={
+          project.archived && (
+            <span className="pill teams-status" data-status="Archived">
+              Archived
+            </span>
+          )
+        }
+      >
         <dl className="teams-metrics">
           <div>
             <dt>Budget</dt>
@@ -259,58 +274,77 @@ function ProjectWorkspace({
             <dd>{creditBalance(Math.max(project.budget - project.spent, 0))}</dd>
           </div>
         </dl>
+        <div
+          className="teams-budget-meter"
+          data-state={budgetState}
+          role="meter"
+          aria-label="Project budget used and held"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(Math.min(budgetRatio, 1) * 100)}
+        >
+          <span style={{ width: `${budgetPercent}%` }} />
+        </div>
         {canManage && (
-          <details>
+          <details className="teams-disclosure">
             <summary>Project settings</summary>
-            <FieldForm
-              label="Save project"
-              pending={pending}
-              submit={(fields) => {
-                const amount = budget(fields);
-                if (amount < 10_000) return;
-                run(
-                  teamsSend,
-                  {
-                    type: "updateProject",
-                    projectId: project.id,
-                    actor: actor,
-                    name: field(fields, "name").trim(),
-                    budget: amount,
-                  },
-                  undefined,
-                  "Could not save the project.",
-                );
-              }}
-            >
-              <ProjectBudgetFields key={project.name + ":" + project.budget} project={project} />
-            </FieldForm>
-            <ConfirmAction
-              label="Archive project"
-              message="Project keys will stop accepting new requests. Existing reservations can still settle."
-              pending={pending}
-              action={() => {
-                setNewKey(undefined);
-                run(teamsSend, { type: "archiveProject", projectId: project.id, actor: actor }, undefined, "Could not archive the project.");
-              }}
-            />
+            <div className="teams-disclosure-body">
+              <FieldForm
+                label="Save project"
+                pending={pending}
+                submit={(fields) => {
+                  const amount = budget(fields);
+                  if (amount < 10_000) return;
+                  run(
+                    teamsSend,
+                    {
+                      type: "updateProject",
+                      projectId: project.id,
+                      actor: actor,
+                      name: field(fields, "name").trim(),
+                      budget: amount,
+                    },
+                    undefined,
+                    "Could not save the project.",
+                  );
+                }}
+              >
+                <ProjectBudgetFields key={project.name + ":" + project.budget} project={project} />
+              </FieldForm>
+              <ConfirmAction
+                label="Archive project"
+                message="Project keys will stop accepting new requests. Existing reservations can still settle."
+                pending={pending}
+                danger
+                action={() => {
+                  setNewKey(undefined);
+                  run(teamsSend, { type: "archiveProject", projectId: project.id, actor: actor }, undefined, "Could not archive the project.");
+                }}
+              />
+            </div>
           </details>
         )}
       </Section>
       {role !== "Member" && (
         <Section title="Project API keys">
           {canManage && (
-            <FieldForm label="Create project key" pending={pending} submit={(fields) => void createKey(fields)}>
-              <label>
-                Key name
-                <input name="name" maxLength={60} required />
-              </label>
-              <MoneyInput label="Lifetime key cap in USD" name="cap" />
-              <MoneyInput label="Daily key cap in USD" name="dailyCap" />
-              <label>
-                Expires at midnight UTC
-                <input name="expiresOn" type="date" />
-              </label>
-            </FieldForm>
+            <details className="teams-disclosure">
+              <summary>New project key</summary>
+              <div className="teams-disclosure-body">
+                <FieldForm label="Create project key" pending={pending} submit={(fields) => void createKey(fields)}>
+                  <label>
+                    Key name
+                    <input name="name" maxLength={60} required />
+                  </label>
+                  <MoneyInput label="Lifetime key cap in USD" name="cap" />
+                  <MoneyInput label="Daily key cap in USD" name="dailyCap" />
+                  <label>
+                    Expires at midnight UTC
+                    <input name="expiresOn" type="date" />
+                  </label>
+                </FieldForm>
+              </div>
+            </details>
           )}
           {newKey && canManage && (
             <div className="teams-new-key">
@@ -325,41 +359,65 @@ function ProjectWorkspace({
             </div>
           )}
           {projectKeys.length === 0 ? (
-            <p className="caption">No project keys.</p>
+            <Empty title="No keys yet" icon={<KeyRound size={22} />}>
+              <p>Create a key to start project inference.</p>
+            </Empty>
           ) : (
-            <ul className="teams-list">
-              {projectKeys.map((key) => (
-                <li key={key.id}>
-                  <div>
-                    <strong>{key.label}</strong>
-                    <p className="caption">
-                      {key.prefix}… · {creditBalance(key.spent)} used and held
-                    </p>
-                    <p className="caption">
-                      {key.cap === 0 ? "No key lifetime cap" : creditBalance(key.cap) + " lifetime"}
-                      {key.dailyCap === 0 ? "" : " · " + creditBalance(key.dailyCap) + " daily"}
-                      {key.expiresAt === 0 ? "" : " · Expires " + date(key.expiresAt)}
-                    </p>
-                  </div>
-                  {canManage && (
-                    <ConfirmAction
-                      label="Revoke key"
-                      message={`Revoke ${key.label} immediately?`}
-                      pending={pending}
-                      action={() => run(keysSend, { type: "revoke", id: key.id }, undefined, "Could not revoke the key.")}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
+            <div className="table-wrap compact-table workspace-data-table data-rows" tabIndex={0} aria-label="Project key table" role="region">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Key</th>
+                    <th scope="col">Usage</th>
+                    <th scope="col">Limits</th>
+                    {canManage && <th scope="col" className="teams-actions-head">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectKeys.map((key) => (
+                    <tr key={key.id}>
+                      <th scope="row">
+                        <div className="teams-key-title">
+                          <strong>{key.label}</strong>
+                          <code>{key.prefix}…</code>
+                        </div>
+                      </th>
+                      <td data-label="Used and held" className="teams-number">
+                        {creditBalance(key.spent)}
+                      </td>
+                      <td data-label="Limits">
+                        <div className="teams-key-limits">
+                          <div>{key.cap === 0 ? "No lifetime cap" : creditBalance(key.cap) + " lifetime"}</div>
+                          {key.dailyCap !== 0 && <div>{creditBalance(key.dailyCap)} daily</div>}
+                          {key.expiresAt !== 0 && <div>Expires {date(key.expiresAt)}</div>}
+                        </div>
+                      </td>
+                      {canManage && (
+                        <td data-label="Actions" data-span className="teams-table-actions">
+                          <ConfirmAction
+                            label="Revoke key"
+                            message={`Revoke ${key.label} immediately?`}
+                            pending={pending}
+                            danger
+                            action={() => run(keysSend, { type: "revoke", id: key.id }, undefined, "Could not revoke the key.")}
+                          />
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </Section>
       )}
       <Section title="Recent project requests">
         {requests.length === 0 ? (
-          <p className="caption">Project requests will appear here.</p>
+          <Empty title="No requests yet" icon={<Activity size={22} />}>
+            <p>Requests will appear here.</p>
+          </Empty>
         ) : (
-          <div className="table-wrap compact-table data-rows" tabIndex={0} aria-label="Project request table" role="region">
+          <div className="table-wrap compact-table workspace-data-table data-rows" tabIndex={0} aria-label="Project request table" role="region">
             <table>
               <thead>
                 <tr>
@@ -371,15 +429,19 @@ function ProjectWorkspace({
               <tbody>
                 {requests.map((row) => (
                   <tr key={row.id}>
-                    <th scope="row">
+                    <th scope="row" className="teams-request">
                       <div>{row.model}</div>
                       <p className="caption">{dateTime(row.time)}</p>
                       <code className="teams-reference">{row.id}</code>
                     </th>
                     <td data-label="Key">{row.keyName}</td>
-                    <td data-label="Billing">
-                      {usageStatuses[row.status]}
-                      {row.status === "Failed" ? "" : " · " + creditBalance(row.cost)}
+                    <td data-label="Billing" data-span>
+                      <div className="teams-billing">
+                        <span className="pill teams-status" data-status={row.status}>
+                          {usageStatuses[row.status]}
+                        </span>
+                        {row.status !== "Failed" && <span className="teams-number">{creditBalance(row.cost)}</span>}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -423,10 +485,10 @@ function TeamWorkspace({
     <>
       <div className="teams-columns">
         <Section title="Projects">
-          <p className="caption">Project requests use the team owner’s compute credits.</p>
+          <p className="caption">Project requests spend owner credits.</p>
           {projects.length > 0 && (
             <label>
-              Active or recent archived project
+              Project
               <select value={project?.id ?? ""} onChange={(event) => setSelectedProject(event.target.value)}>
                 {projects.map((entry) => (
                   <option key={entry.id} value={entry.id}>
@@ -439,32 +501,34 @@ function TeamWorkspace({
           )}
           {!projects.length && <p className="caption">No projects yet.</p>}
           {canManage && (
-            <details open={projects.length === 0}>
+            <details className="teams-disclosure" open={projects.length === 0}>
               <summary>New project</summary>
-              <FieldForm
-                label="Create project"
-                pending={pending}
-                submit={(fields) => {
-                  const amount = budget(fields);
-                  if (amount < 10_000) return;
-                  const id = crypto.randomUUID();
-                  run(
-                    teamsSend,
-                    {
-                      type: "createProject",
-                      teamId: team.id,
-                      projectId: id,
-                      actor: wallet,
-                      name: field(fields, "name").trim(),
-                      budget: amount,
-                    },
-                    () => setSelectedProject(id),
-                    "Could not create the project.",
-                  );
-                }}
-              >
-                <ProjectBudgetFields />
-              </FieldForm>
+              <div className="teams-disclosure-body">
+                <FieldForm
+                  label="Create project"
+                  pending={pending}
+                  submit={(fields) => {
+                    const amount = budget(fields);
+                    if (amount < 10_000) return;
+                    const id = crypto.randomUUID();
+                    run(
+                      teamsSend,
+                      {
+                        type: "createProject",
+                        teamId: team.id,
+                        projectId: id,
+                        actor: wallet,
+                        name: field(fields, "name").trim(),
+                        budget: amount,
+                      },
+                      () => setSelectedProject(id),
+                      "Could not create the project.",
+                    );
+                  }}
+                >
+                  <ProjectBudgetFields />
+                </FieldForm>
+              </div>
             </details>
           )}
         </Section>
@@ -477,13 +541,10 @@ function TeamWorkspace({
                 (self || role === "Owner" || (role === "Admin" && member.role === "Member"));
               return (
                 <li key={member.wallet}>
-                  <div>
-                    <span title={member.wallet}>{shorten(member.wallet)}</span>
-                    <span className="caption">
-                      {" "}
-                      · {roles[member.role]}
-                      {self ? " · You" : ""}
-                    </span>
+                  <div className="teams-member-identity">
+                    <span className="teams-wallet" title={member.wallet}>{shorten(member.wallet)}</span>
+                    <span className="caption">{roles[member.role]}</span>
+                    {self && <span className="pill teams-self">You</span>}
                   </div>
                   <div className="teams-row">
                     {role === "Owner" && member.role !== "Owner" && (
@@ -518,6 +579,7 @@ function TeamWorkspace({
                             : `Remove ${shorten(member.wallet)} from this team?`
                         }
                         pending={pending}
+                        danger
                         action={() =>
                           run(
                             teamsSend,
@@ -534,41 +596,43 @@ function TeamWorkspace({
             })}
           </ul>
           {canManage && (
-            <details>
+            <details className="teams-disclosure">
               <summary>Invite a wallet</summary>
-              <FieldForm
-                label="Send invitation"
-                pending={pending}
-                submit={(fields) => {
-                  const invitedAt = Date.now();
-                  run(
-                    teamsSend,
-                    {
-                      type: "invite",
-                      teamId: team.id,
-                      actor: wallet,
-                      wallet: field(fields, "wallet").trim(),
-                      role: field(fields, "role") === "admin" ? "Admin" : "Member",
-                      expiresAt: invitedAt + sevenDays,
-                      now: invitedAt,
-                    },
-                    undefined,
-                    "Could not send the invitation.",
-                  );
-                }}
-              >
-                <label>
-                  Solana wallet address
-                  <input name="wallet" maxLength={44} required autoComplete="off" />
-                </label>
-                <label>
-                  Team role
-                  <select name="role">
-                    <option value="member">Member</option>
-                    {role === "Owner" && <option value="admin">Admin</option>}
-                  </select>
-                </label>
-              </FieldForm>
+              <div className="teams-disclosure-body">
+                <FieldForm
+                  label="Send invitation"
+                  pending={pending}
+                  submit={(fields) => {
+                    const invitedAt = Date.now();
+                    run(
+                      teamsSend,
+                      {
+                        type: "invite",
+                        teamId: team.id,
+                        actor: wallet,
+                        wallet: field(fields, "wallet").trim(),
+                        role: field(fields, "role") === "admin" ? "Admin" : "Member",
+                        expiresAt: invitedAt + sevenDays,
+                        now: invitedAt,
+                      },
+                      undefined,
+                      "Could not send the invitation.",
+                    );
+                  }}
+                >
+                  <label>
+                    Solana wallet address
+                    <input name="wallet" maxLength={44} required autoComplete="off" />
+                  </label>
+                  <label>
+                    Team role
+                    <select name="role">
+                      <option value="member">Member</option>
+                      {role === "Owner" && <option value="admin">Admin</option>}
+                    </select>
+                  </label>
+                </FieldForm>
+              </div>
             </details>
           )}
           {invites.length > 0 && (
@@ -577,11 +641,10 @@ function TeamWorkspace({
               <ul className="teams-list">
                 {invites.map((invite) => (
                   <li key={invite.wallet}>
-                    <div>
-                      <span title={invite.wallet}>{shorten(invite.wallet)}</span>
-                      <p className="caption">
-                        {roles[invite.role]} · Expires {date(invite.expiresAt)}
-                      </p>
+                    <div className="teams-member-identity">
+                      <span className="teams-wallet" title={invite.wallet}>{shorten(invite.wallet)}</span>
+                      <span className="caption">{roles[invite.role]}</span>
+                      <span className="caption">Expires {date(invite.expiresAt)}</span>
                     </div>
                     {(role === "Owner" || invite.role === "Member") && canManage && (
                       <button
@@ -690,7 +753,7 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
       )}
       {teams.state && (
         <>
-          <Section title="Your teams">
+          <Section title="Your teams" className={team ? "teams-overview-panel" : "teams-overview-panel teams-overview-empty"}>
             {team && (
               <label>
                 Team
@@ -703,14 +766,16 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
                 </select>
               </label>
             )}
-            <details open={!team}>
+            <details className="teams-disclosure" open={!team}>
               <summary>New team</summary>
-              <FieldForm label="Create team" pending={pending} submit={createTeam}>
-                <label>
-                  Team name
-                  <input name="name" maxLength={60} required />
-                </label>
-              </FieldForm>
+              <div className="teams-disclosure-body">
+                <FieldForm label="Create team" pending={pending} submit={createTeam}>
+                  <label>
+                    Team name
+                    <input name="name" maxLength={60} required />
+                  </label>
+                </FieldForm>
+              </div>
             </details>
           </Section>
           {invitations.length > 0 && (
@@ -718,11 +783,10 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
               <ul className="teams-list">
                 {invitations.map((invite) => (
                   <li key={invite.teamId}>
-                    <div>
+                    <div className="teams-member-identity">
                       <strong>{invite.teamName}</strong>
-                      <p className="caption">
-                        {roles[invite.role]} · Expires {date(invite.expiresAt)}
-                      </p>
+                      <span className="caption">{roles[invite.role]}</span>
+                      <span className="caption">Expires {date(invite.expiresAt)}</span>
                     </div>
                     <div className="teams-row">
                       <button
