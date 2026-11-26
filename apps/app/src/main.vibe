@@ -15,9 +15,10 @@ import { siteApi, siteState } from "./api/site.vibe"
 import { supportApi, supportState } from "./api/support.vibe"
 import { teamsApi, teamsState } from "./api/teams.vibe"
 import { usageApi, usageState } from "./api/usage.vibe"
-import { listening, serve } from "./serve.vibe"
+import { listening, serve, validateStartup } from "./serve.vibe"
 
 effect function main() {
+  try validateStartup()
   const path = try Path.Path
   const web = try path.fromFileUrl(new URL("../web", import.meta.url))
   const dir = (try path.fromFileUrl(new URL("../data", import.meta.url)))
