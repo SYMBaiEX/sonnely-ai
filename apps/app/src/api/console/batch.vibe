@@ -4,7 +4,6 @@ import type { Batch } from "../../../gen/app__console__batch.ts"
 import { fleetMachineApi } from "../../machines.vibe"
 import { Fleet } from "../../fleet.vibe"
 import { authenticatedWallet } from "../session.vibe"
-import { store } from "../../serve.vibe"
 
 const noStore = { "cache-control": "no-store" }
 
@@ -30,7 +29,7 @@ export effect function advance(machine: BatchMachine) {
   const index = pendingRow(state)
   if (index === undefined) return { done: true }
   try machine.send({ type: "start", index })
-  const running = try machine.get()
+  const running = (try machine.get()) as Batch
   const row = running.tag === "Working" ? running.rows[index] : undefined
   const failed = row !== undefined && row.customId.endsWith("-fail")
   const settled = failed
@@ -55,10 +54,6 @@ export const batchApi = Layer.unwrap(effect {
     HttpRouter.add("POST", "/api/console/batch/run", provideService(runRoute(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
   )
 })
-
-export function batchState(dir: string) {
-  return Layer.provide(stored("console__batch"), store(dir))
-}
 
 /** The batch machine's store, for tests and drivers. */
 export const batchStore = stored("console__batch")

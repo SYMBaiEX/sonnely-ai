@@ -10,7 +10,8 @@ import * as WorkspaceKeys from "../../gen/app__keys.effect.vibe"
 import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Usage from "../../gen/app__usage.effect.vibe"
 import * as Teams from "../../gen/app__teams.effect.vibe"
-import { machineRegistration } from "../machines.vibe"
+import * as Admin from "../../gen/app__admin.effect.vibe"
+import { authenticatedWallet } from "./session.vibe"
 import { store } from "../serve.vibe"
 import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
@@ -45,7 +46,7 @@ function bearerId(request: { headers: Record<string, string | undefined> }): str
 }
 
 /** The key the request's bearer names, or the refusal in the OpenAI shape. */
-effect function authorized(endpoint: Requests.Endpoint, model: string) {
+effect function bearerKey() {
   const request = try HttpServerRequest.HttpServerRequest
   const id = bearerId(request)
   if (id == "") return { refused: { error: { message: "A valid bearer key is required.", type: "invalid_request_error" }, status: 401 } }
@@ -62,10 +63,16 @@ effect function authorized(endpoint: Requests.Endpoint, model: string) {
   if (!key.scopes.includes("inference")) {
     return { refused: { error: { message: "The key cannot use inference.", type: "insufficient_quota" }, status: 402 } }
   }
+  return { key }
+}
+
+effect function authorized(endpoint: Requests.Endpoint, model: string) {
+  const auth = try bearerKey()
+  if ("refused" in auth) return auth
   if (!Requests.registered(endpoint, model)) {
     return { refused: { error: { message: "Choose a model from the catalog.", type: "invalid_request_error" }, status: 404 } }
   }
-  return { key }
+  return auth
 }
 
 /** What one deterministic answer costs: one micro-USD per hundred input bytes, at least one. */
@@ -450,11 +457,24 @@ interface ReadMachine {
   changes: Stream.Stream<unknown>
 }
 
+effect function operatorRequired() {
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return ""
+  const admin = try Admin.Machine
+  const registry = try admin.get()
+  if (!registry.ops.roster.some((o) => o.wallet == wallet)) return ""
+  return wallet
+}
+
 effect function getState(m: ReadMachine) {
+  const operator = try operatorRequired()
+  if (operator == "") return try reply({ error: "operator access required" }, 403)
   return try reply(try m.get())
 }
 
 effect function getStream(m: ReadMachine) {
+  const operator = try operatorRequired()
+  if (operator == "") return try reply({ error: "operator access required" }, 403)
   const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
@@ -668,6 +688,11 @@ effect function keyStatus() {
 effect function batchCreate() {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
+  const authBatch = try bearerKey()
+  if ("refused" in authBatch) {
+    const r = authBatch.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
   const raw = request.json catch () => undefined
   const input = raw as { id?: unknown; filename?: unknown; customIds?: unknown } | undefined
   const id = typeof input?.id == "string" ? input.id : ""
@@ -681,11 +706,21 @@ effect function batchCreate() {
 }
 
 effect function batchShow() {
+  const authBatch = try bearerKey()
+  if ("refused" in authBatch) {
+    const r = authBatch.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
   const batch = try Batch.Machine
   return try reply(try batch.get())
 }
 
 effect function batchClear() {
+  const authBatch = try bearerKey()
+  if ("refused" in authBatch) {
+    const r = authBatch.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
   const batch = try Batch.Machine
   const cleared = batch.send({ type: "clear" }) catch (e) => e
   if (cleared instanceof Batch.Rejected) return try oops("No batch job is running.", 409)
@@ -695,6 +730,11 @@ effect function batchClear() {
 effect function batchInterrupt() {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
+  const authInterrupt = try bearerKey()
+  if ("refused" in authInterrupt) {
+    const r = authInterrupt.refused as { error: unknown; status: number }
+    return try reply(r.error, r.status)
+  }
   const raw = request.json catch () => undefined
   const customId = typeof (raw as any)?.customId == "string" ? (raw as any).customId : ""
   const batch = try Batch.Machine
@@ -782,13 +822,10 @@ export const gatewayApi = Layer.unwrap(effect {
   return Layer.mergeAll(
     HttpRouter.add("GET", "/api/machines/keys", getState(keyring)),
     HttpRouter.add("GET", "/api/machines/keys/stream", getStream(keyring)),
-    machineRegistration("keys", keyring),
     HttpRouter.add("GET", "/api/machines/gateway-requests", getState(requests)),
     HttpRouter.add("GET", "/api/machines/gateway-requests/stream", getStream(requests)),
-    machineRegistration("gateway-requests", requests),
     HttpRouter.add("GET", "/api/machines/gateway-batch", getState(batch)),
     HttpRouter.add("GET", "/api/machines/gateway-batch/stream", getStream(batch)),
-    machineRegistration("gateway-batch", batch),
     HttpRouter.add("GET", "/api/sonnely/v1/models", listModels()),
     HttpRouter.add("GET", "/api/sonnely/v1/provider-models", providerModels()),
     HttpRouter.add("GET", "/api/sonnely/v1/key", keyStatus()),

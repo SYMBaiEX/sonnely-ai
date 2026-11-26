@@ -8,10 +8,6 @@ export const logsApi = Layer.unwrap(effect {
   return fleetMachineApi("console__logs", { events: ["resetFilters", "setKeyName", "setModel", "setProvider", "setShowing", "setWindow"] })
 })
 
-export function logsState(dir: string) {
-  return Layer.provide(stored("console__logs"), store(dir))
-}
-
 /** The logs machine's store, for tests and drivers. */
 export const logsStore = stored("console__logs")
 

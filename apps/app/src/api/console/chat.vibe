@@ -7,7 +7,6 @@ import type { Endpoint as GatewayEndpoint } from "../../../gen/app__gateway__req
 import { catalog, providerOf } from "../../../gen/app__console__catalog.ts"
 import { fleetMachineApi } from "../../machines.vibe"
 import { Fleet, type FleetMachine } from "../../fleet.vibe"
-import { store } from "../../serve.vibe"
 import { inferChat, inferSpecialized } from "../gateway.vibe"
 import { authenticatedWallet } from "../session.vibe"
 import { configuredProviders } from "../gateway/providers.ts"
@@ -295,10 +294,6 @@ export const chatApi = Layer.unwrap(effect {
     )),
   )
 })
-
-export function chatState(dir: string) {
-  return Layer.provide(stored("console__chat"), store(dir))
-}
 
 export const chatStore = stored("console__chat")
 
