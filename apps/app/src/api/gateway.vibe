@@ -13,7 +13,7 @@ import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { store } from "../serve.vibe"
-import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, multipartForm, multipartInput, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -585,7 +585,9 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
     if (!contentType.startsWith("multipart/form-data")) return try inferenceFailure("Send multipart form data.", 415, ref)
     form = tryPromise(() => multipartForm(request.source, contentType)) catch () => undefined
     if (form == undefined) return try inferenceFailure("The form data could not be read.", 400, ref)
-    input = { model: try Effect.try(() => formModel(form!, fallbackModel)) }
+    const formInput = try Effect.try(() => multipartInput(form!, fallbackModel))
+    if (!formInput.ok) return try inferenceFailure(formInput.message, formInput.status, ref)
+    input = formInput.value
   }
   const parsedResult = multipart ? { ok: true as const, value: input as Record<string, unknown> } : try Effect.try(() => parseSpecialized(path, raw))
   if (!parsedResult.ok) return try inferenceFailure(parsedResult.message, parsedResult.status, ref)

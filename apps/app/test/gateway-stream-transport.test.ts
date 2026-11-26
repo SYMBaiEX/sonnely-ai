@@ -243,4 +243,57 @@ describe("gateway stream transport", () => {
     expect(result.statuses).toEqual({ first: 200, second: 409, third: 200 });
     expect(rows).toHaveLength(2);
   });
+
+  // spec/app/docs/index.md, "Embeddings, decisions, images, and audio": every endpoint accepts max_cost_microusd.
+  it("enforces max_cost_microusd on multipart endpoints", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    let upstreamCalls = 0;
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "https://cloud-api.near.ai/v1/images/edits") {
+        upstreamCalls += 1;
+        return Promise.resolve(new Response(
+          JSON.stringify({ created: 1, data: [{ b64_json: "aGVsbG8=" }] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ));
+      }
+      return realFetch(input, init);
+    });
+    const program = Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "multipart-key", label: "Inference", prefix: "sonnely_live_multipart", hash: "multipart-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "multipart-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const app = inferSpecialized("images/edits", "ImageEdits", "black-forest-labs/FLUX.2-klein-4B", undefined, key, "", "multipart-ref");
+      const scope = yield* Scope.Scope;
+      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+      const server = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => handler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const address = server.address();
+      if (typeof address !== "object" || address === null) throw new Error("missing server address");
+      const post = (maxCost?: string) => {
+        const form = new FormData();
+        form.set("model", "black-forest-labs/FLUX.2-klein-4B");
+        form.set("prompt", "make it brighter");
+        form.set("image", new File([new Uint8Array([1, 2, 3])], "pixel.png", { type: "image/png" }));
+        if (maxCost !== undefined) form.set("max_cost_microusd", maxCost);
+        return globalThis.fetch(`http://127.0.0.1:${address.port}/`, { method: "POST", body: form });
+      };
+      const under = yield* Effect.promise(() => post("100"));
+      yield* Effect.promise(() => under.text());
+      const invalid = yield* Effect.promise(() => post("abc"));
+      yield* Effect.promise(() => invalid.text());
+      const over = yield* Effect.promise(() => post("100000"));
+      yield* Effect.promise(() => over.text());
+      return { under: under.status, invalid: invalid.status, over: over.status };
+    }));
+    const statuses = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    expect(statuses).toEqual({ under: 400, invalid: 400, over: 200 });
+    expect(upstreamCalls).toBe(1);
+  });
 });

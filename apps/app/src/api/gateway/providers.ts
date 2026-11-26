@@ -663,6 +663,17 @@ export function formModel(form: FormData, fallback: string) {
   const model = form.get("model");
   return typeof model === "string" && model ? model : fallback;
 }
+/** Multipart forms carry the same cost ceiling as JSON bodies; an unparsable ceiling rejects the request. */
+export function multipartInput(form: FormData, fallbackModel: string): Result<Record<string, unknown>> {
+  const input: Record<string, unknown> = { model: formModel(form, fallbackModel) };
+  const raw = form.get("max_cost_microusd");
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const value = Number(raw);
+    if (!Number.isSafeInteger(value) || value <= 0) return bad(400, "Check the fields and try again.");
+    input.max_cost_microusd = value;
+  }
+  return ok(input);
+}
 export async function callSpecialized(endpoint: string, selection: SpecializedSelection, input: Record<string, unknown> | FormData) {
   const providerPath = endpoint === "redact" ? "/redact" : "/v1/" + endpoint;
   const headers: Record<string, string> = { Authorization: "Bearer " + selection.key };
