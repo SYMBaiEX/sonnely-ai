@@ -10,18 +10,9 @@ module node {
   }
 }
 import { indexHtml, listening } from node
+import { store } from "./store.ts"
 
 export { listening }
-
-module kv {
-  import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
-  import { Layer } from "effect"
-  import * as KeyValueStore from "effect/persistence/KeyValueStore"
-  export function store(dir: string) {
-    return Layer.provide(KeyValueStore.layerFileSystem(dir), NodeFileSystem.layer)
-  }
-}
-import { store } from kv
 
 export { store }
 
