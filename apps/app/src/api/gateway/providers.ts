@@ -14,6 +14,9 @@ export type Result<T> = { ok: true; value: T } | ({ ok: false } & GatewayProblem
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const bad = (status: number, message: string, retryAfter = false): Result<never> => ({ ok: false, status, message, retryAfter });
 export const sha256 = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
+/** spec/app/docs/index.md, "Request references and retries": one reference per wallet, credential and key. */
+export const validIdempotencyKey = (header: string) => /^[a-zA-Z0-9_.:-]{8,128}$/.test(header);
+export const idempotentRef = (wallet: string, keyId: string, header: string) => "idem" + sha256(wallet + ":" + keyId + ":" + header).slice(0, 32);
 export const providerIds = ["near-ai", "phala", "tinfoil"] as const;
 const providerKeys: Record<ProviderId, string> = {
   "near-ai": "NEAR_AI_API_KEY",
@@ -28,6 +31,8 @@ const providerUrls: Record<ProviderId, string> = {
 
 const production = () => process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
 export const publicInference = () => !production() || process.env.SONNELY_PUBLIC_INFERENCE === "true";
+/** Deterministic staging answers are a development convenience; serving them for real money in production is not. */
+export const stagingInference = () => !production();
 const pausedProviders = () => new Set((process.env.SONNELY_PAUSED_PROVIDERS ?? "").split(",").map((provider) => provider.trim()).filter(Boolean));
 export function managedProviderKey(provider: string): string | undefined {
   if (!providerIds.includes(provider as ProviderId) || pausedProviders().has(provider) || !publicInference()) return undefined;
@@ -170,11 +175,23 @@ export async function fetchTinfoil(init: RequestInit, path: `/v1/${string}` | "/
 }
 export type UpstreamCall = { response: Response; evidence?: { status: "attested_router"; config_repo: string; release_digest: string } };
 export type ChatAttempt = UpstreamCall & { candidate: ChatRoute; body: string };
+
+/** Upstream deadlines: a hung provider must never hold a credit reserve open. */
+export const upstreamTimeouts = { headersMs: 30_000, totalMs: 120_000, streamIdleMs: 60_000 } as const;
+
+function deadlineSignal(stream: boolean, signal: AbortSignal | undefined) {
+  const headers = new AbortController();
+  const timer = setTimeout(() => headers.abort(), upstreamTimeouts.headersMs);
+  timer.unref?.();
+  const signals = [headers.signal, ...(stream ? [] : [AbortSignal.timeout(upstreamTimeouts.totalMs)]), ...(signal ? [signal] : [])];
+  return { signal: AbortSignal.any(signals), headersReceived: () => clearTimeout(timer) };
+}
+
 export async function callChatCandidates(input: ChatInput, candidates: ChatRoute[], cacheSecret: string, signal?: AbortSignal): Promise<ChatAttempt> {
   const fallback = input.provider?.allow_fallbacks === true;
   for (const [index, candidate] of candidates.entries()) {
     const body = upstreamChatBody(input, candidate, cacheSecret);
-    const attempt = await callChat(candidate, body, signal);
+    const attempt = await callChat(candidate, body, input.stream === true, signal);
     if (
       !fallback ||
       attempt.response.status !== 429 ||
@@ -186,15 +203,20 @@ export async function callChatCandidates(input: ChatInput, candidates: ChatRoute
   }
   throw new Error("No chat candidate was available.");
 }
-export async function callChat(candidate: ChatRoute, body: string, signal?: AbortSignal): Promise<UpstreamCall> {
+export async function callChat(candidate: ChatRoute, body: string, stream = false, signal?: AbortSignal): Promise<UpstreamCall> {
+  const deadline = deadlineSignal(stream, signal);
   const init = {
     method: "POST",
     headers: { Authorization: "Bearer " + candidate.key, "Content-Type": "application/json" },
     body,
-    signal: signal ?? null,
+    signal: deadline.signal,
   } satisfies RequestInit;
-  if (candidate.provider === "tinfoil") return fetchTinfoil(init);
-  return { response: await fetch(providerUrls[candidate.provider] + "/v1/chat/completions", init) };
+  try {
+    if (candidate.provider === "tinfoil") return await fetchTinfoil(init);
+    return { response: await fetch(providerUrls[candidate.provider] + "/v1/chat/completions", init) };
+  } finally {
+    deadline.headersReceived();
+  }
 }
 
 const usageSchema = z.object({
@@ -325,9 +347,23 @@ function readSse(body: ReadableStream<Uint8Array>, onBytes?: (bytes: Uint8Array)
   let size = 0;
   let ended = false;
   const events = (async function* () {
+    const readWithIdleDeadline = async () => {
+      let idle: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          reader.read(),
+          new Promise<never>((_resolve, reject) => {
+            idle = setTimeout(() => reject(new Error("The provider stream sent no data for 60 seconds.")), upstreamTimeouts.streamIdleMs);
+            idle.unref?.();
+          }),
+        ]);
+      } finally {
+        if (idle) clearTimeout(idle);
+      }
+    };
     try {
       for (;;) {
-        const { value, done } = await reader.read();
+        const { value, done } = await readWithIdleDeadline();
         if (done) {
           ended = true;
           parser.feed(decoder.decode());
@@ -529,6 +565,28 @@ export function chatSseNodeResponse(options: ChatSseOptions) {
   };
 }
 
+const keyBudget = (cap: number, used: number) => ({
+  cap_microusd: cap === 0 ? null : cap,
+  used_microusd: used,
+  remaining_microusd: cap === 0 ? null : Math.max(0, cap - used),
+});
+
+/** spec/app/docs/index.md, "Check the current API key": name, expiry, and both budgets in micro-USD. */
+export function keyStatusPayload(key: { label: string; prefix: string; status: string; cap: number; dailyCap: number; expiresAt: number; spent: number; dayKey: string; daySpent: number }, now: number) {
+  const day = new Date(now).toISOString().slice(0, 10);
+  const midnightUtcMs = new Date(day + "T00:00:00.000Z").getTime();
+  return {
+    prefix: key.prefix,
+    status: key.status,
+    spendLimit: key.cap === 0 ? -1 : key.cap,
+    spent: key.spent,
+    name: key.label,
+    expires_at_ms: key.expiresAt === 0 ? null : key.expiresAt,
+    daily: { ...keyBudget(key.dailyCap, key.dayKey === day ? key.daySpent : 0), resets_at: new Date(midnightUtcMs + 86_400_000).toISOString() },
+    lifetime: keyBudget(key.cap, key.spent),
+  };
+}
+
 export function modelsPayload() {
   const enabled = configuredProviders();
   const rows = catalog.flatMap((model) => model.routes.filter((route) => route.endpoint === "chat/completions").map((route) => ({ model, route })));
@@ -558,8 +616,8 @@ export function providerModelsPayload() {
 }
 
 const embeddingsInput = z.strictObject({ model: z.string(), input: z.union([z.string().min(1).max(8192), z.array(z.string().min(1).max(8192)).min(1).max(32)]), encoding_format: z.enum(["float", "base64"]).optional(), max_cost_microusd: z.int().positive().optional() });
-const rerankInput = z.strictObject({ model: z.string(), query: z.string().min(1).max(4096), documents: z.array(z.string().min(1).max(8192)).min(1).max(16), max_cost_microusd: z.int().positive().optional() });
-const responsesInput = z.strictObject({ model: z.string(), input: z.string().min(1).max(32_000), max_output_tokens: z.int().min(1).max(4096).optional(), max_cost_microusd: z.int().positive().optional() });
+const rerankInput = z.strictObject({ model: z.string(), query: z.string().min(1).max(4096), documents: z.array(z.string().min(1).max(8192)).min(1).max(16), top_n: z.int().min(1).max(16).optional(), max_cost_microusd: z.int().positive().optional() });
+const responsesInput = z.strictObject({ model: z.string(), input: z.string().min(1).max(32_000), instructions: z.string().max(32_000).optional(), store: z.literal(false).optional(), stream: z.literal(false).optional(), max_output_tokens: z.int().min(1).max(4096).optional(), max_cost_microusd: z.int().positive().optional() });
 const redactInput = z.strictObject({ model: z.string().optional(), text: z.string().min(1).max(32_000), max_cost_microusd: z.int().positive().optional() });
 const systemoneInput = z.strictObject({ model: z.string().optional(), state: z.string().min(1).max(32_000), questions: z.record(z.string(), z.object({ type: z.literal("noul"), instructions: z.unknown() }).loose()), max_cost_microusd: z.int().positive().optional() });
 const imageInput = z.strictObject({ model: z.string(), prompt: z.string().min(1).max(4096), size: z.string().max(40).optional(), n: z.literal(1).optional(), max_cost_microusd: z.int().positive().optional() });
@@ -587,6 +645,10 @@ export function specializedInputTokens(endpoint: string, body: Record<string, un
     const input = body.input;
     return Array.isArray(input) ? (input as unknown[]).reduce((sum: number, item) => sum + count(item), 0) : count(input);
   }
+  if (endpoint === "rerank") {
+    const documents = body.documents;
+    return count(body.query) + (Array.isArray(documents) ? (documents as unknown[]).reduce((sum: number, item) => sum + count(item), 0) : 0);
+  }
   if (endpoint === "responses" || endpoint === "redact" || endpoint === "systemone" || endpoint === "audio/speech") return count(body.input ?? body.text ?? body.state);
   return 0;
 }
@@ -605,6 +667,17 @@ export function formModel(form: FormData, fallback: string) {
   const model = form.get("model");
   return typeof model === "string" && model ? model : fallback;
 }
+/** Multipart forms carry the same cost ceiling as JSON bodies; an unparsable ceiling rejects the request. */
+export function multipartInput(form: FormData, fallbackModel: string): Result<Record<string, unknown>> {
+  const input: Record<string, unknown> = { model: formModel(form, fallbackModel) };
+  const raw = form.get("max_cost_microusd");
+  if (typeof raw === "string" && raw.trim() !== "") {
+    const value = Number(raw);
+    if (!Number.isSafeInteger(value) || value <= 0) return bad(400, "Check the fields and try again.");
+    input.max_cost_microusd = value;
+  }
+  return ok(input);
+}
 export async function callSpecialized(endpoint: string, selection: SpecializedSelection, input: Record<string, unknown> | FormData) {
   const providerPath = endpoint === "redact" ? "/redact" : "/v1/" + endpoint;
   const headers: Record<string, string> = { Authorization: "Bearer " + selection.key };
@@ -612,14 +685,25 @@ export async function callSpecialized(endpoint: string, selection: SpecializedSe
   if (input instanceof FormData) {
     const outbound = new FormData();
     for (const [name, value] of input.entries()) if (!(value instanceof File) || value.size > 0) outbound.append(name, value);
+    outbound.delete("max_cost_microusd");
     outbound.set("model", selection.upstreamModel);
     body = outbound;
   } else {
     headers["content-type"] = "application/json";
     body = JSON.stringify({ ...input, model: selection.upstreamModel, max_cost_microusd: undefined });
   }
-  if (selection.provider === "tinfoil") return fetchTinfoil({ method: "POST", headers, body }, providerPath as "/redact" | `/v1/${string}`);
-  return { response: await fetch(providerUrls[selection.provider] + providerPath, { method: "POST", headers, body }) };
+  const deadline = deadlineSignal(false, undefined);
+  try {
+    if (selection.provider === "tinfoil") return await fetchTinfoil({ method: "POST", headers, body, signal: deadline.signal }, providerPath as "/redact" | `/v1/${string}`);
+    return { response: await fetch(providerUrls[selection.provider] + providerPath, { method: "POST", headers, body, signal: deadline.signal }) };
+  } finally {
+    deadline.headersReceived();
+  }
+}
+/** Reranking honors top_n whether or not the upstream does. */
+export function sliceTopResults(endpoint: string, body: Record<string, unknown>, topN: unknown): Record<string, unknown> {
+  if (endpoint !== "rerank" || typeof topN !== "number" || !Array.isArray(body.results)) return body;
+  return { ...body, results: body.results.slice(0, topN) };
 }
 export function extractUsage(endpoint: string, value: unknown): { input: number; output: number; costTokens: number } {
   if (typeof value === "object" && value !== null && "usage" in value) {

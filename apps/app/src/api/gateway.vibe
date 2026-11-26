@@ -13,7 +13,7 @@ import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { store } from "../serve.vibe"
-import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, formModel, multipartForm, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, sliceTopResults, multipartForm, multipartInput, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -36,13 +36,30 @@ effect function reply(value: unknown, status: number = 200) {
 
 /** An error in the OpenAI shape. */
 effect function oops(message: string, status: number, type: string = "invalid_request_error") {
-  return try reply({ error: { message, type } }, status)
+  return try reply({ error: { message, type, param: null, code: null } }, status)
+}
+
+/** A meter or authorization refusal in the OpenAI shape, carrying the request reference when there is one. */
+effect function refusalReply(refused: { error: unknown; status: number }, ref: string) {
+  const inner = refused.error as { message: string; type: string }
+  const response = try reply({ error: { message: inner.message, type: inner.type, param: null, code: null } }, refused.status)
+  if (ref == "") return response
+  return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref })
 }
 
 /** The id the bearer token resolves to, or "" when none was sent. */
 function bearerId(request: { headers: Record<string, string | undefined> }): string {
   const auth = request.headers["authorization"] ?? ""
   return auth.startsWith("Bearer ") ? hashToken(auth.slice(7)) : ""
+}
+
+// spec/app/admin/index.md, "Only an active account can be suspended": suspension stops inference
+// for the account, whichever credential the request arrives on.
+effect function suspendedAccount(wallet: string) {
+  if (wallet == "") return false
+  const admin = try Admin.Machine
+  const registry = try admin.get()
+  return registry.records.some((record) => record.id == wallet && record.status == "Suspended")
 }
 
 /** The key the request's bearer names, or the refusal in the OpenAI shape. */
@@ -62,6 +79,9 @@ effect function bearerKey() {
   }
   if (!key.scopes.includes("inference")) {
     return { refused: { error: { message: "The key cannot use inference.", type: "insufficient_quota" }, status: 402 } }
+  }
+  if (try suspendedAccount(key.wallet)) {
+    return { refused: { error: { message: "This account's inference access is suspended.", type: "invalid_request_error" }, status: 403 } }
   }
   return { key }
 }
@@ -145,6 +165,10 @@ effect function openMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | 
   const teams = try Teams.Machine
   if (key != undefined && key.project != "" && !Teams.canHoldProject(try teams.get(), key.project, cost)) {
     return { refused: { error: { message: "The project budget would be exceeded.", type: "insufficient_quota" }, status: 402 } }
+  }
+  const requestLedger = try Requests.Machine
+  if ((try requestLedger.get()).requests.some((served) => served.ref == ref)) {
+    return { refused: { error: { message: "A request with this reference is already open.", type: "invalid_request_error" }, status: 409 } }
   }
   const ledger = try Ledger.Machine
   if (!Ledger.canReserve(try ledger.get(), wallet, ref, cost)) {
@@ -287,6 +311,7 @@ effect function receiptFor(input: unknown, candidate: unknown, completionId: str
 }
 
 export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string, withReceipt: boolean = false) {
+  if (key == undefined && wallet != "" && try suspendedAccount(wallet)) return try inferenceFailure("This account's inference access is suspended.", 403, ref)
   const parsedResult = try Effect.try(() => parseChatInput(raw))
   if (!parsedResult.ok) return try inferenceFailure(parsedResult.message, parsedResult.status, ref)
   const usageBefore = try Usage.Machine
@@ -294,18 +319,18 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
     return try inferenceFailure("This Idempotency-Key already started a request. Look up the reference in Request logs.", 409, ref)
   }
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length == 0) {
+  if (liveProviders.length == 0 && try Effect.try(() => stagingInference())) {
     const input = parsedResult.value
     const cost = stagedCost(JSON.stringify(raw ?? {}).length)
     const openedStage = try openMeter(ref, wallet, key, "ChatCompletions", input.model, input.stream === true, cost)
     if ("refused" in openedStage) {
       const r = openedStage.refused as { error: unknown; status: number }
-      return try reply(r.error, r.status)
+      return try refusalReply(r, ref)
     }
     const settledStage = try settleMeter(openedStage.meter, 0, 8, -1, cost, -1)
     if ("refused" in settledStage) {
       const r = settledStage.refused as { error: unknown; status: number }
-      return try reply(r.error, r.status)
+      return try refusalReply(r, ref)
     }
     if (input.stream !== true) {
       const stagedResponse = try reply(completionShape(ref, input.model, cost))
@@ -331,7 +356,7 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
   const opened = try openMeter(ref, wallet, key, "ChatCompletions", selection.input.model, selection.stream, reserve, meterProvider(firstCandidate.provider))
   if ("refused" in opened) {
     const r = opened.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, ref)
   }
   const meter = opened.meter
   const cacheSecret = key?.hash ?? wallet
@@ -369,7 +394,7 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
     const settled = try settleMeter(meter, usage.prompt_tokens, usage.completion_tokens, cached, cost, providerMs)
     if ("refused" in settled) {
       const r = settled.refused as { error: unknown; status: number }
-      return try reply(r.error, r.status)
+      return try refusalReply(r, ref)
     }
     const body: Record<string, unknown> = {
       ...completed.completion,
@@ -502,21 +527,21 @@ effect function chatCompletions() {
   const auth = try authorized("ChatCompletions", body.model)
   if ("refused" in auth) {
     const r = auth.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, "")
   }
   const idempotency = request.headers["idempotency-key"]
-  if (idempotency != undefined && !/^[a-zA-Z0-9_.:-]{8,128}$/.test(idempotency)) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, "")
-  const ref = idempotency == undefined ? try Effect.try(() => newRef()) : "idem" + (try Effect.try(() => sha256(auth.key.wallet + ":" + auth.key.id + ":" + idempotency))).slice(0, 32)
+  if (idempotency != undefined && !(try Effect.try(() => validIdempotencyKey(idempotency)))) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, "")
+  const ref = idempotency == undefined ? try Effect.try(() => newRef()) : try Effect.try(() => idempotentRef(auth.key.wallet, auth.key.id, idempotency))
   const receipt = request.headers["x-sonnely-receipt"]
   if (receipt != undefined && receipt != "v1") return try inferenceFailure("Unsupported evidence receipt version. Use X-Sonnely-Receipt: v1.", 400, ref)
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length > 0) return try inferChat(raw, auth.key, auth.key.wallet, ref, receipt == "v1")
+  if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) return try inferChat(raw, auth.key, auth.key.wallet, ref, receipt == "v1")
   const cost = stagedCost(body.bytes)
   if (!body.stream) {
     const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
     if ("refused" in settled) {
       const r = settled.refused as { error: unknown; status: number }
-      return try reply(r.error, r.status)
+      return try refusalReply(r, ref)
     }
     const response = try reply(completionShape(ref, body.model, cost))
     return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
@@ -525,7 +550,7 @@ effect function chatCompletions() {
   const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, true, emits, cost)
   if ("refused" in settled) {
     const r = settled.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, ref)
   }
   const chunks = Stream.fromIterable([
     `data: ${JSON.stringify(completionChunk(ref, body.model, { role: "assistant" }, null))}\n\n`,
@@ -556,7 +581,10 @@ const endpoints: { path: string; endpoint: Requests.Endpoint; model: (input: unk
 ]
 
 export effect function inferSpecialized(path: string, endpoint: Requests.Endpoint, fallbackModel: string, raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string) {
+  if (key == undefined && wallet != "" && try suspendedAccount(wallet)) return try inferenceFailure("This account's inference access is suspended.", 403, ref)
   const request = try HttpServerRequest.HttpServerRequest
+  const idempotency = request.headers["idempotency-key"]
+  if (idempotency != undefined && !(try Effect.try(() => validIdempotencyKey(idempotency)))) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, ref)
   const multipart = path == "images/edits" || path == "audio/transcriptions" || path == "audio/translations" || path == "convert/file"
   let input: unknown = raw
   let form: FormData | undefined = undefined
@@ -565,7 +593,9 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
     if (!contentType.startsWith("multipart/form-data")) return try inferenceFailure("Send multipart form data.", 415, ref)
     form = tryPromise(() => multipartForm(request.source, contentType)) catch () => undefined
     if (form == undefined) return try inferenceFailure("The form data could not be read.", 400, ref)
-    input = { model: try Effect.try(() => formModel(form!, fallbackModel)) }
+    const formInput = try Effect.try(() => multipartInput(form!, fallbackModel))
+    if (!formInput.ok) return try inferenceFailure(formInput.message, formInput.status, ref)
+    input = formInput.value
   }
   const parsedResult = multipart ? { ok: true as const, value: input as Record<string, unknown> } : try Effect.try(() => parseSpecialized(path, raw))
   if (!parsedResult.ok) return try inferenceFailure(parsedResult.message, parsedResult.status, ref)
@@ -576,21 +606,23 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
     const auth = try authorized(endpoint, named)
     if ("refused" in auth) {
       const r = auth.refused as { error: unknown; status: number }
-      return try reply(r.error, r.status)
+      return try refusalReply(r, ref)
     }
     meterKey = auth.key
   }
   const meterWallet = wallet == "" ? meterKey?.wallet ?? "" : wallet
+  let servingRef = ref
+  if (idempotency != undefined) servingRef = try Effect.try(() => idempotentRef(meterWallet, meterKey?.id ?? "console", idempotency))
   const inputTokens = try Effect.try(() => specializedInputTokens(path, fields))
   const outputTokens = path == "responses" ? (typeof fields.max_output_tokens == "number" ? fields.max_output_tokens : 1024) : path == "systemone" ? 256 : 0
   const routeResult = try Effect.try(() => specializedRoute(path, named, inputTokens, false, outputTokens))
-  if (!routeResult.ok) return try inferenceFailure(routeResult.message, routeResult.status, ref)
+  if (!routeResult.ok) return try inferenceFailure(routeResult.message, routeResult.status, servingRef)
   const selected = routeResult.value
-  if (typeof fields.max_cost_microusd == "number" && selected.reserve > fields.max_cost_microusd) return try inferenceFailure("The estimated reservation exceeds max_cost_microusd.", 400, ref)
-  const opened = try openMeter(ref, meterWallet, meterKey, endpoint, named, false, selected.reserve, meterProvider(selected.provider))
+  if (typeof fields.max_cost_microusd == "number" && selected.reserve > fields.max_cost_microusd) return try inferenceFailure("The estimated reservation exceeds max_cost_microusd.", 400, servingRef)
+  const opened = try openMeter(servingRef, meterWallet, meterKey, endpoint, named, false, selected.reserve, meterProvider(selected.provider))
   if ("refused" in opened) {
     const r = opened.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, servingRef)
   }
   const meter = opened.meter
   const providerAt = try Clock.currentTimeMillis
@@ -598,48 +630,49 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
   const providerMs = try Clock.currentTimeMillis - providerAt
   if (upstream == undefined) {
     try failMeter(meter, true)
-    return try inferenceFailure("The provider did not respond. The reservation is pending reconciliation.", 502, ref)
+    return try inferenceFailure("The provider did not respond. The reservation is pending reconciliation.", 502, servingRef)
   }
   const response = upstream.response
   if (!response.ok) {
     try failMeter(meter, response.status >= 500)
-    return try inferenceFailure("The provider could not complete this request.", 502, ref)
+    return try inferenceFailure("The provider could not complete this request.", 502, servingRef)
   }
   if (path == "audio/speech") {
     const bytesResult = tryPromise(async () => new Uint8Array(await response.arrayBuffer())) catch () => undefined
     if (bytesResult == undefined || bytesResult.byteLength == 0) {
       try failMeter(meter, true)
-      return try inferenceFailure("The provider returned an incomplete result.", 502, ref)
+      return try inferenceFailure("The provider returned an incomplete result.", 502, servingRef)
     }
     const settled = try settleMeter(meter, inputTokens, 0, -1, selected.reserve, providerMs)
     if ("refused" in settled) {
       const r = settled.refused as { error: unknown; status: number }
-      return try reply(r.error, r.status)
+      return try refusalReply(r, servingRef)
     }
     return HttpServerResponse.uint8Array(bytesResult, {
       contentType: response.headers.get("content-type") ?? "audio/mpeg",
-      headers: { ...noStore, "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": selected.provider },
+      headers: { ...noStore, "X-Sonnely-Request-Id": servingRef, "X-Sonnely-Provider": selected.provider },
     })
   }
   const output = tryPromise(() => response.json()) catch () => undefined
   if (output == undefined) {
     try failMeter(meter, true)
-    return try inferenceFailure("The provider returned an incomplete result or usage record.", 502, ref)
+    return try inferenceFailure("The provider returned an incomplete result or usage record.", 502, servingRef)
   }
   const usage = try Effect.try(() => extractUsage(path, output))
   const cost = selected.route.request >= 0 ? selected.reserve : try Effect.try(() => tokenCharge(selected.route, usage.input, 0, usage.output))
   if (cost > selected.reserve) {
     try failMeter(meter, true)
-    return try inferenceFailure("Provider usage exceeded the reservation. Check Usage.", 502, ref)
+    return try inferenceFailure("Provider usage exceeded the reservation. Check Usage.", 502, servingRef)
   }
   const settled = try settleMeter(meter, usage.input, usage.output, -1, cost, providerMs)
   if ("refused" in settled) {
     const r = settled.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, servingRef)
   }
   const body = typeof output == "object" && output != null && !Array.isArray(output) ? output as Record<string, unknown> : { data: output }
-  const answered = try reply({ ...body, model: named, sonnely_request_id: ref, sonnely_provider: selected.provider })
-  return HttpServerResponse.setHeaders(answered, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": selected.provider })
+  const trimmed = try Effect.try(() => sliceTopResults(path, body, fields.top_n))
+  const answered = try reply({ ...trimmed, model: named, sonnely_request_id: servingRef, sonnely_provider: selected.provider })
+  return HttpServerResponse.setHeaders(answered, { "X-Sonnely-Request-Id": servingRef, "X-Sonnely-Provider": selected.provider })
 }
 
 function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[number]) {
@@ -649,7 +682,7 @@ function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[numb
     if (!multipart && !request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
     const raw = multipart ? undefined : request.json catch () => undefined
     const liveProviders = try Effect.try(() => configuredProviders())
-    if (liveProviders.length > 0) {
+    if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) {
       const ref = try Effect.try(() => newRef())
       return try inferSpecialized(path, endpoint, model({}), raw, undefined, "", ref)
     }
@@ -657,14 +690,17 @@ function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[numb
     const auth = try authorized(endpoint, named)
     if ("refused" in auth) {
       const r = auth.refused as { error: unknown; status: number }
-      return try reply(r.error, r.status)
+      return try refusalReply(r, "")
     }
-    const ref = try Effect.try(() => newRef())
+    const idempotency = request.headers["idempotency-key"]
+    if (idempotency != undefined && !(try Effect.try(() => validIdempotencyKey(idempotency)))) return try inferenceFailure("Use 8–128 letters, numbers, dots, underscores, colons, or hyphens in Idempotency-Key.", 400, "")
+    let ref: string = try Effect.try(() => newRef())
+    if (idempotency != undefined) ref = try Effect.try(() => idempotentRef(auth.key.wallet, auth.key.id, idempotency))
     const cost = stagedCost(JSON.stringify(raw ?? {}).length)
     const settled = try stageMeter(ref, auth.key, endpoint, named, false, [], cost)
     if ("refused" in settled) {
       const r = settled.refused as { error: unknown; status: number }
-      return try reply(r.error, r.status)
+      return try refusalReply(r, ref)
     }
     const response = try reply(shape(ref, named, cost))
     return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })
@@ -690,7 +726,8 @@ effect function keyStatus() {
   const state = try keys.get()
   const key = id == "" ? undefined : state.keys.find((k) => k.hash == id)
   if (key == undefined) return try oops("A valid bearer key is required.", 401)
-  return try reply({ data: { prefix: key.prefix, status: key.status, spendLimit: key.cap == 0 ? -1 : key.cap, spent: key.spent } })
+  const now = try Clock.currentTimeMillis
+  return try reply({ data: try Effect.try(() => keyStatusPayload(key, now)) })
 }
 
 // spec/app/gateway/batch.md, "Story: Run a resumable batch": the job is created once, sent row by row
@@ -701,7 +738,7 @@ effect function batchCreate() {
   const authBatch = try bearerKey()
   if ("refused" in authBatch) {
     const r = authBatch.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, "")
   }
   const raw = request.json catch () => undefined
   const input = raw as { id?: unknown; filename?: unknown; customIds?: unknown } | undefined
@@ -719,7 +756,7 @@ effect function batchShow() {
   const authBatch = try bearerKey()
   if ("refused" in authBatch) {
     const r = authBatch.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, "")
   }
   const batch = try Batch.Machine
   return try reply(try batch.get())
@@ -729,7 +766,7 @@ effect function batchClear() {
   const authBatch = try bearerKey()
   if ("refused" in authBatch) {
     const r = authBatch.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, "")
   }
   const batch = try Batch.Machine
   const cleared = batch.send({ type: "clear" }) catch (e) => e
@@ -743,7 +780,7 @@ effect function batchInterrupt() {
   const authInterrupt = try bearerKey()
   if ("refused" in authInterrupt) {
     const r = authInterrupt.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, "")
   }
   const raw = request.json catch () => undefined
   const customId = typeof (raw as any)?.customId == "string" ? (raw as any).customId : ""
@@ -764,7 +801,7 @@ effect function batchChat() {
   const auth = try authorized("ChatCompletions", body.model)
   if ("refused" in auth) {
     const r = auth.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, "")
   }
   const wallet = request.headers["x-sonnely-batch-wallet"] ?? ""
   if (wallet == "" || wallet != auth.key.wallet) return try inferenceFailure("The batch wallet does not match this key's workspace.", 403, "")
@@ -772,14 +809,14 @@ effect function batchChat() {
   if (!/^batch:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:\d+$/i.test(idempotency)) {
     return try inferenceFailure("Use Idempotency-Key batch:<uuidv4>:<row index>.", 400, "")
   }
-  const ref = "idem" + (try Effect.try(() => sha256(auth.key.wallet + ":" + auth.key.id + ":" + idempotency))).slice(0, 32)
+  const ref = try Effect.try(() => idempotentRef(auth.key.wallet, auth.key.id, idempotency))
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length > 0) return try inferChat(raw, auth.key, auth.key.wallet, ref)
+  if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) return try inferChat(raw, auth.key, auth.key.wallet, ref)
   const cost = stagedCost(body.bytes)
   const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
   if ("refused" in settled) {
     const r = settled.refused as { error: unknown; status: number }
-    return try reply(r.error, r.status)
+    return try refusalReply(r, ref)
   }
   const response = try reply(completionShape(ref, body.model, cost))
   return HttpServerResponse.setHeaders(response, { "X-Sonnely-Request-Id": ref, "X-Sonnely-Provider": "staging" })

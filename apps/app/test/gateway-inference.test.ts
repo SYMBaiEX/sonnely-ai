@@ -3,13 +3,14 @@ import { text as readStreamText } from "node:stream/consumers";
 import { Effect, Layer } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as Admin from "../gen/app__admin.effect.vibe";
 import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
 import { inferChat } from "../src/api/gateway.vibe";
-import { chatSseResponse, type StreamFinal } from "../src/api/gateway/providers.ts";
+import { callChatCandidates, chatSseResponse, keyStatusPayload, parseSpecialized, sliceTopResults, upstreamTimeouts, type ChatRoute, type StreamFinal } from "../src/api/gateway/providers.ts";
 
 const wallet = "test-wallet";
 const stateLayer = () =>
@@ -20,6 +21,7 @@ const stateLayer = () =>
       Ledger.stored("inference-test-ledger"),
       Usage.stored("inference-test-usage"),
       Requests.stored("inference-test-requests"),
+      Admin.stored("inference-test-admin"),
     ),
     KeyValueStore.layerMemory,
   );
@@ -29,6 +31,8 @@ afterEach(() => {
   delete process.env.NEAR_AI_API_KEY;
   delete process.env.PHALA_AI_API_KEY;
   delete process.env.TINFOIL_API_KEY;
+  delete process.env.VERCEL_ENV;
+  delete process.env.SONNELY_PUBLIC_INFERENCE;
 });
 
 describe("gateway inference", () => {
@@ -185,6 +189,189 @@ describe("gateway inference", () => {
     expect(state.key?.spent).toBe(cost);
     expect(state.ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount === cost)).toBe(true);
     expect(state.ledgerRows.some((entry) => entry.kind === "Release" && entry.amount > 0)).toBe(true);
+  });
+
+  // FACTORY-R1 A1: a hung provider must never hold a credit reserve open.
+  it("aborts a chat candidate that never sends response headers", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("fetch", (_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+      }));
+      const route: ChatRoute = {
+        provider: "near-ai",
+        key: "test-provider-key",
+        upstreamModel: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        privacyRoute: "private-tee",
+        rate: { endpoint: "chat/completions", modelId: "deepseek-ai/DeepSeek-V4.1-Flash-1017", input: 1, cache: -1, output: 1, request: -1, session: -1 },
+        estimate: 1,
+      };
+      const attempt = callChatCandidates({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] }, [route], "secret");
+      const rejection = expect(attempt).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(upstreamTimeouts.headersMs);
+      await rejection;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // FACTORY-R1 A1: a hung provider must never hold a credit reserve open.
+  it("answers 502 and charges nothing when the provider never responds", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("fetch", (_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted.", "AbortError")));
+      }));
+      const program = Effect.gen(function* () {
+        const keys = yield* WorkspaceKeys.Machine;
+        yield* keys.send({ type: "create", id: "key-timeout", label: "Inference", prefix: "sonnely_live_timeout", hash: "timeout-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+        const ledger = yield* Ledger.Machine;
+        yield* ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 });
+        const key = (yield* keys.get()).keys[0];
+        if (!key) throw new Error("missing key");
+        const response = yield* inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] }, key, wallet, "timeout-ref");
+        return { response, ledger };
+      });
+      const running = Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+      await vi.advanceTimersByTimeAsync(upstreamTimeouts.headersMs);
+      const result = await running;
+      const ledgerRows = await Effect.runPromise(Effect.gen(function* () {
+        return (yield* result.ledger.get()).entries;
+      }));
+      expect(result.response.status).toBe(502);
+      expect(ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount > 0)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // FACTORY-R1 A2: no provider keys in production means 503, never a paid fake answer.
+  it("fails closed with 503 and no reservation in production when no provider is configured", async () => {
+    process.env.VERCEL_ENV = "production";
+    const program = Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "key-prod", label: "Inference", prefix: "sonnely_live_prod", hash: "prod-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const response = yield* inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] }, key, wallet, "prod-ref");
+      const usage = yield* Usage.Machine;
+      return { response, ledger, usage };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await Effect.runPromise(Effect.gen(function* () {
+      return { ledgerRows: (yield* result.ledger.get()).entries, rows: (yield* result.usage.get()).rows };
+    }));
+    expect(result.response.status).toBe(503);
+    expect(state.ledgerRows.some((entry) => entry.kind === "Reserve" || entry.kind === "Charge")).toBe(false);
+    expect(state.rows).toHaveLength(0);
+  });
+
+  // FACTORY-R1 A2: staging answers remain a development-only convenience.
+  it("still serves a metered staging answer outside production when no provider is configured", async () => {
+    delete process.env.VERCEL_ENV;
+    const program = Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "key-staging", label: "Inference", prefix: "sonnely_live_staging", hash: "staging-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const response = yield* inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] }, key, wallet, "staging-ref");
+      return { response, ledger };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const ledgerRows = await Effect.runPromise(Effect.gen(function* () {
+      return (yield* result.ledger.get()).entries;
+    }));
+    expect(result.response.status).toBe(200);
+    expect(result.response.headers["x-sonnely-provider"]).toBe("staging");
+    expect(ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount > 0)).toBe(true);
+  });
+
+  // spec/app/admin/index.md, "Only an active account can be suspended": suspension stops inference.
+  it("refuses session-wallet inference with 403 for a suspended account and serves an active one", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    vi.stubGlobal("fetch", () => Promise.resolve(new Response(
+      JSON.stringify({
+        id: "chatcmpl-provider",
+        object: "chat.completion",
+        created: 1,
+        model: "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        choices: [{ index: 0, message: { role: "assistant", content: "metered" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      }),
+      { status: 200, headers: { "content-type": "application/json", "inference-id": crypto.randomUUID() } },
+    )));
+    const input = { model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] };
+    const program = Effect.gen(function* () {
+      const admin = yield* Admin.Machine;
+      yield* admin.send({ type: "grant", wallet: "op-wallet", role: "Admin", at: 1 }, "op-wallet");
+      yield* admin.send({ type: "register", id: wallet, subject: "User", at: 2 }, "op-wallet");
+      yield* admin.send({ type: "register", id: "active-wallet", subject: "User", at: 2 }, "op-wallet");
+      yield* admin.send({ type: "suspend", id: wallet, at: 3 }, "op-wallet");
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "deposit-suspended", amount: 100_000 });
+      yield* ledger.send({ type: "credit", wallet: "active-wallet", detail: "deposit-active", amount: 100_000 });
+      const suspended = yield* inferChat(input, undefined, wallet, "suspended-ref");
+      const active = yield* inferChat(input, undefined, "active-wallet", "active-ref");
+      return { suspended, active, ledger };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const ledgerRows = await Effect.runPromise(Effect.gen(function* () {
+      return (yield* result.ledger.get()).entries;
+    }));
+    expect(result.suspended.status).toBe(403);
+    expect(result.active.status).toBe(200);
+    expect(ledgerRows.some((entry) => entry.wallet === wallet && (entry.kind === "Reserve" || entry.kind === "Charge"))).toBe(false);
+  });
+
+  // spec/app/docs/index.md, "Check the current API key": budgets in micro-USD with resets_at.
+  it("serializes the documented key status budgets and expiry", () => {
+    const payload = keyStatusPayload(
+      { label: "Production", prefix: "sonnely_live_abc", status: "Active", cap: 50_000, dailyCap: 10_000, expiresAt: 1_800_000_000_000, spent: 7_000, dayKey: "2026-01-15", daySpent: 2_000 },
+      Date.UTC(2026, 0, 15, 10, 30),
+    );
+    expect(payload).toEqual({
+      prefix: "sonnely_live_abc",
+      status: "Active",
+      spendLimit: 50_000,
+      spent: 7_000,
+      name: "Production",
+      expires_at_ms: 1_800_000_000_000,
+      daily: { cap_microusd: 10_000, used_microusd: 2_000, remaining_microusd: 8_000, resets_at: "2026-01-16T00:00:00.000Z" },
+      lifetime: { cap_microusd: 50_000, used_microusd: 7_000, remaining_microusd: 43_000 },
+    });
+  });
+
+  // spec/app/docs/index.md, "Check the current API key": unlimited caps and their remainders are null.
+  it("serializes unlimited budgets and missing expiry as null and zeroes stale daily spend", () => {
+    const payload = keyStatusPayload(
+      { label: "Dev", prefix: "sonnely_live_dev", status: "Active", cap: 0, dailyCap: 0, expiresAt: 0, spent: 3_000, dayKey: "2026-01-14", daySpent: 2_000 },
+      Date.UTC(2026, 0, 15, 10, 30),
+    );
+    expect(payload).toMatchObject({
+      expires_at_ms: null,
+      daily: { cap_microusd: null, used_microusd: 0, remaining_microusd: null },
+      lifetime: { cap_microusd: null, remaining_microusd: null },
+    });
+  });
+
+  // spec/app/docs/index.md, "Additional Tinfoil endpoints": Responses accepts instructions with stream/store false.
+  it("accepts the documented Responses fields and rejects live streaming or storage", () => {
+    const accepted = parseSpecialized("responses", { model: "tinfoil/gpt-oss-120b", input: "hello", instructions: "be brief", store: false, stream: false });
+    const streaming = parseSpecialized("responses", { model: "tinfoil/gpt-oss-120b", input: "hello", stream: true });
+    const storing = parseSpecialized("responses", { model: "tinfoil/gpt-oss-120b", input: "hello", store: true });
+    expect([accepted.ok, streaming.ok, storing.ok]).toEqual([true, false, false]);
+  });
+
+  // spec/app/docs/index.md, "Embeddings, decisions, images, and audio": reranking optionally accepts top_n.
+  it("accepts rerank top_n and slices results to it", () => {
+    const parsed = parseSpecialized("rerank", { model: "Qwen/Qwen3-Reranker-0.6B", query: "q", documents: ["a", "b"], top_n: 1 });
+    const sliced = sliceTopResults("rerank", { results: [{ index: 0 }, { index: 1 }], usage: { prompt_tokens: 1, completion_tokens: 0 } }, 1);
+    expect([parsed.ok, (sliced.results as unknown[]).length, "usage" in sliced]).toEqual([true, 1, true]);
   });
 
 });
