@@ -38,8 +38,9 @@ export function PrivacyPage() {
           <h2 id={privacySections[2][0]}>{privacySections[2][1]}</h2>
           <p>
             Support stores the email address and message you submit with your workspace. We use
-            hosting and delivery infrastructure, Convex for account and billing records, and a
-            Solana RPC provider to verify payments. We use these records to provide service,
+            hosting and delivery infrastructure on Railway, where account and billing records are
+            stored in Sonnely’s own machine state, and a Solana RPC provider to verify payments. We
+            use these records to provide service,
             reconcile billing, protect accounts, investigate failures, and respond to support
             requests.
           </p>
@@ -101,7 +102,7 @@ export function TermsPage() {
           </p>
           <h2 id={termsSections[1][0]}>{termsSections[1][1]}</h2>
           <p>
-            Send Solana mainnet USDC using the payment details in Billing. Credits are posted after
+            Send Solana mainnet USDC or SOL using the payment details in Billing. Credits are posted after
             a matching transfer finalizes. Credits buy inference usage in Sonnely and cannot be
             transferred or redeemed for cash. On-chain transfers are generally irreversible. For a
             duplicate payment, missing credit, or billing dispute, contact Sonnely with the payment

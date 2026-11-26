@@ -12,9 +12,7 @@ import {
   type ProviderId,
   type Sort,
 } from "../../../../gen/app__models.ts";
-import type { Board, ProbeState } from "../../../../gen/app__site.ts";
-import { useRemote } from "../../remote.ts";
-import { canonicalGroups, endpointIds } from "./catalog-data.ts";
+import { canonicalGroups, endpointIds, liveStatuses, useLiveAvailability } from "./catalog-data.ts";
 import { SiteLead } from "./chrome.tsx";
 import {
   apiBasePath,
@@ -22,7 +20,6 @@ import {
   featuredUpstreamIds,
   limits,
   providerNames,
-  providerOfSlug,
   upstreamCoversEndpoint,
   workloadGuide,
   workloadNames,
@@ -46,26 +43,6 @@ import {
   type CatalogRateKind,
   type CatalogStatus,
 } from "./catalog-cards.tsx";
-
-function probeStates(board: Board | undefined): Partial<Record<ProviderId, ProbeState>> {
-  if (board?.tag !== "Live") return {};
-  const states: Partial<Record<ProviderId, ProbeState>> = {};
-  for (const probe of board.report.probes) {
-    const provider = providerOfSlug[probe.provider];
-    if (provider) states[provider] = probe.state;
-  }
-  return states;
-}
-
-function statusFor(model: CatalogEntry, probes: Partial<Record<ProviderId, ProbeState>>, probed: boolean): CatalogStatus {
-  if (model.routes.length === 0) return { label: "Catalog only", tone: "muted" };
-  if (!probed) return { label: "Routed", tone: "info" };
-  const state = probes[model.provider];
-  if (state === "Ok") return { label: "Available", tone: "ok" };
-  if (state === "Down") return { label: "Provider down", tone: "warn" };
-  if (state === "Disabled") return { label: "Probe disabled", tone: "warn" };
-  return { label: "Probe pending", tone: "info" };
-}
 
 function CatalogTools({
   filter,
@@ -189,9 +166,7 @@ function statusRank(status: CatalogStatus) {
 
 export function ModelCatalog() {
   const { state, send } = useMachine(catalogRuntime);
-  const remote = useRemote<Board>("site");
-  const probes = probeStates(remote.state);
-  const probed = Object.keys(probes).length > 0;
+  const live = useLiveAvailability();
   const filter = state ?? {
     query: "",
     provider: { tag: "EveryProvider" } as const,
@@ -200,9 +175,7 @@ export function ModelCatalog() {
     sort: "AvailableFirst" as Sort,
   };
 
-  const statuses = new Map(
-    catalog.map((model) => [model.provider + "/" + model.upstreamId, statusFor(model, probes, probed)]),
-  );
+  const statuses = liveStatuses(live);
   const chosenProvider = filter.provider.tag === "Only" ? filter.provider.provider : undefined;
   const chosenEndpoint =
     filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : undefined;

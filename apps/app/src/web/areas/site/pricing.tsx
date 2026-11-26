@@ -3,7 +3,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Calculator, Fingerprint, KeyRound,
 import { useState } from "react";
 import { Input } from "@repo/ui";
 import { creditBalance, formatRate, limits, requestCharge, routeRates } from "./data.ts";
-import { canonicalGroups, chatModels, chatModelRoute } from "./catalog-data.ts";
+import { canonicalGroups, chatModels, chatModelRoute, liveStatuses, useLiveAvailability } from "./catalog-data.ts";
 import { CatalogCards } from "./catalog-cards.tsx";
 
 const tokenPriced = (group: (typeof canonicalGroups)[number]) =>
@@ -135,7 +135,7 @@ function PricingEssentials() {
     {
       title: "Final rates",
       Icon: Fingerprint,
-      copy: "Token endpoints are priced per million tokens. File, media and realtime endpoints use the listed request or session rate.",
+      copy: "Token endpoints are priced per million tokens. File and media endpoints use the listed per-request rate.",
       href: "#inference-rates",
       link: "Inference rates",
     },
@@ -168,6 +168,7 @@ function PricingEssentials() {
 }
 
 function InferenceRates() {
+  const live = useLiveAvailability();
   return (
     <section className="cor-rates" id="inference-rates" aria-labelledby="inference-rates-title">
       <header>
@@ -179,7 +180,7 @@ function InferenceRates() {
         <a href="/models">Model catalog <ArrowUpRight size={15} aria-hidden="true" /></a>
       </header>
       <div className="cor-ratecards">
-        <CatalogCards groups={pricedGroups} filterSignature="pricing" />
+        <CatalogCards groups={pricedGroups} filterSignature="pricing" statuses={liveStatuses(live)} />
       </div>
     </section>
   );

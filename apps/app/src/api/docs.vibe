@@ -2,6 +2,7 @@
 import { isDoc } from "../../gen/app__docs.effect.vibe"
 import { llmsFull, llmsIndex, pageMarkdown, searchDocs } from "../docs.ts"
 import { docReleased } from "../feature-availability.ts"
+import { openApiDocument } from "./openapi.ts"
 
 const markdown = { "content-type": "text/markdown; charset=utf-8" }
 const plain = { "content-type": "text/plain; charset=utf-8" }
@@ -38,8 +39,13 @@ effect function search() {
   return try HttpServerResponse.json(results, { headers: noStore })
 }
 
+effect function openApi() {
+  return try HttpServerResponse.json(openApiDocument, { headers: { "cache-control": "public, max-age=300" } })
+}
+
 /** The documentation feeds, the search endpoint and the api-reference redirect, all reading the same catalog. */
 export const docsApi = Layer.mergeAll(
+  HttpRouter.add("GET", "/api/openapi", openApi()),
   HttpRouter.add("GET", "/llms.txt", llmsTxt()),
   HttpRouter.add("GET", "/llms-full.txt", llmsFullTxt()),
   HttpRouter.add("GET", "/llms.mdx/docs/content.md", indexMd()),
