@@ -135,7 +135,26 @@
 .batch-legacy .batch-progress {
   width: 100%;
   height: 9px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: var(--raised);
   accent-color: var(--accent);
+}
+
+.batch-legacy .batch-progress::-webkit-progress-bar {
+  border-radius: 999px;
+  background: var(--raised);
+}
+
+.batch-legacy .batch-progress::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--action);
+}
+
+.batch-legacy .batch-progress::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--action);
 }
 
 .batch-legacy .batch-filter {
@@ -178,13 +197,27 @@
 }
 
 .batch-legacy .batch-badge[data-status="succeeded"] {
-  color: var(--ink);
-  border-color: var(--muted);
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+  background: color-mix(in srgb, var(--ok) 9%, var(--card));
 }
 
-.batch-legacy .batch-badge:is([data-status="blocked"], [data-status="failed"], [data-status="interrupted"], [data-status="review"]) {
-  color: var(--ink);
-  border-color: var(--accent);
+.batch-legacy .batch-badge[data-status="failed"] {
+  color: var(--destructive);
+  border-color: color-mix(in srgb, var(--destructive) 42%, var(--line));
+  background: color-mix(in srgb, var(--destructive) 9%, var(--card));
+}
+
+.batch-legacy .batch-badge:is([data-status="blocked"], [data-status="interrupted"]) {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 48%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, var(--card));
+}
+
+.batch-legacy .batch-badge:is([data-status="review"], [data-status="sending"]) {
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 42%, var(--line));
+  background: color-mix(in srgb, var(--info) 9%, var(--card));
 }
 
 @media (width <= 620px) {
