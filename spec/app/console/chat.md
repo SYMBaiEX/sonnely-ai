@@ -73,18 +73,25 @@ pure def pickModel(c: Chat, model: str): Chat = { ...c, model: model }
 
 ### Sending takes one turn at a time
 
-A send opens a new thread or continues one whose last message is an
-assistant answer. You cannot send into a turn the model has not answered.
+A send opens a new thread or continues one. When the thread's last message
+is an assistant answer, the send adds a new user turn after it. When the
+user turn is still waiting on an answer — the answer is streaming, or it
+never arrived because the stream died or the tab closed — the send re-asks
+instead: it replaces the waiting question rather than stacking a second
+user turn behind it, so a question the model never answered can never
+wedge the thread.
 
 ```quint
 pure def canSend(c: Chat, id: str, model: str, text: str): bool =
-  val ts = thread(c, id)
-  text != "" and model != "" and
-    (ts.length() == 0 or lastMessage(ts.head()).role == Assistant)
+  text != "" and model != ""
 
 pure def send(c: Chat, id: str, model: str, text: str): Chat =
   val ts = thread(c, id)
   val t = ts.nthOr(0, { id: id, model: model, messages: List() })
+  val messages =
+    if (ts.length() > 0 and t.messages.length() > 0 and lastMessage(t).role == User)
+      t.messages.removeAt(t.messages.length() - 1).concat(List({ role: User, content: text, model: model }))
+    else t.messages.concat(List({ role: User, content: text, model: model }))
   if (ts.length() == 0)
     {
       threads: List({ id: id, model: model, messages: List({ role: User, content: text, model: model }) }).concat(c.threads),
@@ -93,7 +100,7 @@ pure def send(c: Chat, id: str, model: str, text: str): Chat =
     }
   else
     {
-      threads: List({ ...t, model: model, messages: t.messages.concat(List({ role: User, content: text, model: model })) }).concat(c.threads.select((x) => x.id != id)),
+      threads: List({ ...t, model: model, messages: messages }).concat(c.threads.select((x) => x.id != id)),
       active: id,
       model: model,
     }
@@ -226,9 +233,9 @@ pure def sometimesHistory(c: Chat): bool = c.threads.length() > 1
 ```quint
 pure val idValues = Set("chat-1", "chat-2", "chat-3")
 
-pure val modelValues = Set("deepseek-ai/DeepSeek-V4.1-Flash-1017", "z-ai/glm-5.3-flash", "Qwen/Qwen3.6-35B-A3B-FP8")
+pure val modelValues = Set("deepseek-ai/DeepSeek-V4.1-Flash-1017", "z-ai/glm-5.3-flash", "Qwen/Qwen3.6-35B-A3B-FP8", "")
 
-pure val textValues = Set("What is a TEE?", "Summarize this note in one sentence.", "Tell me more")
+pure val textValues = Set("What is a TEE?", "Summarize this note in one sentence.", "Tell me more", "")
 
 pure val indexValues = Set(0, 1, 2)
 ```

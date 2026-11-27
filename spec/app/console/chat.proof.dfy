@@ -493,21 +493,52 @@ lemma SendList(c: Chat, id: string, model: string, text: string)
     var l2 := (if ((0 <= 0) && (0 < |local_0|)) then local_0[0] else Thread(id, model, []));
     var t0 := local_0[0];
     assert l2 == t0;
-    var t2 := t0.(model := model, messages := (t0.messages + [Message(Role.User, text, model)]));
+    var msgs := (if (((|local_0| > 0) && (|l2.messages| > 0)) && lastMessage(l2).role.User?) then ((if ((0 <= (|l2.messages| - 1)) && ((|l2.messages| - 1) < |l2.messages|)) then (l2.messages[0..(|l2.messages| - 1)] + l2.messages[((|l2.messages| - 1) + 1)..]) else l2.messages) + [Message(Role.User, text, model)]) else (l2.messages + [Message(Role.User, text, model)]));
+    var t2 := l2.(model := model, messages := msgs);
     assert after.threads == [t2] + F && after.active == id;
-    assert |t0.messages| > 0 by {
-      if |t0.messages| == 0 {
-        assert lastMessage(t0) == Message(Role.User, "", t0.model);
-        assert !lastMessage(t0).role.Assistant?;
-      }
-    }
     ThreadP(c, id);
     ProofLib.FilterMember((t: Thread) => (t.id == id), c.threads, t0);
     assert t0 in c.threads && t0.id == id;
     assert alternates(t0.messages);
-    assert t0.messages[|t0.messages| - 1].role.Assistant?;
-    AltAppend(t0.messages, Message(Role.User, text, model));
-    assert alternates(t2.messages);
+    assert alternates(t2.messages) by {
+      if ((|t0.messages| > 0) && lastMessage(t0).role.User?) {
+        var n := |t0.messages|;
+        assert n >= 1;
+        assert t0.messages[((n - 1) + 1)..] == [];
+        var pre := t0.messages[0..(n - 1)];
+        assert (t0.messages[0..(n - 1)] + t0.messages[((n - 1) + 1)..]) == pre;
+        assert msgs == pre + [Message(Role.User, text, model)];
+        AltPrefix(t0.messages, n - 1);
+        assert alternates(pre);
+        if n == 1 {
+          assert pre == [];
+          assert msgs == [Message(Role.User, text, model)];
+          AltHead([Message(Role.User, text, model)]);
+          assert alternates([Message(Role.User, text, model)]);
+        } else {
+          assert n >= 2 && |pre| == n - 1;
+          assert pre[|pre| - 1] == t0.messages[n - 2];
+          AltAt(t0.messages, n - 1);
+          assert t0.messages[n - 1].role != t0.messages[n - 2].role;
+          assert lastMessage(t0) == t0.messages[n - 1];
+          assert t0.messages[n - 2].role.Assistant?;
+          assert pre[|pre| - 1].role != Role.User;
+          AltAppend(pre, Message(Role.User, text, model));
+        }
+      } else {
+        assert msgs == t0.messages + [Message(Role.User, text, model)];
+        if |t0.messages| == 0 {
+          assert msgs == [Message(Role.User, text, model)];
+          AltHead([Message(Role.User, text, model)]);
+          assert alternates([Message(Role.User, text, model)]);
+        } else {
+          assert !lastMessage(t0).role.User?;
+          assert lastMessage(t0) == t0.messages[|t0.messages| - 1];
+          assert t0.messages[|t0.messages| - 1].role.Assistant?;
+          AltAppend(t0.messages, Message(Role.User, text, model));
+        }
+      }
+    }
     forall t | t in after.threads
       ensures alternates(t.messages)
     {
@@ -885,7 +916,10 @@ lemma lawSendKeepsOtherThreads_ensures(c: Chat, id: string, model: string, text:
         assert |ProofLib.Filter((x: Thread) => ((x.id == t'.id) && (x.messages == t'.messages)), res.threads)| >= 1;
       } else {
         var t0 := local_0[0];
-        var t2 := t0.(model := model, messages := (t0.messages + [Message(Role.User, text, model)]));
+        var l1 := (if ((0 <= 0) && (0 < |local_0|)) then local_0[0] else Thread(id, model, []));
+        assert l1 == t0;
+        var msgs := (if (((|local_0| > 0) && (|l1.messages| > 0)) && lastMessage(l1).role.User?) then ((if ((0 <= (|l1.messages| - 1)) && ((|l1.messages| - 1) < |l1.messages|)) then (l1.messages[0..(|l1.messages| - 1)] + l1.messages[((|l1.messages| - 1) + 1)..]) else l1.messages) + [Message(Role.User, text, model)]) else (l1.messages + [Message(Role.User, text, model)]));
+        var t2 := l1.(model := model, messages := msgs);
         var F := ProofLib.Filter((x: Thread) => (x.id != id), c.threads);
         assert res.threads == [t2] + F;
         assert res.threads[0] == t2;
