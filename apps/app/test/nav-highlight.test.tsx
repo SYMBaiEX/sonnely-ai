@@ -33,3 +33,35 @@ it("highlights the route just opened, not the one before", async () => {
   const current = el.querySelector(".site-nav nav a[aria-current='page']");
   expect(current?.getAttribute("href")).toBe("/models");
 });
+
+// spec/app/nav.md, "Story: Move around"
+it("keeps the hash of a cross-page link and scrolls to its element", async () => {
+  const { el, runtime } = renderApp();
+  const anchor = document.createElement("a");
+  anchor.href = "/inference#evidence";
+  el.appendChild(anchor);
+  let scrolled = "";
+  const original = Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView = function () {
+    scrolled = (this as Element).id;
+  };
+  try {
+    await act(async () => {
+      anchor.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect([location.pathname, location.hash, scrolled]).toEqual(["/inference", "#evidence", "evidence"]);
+  } finally {
+    Element.prototype.scrollIntoView = original;
+  }
+});
+
+// spec/app/nav.md, "Story: Move around"
+it("drops the hash when navigating without one", async () => {
+  const { runtime } = renderApp();
+  await act(async () => {
+    await navigate(runtime, { tag: "Inference" }, "#evidence");
+    await navigate(runtime, { tag: "Pricing" });
+  });
+  expect(location.pathname + location.hash).toBe("/pricing");
+});

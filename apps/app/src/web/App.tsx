@@ -1,6 +1,6 @@
 // spec/app/nav.md, "Story: Move around"
 import { Exit, type ManagedRuntime } from "effect";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Machine } from "../../gen/app__nav.effect.vibe";
 import { useMachine } from "../../gen/app__nav.react.ts";
 import type { Page } from "../../gen/app__nav.ts";
@@ -22,13 +22,35 @@ export interface AppProps {
   path: string;
 }
 
+let pendingScrollHash: string | null = null;
+
+function scrollToHash(hash: string): boolean {
+  const target = document.getElementById(hash.slice(1));
+  if (!target) return false;
+  target.scrollIntoView();
+  return true;
+}
+
 /**
  * The shell: every address opens a Page, links and the console's own navigation open pages through the navigator,
- * and the browser's back button speaks for its `back`.
+ * and the browser's back button speaks for its `back`. A hash rides alongside the machine's Page and scrolls
+ * to its element once the page has rendered.
  * @model spec/app/nav.md
  */
 export function App({ runtime, path }: AppProps) {
   const { state } = useMachine(runtime);
+  const openedHash = useRef(location.hash);
+
+  useEffect(() => {
+    if (!state) return;
+    const opened = openedHash.current;
+    openedHash.current = null;
+    if (opened) {
+      scrollToHash(opened);
+      return;
+    }
+    if (pendingScrollHash !== null && scrollToHash(pendingScrollHash)) pendingScrollHash = null;
+  }, [state]);
 
   useEffect(() => {
     const redirect = redirectOf(path);
@@ -40,7 +62,11 @@ export function App({ runtime, path }: AppProps) {
 
   useEffect(() => {
     const onPop = () => {
-      scrollTo(0, 0);
+      if (location.hash) {
+        pendingScrollHash = location.hash;
+      } else {
+        scrollTo(0, 0);
+      }
       void runtime.runPromiseExit(back());
     };
     addEventListener("popstate", onPop);
@@ -56,7 +82,7 @@ export function App({ runtime, path }: AppProps) {
       if (url.origin !== location.origin || url.search) return;
       if (url.pathname === location.pathname && url.hash) return;
       event.preventDefault();
-      void navigate(runtime, pageOf(url.pathname));
+      void navigate(runtime, pageOf(url.pathname), url.hash);
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
@@ -84,14 +110,17 @@ export function App({ runtime, path }: AppProps) {
   );
 }
 
-export async function navigate(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>, page: Page) {
+export async function navigate(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>, page: Page, hash = "") {
+  pendingScrollHash = hash === "" ? null : hash;
   const exit = await runtime.runPromiseExit(open(page));
   if (Exit.isSuccess(exit)) {
-    history.pushState(null, "", pathOf(page));
-    scrollTo(0, 0);
+    history.pushState(null, "", pathOf(page) + hash);
+    if (!hash) scrollTo(0, 0);
+  } else {
+    pendingScrollHash = null;
   }
   return exit;
 }
 export function navigateWith(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>) {
-  return (page: Page) => navigate(runtime, page);
+  return (page: Page, hash = "") => navigate(runtime, page, hash);
 }
