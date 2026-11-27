@@ -255,6 +255,24 @@ export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="wrap footer-inner">
+        <div className="footer-proof">
+          <div className="footer-proof-readout" aria-hidden="true">
+            <span className="footer-proof-segment">
+              <i className="footer-proof-dot" />
+              <ProductIcon name="Cpu" size={13} /> inference · tee enclave
+            </span>
+            <span className="footer-proof-segment">
+              <ProductIcon name="Fingerprint" size={13} /> attestation · verified
+            </span>
+            <span className="footer-proof-segment">
+              <ProductIcon name="ReceiptText" size={13} /> settlement · solana
+            </span>
+            <span className="footer-proof-cursor" />
+          </div>
+          <a href="/verify" className="footer-proof-link">
+            Verify a receipt <ArrowUpRight size={13} aria-hidden="true" />
+          </a>
+        </div>
         <div className="footer-brand">
           <Brand />
           <p>Confidential AI inference, routed and verified on Solana.</p>
