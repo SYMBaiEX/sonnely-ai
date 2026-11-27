@@ -1,9 +1,9 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import {
-  ArrowLeft,
   ArrowUpRight,
   Check,
   Copy,
+  MonitorSmartphone,
   Moon,
   Sun,
 } from "lucide-react";
@@ -11,7 +11,6 @@ import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } fr
 import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
-import { Scene } from "./scene.tsx";
 import { ProductIcon } from "./icons.tsx";
 
 export const themeKey = "sonnely.theme";
@@ -102,6 +101,8 @@ function subscribeSystemLight(update: () => void) {
   return () => media.removeEventListener("change", update);
 }
 
+const nextTheme: Record<Theme, Theme> = { dark: "system", system: "light", light: "dark" };
+
 export function ThemeSwitch({ choose = setTheme }: { choose?: (theme: Theme) => void }) {
   const theme = useTheme();
   const light = useSyncExternalStore(subscribeSystemLight, systemLight, () => false);
@@ -110,15 +111,17 @@ export function ThemeSwitch({ choose = setTheme }: { choose?: (theme: Theme) => 
     <button
       className="theme-switch"
       type="button"
-      role="switch"
-      aria-label="Switch color theme"
-      aria-checked={on}
+      aria-label={`Color theme: ${theme}. Activate for ${nextTheme[theme]}.`}
       data-light={on}
-      onClick={() => choose(on ? "dark" : "light")}
+      data-theme-pos={theme}
+      onClick={() => choose(nextTheme[theme])}
     >
       <span className="theme-switch-thumb" aria-hidden="true" />
       <span className="theme-switch-icon theme-switch-moon" aria-hidden="true">
         <Moon size={16} />
+      </span>
+      <span className="theme-switch-icon theme-switch-system" aria-hidden="true">
+        <MonitorSmartphone size={15} />
       </span>
       <span className="theme-switch-icon theme-switch-sun" aria-hidden="true">
         <Sun size={17} />
@@ -182,7 +185,7 @@ function SiteNavigation({ current }: { current: string }) {
           <a
             key={href}
             href={href}
-            aria-current={current === href ? "page" : undefined}
+            aria-current={current === href || current.startsWith(href + "/") ? "page" : undefined}
             onClick={closeMobile}
           >
             {label}
@@ -222,7 +225,7 @@ export function SiteFooter() {
               <ProductIcon name="Cpu" size={13} /> inference · tee enclave
             </span>
             <span className="footer-proof-segment">
-              <ProductIcon name="Fingerprint" size={13} /> attestation · verified
+              <ProductIcon name="Fingerprint" size={13} /> attestation · verifiable
             </span>
             <span className="footer-proof-segment">
               <ProductIcon name="ReceiptText" size={13} /> settlement · solana
@@ -298,69 +301,6 @@ export function ThemeSurface({ current, children }: { current: string; children:
 export interface SiteBrief {
   title: string;
   rows: readonly (readonly [label: string, value: string])[];
-}
-
-export function ReaderNavigation({
-  sections,
-}: {
-  sections: readonly (readonly [id: string, label: string])[];
-}) {
-  return (
-    <nav className="reader-toc" aria-label="On this page">
-      <strong>On this page</strong>
-      {sections.map(([id, label]) => (
-        <a key={id} href={"#" + id}>
-          {label}
-        </a>
-      ))}
-    </nav>
-  );
-}
-
-export function SiteLead({
-  title,
-  description,
-  status,
-  brief,
-  back = ["/", "Sonnely"],
-  children,
-}: {
-  title: string;
-  description: string;
-  status?: string;
-  brief?: SiteBrief;
-  back?: readonly [href: string, label: string];
-  children?: ReactNode;
-}) {
-  return (
-    <header className="page-lead market-lead" data-brief={brief ? "" : undefined}>
-      <Scene />
-      <div className="market-lead-copy">
-        <div className="market-lead-nav">
-          <a href={back[0]} className="market-back">
-            <ArrowLeft size={14} aria-hidden="true" /> {back[1]}
-          </a>
-          {status && <span className="market-status">{status}</span>}
-        </div>
-        <h1>{title}</h1>
-        <p>{description}</p>
-        {children}
-      </div>
-      {brief && (
-        <figure className="market-brief">
-          <figcaption>{brief.title}</figcaption>
-          <dl>
-            {brief.rows.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </figure>
-      )}
-    </header>
-  );
 }
 
 export function CorrespondenceHero({

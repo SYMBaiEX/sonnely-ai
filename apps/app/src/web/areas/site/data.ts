@@ -99,6 +99,7 @@ const tinfoilDocsEndpoints: Endpoint[] = [
 
 export function endpointDocs(endpoint: Endpoint) {
   if (endpoint === "ChatCompletions") return "/docs/api#create-a-completion";
+  if (endpoint === "Realtime") return "/docs/api#realtime-transcription";
   if (tinfoilDocsEndpoints.includes(endpoint)) return "/docs/providers#additional-tinfoil-endpoints";
   return "/docs/providers#embeddings-decisions-images-and-audio";
 }

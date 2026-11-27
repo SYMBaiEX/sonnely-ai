@@ -1,4 +1,5 @@
 // spec/app/site/index.md, "Story: Check the service status"
+import { NotFound } from "./notfound.tsx";
 import { ArrowLeft, ArrowUpRight, ChevronDown } from "lucide-react";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, RateUnit, Route } from "../../../../gen/app__models.ts";
@@ -55,14 +56,6 @@ function availabilityFor(entry: CatalogEntry, live: LiveAvailability): Availabil
       label: "Provider catalog only",
       tone: "muted",
       body: `${providerNames[entry.provider]} publishes this entry, but Sonnely does not route requests to it. Compare the nearest routable alternatives below before choosing a model.`,
-      runnable: false,
-    };
-  }
-  if (entry.routes.every((route) => route.endpoint === "Realtime")) {
-    return {
-      label: "Planned",
-      tone: "muted",
-      body: "Realtime transcription over WebSocket is planned and not yet served. Examples below are reference examples, not currently runnable requests.",
       runnable: false,
     };
   }
@@ -279,7 +272,7 @@ export function ModelPage({ provider, model }: { provider: string; model: string
     (row) => row.provider === providerId && row.upstreamId === model,
   );
   const live = useLiveAvailability();
-  if (!entry) return null;
+  if (!entry) return <NotFound />;
   const availability = availabilityFor(entry, live);
   const providerName = providerNames[entry.provider];
   const chat = entry.routes.find((route) => route.endpoint === "ChatCompletions");

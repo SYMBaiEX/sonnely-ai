@@ -141,7 +141,7 @@ export const articles: Article[] = [
         ],
       },
     ],
-    related: ["/docs#keys", "Key management guide"],
+    related: ["/docs/keys", "Key management guide"],
   },
   {
     slug: "read-a-request-receipt",
@@ -169,6 +169,6 @@ export const articles: Article[] = [
         ],
       },
     ],
-    related: ["/docs#errors", "Errors and recovery"],
+    related: ["/docs/troubleshooting", "Errors and recovery"],
   },
 ];

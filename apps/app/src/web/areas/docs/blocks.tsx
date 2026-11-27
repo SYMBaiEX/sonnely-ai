@@ -296,7 +296,7 @@ function TryPanel({
   const example = JSON_EXAMPLES[endpoint.path];
   const upload = UPLOAD_ENDPOINTS[endpoint.path];
   const testable = example !== undefined || (endpoint.method === "GET" && upload === undefined);
-  const isPublic = endpoint.method === "GET" && endpoint.path === "/models";
+  const isPublic = endpoint.method === "GET" && (endpoint.path === "/models" || endpoint.path === "/provider-models");
   const [body, setBody] = useState(() => (example ? JSON.stringify(example, null, 2) : ""));
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ status: number; ok: boolean; text: string; json: boolean } | null>(null);

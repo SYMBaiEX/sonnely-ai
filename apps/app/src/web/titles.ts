@@ -56,14 +56,6 @@ export function titleOf(page: Page): string {
       return titled("Verify an inference receipt");
     case "Contact":
       return titled(pages.contact[0]);
-    case "ContactOne":
-      return titled("Contact concept 1: Editorial");
-    case "ContactTwo":
-      return titled("Contact concept 2: Routing desk");
-    case "ContactThree":
-      return titled("Contact concept 3: Correspondence");
-    case "ContactFour":
-      return titled("Contact concept 4: Signal");
     case "Docs":
       return titled(docAt("index").title);
     case "Doc":

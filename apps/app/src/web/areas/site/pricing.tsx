@@ -129,7 +129,7 @@ function PricingEssentials() {
     {
       title: "Prepaid credits",
       Icon: Wallet,
-      copy: "Choose a credit amount and pay with USDC or SOL. Credits post automatically when the Solana transfer finalizes.",
+      copy: "When checkout is available in this deployment, choose a credit amount and pay with USDC or SOL. Credits post automatically when the Solana transfer finalizes.",
       href: "/console/billing",
       link: "Billing console",
     },

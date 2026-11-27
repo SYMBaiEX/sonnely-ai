@@ -149,7 +149,6 @@ export function useLiveAvailability(): LiveAvailability {
 }
 
 function routeServed(endpoint: Endpoint, modelId: string, provider: ProviderId, live: LiveAvailability) {
-  if (endpoint === "Realtime") return false;
   if (endpoint === "ChatCompletions") return live.chatModelIds.has(modelId);
   return live.providers.has(providerSlugs[provider]);
 }
@@ -158,7 +157,6 @@ type AvailabilityEntry = Pick<CatalogEntry, "provider" | "routes">;
 
 export function availabilityStatus(entry: AvailabilityEntry, live: LiveAvailability): CatalogStatus {
   if (entry.routes.length === 0) return { label: "Catalog only", tone: "muted" };
-  if (entry.routes.every((route) => route.endpoint === "Realtime")) return { label: "Planned", tone: "muted" };
   if (!live.loaded) return { label: "Routed", tone: "info" };
   const served = entry.routes.some((route) => routeServed(route.endpoint, route.modelId, entry.provider, live));
   return served ? { label: "Available", tone: "ok" } : { label: "Unavailable", tone: "warn" };
