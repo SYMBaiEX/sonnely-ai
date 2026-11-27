@@ -1,11 +1,15 @@
+import { authenticatedWallet } from "./session.vibe"
+
 const windowMs = 60_000
 const maxEntries = 10_000
 const sessionAttempts = 10
+const intentQuoteAttempts = 30
 const machineWriteAttempts = 120
 
 interface Bucket {
   name: string
   attempts: number
+  walletAware: boolean
 }
 
 /** The abuse-sensitive write endpoints and how many posts a minute one client may make to each.
@@ -13,10 +17,11 @@ interface Bucket {
  * deposit endpoints are strict because they cost verification work or money movement. */
 function bucketFor(method: string, path: string): Bucket | undefined {
   if (method != "POST") return undefined
-  if (path == "/api/session/challenge") return { name: "session-challenge", attempts: sessionAttempts }
-  if (path == "/api/session/verify") return { name: "session-verify", attempts: sessionAttempts }
-  if (path.startsWith("/api/billing/deposits")) return { name: "billing-deposits", attempts: sessionAttempts }
-  if (path.startsWith("/api/machines/")) return { name: "machine-write", attempts: machineWriteAttempts }
+  if (path == "/api/session/challenge") return { name: "session-challenge", attempts: sessionAttempts, walletAware: false }
+  if (path == "/api/session/verify") return { name: "session-verify", attempts: sessionAttempts, walletAware: false }
+  if (path == "/api/billing/intents/quote") return { name: "billing-intents-quote", attempts: intentQuoteAttempts, walletAware: true }
+  if (path.startsWith("/api/billing/deposits")) return { name: "billing-deposits", attempts: sessionAttempts, walletAware: true }
+  if (path.startsWith("/api/machines/")) return { name: "machine-write", attempts: machineWriteAttempts, walletAware: true }
   return undefined
 }
 
@@ -69,8 +74,12 @@ export const ratelimitApi = HttpRouter.middleware(effect {
     const bucket = bucketFor(request.method, (request.url.split("?")[0] ?? ""))
     if (bucket == undefined) return try next
     const now = try Clock.currentTimeMillis
-    const key = bucket.name + "|" + clientIp(request.headers, request.remoteAddress)
-    const outcome = throttle(windows, key, now)
+    let principal = "ip:" + clientIp(request.headers, request.remoteAddress)
+    if (bucket.walletAware) {
+      const wallet = try authenticatedWallet()
+      if (wallet != "") principal = "wallet:" + wallet
+    }
+    const outcome = throttle(windows, bucket.name + "|" + principal, now)
     if (outcome.count > bucket.attempts) {
       return try HttpServerResponse.json({ ok: false, error: "Too many requests." }, {
         status: 429,

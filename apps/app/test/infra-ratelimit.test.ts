@@ -3,18 +3,37 @@ import { Layer, Scheduler } from "effect";
 import { HttpRouter, HttpServer, HttpServerResponse } from "effect/http";
 import { afterEach, describe, expect, it } from "vitest";
 import { ratelimitApi } from "../src/api/ratelimit.vibe";
+import * as Session from "../gen/app__session.effect.vibe";
+import { sessionDigest } from "../src/api/session/signin.ts";
 
 const cleanups: Array<() => void | Promise<void>> = [];
+const walletA = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+const walletB = "DjVE6JNiYq52M37YLBjLvDSMaVG9eRQFRkPRCPwdJnn";
+const tokenA = "rate-limit-session-a";
+const tokenB = "rate-limit-session-b";
+
+function sessionLayer() {
+  const expiresAt = Date.now() + 60_000;
+  return Session.machine({
+    challenges: [],
+    logins: [
+      { digest: sessionDigest(tokenA), nonce: "nonce-a", wallet: walletA, createdAt: 1, expiresAt, state: "LoginActive" },
+      { digest: sessionDigest(tokenB), nonce: "nonce-b", wallet: walletB, createdAt: 1, expiresAt, state: "LoginActive" },
+    ],
+  });
+}
 
 function makeApi() {
   const scheduler = Layer.succeed(Scheduler.Scheduler, new Scheduler.MixedScheduler("sync"));
   const ok = HttpServerResponse.json({ ok: true });
   const routes = Layer.mergeAll(
     ratelimitApi,
+    sessionLayer(),
     HttpRouter.add("POST", "/api/session/challenge", ok),
     HttpRouter.add("POST", "/api/session/verify", ok),
     HttpRouter.add("POST", "/api/billing/deposits", ok),
     HttpRouter.add("POST", "/api/billing/deposits/prepare", ok),
+    HttpRouter.add("POST", "/api/billing/intents/quote", ok),
     HttpRouter.add("POST", "/api/machines/console", ok),
     HttpRouter.add("GET", "/api/machines/site", ok),
   );
@@ -27,11 +46,11 @@ function makeApi() {
   return app.handler;
 }
 
-function post(path: string, ip?: string) {
-  return new Request("http://localhost" + path, {
-    method: "POST",
-    headers: ip == undefined ? {} : { "x-forwarded-for": ip },
-  });
+function post(path: string, ip?: string, token?: string) {
+  const headers: Record<string, string> = {};
+  if (ip != undefined) headers["x-forwarded-for"] = ip;
+  if (token != undefined) headers.cookie = "sonnely_session=" + token;
+  return new Request("http://localhost" + path, { method: "POST", headers });
 }
 
 afterEach(async () => {
@@ -107,5 +126,25 @@ describe("rate limiting", () => {
     }
     const refused = await handler(post("/api/machines/console", ip));
     expect(refused.status).toBe(429);
+  });
+
+  it("throttles intent quotes by wallet across source addresses", async () => {
+    const handler = makeApi();
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const response = await handler(post("/api/billing/intents/quote", attempt % 2 == 0 ? "203.0.113.20" : "203.0.113.21", tokenA));
+      if (response.status != 200) throw new Error("attempt " + attempt + " was throttled early: " + response.status);
+    }
+    const sameWallet = await handler(post("/api/billing/intents/quote", "203.0.113.22", tokenA));
+    const otherWallet = await handler(post("/api/billing/intents/quote", "203.0.113.20", tokenB));
+    expect({ sameWallet: sameWallet.status, otherWallet: otherWallet.status }).toEqual({ sameWallet: 429, otherWallet: 200 });
+  });
+
+  it("uses the source address for intent quotes without a session", async () => {
+    const handler = makeApi();
+    const ip = "203.0.113.23";
+    for (let attempt = 0; attempt < 30; attempt++) await handler(post("/api/billing/intents/quote", ip));
+    const sameIp = await handler(post("/api/billing/intents/quote", ip));
+    const otherIp = await handler(post("/api/billing/intents/quote", "203.0.113.24"));
+    expect({ sameIp: sameIp.status, otherIp: otherIp.status }).toEqual({ sameIp: 429, otherIp: 200 });
   });
 });
