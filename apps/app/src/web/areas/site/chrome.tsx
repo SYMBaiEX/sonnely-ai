@@ -363,6 +363,46 @@ export function SiteLead({
   );
 }
 
+export function CorrespondenceHero({
+  eyebrow,
+  title,
+  description,
+  brief,
+  actionsLabel = "Page actions",
+  asideLabel = brief.title,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  brief: SiteBrief;
+  actionsLabel?: string;
+  asideLabel?: string;
+  children: ReactNode;
+}) {
+  return (
+    <header className="cor-pricing-hero">
+      <div>
+        <span>{eyebrow}</span>
+        <h1>{title}</h1>
+        <p>{description}</p>
+        <nav aria-label={actionsLabel}>{children}</nav>
+      </div>
+      <aside aria-label={asideLabel}>
+        <span>{brief.title}</span>
+        <dl>
+          {brief.rows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </aside>
+    </header>
+  );
+}
+
 export function CopyButton({
   value,
   label = "Copy",

@@ -1,5 +1,5 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowRight, ArrowUpRight, Terminal } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
 import { SearchField } from "../../search.tsx";
 import { useMachine } from "../../../../gen/app__models.react.ts";
 import {
@@ -13,7 +13,7 @@ import {
   type Sort,
 } from "../../../../gen/app__models.ts";
 import { canonicalGroups, endpointIds, liveStatuses, useLiveAvailability } from "./catalog-data.ts";
-import { SiteLead } from "./chrome.tsx";
+import { CorrespondenceHero } from "./chrome.tsx";
 import {
   apiBasePath,
   featuredTypes,
@@ -28,10 +28,7 @@ import { catalogRuntime } from "./filter.ts";
 import { entryActions, pages } from "./content.ts";
 import { PlatformLinks } from "./products.tsx";
 import {
-  buttonAccent,
-  sectionHead,
   selectClass,
-  serif,
   textLink,
   wrap,
 } from "./ui.ts";
@@ -54,13 +51,6 @@ function CatalogTools({
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "";
   return (
     <div className="catalog-filter">
-      <div className="catalog-filter-head">
-        <span className="term-path">
-          <Terminal size={12} aria-hidden="true" />
-          ~/models · filter
-        </span>
-        <span className="term-caret" aria-hidden="true" />
-      </div>
       <div className="catalog-filter-grid">
         <SearchField
           className="catalog-filter-search"
@@ -239,7 +229,9 @@ export function ModelCatalog() {
         </button>
       </div>
       <CatalogTools filter={filter} send={send} />
-      <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
+      <div className="cor-ratecards">
+        <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
+      </div>
       <aside className="catalog-note">
         rates shown are the final sonnely rates ·{" "}
         <a href="/pricing">how billing works</a>
@@ -259,17 +251,14 @@ function ModelGuide() {
     <section className="catalog-guide" aria-labelledby="compare-models-heading">
       <header className="catalog-guide-head">
         <div>
-          <span className="catalog-guide-kicker">~/models/compare</span>
-          <h2 id="compare-models-heading" style={serif} className="text-[clamp(23px,3.5vw,32px)] font-normal">
-            Compare models by workload
-          </h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 id="compare-models-heading">Compare models by workload</h2>
+          <p>
             Chat Completions models accept and return text through Sonnely. Start with one
             representative prompt and compare the output before committing a budget.
           </p>
         </div>
       </header>
-      <dl className="term catalog-guide-rows">
+      <dl className="catalog-guide-rows">
         {entries.map((model) => {
           const type = featuredTypes[model.upstreamId]?.type as keyof typeof workloadGuide | undefined;
           return (
@@ -301,10 +290,13 @@ export function ModelsPage() {
   const sonnelyModels = canonicalGroups.filter((group) => !group.catalogOnly).length;
   const inventoryModels = canonicalGroups.length - sonnelyModels;
   return (
-    <div className={wrap + " py-8 md:py-14"}>
-      <SiteLead
+    <div className={wrap + " cor-page cor-market-page models-page"}>
+      <CorrespondenceHero
+        eyebrow="Model catalog · Sonnely"
         title={title}
         description={description}
+        actionsLabel="Model catalog actions"
+        asideLabel="Model catalog at a glance"
         brief={{
           title: "Sonnely catalog",
           rows: [
@@ -314,27 +306,21 @@ export function ModelsPage() {
           ],
         }}
       >
-        <div className="mt-5.5 flex items-center gap-4">
-          <a href={entry.section} className={buttonAccent}>
-            {entry.label} <ArrowDown size={15} aria-hidden="true" />
-          </a>
-          <a href={entry.next} className={textLink}>
-            {entry.action} <ArrowRight size={15} aria-hidden="true" />
-          </a>
-        </div>
-      </SiteLead>
+        <a href={entry.section} className="cor-primary-action">
+          {entry.label} <ArrowDown size={15} aria-hidden="true" />
+        </a>
+        <a href={entry.next}>
+          {entry.action} <ArrowRight size={15} aria-hidden="true" />
+        </a>
+      </CorrespondenceHero>
       <section
-        className="my-10 grid gap-4"
+        className="catalog-section"
         id="available-models"
         aria-labelledby="model-comparison-title"
       >
-        <header className={sectionHead}>
-          <div>
-            <h2 id="model-comparison-title" style={serif} className="text-[clamp(26px,4vw,38px)] font-normal leading-tight">
-              Models and rates
-            </h2>
-            <p className="text-sm text-muted-foreground">Compare provider routes, supported endpoints, and pricing.</p>
-          </div>
+        <header className="catalog-section-head">
+          <h2 id="model-comparison-title">Models and rates</h2>
+          <p>Compare provider routes, supported endpoints, and pricing.</p>
         </header>
         <ModelCatalog />
         <a className={textLink} href="/inference#routing">

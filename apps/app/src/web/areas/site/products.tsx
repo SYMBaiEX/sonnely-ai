@@ -2,11 +2,11 @@
 import { ArrowDown, ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { HighlightedCode } from "../../syntax.tsx";
-import { SiteLead, type SiteBrief } from "./chrome.tsx";
+import { CorrespondenceHero, type SiteBrief } from "./chrome.tsx";
 import { apiBasePath } from "./data.ts";
 import { entryActions, pages, platformLinks, traceStages } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
-import { buttonAccent, caption, textLink, wrap } from "./ui.ts";
+import { caption, textLink, wrap } from "./ui.ts";
 
 export function PlatformLinks({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
   return (
@@ -71,19 +71,16 @@ function Module({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="term module" aria-labelledby={id + "-heading"}>
-      <div className="term-chrome">
-        <span className="term-path">
-          <ProductIcon name={icon} size={13} /> {path}
-        </span>
-        <span className="module-ordinal" aria-hidden="true">
-          {index}
-        </span>
-      </div>
+    <section id={id} className="module" aria-labelledby={id + "-heading"}>
       <div className="module-body">
-        <h2 id={id + "-heading"} className="module-title">
-          {title}
-        </h2>
+        <header className="module-head">
+          <span className="module-kicker">
+            <ProductIcon name={icon} size={13} /> {index} · {path}
+          </span>
+          <h2 id={id + "-heading"} className="module-title">
+            {title}
+          </h2>
+        </header>
         {children}
       </div>
     </section>
@@ -140,11 +137,9 @@ export function TracePreview() {
   const selected = traceStages[active];
   const total = traceStages[traceStages.length - 1].end;
   return (
-    <figure className="term module-trace" data-scan>
-      <figcaption className="term-chrome">
-        <span className="term-path">
-          <i className="term-dot" aria-hidden="true" /> example trace · {(total / 1000).toFixed(1)} s
-        </span>
+    <figure className="module-trace">
+      <figcaption className="module-trace-head">
+        <span>example trace · {(total / 1000).toFixed(1)} s</span>
         <span className="module-trace-outcome">
           <Check size={12} aria-hidden="true" /> settled
         </span>
@@ -392,21 +387,22 @@ export function InferencePage() {
   const [title, description] = pages.inference;
   const entry = entryActions.inference;
   return (
-    <div className={wrap + " inner-page market-page"}>
-      <SiteLead
+    <div className={wrap + " cor-page cor-market-page inference-page"}>
+      <CorrespondenceHero
+        eyebrow="Inference API · Sonnely"
         title={title}
         description={description}
         brief={inferenceBrief}
+        actionsLabel="Inference actions"
+        asideLabel="Inference at a glance"
       >
-        <div className="product-entry-actions">
-          <a href={entry.section} className={buttonAccent}>
-            {entry.label} <ArrowDown size={15} aria-hidden="true" />
-          </a>
-          <a href={entry.next} className={textLink}>
-            {entry.action} <ArrowRight size={15} aria-hidden="true" />
-          </a>
-        </div>
-      </SiteLead>
+        <a href={entry.section} className="cor-primary-action">
+          {entry.label} <ArrowDown size={15} aria-hidden="true" />
+        </a>
+        <a href={entry.next}>
+          {entry.action} <ArrowRight size={15} aria-hidden="true" />
+        </a>
+      </CorrespondenceHero>
       <nav className="module-index" aria-label="On this page">
         <span className="module-index-path">~/inference</span>
         {sections.map(([id, label], position) => (

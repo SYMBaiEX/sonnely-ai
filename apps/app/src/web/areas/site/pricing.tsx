@@ -5,6 +5,7 @@ import { Input } from "@repo/ui";
 import { creditBalance, formatRate, limits, requestCharge, routeRates } from "./data.ts";
 import { canonicalGroups, chatModels, chatModelRoute, liveStatuses, useLiveAvailability } from "./catalog-data.ts";
 import { CatalogCards } from "./catalog-cards.tsx";
+import { CorrespondenceHero } from "./chrome.tsx";
 
 const tokenPriced = (group: (typeof canonicalGroups)[number]) =>
   group.entries.some((entry) =>
@@ -216,26 +217,25 @@ function PricingQuestions() {
 export function PricingPage() {
   return (
     <div className="wrap cor-page cor-pricing-page">
-      <header className="cor-pricing-hero">
-        <div>
-          <span>Rate card · Sonnely</span>
-          <h1>Clear rates, set down in writing.</h1>
-          <p>Prepaid Solana credits, final inference rates and request charges that settle against real usage.</p>
-          <nav aria-label="Pricing actions">
-            <a href="#estimate" className="cor-primary-action">Estimate a request <ArrowDown size={15} aria-hidden="true" /></a>
-            <a href="#inference-rates">Browse rates <ArrowRight size={15} aria-hidden="true" /></a>
-          </nav>
-        </div>
-        <aside aria-label="Pricing at a glance">
-          <span>Account summary</span>
-          <dl>
-            <div><dt>Routable models</dt><dd>{pricedGroups.length}</dd></div>
-            <div><dt>Token rates</dt><dd>Per 1M tokens</dd></div>
-            <div><dt>Billing</dt><dd>USDC or SOL</dd></div>
-            <div><dt>Settlement</dt><dd>Reported usage</dd></div>
-          </dl>
-        </aside>
-      </header>
+      <CorrespondenceHero
+        eyebrow="Rate card · Sonnely"
+        title="Clear rates, set down in writing."
+        description="Prepaid Solana credits, final inference rates and request charges that settle against real usage."
+        actionsLabel="Pricing actions"
+        asideLabel="Pricing at a glance"
+        brief={{
+          title: "Account summary",
+          rows: [
+            ["Routable models", String(pricedGroups.length)],
+            ["Token rates", "Per 1M tokens"],
+            ["Billing", "USDC or SOL"],
+            ["Settlement", "Reported usage"],
+          ],
+        }}
+      >
+        <a href="#estimate" className="cor-primary-action">Estimate a request <ArrowDown size={15} aria-hidden="true" /></a>
+        <a href="#inference-rates">Browse rates <ArrowRight size={15} aria-hidden="true" /></a>
+      </CorrespondenceHero>
       <PricingEssentials />
       <CostExample />
       <InferenceRates />
