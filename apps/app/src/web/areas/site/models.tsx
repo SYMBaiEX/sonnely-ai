@@ -1,5 +1,5 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Terminal } from "lucide-react";
 import { SearchField } from "../../search.tsx";
 import { useMachine } from "../../../../gen/app__models.react.ts";
 import {
@@ -53,16 +53,24 @@ function CatalogTools({
   const providerValue = filter.provider.tag === "Only" ? filter.provider.provider : "";
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "";
   return (
-    <div className="mb-4 grid grid-cols-2 gap-3 min-[900px]:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] min-[900px]:items-end">
-      <SearchField
-        className="col-span-2 min-[900px]:col-span-1"
-        value={filter.query}
-        onChange={(event) => void send({ type: "search", query: event.target.value })}
-        placeholder="Find a model"
-        aria-label="Find a model"
-      />
-      <label className="grid gap-1.5 text-xs text-muted-foreground">
-        <span>Provider</span>
+    <div className="catalog-filter">
+      <div className="catalog-filter-head">
+        <span className="term-path">
+          <Terminal size={12} aria-hidden="true" />
+          ~/models · filter
+        </span>
+        <span className="term-caret" aria-hidden="true" />
+      </div>
+      <div className="catalog-filter-grid">
+        <SearchField
+          className="catalog-filter-search"
+          value={filter.query}
+          onChange={(event) => void send({ type: "search", query: event.target.value })}
+          placeholder="Find a model"
+          aria-label="Find a model"
+        />
+        <label>
+          <span>provider</span>
         <select
           className={selectClass}
           value={providerValue}
@@ -83,43 +91,44 @@ function CatalogTools({
           ))}
         </select>
       </label>
-      <label className="grid gap-1.5 text-xs text-muted-foreground">
-        <span>Workload</span>
-        <select
-          className={selectClass}
-          value={workloadValue}
-          onChange={(event) =>
-            void send({
-              type: "chooseWorkload",
-              workload: event.target.value
-                ? { tag: "OnEndpoint", endpoint: event.target.value as Endpoint }
-                : { tag: "EveryWorkload" },
-            })
-          }
-        >
-          <option value="">All workloads</option>
-          {endpointIds.map((id) => (
-            <option key={id} value={id}>
-              {workloadNames[id]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="grid gap-1.5 text-xs text-muted-foreground">
-        <span>Sort models</span>
-        <select
-          className={selectClass}
-          value={filter.sort}
-          onChange={(event) =>
-            void send({ type: "chooseSort", sort: event.target.value as Sort })
-          }
-        >
-          <option value="AvailableFirst">Available first</option>
-          <option value="ByName">Model name</option>
-          <option value="ByInputRate">Lowest input token rate</option>
-          <option value="ByOutputRate">Lowest output token rate</option>
-        </select>
-      </label>
+        <label>
+          <span>workload</span>
+          <select
+            className={selectClass}
+            value={workloadValue}
+            onChange={(event) =>
+              void send({
+                type: "chooseWorkload",
+                workload: event.target.value
+                  ? { tag: "OnEndpoint", endpoint: event.target.value as Endpoint }
+                  : { tag: "EveryWorkload" },
+              })
+            }
+          >
+            <option value="">All workloads</option>
+            {endpointIds.map((id) => (
+              <option key={id} value={id}>
+                {workloadNames[id]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>sort models</span>
+          <select
+            className={selectClass}
+            value={filter.sort}
+            onChange={(event) =>
+              void send({ type: "chooseSort", sort: event.target.value as Sort })
+            }
+          >
+            <option value="AvailableFirst">Available first</option>
+            <option value="ByName">Model name</option>
+            <option value="ByInputRate">Lowest input token rate</option>
+            <option value="ByOutputRate">Lowest output token rate</option>
+          </select>
+        </label>
+      </div>
     </div>
   );
 }
@@ -208,36 +217,34 @@ export function ModelCatalog() {
   const providerValue = filter.provider.tag === "Only" ? filter.provider.provider : "every";
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "every";
   const filterSignature = [filter.query, providerValue, workloadValue, filter.availability, filter.sort].join("|");
-  const activeSurface = "border-primary bg-primary text-primary-foreground";
-  const inactiveSurface = "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground";
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Catalog inventory">
+      <div className="catalog-availability" aria-label="Catalog inventory">
         <button
           type="button"
           aria-pressed={!inventory}
+          data-active={!inventory || undefined}
           onClick={() => void send({ type: "chooseAvailability", availability: "Available" })}
-          className={"min-h-10 rounded-full border px-4 text-sm font-medium transition-colors " + (inventory ? inactiveSurface : activeSurface)}
         >
-          On Sonnely · {routableCount}
+          on sonnely <b>{routableCount}</b>
         </button>
         <button
           type="button"
           aria-pressed={inventory}
+          data-active={inventory || undefined}
           onClick={() => void send({ type: "chooseAvailability", availability: "CatalogOnly" })}
-          className={"min-h-10 rounded-full border px-4 text-sm font-medium transition-colors " + (inventory ? activeSurface : inactiveSurface)}
         >
-          Provider inventory · {inventoryCount}
+          provider inventory <b>{inventoryCount}</b>
         </button>
       </div>
       <CatalogTools filter={filter} send={send} />
       <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
-      <aside className="mt-4 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-        Rates shown are the final Sonnely rates.{" "}
-        <a className="text-primary hover:underline" href="/pricing">How billing works</a>
+      <aside className="catalog-note">
+        rates shown are the final sonnely rates ·{" "}
+        <a href="/pricing">how billing works</a>
         {" · "}
-        <a className="text-primary hover:underline" href={apiBasePath + "/provider-models"}>Catalog JSON</a>
+        <a href={apiBasePath + "/provider-models"}>catalog json</a>
       </aside>
     </>
   );
@@ -249,33 +256,41 @@ function ModelGuide() {
     .map((id) => catalog.find((entry) => entry.provider === "NearAI" && entry.upstreamId === id))
     .filter((entry): entry is CatalogEntry => entry !== undefined);
   return (
-    <section className="my-14 grid max-w-200 gap-3" aria-labelledby="compare-models-heading">
-      <h2 id="compare-models-heading" style={serif} className="text-[clamp(23px,3.5vw,32px)] font-normal">
-        Compare models by workload
-      </h2>
-      <p className="text-sm text-muted-foreground">
-        Chat Completions models accept and return text through Sonnely. Start with one
-        representative prompt and compare the output before committing a budget.
-      </p>
-      <dl className="my-3 grid gap-3">
+    <section className="catalog-guide" aria-labelledby="compare-models-heading">
+      <header className="catalog-guide-head">
+        <div>
+          <span className="catalog-guide-kicker">~/models/compare</span>
+          <h2 id="compare-models-heading" style={serif} className="text-[clamp(23px,3.5vw,32px)] font-normal">
+            Compare models by workload
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Chat Completions models accept and return text through Sonnely. Start with one
+            representative prompt and compare the output before committing a budget.
+          </p>
+        </div>
+      </header>
+      <dl className="term catalog-guide-rows">
         {entries.map((model) => {
           const type = featuredTypes[model.upstreamId]?.type as keyof typeof workloadGuide | undefined;
           return (
-            <div key={model.upstreamId} className="grid gap-0.5 min-[800px]:grid-cols-[180px_minmax(0,1fr)] min-[800px]:gap-6">
-              <dt className="text-sm font-medium">{model.name}</dt>
-              <dd className="text-sm text-muted-foreground">{type ? workloadGuide[type] : model.summary}</dd>
+            <div key={model.upstreamId}>
+              <dt>{model.name}</dt>
+              <dd>{type ? workloadGuide[type] : model.summary}</dd>
             </div>
           );
         })}
+        <div className="catalog-guide-limits">
+          <dt>request limits</dt>
+          <dd>
+            The context window describes the underlying model. Sonnely currently accepts up to{" "}
+            {limits.bodyBytes.toLocaleString("en-US")} bytes per request and returns up to{" "}
+            {limits.maxOutputTokens.toLocaleString("en-US")} output tokens.{" "}
+            <a href="/docs/api#request-limits">
+              see request limits <ArrowUpRight size={12} aria-hidden="true" />
+            </a>
+          </dd>
+        </div>
       </dl>
-      <p className="text-sm text-muted-foreground">
-        The context window describes the underlying model. Sonnely currently accepts up to{" "}
-        {limits.bodyBytes.toLocaleString("en-US")} bytes per request and returns up to{" "}
-        {limits.maxOutputTokens.toLocaleString("en-US")} output tokens.
-      </p>
-      <a className={textLink} href="/docs/api#request-limits">
-        See request limits <ArrowUpRight size={16} aria-hidden="true" />
-      </a>
     </section>
   );
 }
