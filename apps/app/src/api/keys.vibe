@@ -1,7 +1,8 @@
 // spec/app/keys.md, "Story: Issue a key": the workspace-key registry behind the verified-session
 // boundary. Reads project only the requesting wallet's keys, and every write's trusted sender is
 // that wallet — never a wallet or sender supplied by the client. A key scoped to a team project
-// names only a project of a team the wallet belongs to: any other id is another workspace's.
+// names only a project whose owning team the wallet owns or administers: any other id is another
+// workspace's.
 import * as Keys from "../../gen/app__keys.effect.vibe"
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Teams from "../../gen/app__teams.effect.vibe"
@@ -39,8 +40,8 @@ effect function postEvent(keys: Keys.Machine.Shape) {
     const teams = try Teams.Machine
     const directory = (try teams.get()) as Teams.Teams
     const owning = Teams.teamOfProject(directory, input.project as string)
-    const member = owning.some((team) => team.members.some((m) => m.wallet == wallet))
-    if (!member) return try reply({ ok: false, error: "This project is not yours to scope a key to." }, 403)
+    const manager = owning.some((team) => Teams.manages(team, wallet))
+    if (!manager) return try reply({ ok: false, error: "This project is not yours to scope a key to." }, 403)
   }
   const sent = keys.receive(input, wallet) catch (error) => error
   const rejected = sent as { _tag?: string }

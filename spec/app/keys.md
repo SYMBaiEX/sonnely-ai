@@ -89,16 +89,18 @@ pure val refValues = Set("r1", "r2")
 
 ## Story: Issue a key
 
-> As a workspace member, I want to create an API key with a label, optional
-> daily and lifetime spend limits and an optional expiry, so that clients can
-> call the API within a budget I set.
+> As a wallet holder or team manager, I want to create an API key with a
+> label, optional daily and lifetime spend limits and an optional expiry, so
+> that clients can call the API within a budget I set.
 
 ### A new key needs a name, unique credentials and valid limits
 
 The label is nonempty — the product allows up to 60 characters; spending caps start at $0.01 (10,000
 micro-USD) or are unset; an expiry, when set, is in the future; ids,
 prefixes and hashes are unique across all keys ever registered; a key
-always carries at least one scope.
+always carries at least one scope. A key scoped to a team project is a
+project resource: only an owner or admin of the team that owns the project
+may create one.
 
 ```quint
 pure def canCreate(s: Keys, by: str, id: str, label: str, prefix: str, hash: str, project: str, scopes: Set[str], cap: int, dailyCap: int, expiresAt: int, now: int): bool =

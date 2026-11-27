@@ -533,6 +533,25 @@ describe("row-level access", () => {
     }).toEqual({ hostileStatus: 403, ownStatus: 200, replies: 3 });
   });
 
+  // spec/app/keys.md, "Story: Issue a key": project keys are project resources, so an ordinary
+  // member cannot create one while an admin and the owner can
+  it("lets only team owners and admins create project keys", async () => {
+    const handler = makeApp();
+    const inviteAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin", expiresAt: 1000, now: 1 }, tokenA);
+    const acceptAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletB, accept: true, now: 2 }, tokenB);
+    const inviteMember = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletFin, role: "Member", expiresAt: 1000, now: 3 }, tokenA);
+    const acceptMember = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletFin, accept: true, now: 4 }, tokenFin);
+    const member = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-member", prefix: "sonnely_live_member", hash: "member-hash", project: "proj-a" }), tokenFin);
+    const admin = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-admin", prefix: "sonnely_live_admin", hash: "admin-hash", project: "proj-a" }), tokenB);
+    const owner = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-owner", prefix: "sonnely_live_owner", hash: "owner-hash", project: "proj-a" }), tokenA);
+    expect({
+      setup: [inviteAdmin.status, acceptAdmin.status, inviteMember.status, acceptMember.status],
+      member: member.status,
+      admin: admin.status,
+      owner: owner.status,
+    }).toEqual({ setup: [200, 200, 200, 200], member: 403, admin: 200, owner: 200 });
+  });
+
   // spec/app/keys.md, "Story: Issue a key": a project-scoped key names only a project of a team
   // the wallet belongs to
   it("refuses a key scoped to another workspace's project", async () => {
