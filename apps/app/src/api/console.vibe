@@ -14,7 +14,7 @@ effect function catalogRows() {
 
 export const consoleApi = Layer.unwrap(effect {
   return Layer.mergeAll(
-    fleetMachineApi("console", { events: ["chooseTheme", "saveProfile", "setPlain"] }),
+    fleetMachineApi("console", { events: ["chooseTheme", "saveProfile", "setPlain", "setHistory"] }),
     chatApi,
     logsApi,
     batchApi,

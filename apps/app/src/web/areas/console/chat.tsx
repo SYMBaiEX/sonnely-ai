@@ -1,6 +1,6 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax, max-lines-per-function, react-hooks/refs, @eslint-react/no-use-context, @eslint-react/naming-convention-ref-name, @eslint-react/no-array-index-key -- playground migration preserves the original form markup, class names and screen structure */
 import { createPortal } from "react-dom";
-import { useCallback, useContext, useRef, useState, type FormEvent } from "react";
+import { useCallback, useContext, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import {
   ArrowUp,
   ArrowUpRight,
@@ -19,10 +19,11 @@ import {
   Trash2,
   Wallet,
 } from "lucide-react";
-import type { Chat, Thread } from "../../../../gen/app__console__chat.ts";
+import { enabled, initial as chatInitial, parseEvent, step, type Chat, type Thread } from "../../../../gen/app__console__chat.ts";
+import type { Console as ConsoleSettings } from "../../../../gen/app__console.ts";
 import { MarkdownContent } from "../../syntax.tsx";
 import { SearchField } from "../../search.tsx";
-import { useRemote } from "../../remote.ts";
+import { useRemote, type Remote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
 import { readReceiptEnvelope, type ReceiptEnvelope } from "../site/receipt.ts";
 import { Playground, PlaygroundControls } from "./playground.tsx";
@@ -69,6 +70,33 @@ const samples = [
   },
 ];
 
+// spec/app/console/index.md, "The chat-history choice toggles"
+let ephemeralState: Chat = chatInitial;
+const ephemeralListeners = new Set<() => void>();
+
+function useEphemeralChat(): Remote<Chat> {
+  const subscribe = useCallback((notify: () => void) => {
+    ephemeralListeners.add(notify);
+    return () => {
+      ephemeralListeners.delete(notify);
+    };
+  }, []);
+  const state = useSyncExternalStore(subscribe, () => ephemeralState, () => chatInitial);
+  const send = useCallback(async (input: unknown) => {
+    const event = parseEvent(input);
+    if (event == undefined || !enabled(ephemeralState, event)) return false;
+    ephemeralState = step(ephemeralState, event);
+    for (const notify of ephemeralListeners) notify();
+    return true;
+  }, []);
+  return { state, send, error: undefined };
+}
+
+function ephemeralThreadMessages(id: string) {
+  const found = ephemeralState.threads.find((thread) => thread.id === id);
+  return found?.messages.map((message) => ({ role: message.role === "User" ? "user" : "assistant", content: message.content }));
+}
+
 async function streamReply({
   id,
   model,
@@ -76,6 +104,7 @@ async function streamReply({
   includeReceipt,
   provider,
   fallbacks,
+  messages,
   onText,
 }: {
   id: string;
@@ -84,12 +113,13 @@ async function streamReply({
   includeReceipt: boolean;
   provider: ProviderId;
   fallbacks: ProviderId[];
+  messages?: { role: string; content: string }[];
   onText: (text: string) => void;
 }) {
   const response = await fetch("/api/console/chat/stream", {
     method: "POST",
     headers: { "content-type": "application/json", ...(includeReceipt ? { "X-Sonnely-Receipt": "v1" } : {}) },
-    body: JSON.stringify({ id, model, provider, fallbacks }),
+    body: JSON.stringify({ id, model, provider, fallbacks, ...(messages ? { messages } : {}) }),
     cache: "no-store",
     signal,
   });
@@ -131,7 +161,11 @@ function readSelection(): Selection {
 
 function ChatPlayground() {
   const session = useWorkspaceSession();
-  const chat = useRemote<Chat>("console__chat");
+  const settings = useRemote<ConsoleSettings>("console");
+  const remote = useRemote<Chat>("console__chat");
+  const ephemeral = useEphemeralChat();
+  const historyOn = settings.state?.history ?? true;
+  const chat = historyOn ? remote : ephemeral;
   const controls = useContext(PlaygroundControls);
   const signedIn = session.state?.tag === "SignedIn";
   const state = chat.state;
@@ -231,6 +265,7 @@ function ChatPlayground() {
         includeReceipt,
         provider,
         fallbacks,
+        messages: historyOn ? undefined : ephemeralThreadMessages(id),
         onText: (next) => {
           streamed = next;
           setLive({ id, model: runModel, text: next });
@@ -419,7 +454,11 @@ function ChatPlayground() {
               );
             })
         ) : (
-          <p className="caption">Your conversations appear here. History stays in this workspace.</p>
+          <p className="caption">
+            {historyOn
+              ? "Your conversations appear here. History is kept server-side in this workspace."
+              : "Your conversations appear here. With chat history off they last only for this browser session."}
+          </p>
         )}
         {!activeSample && !!current?.messages.length && (
           <div className="playground-history-actions">
@@ -609,7 +648,11 @@ function ChatPlayground() {
         )}
         <p className="chat-note">
           <BadgeCheck size={15} />
-          {!signedIn ? "Connect a wallet to run live inference." : "History stays in this workspace."}
+          {!signedIn
+            ? "Connect a wallet to run live inference."
+            : historyOn
+              ? "History is kept server-side in this workspace. Turn it off or clear it in Settings."
+              : "Chat history is off: this conversation lives in this browser session only and is never written to the server."}
         </p>
         {ready && (
           <label className="playground-receipt-opt-in">

@@ -52,6 +52,40 @@ function withPlainWriting(messages: { role: string; content: string }[], plain: 
   return plain ? [{ role: "system", content: plainWritingInstruction }, ...messages] : messages
 }
 
+// spec/app/console/index.md, "The chat-history choice toggles"
+function inlineMessages(raw: unknown) {
+  if (!Array.isArray(raw) || raw.length == 0) return undefined
+  const out: { role: string; content: string }[] = []
+  for (const item of raw) {
+    if (item == undefined || typeof item != "object") return undefined
+    const message = item as { role?: unknown; content?: unknown }
+    if (typeof message.role != "string" || (message.role != "user" && message.role != "assistant")) return undefined
+    if (typeof message.content != "string" || message.content == "") return undefined
+    out.push({ role: message.role, content: message.content })
+  }
+  return out
+}
+
+function storedMessages(thread: { messages: { role: string; content: string }[] } | undefined) {
+  if (thread == undefined || thread.messages[thread.messages.length - 1]?.role !== "User") return undefined
+  return thread.messages.map((message) => message.role == "User" ? { role: "user", content: message.content } : { role: "assistant", content: message.content })
+}
+
+effect function conversationMessages(fleet: Fleet.Shape, wallet: string, parsed: { id: string; messages?: unknown }) {
+  if (parsed.messages !== undefined) {
+    const inline = inlineMessages(parsed.messages)
+    if (inline == undefined) return { error: "send well-formed messages" } as const
+    if (inline[inline.length - 1]?.role != "user") return { pending: true } as const
+    return { messages: inline } as const
+  }
+  const machine = try fleet.machine("console__chat", wallet)
+  const state = (try machine.get()) as Chat
+  const thread = state.threads.find((item) => item.id === parsed.id)
+  const stored = storedMessages(thread)
+  if (stored == undefined) return { pending: true } as const
+  return { messages: stored } as const
+}
+
 effect function replyRoute() {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) {
@@ -60,18 +94,14 @@ effect function replyRoute() {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try HttpServerResponse.json({ error: "Sign in with a Solana wallet." }, { status: 401, headers: noStore })
   const raw = request.json catch () => undefined
-  const parsed = raw as { id?: unknown; model?: unknown; provider?: unknown; fallbacks?: unknown } | undefined
+  const parsed = raw as { id?: unknown; model?: unknown; provider?: unknown; fallbacks?: unknown; messages?: unknown } | undefined
   if (!parsed || typeof parsed.id !== "string" || typeof parsed.model !== "string") {
     return try HttpServerResponse.json({ error: "send {id, model}" }, { status: 400, headers: noStore })
   }
   const fleet = try Fleet
-  const machine = try fleet.machine("console__chat", wallet)
-  const state = (try machine.get()) as Chat
-  const thread = state.threads.find((item) => item.id === parsed.id)
-  if (thread == undefined || thread.messages[thread.messages.length - 1]?.role !== "User") {
-    return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
-  }
-  const messages = thread.messages.map((message) => message.role == "User" ? { role: "user", content: message.content } : { role: "assistant", content: message.content })
+  const conversation = try conversationMessages(fleet, wallet, { id: parsed.id, messages: parsed.messages })
+  if ("error" in conversation) return try HttpServerResponse.json({ error: conversation.error }, { status: 400, headers: noStore })
+  if ("pending" in conversation) return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
   const fallbacks = Array.isArray(parsed.fallbacks) ? parsed.fallbacks.filter((provider): provider is "near-ai" | "phala" | "tinfoil" => provider == "near-ai" || provider == "phala" || provider == "tinfoil") : []
   const primary = parsed.provider == "phala" || parsed.provider == "tinfoil" ? parsed.provider : "near-ai"
   const only = [primary, ...fallbacks.filter((provider) => provider != primary)] as ["near-ai" | "phala" | "tinfoil"]
@@ -79,7 +109,7 @@ effect function replyRoute() {
   const ref = try Effect.try(() => newRef())
   return try inferChat({
     model: parsed.model,
-    messages: withPlainWriting(messages, plain),
+    messages: withPlainWriting(conversation.messages, plain),
     provider: { only, ...(only.length > 1 ? { allow_fallbacks: true } : {}) },
   }, undefined, wallet, ref, request.headers["x-sonnely-receipt"] == "v1")
 }
@@ -92,25 +122,21 @@ effect function streamRoute() {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try HttpServerResponse.json({ error: "Sign in with a Solana wallet." }, { status: 401, headers: noStore })
   const raw = request.json catch () => undefined
-  const parsed = raw as { id?: unknown; model?: unknown; provider?: unknown; fallbacks?: unknown } | undefined
+  const parsed = raw as { id?: unknown; model?: unknown; provider?: unknown; fallbacks?: unknown; messages?: unknown } | undefined
   if (!parsed || typeof parsed.id !== "string" || typeof parsed.model !== "string") {
     return try HttpServerResponse.json({ error: "send {id, model}" }, { status: 400, headers: noStore })
   }
   const fleet = try Fleet
-  const machine = try fleet.machine("console__chat", wallet)
-  const state = (try machine.get()) as Chat
-  const thread = state.threads.find((item) => item.id === parsed.id)
-  if (thread == undefined || thread.messages[thread.messages.length - 1]?.role !== "User") {
-    return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
-  }
-  const messages = thread.messages.map((message) => message.role == "User" ? { role: "user", content: message.content } : { role: "assistant", content: message.content })
+  const conversation = try conversationMessages(fleet, wallet, { id: parsed.id, messages: parsed.messages })
+  if ("error" in conversation) return try HttpServerResponse.json({ error: conversation.error }, { status: 400, headers: noStore })
+  if ("pending" in conversation) return try HttpServerResponse.json({ error: "There is no pending user message to answer." }, { status: 409, headers: noStore })
   const fallbacks = Array.isArray(parsed.fallbacks) ? parsed.fallbacks.filter((provider): provider is "near-ai" | "phala" | "tinfoil" => provider == "near-ai" || provider == "phala" || provider == "tinfoil") : []
   const primary = parsed.provider == "phala" || parsed.provider == "tinfoil" ? parsed.provider : "near-ai"
   const only = [primary, ...fallbacks.filter((provider) => provider != primary)] as ["near-ai" | "phala" | "tinfoil"]
   const plain = try plainWritingOn(fleet, wallet)
   const input = {
     model: parsed.model,
-    messages: withPlainWriting(messages, plain),
+    messages: withPlainWriting(conversation.messages, plain),
     stream: true,
     stream_options: { include_usage: true },
     provider: { only, ...(only.length > 1 ? { allow_fallbacks: true } : {}) },

@@ -13,12 +13,15 @@ on a session.
 
 ## Domain
 
-### Console settings are a profile and a set of device choices
+### Console settings are a profile and a set of workspace choices
 
 The console keeps one record for the workspace: the display name and
-username the profile shows, and the workspace's choices of theme and
-plain-writing requests. Chat history lives server-side with the workspace,
-not in the browser, so there is no per-device save choice.
+username the profile shows, and the workspace's choices of theme,
+plain-writing requests and chat history. Chat history lives server-side
+with the workspace, not in the browser: while the history choice is on, the
+playground writes each prompt and answer to the workspace's machine, and a
+wallet that turns it off writes nothing there — the conversation lasts only
+as long as the browser session.
 
 ```quint
 type Theme = System | Light | Dark
@@ -28,13 +31,17 @@ type Console = {
   username: str,
   theme: Theme,
   plain: bool,
+  history: bool,
 }
 ```
 
 ### The console starts unnamed with factory defaults
 
+The factory settings keep chat history, as the playground always has; a
+workspace opts out rather than in.
+
 ```quint
-pure val initial: Console = { name: "", username: "", theme: Dark, plain: true }
+pure val initial: Console = { name: "", username: "", theme: Dark, plain: true, history: true }
 ```
 
 ## Story: Set up the workspace profile
@@ -60,7 +67,7 @@ pure def saveProfile(c: Console, name: str, username: str): Console =
 ```quint
 pure def lawSaveProfileKeepsDeviceChoices(c: Console, name: str, username: str): bool =
   val saved = saveProfile(c, name, username)
-  saved.theme == c.theme and saved.plain == c.plain
+  saved.theme == c.theme and saved.plain == c.plain and saved.history == c.history
 ```
 
 ### A profile can be personalized
@@ -98,4 +105,28 @@ pure def setPlain(c: Console, on: bool): Console = { ...c, plain: on }
 
 ```quint
 pure def sometimesPlainOff(c: Console): bool = not(c.plain)
+```
+
+## Story: Choose whether the workspace keeps chat history
+
+> As a user, I want to decide whether the server keeps my playground
+> conversations, so that prompts I never want retained are not written
+> server-side at all.
+
+### The chat-history choice toggles
+
+While the choice is on, the playground writes each turn to the workspace's
+server-side machine and conversations reopen on any device. When it is off,
+the browser holds the conversation for the session and nothing is written
+to the machine — the choice governs what is written next, not what is
+already kept; clearing what is kept is the playground's own transition.
+
+```quint
+pure def setHistory(c: Console, on: bool): Console = { ...c, history: on }
+```
+
+### Chat history can be turned off
+
+```quint
+pure def sometimesHistoryOff(c: Console): bool = not(c.history)
 ```

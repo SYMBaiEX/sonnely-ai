@@ -23,12 +23,19 @@ interface Storekv {
   set(key: string, value: string): void!any
 }
 
+// spec/app/console/index.md, "The console starts unnamed with factory defaults"
+function withConsoleDefaults(parsed: unknown) {
+  if (parsed == undefined || typeof parsed != "object") return parsed
+  const state = parsed as { history?: unknown }
+  return typeof state.history == "boolean" ? parsed : { ...state, history: true }
+}
+
 effect function buildConsole(kv: Storekv, key: string) {
   effect function load() {
     const found = try Effect.orDie(kv.get(key))
     if (found === undefined) return Console.initial
     const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Console.NotAState({ input: found }) }))
-    return try Effect.orDie(Console.decodeState(parsed))
+    return try Effect.orDie(Console.decodeState(withConsoleDefaults(parsed)))
   }
   return try Effect.orDie(Console.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
 }

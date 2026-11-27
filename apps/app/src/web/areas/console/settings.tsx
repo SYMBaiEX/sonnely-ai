@@ -1,4 +1,4 @@
-// spec/app/console/index.md, "Story: Set up the workspace profile"; spec/app/console/index.md, "Story: Choose how this device shows the console"; spec/app/console/chat.md, "Story: Erase what the workspace keeps"; spec/app/session.md, "Story: Sign in with a wallet"
+// spec/app/console/index.md, "Story: Set up the workspace profile"; spec/app/console/index.md, "Story: Choose how this device shows the console"; spec/app/console/index.md, "Story: Choose whether the workspace keeps chat history"; spec/app/console/chat.md, "Story: Erase what the workspace keeps"; spec/app/session.md, "Story: Sign in with a wallet"
 import { useState, type FormEvent } from "react";
 import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield, Trash2 } from "lucide-react";
 import type { Console, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
@@ -62,6 +62,26 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
           aria-label="Plain writing"
           aria-checked={state?.plain ?? true}
           onClick={() => void settings.send({ type: "setPlain", on: !(state?.plain ?? true) })}
+        >
+          <span />
+        </button>
+      </div>
+      <div className="settings-row">
+        <div>
+          <strong>Chat history</strong>
+          <p>
+            Keep playground conversations server-side under your wallet, so they reopen on any device. Off, new
+            conversations live in the browser session only and are never written to the server. Already-kept
+            conversations stay until you clear them below.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          className="toggle"
+          aria-label="Chat history"
+          aria-checked={state?.history ?? true}
+          onClick={() => void settings.send({ type: "setHistory", on: !(state?.history ?? true) })}
         >
           <span />
         </button>

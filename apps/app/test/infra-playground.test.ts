@@ -166,4 +166,67 @@ describe("playground inference honesty", () => {
       { plain: false, path: "stream", status: 200, first: user, count: 1 },
     ]);
   });
+
+  // spec/app/console/index.md, "The chat-history choice toggles"
+  it("answers an inline conversation without the machine keeping any of it", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const calls: { messages?: { role: string; content: string }[] }[] = [];
+    vi.stubGlobal("fetch", (_input: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { messages?: { role: string; content: string }[] };
+      calls.push(payload);
+      const sse = [
+        `data: ${JSON.stringify({ id: "eph-stream", object: "chat.completion.chunk", created: 1, model: chatModel, choices: [{ index: 0, delta: { content: "hi" }, finish_reason: null }] })}\n\n`,
+        `data: ${JSON.stringify({ id: "eph-stream", object: "chat.completion.chunk", created: 1, model: chatModel, choices: [], usage: { prompt_tokens: 3, completion_tokens: 1, total_tokens: 4 } })}\n\n`,
+        "data: [DONE]\n\n",
+      ].join("");
+      return Promise.resolve(new Response(sse, { status: 200, headers: { "content-type": "text/event-stream", "inference-id": crypto.randomUUID() } }));
+    });
+    const handler = makeApp((dir) => {
+      writeFileSync(join(dir, "playground-ledger"), JSON.stringify({
+        balance: 100_000,
+        entries: [{ wallet, kind: "Credit", detail: "seed", amount: 100_000 }],
+      }));
+    });
+    const inline = [
+      { role: "user", content: "first ephemeral question" },
+      { role: "assistant", content: "first ephemeral answer" },
+      { role: "user", content: "follow-up question" },
+    ];
+    const response = await handler(new Request("http://localhost/api/console/chat/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + token },
+      body: JSON.stringify({ id: "ephemeral-thread", model: chatModel, messages: inline }),
+    }));
+    await response.text();
+    const machine = await handler(new Request("http://localhost/api/machines/console__chat", {
+      headers: { cookie: "sonnely_session=" + token },
+    }));
+    const state = await machine.json() as { threads: unknown[] };
+    const sent = calls[0]?.messages ?? [];
+    expect({
+      status: response.status,
+      forwarded: sent.filter((message) => message.role !== "system"),
+      keptThreads: state.threads.length,
+    }).toEqual({
+      status: 200,
+      forwarded: inline,
+      keptThreads: 0,
+    });
+  });
+
+  it("refuses a malformed inline conversation instead of guessing at it", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const handler = makeApp();
+    const malformed = await handler(new Request("http://localhost/api/console/chat/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + token },
+      body: JSON.stringify({ id: "ephemeral-thread", model: chatModel, messages: [{ role: "user", content: "" }] }),
+    }));
+    const unanswered = await handler(new Request("http://localhost/api/console/chat/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + token },
+      body: JSON.stringify({ id: "ephemeral-thread", model: chatModel, messages: [{ role: "user", content: "hi" }, { role: "assistant", content: "answered" }] }),
+    }));
+    expect({ malformed: malformed.status, unanswered: unanswered.status }).toEqual({ malformed: 400, unanswered: 409 });
+  });
 });
