@@ -63,7 +63,7 @@ export function JournalIndex() {
           {indexed.map((item, index) => (
             <li key={item.slug}>
               <a href={"/blog/" + item.slug}>
-                <span className="cor-archive-number">{String(index + 2).padStart(2, "0")}</span>
+                <span className="cor-archive-number">{String(index + (featured ? 2 : 1)).padStart(2, "0")}</span>
                 <div className="cor-archive-main">
                   <span className="cor-dispatch-meta">
                     <ProductIcon name={categoryIcons[item.category] ?? "Box"} size={13} />

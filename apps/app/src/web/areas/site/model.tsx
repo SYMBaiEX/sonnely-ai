@@ -1,4 +1,5 @@
 // spec/app/site/index.md, "Story: Check the service status"
+import { NotFound } from "./notfound.tsx";
 import { ArrowLeft, ArrowUpRight, ChevronDown } from "lucide-react";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, RateUnit, Route } from "../../../../gen/app__models.ts";
@@ -271,7 +272,7 @@ export function ModelPage({ provider, model }: { provider: string; model: string
     (row) => row.provider === providerId && row.upstreamId === model,
   );
   const live = useLiveAvailability();
-  if (!entry) return null;
+  if (!entry) return <NotFound />;
   const availability = availabilityFor(entry, live);
   const providerName = providerNames[entry.provider];
   const chat = entry.routes.find((route) => route.endpoint === "ChatCompletions");

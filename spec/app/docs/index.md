@@ -827,7 +827,7 @@ pure val bodies: List[List[str]] = List(
         "",
         "## Tool calling and structured output",
         "",
-        "Check the `capabilities` object on the exact route in `GET /v1/models`. When `tools` is true, you can send OpenAI-style function definitions, consume `tool_calls`, then send the results as `tool` messages. Your client runs the tools. When `structured_outputs` is true, you can request `response_format` with a JSON object or a JSON schema. Sonnely preserves provider streaming usage and settles the request using reported tokens."
+        "Check the `capabilities` object on the exact route in `GET /models`. When `tools` is true, you can send OpenAI-style function definitions, consume `tool_calls`, then send the results as `tool` messages. Your client runs the tools. When `structured_outputs` is true, you can request `response_format` with a JSON object or a JSON schema. Sonnely preserves provider streaming usage and settles the request using reported tokens."
     ),
     List(
         "## Read the live catalog",

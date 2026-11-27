@@ -1,4 +1,5 @@
 // spec/app/site/index.md, "Story: Check the service status"
+import { NotFound } from "./notfound.tsx";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { articles, categoryIcons, readingMinutes } from "./journal.ts";
 import { ProductIcon } from "./icons.tsx";
@@ -12,7 +13,7 @@ function sectionId(heading: string) {
 
 export function PostPage({ slug }: { slug: string }) {
   const article = articles.find((item) => item.slug === slug);
-  if (!article) return null;
+  if (!article) return <NotFound />;
   const related = articles
     .filter((entry) => entry.slug !== article.slug)
     .sort(

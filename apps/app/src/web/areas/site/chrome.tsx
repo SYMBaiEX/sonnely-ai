@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  MonitorSmartphone,
   Moon,
   Sun,
 } from "lucide-react";
@@ -102,6 +103,8 @@ function subscribeSystemLight(update: () => void) {
   return () => media.removeEventListener("change", update);
 }
 
+const nextTheme: Record<Theme, Theme> = { dark: "system", system: "light", light: "dark" };
+
 export function ThemeSwitch({ choose = setTheme }: { choose?: (theme: Theme) => void }) {
   const theme = useTheme();
   const light = useSyncExternalStore(subscribeSystemLight, systemLight, () => false);
@@ -110,15 +113,17 @@ export function ThemeSwitch({ choose = setTheme }: { choose?: (theme: Theme) => 
     <button
       className="theme-switch"
       type="button"
-      role="switch"
-      aria-label="Switch color theme"
-      aria-checked={on}
+      aria-label={`Color theme: ${theme}. Activate for ${nextTheme[theme]}.`}
       data-light={on}
-      onClick={() => choose(on ? "dark" : "light")}
+      data-theme-pos={theme}
+      onClick={() => choose(nextTheme[theme])}
     >
       <span className="theme-switch-thumb" aria-hidden="true" />
       <span className="theme-switch-icon theme-switch-moon" aria-hidden="true">
         <Moon size={16} />
+      </span>
+      <span className="theme-switch-icon theme-switch-system" aria-hidden="true">
+        <MonitorSmartphone size={15} />
       </span>
       <span className="theme-switch-icon theme-switch-sun" aria-hidden="true">
         <Sun size={17} />
@@ -182,7 +187,7 @@ function SiteNavigation({ current }: { current: string }) {
           <a
             key={href}
             href={href}
-            aria-current={current === href ? "page" : undefined}
+            aria-current={current === href || current.startsWith(href + "/") ? "page" : undefined}
             onClick={closeMobile}
           >
             {label}
@@ -222,7 +227,7 @@ export function SiteFooter() {
               <ProductIcon name="Cpu" size={13} /> inference · tee enclave
             </span>
             <span className="footer-proof-segment">
-              <ProductIcon name="Fingerprint" size={13} /> attestation · verified
+              <ProductIcon name="Fingerprint" size={13} /> attestation · verifiable
             </span>
             <span className="footer-proof-segment">
               <ProductIcon name="ReceiptText" size={13} /> settlement · solana
