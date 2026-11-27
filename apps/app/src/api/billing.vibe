@@ -550,8 +550,7 @@ effect function recoveryLoop() {
 }
 
 export const depositRecoveryWorker = Layer.effectDiscard(effect {
-  const active = Config.withDefault(Config.String("SONNELY_DEPOSIT_RECOVERY"), "false") catch () => "false"
-  if (active == "true") fork.detached recoveryLoop()
+  fork.detached recoveryLoop()
 })
 
 /** What the console needs to build payment links: the treasury and cluster, or nothing when checkout is off. */
