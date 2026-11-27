@@ -725,13 +725,60 @@ export function sliceTopResults(endpoint: string, body: Record<string, unknown>,
   if (endpoint !== "rerank" || typeof topN !== "number" || !Array.isArray(body.results)) return body;
   return { ...body, results: body.results.slice(0, topN) };
 }
-export function extractUsage(endpoint: string, value: unknown): { input: number; output: number; costTokens: number } {
-  if (typeof value === "object" && value !== null && "usage" in value) {
-    const usage = (value as { usage?: unknown }).usage;
-    const parsed = usageSchema.safeParse(usage);
-    if (parsed.success) return { input: parsed.data.prompt_tokens, output: parsed.data.completion_tokens, costTokens: parsed.data.prompt_tokens + parsed.data.completion_tokens };
-    const decision = z.object({ input_tokens: z.int().nonnegative(), output_tokens: z.int().nonnegative() }).safeParse(usage);
-    if (decision.success) return { input: decision.data.input_tokens, output: decision.data.output_tokens, costTokens: decision.data.input_tokens + decision.data.output_tokens };
+/** Input-only usage: embeddings and rerank responses commonly report prompt tokens with no completion field. */
+const inputOnlyUsageSchema = z.object({
+  prompt_tokens: z.int().nonnegative(),
+  completion_tokens: z.int().nonnegative().nullish(),
+}).loose();
+const responsesUsageSchema = z.object({
+  input_tokens: z.int().nonnegative(),
+  output_tokens: z.int().nonnegative().nullish(),
+}).loose();
+
+export type ExtractedUsage = { input: number | undefined; output: number | undefined };
+
+/**
+ * The usage a specialized endpoint reported, or undefined when the response carries no recognizable
+ * usage at all. A field is undefined when the provider did not meter it: token-priced routes must
+ * treat an unmeasured priced field as unreported rather than as zero usage.
+ */
+export function extractUsage(endpoint: string, value: unknown): ExtractedUsage | undefined {
+  if (typeof value !== "object" || value === null || !("usage" in value)) return undefined;
+  const usage = (value as { usage?: unknown }).usage;
+  if (endpoint === "responses") {
+    const decision = responsesUsageSchema.safeParse(usage);
+    if (decision.success) return { input: decision.data.input_tokens, output: decision.data.output_tokens ?? undefined };
   }
-  return { input: 0, output: 0, costTokens: 0 };
+  const chat = usageSchema.safeParse(usage);
+  if (chat.success) return { input: chat.data.prompt_tokens, output: chat.data.completion_tokens };
+  const inputOnly = inputOnlyUsageSchema.safeParse(usage);
+  if (inputOnly.success) return { input: inputOnly.data.prompt_tokens, output: inputOnly.data.completion_tokens ?? undefined };
+  const decision = responsesUsageSchema.safeParse(usage);
+  if (decision.success) return { input: decision.data.input_tokens, output: decision.data.output_tokens ?? undefined };
+  return undefined;
+}
+
+/** Whether the extraction meters every field the route prices: an unmeasured priced field can never settle as a zero-cost completion. */
+export function usageIsPriced(route: ModelRoute, usage: ExtractedUsage | undefined): boolean {
+  if (usage === undefined) return false;
+  if (route.input >= 0 && usage.input === undefined) return false;
+  if (route.output >= 0 && usage.output === undefined) return false;
+  return true;
+}
+
+export type UsageSettlement = { kind: "measured"; input: number; output: number; cost: number } | { kind: "unmeasured" };
+
+/**
+ * What one specialized response settles for. Fixed-price routes cost their reservation regardless of
+ * reported tokens. Token-priced routes cost their metered usage capped at the reservation; when the
+ * provider omits or garbles a priced field the settlement is unmeasured and must go under review at
+ * the reservation rather than completing at zero cost.
+ */
+export function settleUsageCost(route: ModelRoute, reserve: number, endpoint: string, output: unknown): UsageSettlement {
+  const usage = extractUsage(endpoint, output);
+  if (route.request >= 0) return { kind: "measured", input: usage?.input ?? 0, output: usage?.output ?? 0, cost: reserve };
+  if (!usageIsPriced(route, usage)) return { kind: "unmeasured" };
+  const input = usage?.input ?? 0;
+  const outputTokens = usage?.output ?? 0;
+  return { kind: "measured", input, output: outputTokens, cost: Math.min(reserve, tokenCharge(route, input, 0, outputTokens)) };
 }

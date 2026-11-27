@@ -11,7 +11,8 @@ import * as Referrals from "../gen/app__admin__referrals.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
 import { inferChat, inferSpecialized } from "../src/api/gateway.vibe";
-import { chatSseNodeResponse, chatSseResponse, upstreamTimeouts, type StreamFinal } from "../src/api/gateway/providers.ts";
+import { chatSseNodeResponse, chatSseResponse, extractUsage, settleUsageCost, upstreamTimeouts, type StreamFinal } from "../src/api/gateway/providers.ts";
+import type { ModelRoute } from "../gen/app__console__catalog.ts";
 
 const wallet = "stream-transport-wallet";
 
@@ -349,5 +350,136 @@ describe("gateway stream transport", () => {
     }));
     const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
     expect(result).toEqual({ status: 200, results: 1 });
+  });
+
+  // spec/app/usage.md, "A pending request settles with its real usage": embeddings usage often carries no completion_tokens field at all.
+  it("settles embeddings completion at the metered input when the provider omits completion_tokens", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "https://cloud-api.near.ai/v1/embeddings") {
+        return Promise.resolve(new Response(
+          JSON.stringify({ object: "list", data: [{ object: "embedding", embedding: [0.5], index: 0 }], usage: { prompt_tokens: 500, total_tokens: 500 } }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ));
+      }
+      return realFetch(input, init);
+    });
+    const program = Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "embed-key", label: "Inference", prefix: "sonnely_live_embed", hash: "embed-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "embed-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const app = inferSpecialized("embeddings", "Embeddings", "Qwen/Qwen3-Embedding-0.6B", { model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }, key, "", "embed-ref");
+      const scope = yield* Scope.Scope;
+      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+      const server = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => handler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const address = server.address();
+      if (typeof address !== "object" || address === null) throw new Error("missing server address");
+      const response = yield* Effect.promise(() => globalThis.fetch(`http://127.0.0.1:${address.port}/`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }),
+      }));
+      yield* Effect.promise(() => response.text());
+      const usage = yield* Usage.Machine;
+      const requests = yield* Requests.Machine;
+      return { status: response.status, usage, requests, keys };
+    }));
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await Effect.runPromise(Effect.gen(function* () {
+      return { rows: (yield* result.usage.get()).rows, requests: (yield* result.requests.get()).requests, key: (yield* result.keys.get()).keys[0] };
+    }));
+    const row = state.rows[0];
+    expect(result.status).toBe(200);
+    expect(row).toMatchObject({ id: "embed-ref", input: 500, output: 0, cost: 6, status: "Complete" });
+    expect(state.key?.spent).toBe(6);
+    expect(state.requests[0]).toMatchObject({ ref: "embed-ref", status: "Complete", charged: 6 });
+  });
+
+  // spec/app/usage.md, "A pending request can fail or go under review": a token-priced route whose provider never reports usage goes under review at the reserve, never zero-cost Complete.
+  it("captures the reserve under review when a token-priced provider omits usage entirely", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "https://cloud-api.near.ai/v1/embeddings") {
+        return Promise.resolve(new Response(
+          JSON.stringify({ object: "list", data: [{ object: "embedding", embedding: [0.5], index: 0 }] }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ));
+      }
+      return realFetch(input, init);
+    });
+    const program = Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "nousage-key", label: "Inference", prefix: "sonnely_live_nousage", hash: "nousage-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "nousage-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const app = inferSpecialized("embeddings", "Embeddings", "Qwen/Qwen3-Embedding-0.6B", { model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }, key, "", "nousage-ref");
+      const scope = yield* Scope.Scope;
+      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+      const server = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => handler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const address = server.address();
+      if (typeof address !== "object" || address === null) throw new Error("missing server address");
+      const response = yield* Effect.promise(() => globalThis.fetch(`http://127.0.0.1:${address.port}/`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }),
+      }));
+      yield* Effect.promise(() => response.text());
+      const usage = yield* Usage.Machine;
+      const requests = yield* Requests.Machine;
+      return { status: response.status, usage, requests, keys, ledger };
+    }));
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await Effect.runPromise(Effect.gen(function* () {
+      return {
+        rows: (yield* result.usage.get()).rows,
+        requests: (yield* result.requests.get()).requests,
+        key: (yield* result.keys.get()).keys[0],
+        ledgerRows: (yield* result.ledger.get()).entries,
+      };
+    }));
+    const row = state.rows[0];
+    expect(result.status).toBe(200);
+    expect(row?.status).toBe("Unreported");
+    expect(row?.cost).toBe(11);
+    expect(row?.cost).toBeGreaterThan(0);
+    expect(state.key?.spent).toBe(11);
+    expect(state.requests[0]).toMatchObject({ ref: "nousage-ref", status: "Complete", charged: 11 });
+    expect(state.ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount === 11)).toBe(true);
+  });
+
+  // spec/app/usage.md, "A pending request settles with its real usage": provider usage shapes per endpoint.
+  it("extracts usage from the embeddings, rerank and responses provider shapes", () => {
+    expect(extractUsage("embeddings", { usage: { prompt_tokens: 8, total_tokens: 8 } })).toEqual({ input: 8, output: undefined });
+    expect(extractUsage("rerank", { usage: { prompt_tokens: 9, completion_tokens: 0, total_tokens: 9 } })).toEqual({ input: 9, output: 0 });
+    expect(extractUsage("responses", { usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 } })).toEqual({ input: 10, output: 20 });
+    expect(extractUsage("embeddings", { data: [] })).toBeUndefined();
+    expect(extractUsage("embeddings", { usage: { prompt_tokens: -3 } })).toBeUndefined();
+  });
+
+  // spec/app/usage.md, "A pending request can fail or go under review": token-priced routes fail closed when a priced field is unmeasured.
+  it("settles token-priced routes at metered usage and fails closed on unmeasured priced fields", () => {
+    const embeddingsRoute: ModelRoute = { endpoint: "embeddings", modelId: "Qwen/Qwen3-Embedding-0.6B", input: 11_000, cache: -1, output: -1, request: -1, session: -1 };
+    const responsesRoute: ModelRoute = { endpoint: "responses", modelId: "tinfoil/gpt-oss-120b", input: 165_000, cache: -1, output: 660_000, request: -1, session: -1 };
+    const imagesRoute: ModelRoute = { endpoint: "images/generations", modelId: "black-forest-labs/FLUX.2-klein-4B", input: -1, cache: -1, output: -1, request: 13_200, session: -1 };
+    expect(settleUsageCost(embeddingsRoute, 11, "embeddings", { usage: { prompt_tokens: 500, total_tokens: 500 } })).toEqual({ kind: "measured", input: 500, output: 0, cost: 6 });
+    expect(settleUsageCost(embeddingsRoute, 11, "embeddings", { data: [] })).toEqual({ kind: "unmeasured" });
+    expect(settleUsageCost(responsesRoute, 100, "responses", { usage: { input_tokens: 10 } })).toEqual({ kind: "unmeasured" });
+    expect(settleUsageCost(responsesRoute, 100, "responses", { usage: { input_tokens: 10, output_tokens: 5 } })).toEqual({ kind: "measured", input: 10, output: 5, cost: 5 });
+    expect(settleUsageCost(imagesRoute, 13_200, "images/generations", {})).toEqual({ kind: "measured", input: 0, output: 0, cost: 13_200 });
   });
 });

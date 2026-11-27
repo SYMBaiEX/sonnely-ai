@@ -15,7 +15,7 @@ import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { Fleet } from "../fleet.vibe"
 import { stateStore } from "../serve.vibe"
-import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, sliceTopResults, multipartForm, multipartInput, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
+import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, settleUsageCost, sliceTopResults, multipartForm, multipartInput, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
   import { createHash, randomUUID } from "node:crypto"
@@ -683,16 +683,18 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
     try failMeter(meter, true)
     return try inferenceFailure("The provider returned an incomplete result or usage record.", 502, servingRef)
   }
-  const usage = try Effect.try(() => extractUsage(path, output))
-  const cost = selected.route.request >= 0 ? selected.reserve : try Effect.try(() => tokenCharge(selected.route, usage.input, 0, usage.output))
-  if (cost > selected.reserve) {
+  const decision = try Effect.try(() => settleUsageCost(selected.route, selected.reserve, path, output))
+  if (decision.kind == "unmeasured") {
+    // spec/app/usage.md, "A pending request can fail or go under review": a token-priced route whose
+    // usage the provider did not meter can never complete at zero cost — the capture is the whole
+    // reservation under review, and the served result still reaches the client below.
     try failMeter(meter, true)
-    return try inferenceFailure("Provider usage exceeded the reservation. Check Usage.", 502, servingRef)
-  }
-  const settled = try settleMeter(meter, usage.input, usage.output, -1, cost, providerMs)
-  if ("refused" in settled) {
-    const r = settled.refused as { error: unknown; status: number }
-    return try refusalReply(r, servingRef)
+  } else {
+    const settled = try settleMeter(meter, decision.input, decision.output, -1, decision.cost, providerMs)
+    if ("refused" in settled) {
+      const r = settled.refused as { error: unknown; status: number }
+      return try refusalReply(r, servingRef)
+    }
   }
   const body = typeof output == "object" && output != null && !Array.isArray(output) ? output as Record<string, unknown> : { data: output }
   const trimmed = try Effect.try(() => sliceTopResults(path, body, fields.top_n))
