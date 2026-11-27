@@ -12,8 +12,10 @@ function makeApi() {
   const routes = Layer.mergeAll(
     ratelimitApi,
     HttpRouter.add("POST", "/api/session/challenge", ok),
+    HttpRouter.add("POST", "/api/session/verify", ok),
     HttpRouter.add("POST", "/api/billing/deposits", ok),
     HttpRouter.add("POST", "/api/billing/deposits/prepare", ok),
+    HttpRouter.add("POST", "/api/machines/console", ok),
     HttpRouter.add("GET", "/api/machines/site", ok),
   );
   const appLayer = routes.pipe(
@@ -74,5 +76,36 @@ describe("rate limiting", () => {
     for (let attempt = 0; attempt < 12; attempt++) await handler(post("/api/session/challenge", ip));
     const read = await handler(new Request("http://localhost/api/machines/site", { headers: { "x-forwarded-for": ip } }));
     expect(read.status).toBe(200);
+  });
+
+  it("counts the last x-forwarded-for hop, so prepended spoofs share one budget", async () => {
+    const handler = makeApi();
+    const real = "198.51.100.7";
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const response = await handler(post("/api/session/challenge", attempt % 2 == 0 ? "10.0.0.1, " + real : "10.0.0.2, " + real));
+      if (response.status != 200) throw new Error("attempt " + attempt + " was throttled early: " + response.status);
+    }
+    const spoofed = await handler(post("/api/session/challenge", "10.0.0.3, " + real));
+    const otherReal = await handler(post("/api/session/challenge", "10.0.0.3, 198.51.100.8"));
+    expect({ spoofed: spoofed.status, otherReal: otherReal.status }).toEqual({ spoofed: 429, otherReal: 200 });
+  });
+
+  it("throttles session verification like the challenge", async () => {
+    const handler = makeApi();
+    const ip = "203.0.113.12";
+    for (let attempt = 0; attempt < 10; attempt++) await handler(post("/api/session/verify", ip));
+    const refused = await handler(post("/api/session/verify", ip));
+    expect(refused.status).toBe(429);
+  });
+
+  it("throttles machine writes past their generous budget", async () => {
+    const handler = makeApi();
+    const ip = "203.0.113.13";
+    for (let attempt = 0; attempt < 120; attempt++) {
+      const response = await handler(post("/api/machines/console", ip));
+      if (response.status != 200) throw new Error("attempt " + attempt + " was throttled early: " + response.status);
+    }
+    const refused = await handler(post("/api/machines/console", ip));
+    expect(refused.status).toBe(429);
   });
 });
