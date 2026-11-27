@@ -58,6 +58,7 @@ function probe(token?: string) {
 
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
+  delete process.env.SONNELY_DEPOSIT_RECOVERY;
 });
 
 describe("site status probes", () => {
@@ -81,9 +82,11 @@ describe("site status probes", () => {
   });
 
   it("lets an operator ask for a fresh probe", async () => {
+    delete process.env.SONNELY_DEPOSIT_RECOVERY;
     const handler = makeSiteApi();
     const response = await handler(probe(operatorToken));
-    expect(response.status).toBe(200);
+    const body = await response.json() as { tag: string; report?: { recoveryUp: boolean } };
+    expect({ status: response.status, recoveryUp: body.report?.recoveryUp }).toEqual({ status: 200, recoveryUp: true });
   });
 
   it("probes by itself in the background without anyone asking", async () => {

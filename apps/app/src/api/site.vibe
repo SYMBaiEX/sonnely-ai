@@ -65,7 +65,6 @@ export effect function check() {
   const treasury = try setting("SOLANA_TREASURY")
   const rpc = try setting("SOLANA_RPC_URL")
   const mainnetUp = cluster === "mainnet" && treasury !== "" && rpc !== ""
-  const recoveryUp = (try setting("SONNELY_DEPOSIT_RECOVERY")) === "true"
   const paused = (try setting("SONNELY_PAUSED_PROVIDERS"))
     .split(",")
     .map((item) => item.trim())
@@ -73,7 +72,7 @@ export effect function check() {
   const probes: Probe[] = try all(providerProbes.map<Probe!!>((entry) => probe(entry, paused)), {
     concurrency: "unbounded",
   })
-  const found: Report = { accountUp, mainnetUp, recoveryUp, probes }
+  const found: Report = { accountUp, mainnetUp, recoveryUp: true, probes }
   return found
 }
 

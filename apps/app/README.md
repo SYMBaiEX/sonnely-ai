@@ -23,10 +23,11 @@ here keeps state outside a spec machine.
 Checkout reads `SOLANA_BILLING_CLUSTER` (`mainnet` or `devnet`), `SOLANA_RPC_URL`
 and `SOLANA_TREASURY`. The treasury and RPC must belong to the selected cluster;
 without all three, checkout is disabled. `SOLANA_TREASURY` is the recipient for
-server-prepared SOL and USDC deposits. Set `SONNELY_DEPOSIT_RECOVERY=true` to
-run the mainnet finalized-payment sweep in the server process. Cross-chain NEAR
-Intents deposit addresses require `NEAR_INTENTS_API_KEY` and the mainnet billing
-cluster; dry quotes remain available without it.
+server-prepared SOL and USDC deposits. The server process always runs its
+deposit-recovery loop; on the mainnet billing cluster it sweeps finalized
+payments without a separate enable flag. Cross-chain NEAR Intents deposit
+addresses require `NEAR_INTENTS_API_KEY` and the mainnet billing cluster; dry
+quotes remain available without it.
 
 State persists under `dist/data/` (filesystem KeyValueStore) when built, or
 alongside the dev entry. Set `DATABASE_URL` to persist machine state in
