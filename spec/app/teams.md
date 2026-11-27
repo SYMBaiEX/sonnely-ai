@@ -4,7 +4,7 @@ A team shares a wallet-scoped workspace: owners and admins manage members,
 roles, pending invitations and project budgets. Membership is by wallet
 address; roles are `owner`, `admin` and `member`. Invites name a wallet and a
 role — never owner — and expire (the legacy product gives them seven days;
-the model just keeps the deadline). A project carries a name, a monthly
+the model just keeps the deadline). A project carries a name, a lifetime
 budget in micro-USD, the amount spent so far, and an archived flag.
 
 ## Domain
@@ -282,7 +282,7 @@ pure def lawSoleOwnerStays(s: Teams, id: str, name: str, actor: str, role: Role,
 
 ## Story: Budget a project
 
-> As an owner or admin, I want to create a project with a monthly budget,
+> As an owner or admin, I want to create a project with a lifetime budget,
 > rename it or change its budget, and archive it, so that project spend is
 > tracked against a limit.
 
