@@ -1,9 +1,10 @@
 // spec/app/console/chat.md, "Story: Converse with a model"
 import { Machine, stored, initial } from "../../../gen/app__console__chat.effect.vibe"
 import type { Chat } from "../../../gen/app__console__chat.ts"
+import type { Console as ConsoleSettings } from "../../../gen/app__console.ts"
 import type { Endpoint as GatewayEndpoint } from "../../../gen/app__gateway__requests.ts"
 import { fleetMachineApi } from "../../machines.vibe"
-import { Fleet, type FleetMachine } from "../../fleet.vibe"
+import { Fleet } from "../../fleet.vibe"
 import { inferChat, inferSpecialized } from "../gateway.vibe"
 import { authenticatedWallet } from "../session.vibe"
 import { configuredProviders, stagingInference } from "../gateway/providers.ts"
@@ -39,6 +40,17 @@ module playgroundNode {
 import { newRef, silentWav } from playgroundNode
 
 const noStore = { "cache-control": "no-store" }
+const plainWritingInstruction = "Answer in concise, clear language."
+
+effect function plainWritingOn(fleet: Fleet.Shape, wallet: string) {
+  const machine = try fleet.machine("console", wallet)
+  const state = (try machine.get()) as ConsoleSettings
+  return state.plain
+}
+
+function withPlainWriting(messages: { role: string; content: string }[], plain: boolean) {
+  return plain ? [{ role: "system", content: plainWritingInstruction }, ...messages] : messages
+}
 
 effect function replyRoute() {
   const request = try HttpServerRequest.HttpServerRequest
@@ -63,10 +75,11 @@ effect function replyRoute() {
   const fallbacks = Array.isArray(parsed.fallbacks) ? parsed.fallbacks.filter((provider): provider is "near-ai" | "phala" | "tinfoil" => provider == "near-ai" || provider == "phala" || provider == "tinfoil") : []
   const primary = parsed.provider == "phala" || parsed.provider == "tinfoil" ? parsed.provider : "near-ai"
   const only = [primary, ...fallbacks.filter((provider) => provider != primary)] as ["near-ai" | "phala" | "tinfoil"]
+  const plain = try plainWritingOn(fleet, wallet)
   const ref = try Effect.try(() => newRef())
   return try inferChat({
     model: parsed.model,
-    messages,
+    messages: withPlainWriting(messages, plain),
     provider: { only, ...(only.length > 1 ? { allow_fallbacks: true } : {}) },
   }, undefined, wallet, ref, request.headers["x-sonnely-receipt"] == "v1")
 }
@@ -94,9 +107,10 @@ effect function streamRoute() {
   const fallbacks = Array.isArray(parsed.fallbacks) ? parsed.fallbacks.filter((provider): provider is "near-ai" | "phala" | "tinfoil" => provider == "near-ai" || provider == "phala" || provider == "tinfoil") : []
   const primary = parsed.provider == "phala" || parsed.provider == "tinfoil" ? parsed.provider : "near-ai"
   const only = [primary, ...fallbacks.filter((provider) => provider != primary)] as ["near-ai" | "phala" | "tinfoil"]
+  const plain = try plainWritingOn(fleet, wallet)
   const input = {
     model: parsed.model,
-    messages,
+    messages: withPlainWriting(messages, plain),
     stream: true,
     stream_options: { include_usage: true },
     provider: { only, ...(only.length > 1 ? { allow_fallbacks: true } : {}) },
