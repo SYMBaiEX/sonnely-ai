@@ -173,6 +173,26 @@ export async function fetchTinfoil(init: RequestInit, path: `/v1/${string}` | "/
   }
   return { response, evidence: { status: "attested_router" as const, config_repo: verification.configRepo, release_digest: verification.releaseDigest } };
 }
+export type RealtimeSelection = { provider: ProviderId; key: string; upstreamModel: string; route: ModelRoute; reserve: number };
+export function realtimeRoute(model: string): Result<RealtimeSelection> {
+  const row = catalog.find((candidate) => candidate.routes.some((route) => route.endpoint === "realtime" && route.modelId === model));
+  const route = row?.routes.find((candidate) => candidate.endpoint === "realtime" && candidate.modelId === model);
+  if (!row || !route) return bad(404, "The requested model is unavailable on this endpoint.");
+  const provider = row.provider as ProviderId;
+  const key = managedProviderKey(provider);
+  if (!key) return bad(503, "Managed inference is awaiting provider activation.");
+  if (route.session <= 0) return bad(503, "Realtime transcription is awaiting provider activation.");
+  return ok({ provider, key, upstreamModel: row.upstreamId, route, reserve: route.session });
+}
+export async function openRealtimeUpstream(selection: RealtimeSelection) {
+  if (selection.provider !== "tinfoil") throw new Error("Realtime transcription is unavailable on this provider.");
+  await tinfoilClient.ready();
+  const verification = tinfoilClient.getVerificationDocument();
+  if (!verification.securityVerified || !verification.releaseDigest) throw new Error("Tinfoil router verification is unavailable.");
+  return tinfoilClient.createWebSocket("/v1/realtime?model=" + encodeURIComponent(selection.upstreamModel), {
+    wsOptions: { headers: { Authorization: "Bearer " + selection.key }, handshakeTimeout: 10_000, maxPayload: 64_000 },
+  });
+}
 export type UpstreamCall = { response: Response; evidence?: { status: "attested_router"; config_repo: string; release_digest: string } };
 export type ChatAttempt = UpstreamCall & { candidate: ChatRoute; body: string };
 

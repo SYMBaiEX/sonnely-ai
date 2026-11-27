@@ -29,6 +29,8 @@ module node {
 }
 import { hashToken, newRef } from node
 
+export { newRef }
+
 const noStore = { "cache-control": "no-store" }
 
 effect function reply(value: unknown, status: number = 200) {
@@ -64,7 +66,7 @@ effect function suspendedAccount(wallet: string) {
 }
 
 /** The key the request's bearer names, or the refusal in the OpenAI shape. */
-effect function bearerKey() {
+export effect function bearerKey() {
   const request = try HttpServerRequest.HttpServerRequest
   const id = bearerId(request)
   if (id == "") return { refused: { error: { message: "A valid bearer key is required.", type: "invalid_request_error" }, status: 401 } }
@@ -133,7 +135,7 @@ effect function unwindMeter(ref: string, wallet: string, key: WorkspaceKeys.Key 
   }
 }
 
-interface MeterOpen {
+export interface MeterOpen {
   ref: string
   wallet: string
   key: WorkspaceKeys.Key | undefined
@@ -145,7 +147,7 @@ interface MeterOpen {
   startedAt: number
 }
 
-function servedKey(key: WorkspaceKeys.Key | undefined, wallet: string): Keyring.KeyRecord {
+export function servedKey(key: WorkspaceKeys.Key | undefined, wallet: string): Keyring.KeyRecord {
   if (key != undefined) return { id: key.hash, prefix: key.prefix, status: key.status, spendLimit: key.cap == 0 ? -1 : key.cap, spent: key.spent }
   return { id: "session:" + wallet, prefix: "console", status: "Active", spendLimit: -1, spent: 0 }
 }
@@ -156,7 +158,7 @@ function meterProvider(provider: string): Usage.Provider {
   return "NearAI"
 }
 
-effect function openMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | undefined, endpoint: Requests.Endpoint, model: string, stream: boolean, cost: number, providerOverride: Usage.Provider | undefined = undefined) {
+export effect function openMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | undefined, endpoint: Requests.Endpoint, model: string, stream: boolean, cost: number, providerOverride: Usage.Provider | undefined = undefined) {
   const now = try Clock.currentTimeMillis
   const day = new Date(now).toISOString().slice(0, 10)
   const keys = try WorkspaceKeys.Machine
@@ -222,7 +224,7 @@ effect function openMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | 
   return { meter: { ref, wallet, key, day, reserve: cost, endpoint, model, stream, startedAt: now } }
 }
 
-effect function settleMeter(meter: MeterOpen, input: number, output: number, cached: number, cost: number, providerMs: number) {
+export effect function settleMeter(meter: MeterOpen, input: number, output: number, cached: number, cost: number, providerMs: number) {
   const charge = Math.min(meter.reserve, Math.max(0, cost))
   const refund = meter.reserve - charge
   const ledger = try Ledger.Machine
@@ -247,7 +249,7 @@ effect function settleMeter(meter: MeterOpen, input: number, output: number, cac
   return { served: true, charged: charge }
 }
 
-effect function failMeter(meter: MeterOpen, unreported: boolean) {
+export effect function failMeter(meter: MeterOpen, unreported: boolean) {
   const ledger = try Ledger.Machine
   const usage = try Usage.Machine
   const requests = try Requests.Machine
