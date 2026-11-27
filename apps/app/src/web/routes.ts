@@ -32,10 +32,6 @@ export function pathOf(page: Page): string {
     case "Terms": return "/terms";
     case "Verify": return "/verify";
     case "Contact": return "/contact";
-    case "ContactOne": return "/contact-1";
-    case "ContactTwo": return "/contact-2";
-    case "ContactThree": return "/contact-3";
-    case "ContactFour": return "/contact-4";
     case "Docs": return "/docs";
     case "Doc": return `/docs/${page.slug}`;
     case "Console": return `/console/${sectionPaths[page.section] ?? "chat"}${page.section === "Admin" && page.area ? `/${page.area}` : ""}`;
@@ -67,10 +63,6 @@ export function pageOf(path: string): Page {
     case "terms": return { tag: "Terms" };
     case "verify": return { tag: "Verify" };
     case "contact": return { tag: "Contact" };
-    case "contact-1": return { tag: "ContactOne" };
-    case "contact-2": return { tag: "ContactTwo" };
-    case "contact-3": return { tag: "ContactThree" };
-    case "contact-4": return { tag: "ContactFour" };
     case "pricing": return { tag: "Pricing" };
     case "docs": return parts[1] ? { tag: "Doc", slug: parts.slice(1).map(decodeURIComponent).join("/") } : { tag: "Docs" };
     case "console": {

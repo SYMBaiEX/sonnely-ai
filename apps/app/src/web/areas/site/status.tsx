@@ -177,8 +177,8 @@ export function StatusPage() {
             <a className={textLink} href="/api/health">
               Health endpoint <ArrowUpRight size={14} aria-hidden="true" />
             </a>
-            <a className={textLink} href="/inference#alerts">
-              How inference alerts work <ArrowUpRight size={14} aria-hidden="true" />
+            <a className={textLink} href="/docs/troubleshooting">
+              Errors and recovery <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           </div>
         </section>

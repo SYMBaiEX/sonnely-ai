@@ -6,7 +6,7 @@ import { CorrespondenceHero, type SiteBrief } from "./chrome.tsx";
 import { apiBasePath } from "./data.ts";
 import { entryActions, pages, platformLinks, traceStages } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
-import { caption, textLink, wrap } from "./ui.ts";
+import { textLink, wrap } from "./ui.ts";
 
 export function PlatformLinks({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
   return (
@@ -276,82 +276,66 @@ function Inference() {
         <TracePreview />
         <div className="module-copy wide">
           <p className="module-note">
-            Trace data contains timing, route, and billing metadata. Prompts and responses stay out
-            of UsageMax receipts. Workspace users can see their own tokens and charges in Usage.
-            Gateway traces and compute costs are restricted to authorized operators.
+            Trace data contains timing, route, and billing metadata — never prompt or response
+            text. Your own tokens and charges are in Usage and Request logs; fleet-wide traces and
+            provider compute costs stay with authorized operators.
           </p>
         </div>
       </Module>
-      <Module id="analytics" index="05" path="~/inference/analytics" icon="Activity" title="Compare models and days.">
+      <Module id="usage" index="05" path="~/inference/usage" icon="Activity" title="Measure what you spend.">
         <div className="module-copy">
           <p>
-            Group the private report by model or UTC day. Compare attempts, errors, input and output
-            tokens, p50, p95 and p99 latency, first-token time, and known compute cost. Cost coverage
-            shows how many requests have evidence. Margin covers only requests with both charges and
-            known costs.
+            Usage groups your workspace’s settled requests by model or UTC day: spend, tokens and
+            request counts over the date range you choose. Export up to 100 settled requests as a
+            batch for your own analytics, or download the loaded rows as CSV.
           </p>
-          <NextLink href="/docs/observability#export-to-usagemax">Export your workspace usage</NextLink>
+          <NextLink href="/docs/observability">Read the usage guide</NextLink>
         </div>
         <div className="module-artifact">
           <ModuleFacts
             rows={[
-              ["group by", "model · utc day"],
-              ["window", "up to 30 days"],
-              ["coverage", "up to 2,000 receipts"],
+              ["breakdown", "by model · by key"],
+              ["range", "utc date range"],
+              ["export", "csv · usage batch"],
             ]}
           />
         </div>
       </Module>
-      <Module id="reconciliation" index="06" path="~/inference/reconciliation" icon="ReceiptText" title="Reconcile a statement.">
+      <Module id="logs" index="06" path="~/inference/logs" icon="ReceiptText" title="Settle every request in the open.">
         <div className="module-copy">
           <p>
-            Operators preview finalized invoice lines against Sonnely’s billing references. Matches,
-            cost variances, duplicate references, and unmatched lines have separate outcomes.
-            Recording the statement publishes eligible invoice-confirmed cost revisions to UsageMax
-            and keeps an audit history in Sonnely.
+            Every response carries an <code>X-Sonnely-Request-Id</code> header. Paste it into
+            Request logs to see what the request was charged — charged, still reserved, or released
+            after a failure — and filter your workspace history by date range or provider before
+            exporting the rows.
           </p>
-          <p className="module-note">
-            Customer charges, credit balances, and treasury payout amounts follow the Sonnely
-            ledger.
-          </p>
+          <NextLink href="/docs/observability">Inspect request logs</NextLink>
         </div>
         <div className="module-artifact">
           <ModuleCode
-            label="normalized invoice line · example"
-            source={"reference,cost_usd\nprovider-request-id,0.000042"}
-            language="csv"
+            label="response headers · every request"
+            source={["x-sonnely-request-id: sr_9f2c…", "x-sonnely-provider: tinfoil"].join("\n")}
+            language="http"
           />
         </div>
       </Module>
-      <Module id="alerts" index="07" path="~/inference/alerts" icon="Activity" title="Surface problems early.">
+      <Module id="batch" index="07" path="~/inference/batch" icon="Code2" title="Run inference in batch.">
         <div className="module-copy">
           <p>
-            Scheduled alerts flag request errors, high latency, and pending billing recovery. Admin
-            shows open and resolved incidents alongside the current state of receipt delivery.
+            Upload up to 200 nonstreaming Chat Completions requests as JSONL and run them against
+            your workspace credits, one at a time. The browser checkpoints progress, so an
+            interrupted run resumes where it stopped, and completed responses export as JSONL.
           </p>
-          <p className={caption + " module-caption"}>
-            Alerts use at least five attempts in the previous hour.
-          </p>
+          <NextLink href="/docs/batch">Read the batch guide</NextLink>
         </div>
         <div className="module-artifact">
           <ModuleFacts
             rows={[
-              ["evaluation interval", "5 minutes"],
-              ["error rate", "20%"],
-              ["p95 latency", "5 seconds"],
+              ["rows", "up to 200 requests"],
+              ["resume", "browser checkpoint"],
+              ["results", "jsonl export"],
             ]}
           />
-        </div>
-      </Module>
-      <Module id="evaluations" index="08" path="~/inference/evaluations" icon="Code2" title="Evaluate before you roll out.">
-        <div className="module-copy">
-          <p>
-            UsageMax includes a versioned gateway eval runner. Use synthetic fixtures for CI
-            regression checks, or run explicit live measurements against Sonnely with a request
-            budget and a reviewed baseline. Results include pass status, token counts, charge, and
-            latency.
-          </p>
-          <NextLink href="/blog/choose-a-model">Plan a small evaluation</NextLink>
         </div>
       </Module>
     </>
@@ -363,10 +347,9 @@ const sections = [
   ["streaming", "streaming"],
   ["evidence", "privacy boundary"],
   ["traces", "traces"],
-  ["analytics", "analytics"],
-  ["reconciliation", "reconciliation"],
-  ["alerts", "alerts"],
-  ["evaluations", "evaluations"],
+  ["usage", "usage"],
+  ["logs", "request logs"],
+  ["batch", "batch"],
 ] as const;
 
 const inferenceBrief: SiteBrief = {

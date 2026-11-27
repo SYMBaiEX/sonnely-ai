@@ -15,10 +15,6 @@ import { JournalPage } from "./journal-index.tsx";
 import { PrivacyPage, TermsPage } from "./legal.tsx";
 import { VerifyPage } from "./verify.tsx";
 import { ContactPage } from "./contact.tsx";
-import { ContactEditorialPage } from "./contact-editorial.tsx";
-import { ContactRoutingPage } from "./contact-routing.tsx";
-import { ContactCorrespondencePage } from "./contact-correspondence.tsx";
-import { ContactSignalPage } from "./contact-signal.tsx";
 import { textLink, wrap } from "./ui.ts";
 import "./site.css";
 import "./contactx.css";
@@ -102,18 +98,6 @@ export function render(page: Page): React.ReactNode {
       break;
     case "Contact":
       body = <ContactPage />;
-      break;
-    case "ContactOne":
-      body = <ContactEditorialPage />;
-      break;
-    case "ContactTwo":
-      body = <ContactRoutingPage />;
-      break;
-    case "ContactThree":
-      body = <ContactCorrespondencePage />;
-      break;
-    case "ContactFour":
-      body = <ContactSignalPage />;
       break;
     case "Unknown":
       body = <NotFound />;
