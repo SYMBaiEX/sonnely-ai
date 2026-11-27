@@ -10,7 +10,7 @@ import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as Referrals from "../gen/app__admin__referrals.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
-import { inferChat } from "../src/api/gateway.vibe";
+import { inferChat, openMeter, settleMeter } from "../src/api/gateway.vibe";
 import { callChatCandidates, chatSseResponse, keyStatusPayload, parseSpecialized, sliceTopResults, upstreamTimeouts, type ChatRoute, type StreamFinal } from "../src/api/gateway/providers.ts";
 
 const wallet = "test-wallet";
@@ -375,6 +375,40 @@ describe("gateway inference", () => {
     expect(result.suspended.status).toBe(403);
     expect(result.active.status).toBe(200);
     expect(ledgerRows.some((entry) => entry.wallet === wallet && (entry.kind === "Reserve" || entry.kind === "Charge"))).toBe(false);
+  });
+
+  // spec/app/usage.md, "Rows are never removed and settled rows never change": a repeated settlement is a no-op, never a double refund.
+  it("settles a meter exactly once when the settlement saga is retried", async () => {
+    const program = Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "saga-key", label: "Inference", prefix: "sonnely_live_saga", hash: "saga-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "saga-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const opened = yield* openMeter("saga-ref", wallet, key, "ChatCompletions", "deepseek-ai/DeepSeek-V4.1-Flash-1017", false, 1_000);
+      if ("refused" in opened) throw new Error("meter refused");
+      const first = yield* settleMeter(opened.meter, 10, 5, -1, 200, 40);
+      const second = yield* settleMeter(opened.meter, 10, 5, -1, 200, 40);
+      const usage = yield* Usage.Machine;
+      const requests = yield* Requests.Machine;
+      return { first, second, keys, ledger, usage, requests };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await Effect.runPromise(Effect.gen(function* () {
+      return {
+        key: (yield* result.keys.get()).keys[0],
+        ledgerRows: (yield* result.ledger.get()).entries,
+        rows: (yield* result.usage.get()).rows,
+        requests: (yield* result.requests.get()).requests,
+      };
+    }));
+    expect(result.first).toEqual({ served: true, charged: 200 });
+    expect(result.second).toEqual({ served: true, charged: 200 });
+    expect(state.key?.spent).toBe(200);
+    expect(state.ledgerRows.filter((entry) => entry.kind === "Charge" && entry.amount === 200)).toHaveLength(1);
+    expect(state.rows.filter((row) => row.id === "saga-ref" && row.status === "Complete")).toHaveLength(1);
+    expect(state.requests[0]).toMatchObject({ ref: "saga-ref", status: "Complete", charged: 200 });
   });
 
   // spec/app/keys.md, "A key record and its lifetime": budgets in micro-USD with resets_at.

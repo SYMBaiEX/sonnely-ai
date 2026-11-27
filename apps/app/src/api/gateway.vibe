@@ -116,10 +116,6 @@ function providerOfModel(model: string): Usage.Provider {
 }
 
 effect function unwindMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | undefined, cost: number, day: string, projectHeld: boolean, keyHeld: boolean, usageRecorded: boolean, opened: boolean) {
-  if (usageRecorded) {
-    const usage = try Usage.Machine
-    usage.send({ type: "release", id: ref }, wallet) catch () => undefined
-  }
   if (key != undefined && keyHeld) {
     const keys = try WorkspaceKeys.Machine
     keys.send({ type: "refundUse", id: key.id, amount: cost, day }, wallet) catch () => undefined
@@ -133,6 +129,10 @@ effect function unwindMeter(ref: string, wallet: string, key: WorkspaceKeys.Key 
   if (opened) {
     const requests = try Requests.Machine
     requests.send({ type: "fault", ref }) catch () => undefined
+  }
+  if (usageRecorded) {
+    const usage = try Usage.Machine
+    usage.send({ type: "release", id: ref }, wallet) catch () => undefined
   }
 }
 
@@ -233,11 +233,21 @@ effect function markReferralActive(referrals: Referrals.Machine.Shape, wallet: s
 export effect function settleMeter(meter: MeterOpen, input: number, output: number, cached: number, cost: number, providerMs: number) {
   const charge = Math.min(meter.reserve, Math.max(0, cost))
   const refund = meter.reserve - charge
+  const usage = try Usage.Machine
+  const row = (try usage.get()).rows.find((r) => r.id == meter.ref)
+  if (row == undefined) {
+    return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
+  }
+  if (row.status != "Pending") {
+    // spec/app/usage.md, "Rows are never removed and settled rows never change": the usage row is the
+    // settlement saga's commit point — it closes only after every compensation is durably sent, so a
+    // repeated settlement of a closed row is a no-op and no compensation can be applied twice.
+    if (row.status == "Complete") return { served: true, charged: row.cost }
+    return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
+  }
   const ledger = try Ledger.Machine
   const settledMoney = ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: charge }) catch (e) => e
   if (settledMoney instanceof Ledger.Rejected) return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
-  const referrals = try Referrals.Machine
-  try markReferralActive(referrals, meter.wallet, charge)
   if (meter.key != undefined && refund > 0) {
     const keys = try WorkspaceKeys.Machine
     keys.send({ type: "refundUse", id: meter.key.id, amount: refund, day: meter.day }, meter.wallet) catch () => undefined
@@ -246,25 +256,29 @@ export effect function settleMeter(meter: MeterOpen, input: number, output: numb
       teams.send({ type: "releaseProject", projectId: meter.key.project, amount: refund }) catch () => undefined
     }
   }
-  const usage = try Usage.Machine
-  const chargedUse = usage.send({ type: "charge", id: meter.ref, input, output, cached, cost: charge, providerMs }, meter.wallet) catch (e) => e
+  const referrals = try Referrals.Machine
+  try markReferralActive(referrals, meter.wallet, charge)
   const requests = try Requests.Machine
   if (meter.stream && output > 0) requests.send({ type: "emit", ref: meter.ref, tokens: output }) catch () => undefined
   const finished = requests.send({ type: "finish", ref: meter.ref, cost: charge }) catch (e) => e
+  const chargedUse = usage.send({ type: "charge", id: meter.ref, input, output, cached, cost: charge, providerMs }, meter.wallet) catch (e) => e
   if (chargedUse instanceof Usage.Rejected || finished instanceof Requests.Rejected) {
     return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
   }
   return { served: true, charged: charge }
 }
 
+// spec/app/usage.md, "A pending request can fail or go under review": the usage row closes last, after
+// the money step and every compensation, so a row still pending always means the saga is incomplete
+// and the reconciliation sweep can finish it.
 export effect function failMeter(meter: MeterOpen, unreported: boolean) {
   const ledger = try Ledger.Machine
   const usage = try Usage.Machine
   const requests = try Requests.Machine
   if (unreported) {
     ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: meter.reserve }) catch () => undefined
-    usage.send({ type: "unreported", id: meter.ref, input: 0, output: 0, cost: meter.reserve }, meter.wallet) catch () => undefined
     requests.send({ type: "finish", ref: meter.ref, cost: meter.reserve }) catch () => undefined
+    usage.send({ type: "unreported", id: meter.ref, input: 0, output: 0, cost: meter.reserve }, meter.wallet) catch () => undefined
   } else {
     ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: 0 }) catch () => undefined
     if (meter.key != undefined) {
@@ -275,8 +289,8 @@ export effect function failMeter(meter: MeterOpen, unreported: boolean) {
         teams.send({ type: "releaseProject", projectId: meter.key.project, amount: meter.reserve }) catch () => undefined
       }
     }
-    usage.send({ type: "release", id: meter.ref }, meter.wallet) catch () => undefined
     requests.send({ type: "fault", ref: meter.ref }) catch () => undefined
+    usage.send({ type: "release", id: meter.ref }, meter.wallet) catch () => undefined
   }
 }
 
@@ -440,8 +454,8 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
             keys.send({ type: "refundUse", id: key.id, amount: meter.reserve, day: meter.day }, wallet) catch () => undefined
             if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: meter.reserve }) catch () => undefined
           }
-          usageMachine.send({ type: "release", id: ref }, wallet) catch () => undefined
           requestMachine.send({ type: "fault", ref }) catch () => undefined
+          usageMachine.send({ type: "release", id: ref }, wallet) catch () => undefined
           return undefined
         }
         // spec/app/usage.md, "A pending request can fail or go under review": the stream died after
@@ -452,13 +466,13 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
         const cost = Math.min(meter.reserve, prorated)
         const refund = meter.reserve - cost
         const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: cost }) catch (e) => e
-        if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, cost)
         if (key != undefined && refund > 0) {
           keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day }, wallet) catch () => undefined
           if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund }) catch () => undefined
         }
-        usageMachine.send({ type: "unreported", id: ref, input: selection.bytes + 256, output: outputTokens, cost }, wallet) catch () => undefined
+        if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, cost)
         requestMachine.send({ type: "finish", ref, cost }) catch () => undefined
+        usageMachine.send({ type: "unreported", id: ref, input: selection.bytes + 256, output: outputTokens, cost }, wallet) catch () => undefined
         return undefined
       }
       const cached = try Effect.try(() => cachedTokens(final.usage))
@@ -466,14 +480,14 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
       const charge = Math.min(meter.reserve, cost)
       const refund = meter.reserve - charge
       const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: charge }) catch (e) => e
-      if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, charge)
       if (key != undefined && refund > 0) {
         keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day }, wallet) catch () => undefined
         if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund }) catch () => undefined
       }
-      usageMachine.send({ type: "charge", id: ref, input: final.usage.prompt_tokens, output: final.usage.completion_tokens, cached, cost: charge, providerMs }, wallet) catch () => undefined
+      if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, charge)
       if (final.usage.completion_tokens > 0) requestMachine.send({ type: "emit", ref, tokens: final.usage.completion_tokens }) catch () => undefined
       requestMachine.send({ type: "finish", ref, cost: charge }) catch () => undefined
+      usageMachine.send({ type: "charge", id: ref, input: final.usage.prompt_tokens, output: final.usage.completion_tokens, cached, cost: charge, providerMs }, wallet) catch () => undefined
       if (withReceipt !== true) return undefined
       return try receiptFor(selection.input, candidate, final.id, final.reportedModel, requestBody, final.responseHash, charge, cached, (try Effect.try(() => providerRequestReference(candidate.provider, response, final.id))), upstream.evidence)
     })
