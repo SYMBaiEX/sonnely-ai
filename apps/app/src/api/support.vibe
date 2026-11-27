@@ -7,7 +7,7 @@ import * as Admin from "../../gen/app__admin.effect.vibe"
 import type { Tickets } from "../../gen/app__support.ts"
 import { machineRegistration } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
-import { operatorRequired } from "./admin.vibe"
+import { operatorRequired, operatorWithRoles } from "./admin.vibe"
 import { authenticatedWallet } from "./session.vibe"
 
 const noStore = { "cache-control": "no-store" }
@@ -46,9 +46,11 @@ effect function getStream(admin: Admin.Machine.Shape, m: QueueMachine) {
   })
 }
 
-// Customer events stay the customer's: open binds its wallet to the session. Staff events are the
-// operator's alone, and a staff reply's author is forced to the operator's wallet — never a wallet
-// the client supplied.
+// Customer events stay the customer's: open binds its wallet to the session, and a customer reply
+// reaches only a ticket the session wallet itself opened — never one another wallet did. Staff
+// events are the Support and Admin roles' alone, and a staff reply's author is forced to the
+// operator's wallet — never a wallet the client supplied. A write answers as a read does: the
+// operator's full queue or the wallet's own projected threads; a refusal never carries state.
 const customerEvents = ["open", "reply"]
 const staffEvents = ["staffReply", "setState", "assignOwner"]
 
@@ -59,25 +61,34 @@ effect function postEvent(admin: Admin.Machine.Shape, m: QueueMachine) {
   }
   const wallet = try authenticatedWallet()
   if (wallet == "") return try HttpServerResponse.json({ ok: false, error: "sign in required" }, { status: 401, headers: noStore })
-  const input = (request.json catch () => undefined) as { type?: unknown } | undefined
+  const input = (request.json catch () => undefined) as { type?: unknown; id?: unknown } | undefined
   if (input == undefined || typeof input.type != "string" || (!customerEvents.includes(input.type as string) && !staffEvents.includes(input.type as string))) {
     return try HttpServerResponse.json({ ok: false, error: "This event is not yours to send." }, { status: 403, headers: noStore })
   }
   const bound = input as Record<string, unknown>
+  let operator = try operatorRequired(admin)
   if (staffEvents.includes(input.type as string)) {
-    const operator = try operatorRequired(admin)
-    if (operator == "") return try HttpServerResponse.json({ ok: false, error: "operator access required" }, { status: 403, headers: noStore })
-    if ("author" in bound) bound["author"] = operator
+    const staff = try operatorWithRoles(admin, ["support", "admin"])
+    if (staff == "") return try HttpServerResponse.json({ ok: false, error: "support or administrator access required" }, { status: 403, headers: noStore })
+    operator = staff
+    if ("author" in bound) bound["author"] = staff
   } else if ("wallet" in bound) {
     bound["wallet"] = wallet
   }
+  if (input.type == "reply" && typeof input.id == "string") {
+    const tickets = ((try m.get()) as Tickets)
+    const ticket = tickets.tickets.find((row) => row.id == (input.id as string))
+    if (ticket == undefined || ticket.wallet == "" || ticket.wallet != wallet) {
+      return try HttpServerResponse.json({ ok: false, error: "This request is not yours to reply on." }, { status: 403, headers: noStore })
+    }
+  }
   const sent = m.receive(bound) catch (error) => error
-  const rejected = sent as { _tag?: string; state?: unknown }
+  const rejected = sent as { _tag?: string }
   if (rejected && typeof rejected === "object" && "_tag" in rejected) {
     const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
-    return try HttpServerResponse.json({ ok: false, error: rejected._tag, state: rejected.state }, { status, headers: noStore })
+    return try HttpServerResponse.json({ ok: false, error: rejected._tag }, { status, headers: noStore })
   }
-  return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
+  return try HttpServerResponse.json({ ok: true, state: operator != "" ? sent : project(sent as Tickets, wallet) }, { headers: noStore })
 }
 
 export const supportApi = Layer.unwrap(effect {

@@ -122,7 +122,12 @@ pure def stepPrivilegedChangesAreAudited(before: Registry, via: str, after: Regi
 ### Accounts are registered once
 
 A workspace appears in the registry the first time it is seen, Active with
-no usage, and no account is registered twice.
+no usage, and no account is registered twice. The shell reports a workspace
+the first time it serves it; that first sight is the system's own
+observation rather than an operator's act, so it leaves no audit entry, and
+it never registers a workspace the registry already holds. An operator's
+registration — of an organisation, or of a workspace the shell has not
+served yet — is the audited one.
 
 ```quint
 pure def registered(a: Registry, id: str): bool = a.records.some(r => r.id == id)
@@ -134,6 +139,12 @@ pure def register(a: Registry, by: str, id: str, subject: Subject, at: int): Reg
   { ...a,
     records: a.records.concat(List({ id: id, subject: subject, status: Active, usage: 0 })),
     audit: a.audit.concat(List({ at: at, actor: by, act: "account.register", target: id, summary: "Account registered" })) }
+
+pure def canFirstSeen(a: Registry, id: str, subject: Subject): bool =
+  id != "" and not(registered(a, id))
+
+pure def firstSeen(a: Registry, id: str, subject: Subject): Registry =
+  { ...a, records: a.records.concat(List({ id: id, subject: subject, status: Active, usage: 0 })) }
 ```
 
 ### Only an active account can be suspended

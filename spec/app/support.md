@@ -5,11 +5,11 @@ opens it with an email, a topic and a message, and either side replies in the
 open. Its state is `open`, `in_progress` or `resolved` (the legacy labels):
 a staff reply on an open request moves it to `in_progress`, the customer
 replying on a resolved request reopens it to `open`, and staff set the state
-directly. A ticket carries the wallet of the workspace that opened it —
-empty when the request arrived without a sign-in — and its assigned
-operator's wallet, empty while unassigned. Replies are `public` — shown to
-the customer — or `internal`, staff notes only; a staff reply carries its
-author's wallet.
+directly. A ticket carries the wallet of the workspace that opened it — the
+shell signs every requester in, so a ticket never goes without one — and its
+assigned operator's wallet, empty while unassigned. Replies are `public` —
+shown to the customer — or `internal`, staff notes only; a staff reply
+carries its author's wallet.
 
 ## Domain
 
@@ -72,12 +72,12 @@ pure val walletValues = Set("", "operator", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLV
 
 ### A request needs valid fields and a fresh id
 
-The wallet is the workspace the shell authenticated for the request, or the
-empty string when the request arrived without a sign-in.
+The wallet is the workspace the shell authenticated for the request; a
+request never arrives without one, so the wallet is never empty.
 
 ```quint
 pure def canOpen(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int): bool =
-  id != "" and email != "" and topic != "" and message != ""
+  id != "" and email != "" and topic != "" and message != "" and wallet != ""
   and now >= 0
   and s.tickets.every(t => t.id != id)
 

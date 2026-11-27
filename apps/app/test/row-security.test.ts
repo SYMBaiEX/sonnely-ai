@@ -6,6 +6,7 @@ import { HttpRouter, HttpServer } from "effect/http";
 import { afterEach, describe, expect, it } from "vitest";
 import * as Session from "../gen/app__session.effect.vibe";
 import * as Admin from "../gen/app__admin.effect.vibe";
+import * as Crm from "../gen/app__admin__crm.effect.vibe";
 import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as Deposits from "../gen/app__billing__deposits.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
@@ -15,7 +16,9 @@ import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as Referrals from "../gen/app__admin__referrals.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
+import { adminApi } from "../src/api/admin.vibe";
 import { billingApi } from "../src/api/billing.vibe";
+import { keysApi } from "../src/api/keys.vibe";
 import { teamsApi } from "../src/api/teams.vibe";
 import { supportApi } from "../src/api/support.vibe";
 import { gatewayApi } from "../src/api/gateway.vibe";
@@ -27,9 +30,13 @@ import { store } from "../src/serve.vibe";
 const walletA = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 const walletB = "DjVE6JNiYq52M37YLBjLvDSMaVG9eRQFRkPRCPwdJnn";
 const walletOp = "4vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2d";
+const walletAdm = "5vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2e";
+const walletFin = "6vMsoUT2BWatFweudnQM1xedRLKEJgM8v4z2o2o9c2f";
 const tokenA = "row-security-session-a";
 const tokenB = "row-security-session-b";
 const tokenOp = "row-security-session-op";
+const tokenAdm = "row-security-session-adm";
+const tokenFin = "row-security-session-fin";
 const apiTokenA = "row-security-api-key-a";
 const apiTokenB = "row-security-api-key-b";
 const cleanups: Array<() => void | Promise<void>> = [];
@@ -62,10 +69,18 @@ function writeSessions(dir: string) {
       { digest: sessionDigest(tokenA), nonce: "nonce", wallet: walletA, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
       { digest: sessionDigest(tokenB), nonce: "nonce", wallet: walletB, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
       { digest: sessionDigest(tokenOp), nonce: "nonce", wallet: walletOp, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
+      { digest: sessionDigest(tokenAdm), nonce: "nonce", wallet: walletAdm, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
+      { digest: sessionDigest(tokenFin), nonce: "nonce", wallet: walletFin, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
     ],
   }));
   writeFileSync(join(dir, "admin"), JSON.stringify({
-    ops: { roster: [{ wallet: walletOp, role: "Support" }] },
+    ops: {
+      roster: [
+        { wallet: walletOp, role: "Support" },
+        { wallet: walletAdm, role: "Admin" },
+        { wallet: walletFin, role: "Finance" },
+      ],
+    },
     records: [],
     audit: [],
   }));
@@ -86,7 +101,13 @@ function seed(dir: string, finalizedDeposit = false) {
     ],
   }));
   writeFileSync(join(dir, "teams"), JSON.stringify({
-    teams: [{ id: "team-a", name: "A's team", members: [{ wallet: walletA, role: "Owner" }], invites: [], projects: [] }],
+    teams: [{
+      id: "team-a",
+      name: "A's team",
+      members: [{ wallet: walletA, role: "Owner" }],
+      invites: [],
+      projects: [{ id: "proj-a", name: "A project", budget: 10000, spent: 0, archived: false }],
+    }],
   }));
   writeFileSync(join(dir, "support"), JSON.stringify({
     tickets: [{
@@ -121,7 +142,9 @@ function makeAppWithDir(finalizedDeposit = false) {
   }
   const scheduler = Layer.succeed(Scheduler.Scheduler, new Scheduler.MixedScheduler("sync"));
   const apis = Layer.mergeAll(
+    adminApi,
     billingApi,
+    keysApi,
     teamsApi,
     supportApi,
     gatewayApi,
@@ -139,6 +162,7 @@ function makeAppWithDir(finalizedDeposit = false) {
       WorkspaceKeys.stored("workspace-keys"),
       Usage.stored("usage"),
       Admin.stored("admin"),
+      Crm.stored("admin-crm"),
       Referrals.stored("admin-referrals"),
       fleetLive,
     ),
@@ -388,5 +412,153 @@ describe("row-level access", () => {
       bearerId: bearerView.job?.id,
       otherTag: otherSession.tag,
     }).toEqual({ created: 200, sessionTag: "Running", sessionId: jobA, bearerTag: "Running", bearerId: jobA, otherTag: "Empty" });
+  });
+
+  function postMachine(handler: (request: Request) => Promise<Response>, machine: string, body: unknown, token: string) {
+    return handler(new Request("http://localhost/api/machines/" + machine, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + token },
+      body: JSON.stringify(body),
+    }));
+  }
+
+  function keyEvent(overrides: Record<string, unknown> = {}) {
+    return {
+      type: "create",
+      id: "key-new",
+      label: "CI key",
+      prefix: "sonnely_live_newkey",
+      hash: "new-hash",
+      project: "",
+      scopes: ["inference"],
+      cap: 0,
+      dailyCap: 0,
+      expiresAt: 0,
+      now: 1,
+      ...overrides,
+    };
+  }
+
+  // spec/app/support.md, "Every ticket stays well formed and uniquely identified": a write that
+  // the rules refuse answers the refusal alone — never the raw state another wallet's rows live in
+  it("answers a refused write without the machine state, however the event is shaped", async () => {
+    const handler = makeApp();
+    const duplicateOpen = await postMachine(handler, "support", { type: "open", id: "ticket-a", email: "b@x.com", topic: "Billing", message: "help", wallet: walletB, now: 30 }, tokenB);
+    const duplicateKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-a", prefix: "sonnely_live_key-a", hash: "hash-a" }), tokenB);
+    const duplicateTeam = await postMachine(handler, "teams", { type: "createTeam", id: "team-a", name: "copycat", actor: walletB, now: 31 }, tokenB);
+    const malformedKey = await postMachine(handler, "workspace-keys", { type: "create", id: "x" }, tokenB);
+    const bodies = await Promise.all([duplicateOpen, duplicateKey, duplicateTeam, malformedKey].map(async (r) => JSON.stringify(await r.json())));
+    expect({
+      statuses: [duplicateOpen.status, duplicateKey.status, duplicateTeam.status, malformedKey.status],
+      leak: bodies.some((body) => body.includes(walletA) || body.includes("internal note") || body.includes("team-a") || body.includes("hash-a") || body.includes('"state"')),
+    }).toEqual({ statuses: [409, 409, 409, 400], leak: false });
+  });
+
+  // spec/app/teams.md, "A team, its members, invites and projects": a write that succeeds answers
+  // the same projection a read does — the wallet's own rows, never another workspace's
+  it("answers an accepted write with the requesting wallet's projected rows only", async () => {
+    const handler = makeApp();
+    const created = await postMachine(handler, "teams", { type: "createTeam", id: "team-b", name: "B's team", actor: walletB, now: 32 }, tokenB);
+    const body = JSON.stringify(await created.json());
+    const keyCreated = await postMachine(handler, "workspace-keys", keyEvent(), tokenB);
+    const keyBody = JSON.stringify(await keyCreated.json());
+    expect({
+      status: created.status,
+      teamsLeak: body.includes("team-a") || body.includes(walletA),
+      teamsOwn: body.includes("team-b"),
+      keyStatus: keyCreated.status,
+      keyLeak: keyBody.includes("key-a") || keyBody.includes(walletA),
+      keyOwn: keyBody.includes("key-new"),
+    }).toEqual({ status: 200, teamsLeak: false, teamsOwn: true, keyStatus: 200, keyLeak: false, keyOwn: true });
+  });
+
+  // spec/app/admin/referrals.md, "Story: Invite a wallet"; spec/app/admin/crm.md, "Customer profiles are keyed by wallet":
+  // the customer-facing events answer the wallet's own rows even when they succeed
+  it("answers referral and profile writes with the wallet's own rows only", async () => {
+    const handler = makeApp();
+    await postMachine(handler, "admin-referrals", { type: "issueCode", code: "code-b", wallet: walletB }, tokenB);
+    const issued = await postMachine(handler, "admin-referrals", { type: "issueCode", code: "code-a", wallet: walletA }, tokenA);
+    const issuedBody = JSON.stringify(await issued.json());
+    const saved = await postMachine(handler, "admin-crm", { type: "saveProfile", wallet: walletB, name: "B", username: "", joined: 1, onboarding: "pending", termsVersion: "", termsAcceptedAt: 0, inviter: "", now: 1 }, tokenB);
+    const savedBody = JSON.stringify(await saved.json());
+    const refused = await postMachine(handler, "admin-referrals", { type: "issueCode", code: "code-a2", wallet: walletA }, tokenA);
+    const refusedBody = JSON.stringify(await refused.json());
+    expect({
+      issuedStatus: issued.status,
+      issuedLeak: issuedBody.includes("code-b"),
+      issuedOwn: issuedBody.includes("code-a"),
+      savedStatus: saved.status,
+      savedLeak: savedBody.includes(walletA),
+      refusedLeak: refusedBody.includes("code-b") || refusedBody.includes('"state"'),
+    }).toEqual({ issuedStatus: 200, issuedLeak: false, issuedOwn: true, savedStatus: 200, savedLeak: false, refusedLeak: false });
+  });
+
+  // spec/app/admin/operators.md, "Operator roles": roster membership is not a capability —
+  // support cannot grant, suspend or adjust; finance cannot grant; only the admin role moderates
+  it("refuses role-crossing privileged writes while allowing each role its own", async () => {
+    const handler = makeApp();
+    const supportGrant = await postMachine(handler, "admin", { type: "grant", wallet: walletOp, role: "Admin", at: 40 }, tokenOp);
+    const supportSuspend = await postMachine(handler, "admin", { type: "suspend", id: walletA, at: 41 }, tokenOp);
+    const supportNote = await postMachine(handler, "admin-crm", { type: "addNote", id: "note-1", account: walletA, actor: walletOp, note: "support snooping", now: 42 }, tokenOp);
+    const supportAdjust = await handler(new Request("http://localhost/api/admin/adjust", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + tokenOp },
+      body: JSON.stringify({ id: "adj-1", activityId: "act-1", account: walletA, delta: 1000, reason: "support should not adjust" }),
+    }));
+    const financeGrant = await postMachine(handler, "admin", { type: "grant", wallet: walletFin, role: "Admin", at: 43 }, tokenFin);
+    const financeAdjust = await handler(new Request("http://localhost/api/admin/adjust", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + tokenFin },
+      body: JSON.stringify({ id: "adj-2", activityId: "act-2", account: walletA, delta: 1000, reason: "finance goodwill credit" }),
+    }));
+    const adminNote = await postMachine(handler, "admin-crm", { type: "addNote", id: "note-2", account: walletA, actor: walletAdm, note: "admin review complete", now: 44 }, tokenAdm);
+    expect({
+      support: [supportGrant.status, supportSuspend.status, supportNote.status, supportAdjust.status],
+      finance: [financeGrant.status, financeAdjust.status],
+      adminNoteStatus: adminNote.status,
+    }).toEqual({ support: [403, 403, 403, 403], finance: [403, 200], adminNoteStatus: 200 });
+  });
+
+  // spec/app/support.md, "The customer can reply on their request": a reply reaches only a ticket
+  // the session wallet itself opened
+  it("refuses a customer reply on another wallet's ticket", async () => {
+    const handler = makeApp();
+    const hostile = await post(handler, { type: "reply", id: "ticket-a", body: "intruder", now: 50 }, tokenB);
+    const own = await post(handler, { type: "reply", id: "ticket-a", body: "more detail", now: 51 }, tokenA);
+    const state = await (await get(handler, "/api/machines/support", tokenOp)).json() as { tickets: { replies: { author: string }[] }[] };
+    expect({
+      hostileStatus: hostile.status,
+      ownStatus: own.status,
+      replies: state.tickets[0]?.replies.length,
+    }).toEqual({ hostileStatus: 403, ownStatus: 200, replies: 3 });
+  });
+
+  // spec/app/keys.md, "Story: Issue a key": a project-scoped key names only a project of a team
+  // the wallet belongs to
+  it("refuses a key scoped to another workspace's project", async () => {
+    const handler = makeApp();
+    const hostile = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-hostile", prefix: "sonnely_live_hostile", hash: "hostile-hash", project: "proj-a" }), tokenB);
+    const own = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-own", prefix: "sonnely_live_ownproj", hash: "own-hash", project: "proj-a" }), tokenA);
+    const unknown = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-unknown", prefix: "sonnely_live_unknown", hash: "unknown-hash", project: "proj-missing" }), tokenA);
+    expect({ hostile: hostile.status, own: own.status, unknown: unknown.status }).toEqual({ hostile: 403, own: 200, unknown: 403 });
+  });
+
+  // spec/app/admin/index.md, "Accounts are registered once": serving a wallet registers it, so an
+  // operator can suspend and reinstate the account end to end
+  it("registers a wallet the first time it is served and moderates it end to end", async () => {
+    const handler = makeApp();
+    await get(handler, "/api/machines/teams", tokenB);
+    const seen = await (await get(handler, "/api/machines/admin", tokenAdm)).json() as { records: { id: string; status: string }[] };
+    const suspended = await postMachine(handler, "admin", { type: "suspend", id: walletB, at: 60 }, tokenAdm);
+    const duringSuspension = await (await get(handler, "/api/machines/admin", tokenAdm)).json() as { records: { id: string; status: string }[] };
+    const reinstated = await postMachine(handler, "admin", { type: "reinstate", id: walletB, at: 61 }, tokenAdm);
+    const after = await (await get(handler, "/api/machines/admin", tokenAdm)).json() as { records: { id: string; status: string }[] };
+    expect({
+      registered: seen.records.some((row) => row.id === walletB && row.status === "Active"),
+      suspendStatus: suspended.status,
+      during: duringSuspension.records.find((row) => row.id === walletB)?.status,
+      reinstateStatus: reinstated.status,
+      after: after.records.find((row) => row.id === walletB)?.status,
+    }).toEqual({ registered: true, suspendStatus: 200, during: "Suspended", reinstateStatus: 200, after: "Active" });
   });
 });

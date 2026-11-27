@@ -62,13 +62,16 @@ effect function readPosition() {
   return payoutPosition(try ledger.get(), try usage.get(), try payouts.get())
 }
 
+// spec/app/admin/operators.md, "Operator roles": treasury payouts are the Finance and Admin
+// roles' alone — a support operator cannot prepare, execute, cancel or even read them.
 effect function operatorAccess() {
   const operator = try authenticatedWallet()
   if (operator == "") return { error: "sign in required", status: 401 }
   const admin = try Admin.Machine
   const registry = try admin.get()
-  if (!registry.ops.roster.some((row) => row.wallet == operator)) {
-    return { error: "operator access required", status: 403 }
+  const role = registry.ops.roster.find((row) => row.wallet == operator)?.role ?? "Member"
+  if (role != "Finance" && role != "Admin") {
+    return { error: "finance or administrator access required", status: 403 }
   }
   return { operator }
 }
@@ -275,7 +278,8 @@ effect function operatorRequired() {
   if (wallet == "") return ""
   const admin = try Admin.Machine
   const registry = try admin.get()
-  if (!registry.ops.roster.some((o) => o.wallet == wallet)) return ""
+  const role = registry.ops.roster.find((o) => o.wallet == wallet)?.role ?? "Member"
+  if (role != "Finance" && role != "Admin") return ""
   return wallet
 }
 

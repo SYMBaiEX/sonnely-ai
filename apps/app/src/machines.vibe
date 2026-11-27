@@ -3,6 +3,7 @@
 // Every write over HTTP passes the verified-session boundary: the event type must be one a user may
 // originate, identity fields are forced to the session wallet, and the machine's trusted sender is
 // the session wallet — never anything the client supplied.
+import * as Admin from "../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./api/session.vibe"
 import { Fleet, fleetMachineNames, type FleetMachine } from "./fleet.vibe"
 
@@ -76,15 +77,30 @@ export function machineRegistration(name: string, machine: MachineReader, scopin
 
 const noStore = { "cache-control": "no-store" }
 
+// spec/app/admin/index.md, "Accounts are registered once": the first time the shell serves a
+// wallet it reports the sighting to the admin machine, so moderation — suspend and reinstate —
+// has a registered account to act on. Best-effort: a composition without the admin machine, or a
+// registry already holding the account, simply skips it.
+effect function observeFirstSeen(wallet: string) {
+  if (wallet == "") return
+  const found = try Effect.serviceOption(Admin.Machine)
+  if (!Option.isSome(found)) return
+  found.value.send({ type: "firstSeen", id: wallet, subject: "User" }, wallet) catch () => undefined
+}
+
 effect function getState(m: MachineLike, scoping: Scoping) {
   const wallet = try authenticatedWallet()
   if (scoping.visibility != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  try observeFirstSeen(wallet)
   const state = try m.get()
   const scoped = scoping.project != undefined && wallet != "" ? scoping.project(state, wallet) : state
   return try HttpServerResponse.json(scoped, { headers: noStore })
 }
 
-effect function postEvent(m: MachineLike, policy: WritePolicy) {
+// A write answers as a read does: the scoping projection of the state the event led to, or the
+// refusal's reason alone. The machine's raw state never crosses the boundary, inside a Rejected
+// failure least of all: it holds every row the projection exists to keep from the wallet.
+effect function postEvent(m: MachineLike, policy: WritePolicy, scoping: Scoping) {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) {
     return try HttpServerResponse.json({ error: "send application/json" }, { status: 415, headers: noStore })
@@ -95,22 +111,25 @@ effect function postEvent(m: MachineLike, policy: WritePolicy) {
   if (input == undefined || typeof input.type != "string" || !policy.events.includes(input.type as string)) {
     return try HttpServerResponse.json({ ok: false, error: "This event is not yours to send." }, { status: 403, headers: noStore })
   }
+  try observeFirstSeen(wallet)
   const bound = input as Record<string, unknown>
   for (const field of policy.bind ?? []) {
     if (field in bound) bound[field] = wallet
   }
   const sent = m.receive(bound, policy.sender == true ? wallet : undefined) catch (error) => error
-  const rejected = sent as { _tag?: string; state?: unknown }
+  const rejected = sent as { _tag?: string }
   if (rejected && typeof rejected === "object" && "_tag" in rejected) {
     const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
-    return try HttpServerResponse.json({ ok: false, error: rejected._tag, state: rejected.state }, { status, headers: noStore })
+    return try HttpServerResponse.json({ ok: false, error: rejected._tag }, { status, headers: noStore })
   }
-  return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
+  const scoped = scoping.project != undefined ? scoping.project(sent, wallet) : sent
+  return try HttpServerResponse.json({ ok: true, state: scoped }, { headers: noStore })
 }
 
 effect function getStream(m: MachineLike, scoping: Scoping) {
   const wallet = try authenticatedWallet()
   if (scoping.visibility != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  try observeFirstSeen(wallet)
   const pushes = Stream.map(m.changes, (raw) => {
     const state = scoping.project != undefined && wallet != "" ? scoping.project(raw, wallet) : raw
     return `data: ${JSON.stringify(state)}\n\n`
@@ -124,6 +143,7 @@ effect function getStream(m: MachineLike, scoping: Scoping) {
 effect function getFleetState(fleet: Fleet.Shape, name: string) {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  try observeFirstSeen(wallet)
   const machine = try fleet.machine(name, wallet)
   return try HttpServerResponse.json(try machine.get(), { headers: noStore })
 }
@@ -131,6 +151,7 @@ effect function getFleetState(fleet: Fleet.Shape, name: string) {
 effect function getFleetStream(fleet: Fleet.Shape, name: string) {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
+  try observeFirstSeen(wallet)
   const machine = try fleet.machine(name, wallet)
   const pushes = Stream.map(machine.changes, (state) => `data: ${JSON.stringify(state)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
@@ -150,16 +171,17 @@ effect function postFleetEvent(fleet: Fleet.Shape, name: string, policy: WritePo
   if (input == undefined || typeof input.type != "string" || !policy.events.includes(input.type as string)) {
     return try HttpServerResponse.json({ ok: false, error: "This event is not yours to send." }, { status: 403, headers: noStore })
   }
+  try observeFirstSeen(wallet)
   const bound = input as Record<string, unknown>
   for (const field of policy.bind ?? []) {
     if (field in bound) bound[field] = wallet
   }
   const machine = try fleet.machine(name, wallet)
   const sent = machine.receive(bound) catch (error) => error
-  const rejected = sent as { _tag?: string; state?: unknown }
+  const rejected = sent as { _tag?: string }
   if (rejected && typeof rejected === "object" && "_tag" in rejected) {
     const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
-    return try HttpServerResponse.json({ ok: false, error: rejected._tag, state: rejected.state }, { status, headers: noStore })
+    return try HttpServerResponse.json({ ok: false, error: rejected._tag }, { status, headers: noStore })
   }
   return try HttpServerResponse.json({ ok: true, state: sent }, { headers: noStore })
 }
@@ -219,7 +241,7 @@ export function machineReadApi(name: string, m: MachineLike, scoping: Scoping = 
 export function machineApi(name: string, m: MachineLike, policy: WritePolicy = { events: [] }, scoping: Scoping = { visibility: "user" }) {
   return Layer.mergeAll(
     HttpRouter.add("GET", `/api/machines/${name}`, getState(m, scoping)),
-    HttpRouter.add("POST", `/api/machines/${name}`, provideService(postEvent(m, policy), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
+    HttpRouter.add("POST", `/api/machines/${name}`, provideService(postEvent(m, policy, scoping), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256))),
     HttpRouter.add("GET", `/api/machines/${name}/stream`, getStream(m, scoping)),
     machineRegistration(name, m, scoping),
     multiplexedMachines,
