@@ -3,7 +3,9 @@ import { ArrowUpRight, CircleAlert, CircleCheck, Clock, RefreshCw } from "lucide
 import { useState } from "react";
 import { overall, routingUp } from "../../../../gen/app__site.effect.vibe";
 import type { Board, ProbeState, Report } from "../../../../gen/app__site.ts";
+import type { Registry } from "../../../../gen/app__admin.ts";
 import { useRemote } from "../../remote.ts";
+import { useSession } from "../../session.ts";
 import { SiteLead } from "./chrome.tsx";
 import { caption, panel, textLink, wrap } from "./ui.ts";
 
@@ -26,19 +28,20 @@ const stateExplanations: Record<ProbeState, [string, string]> = {
 
 function services(report: Report) {
   const probes = report.probes.map((probe) => probe.state);
-  const allOk = probes.length > 0 && probes.every((state) => state === "Ok");
-  const routingLabel = allOk
-    ? "Operational"
+  const up = routingUp(report);
+  const disabledCount = probes.filter((state) => state === "Disabled").length;
+  const routingLabel = up
+    ? disabledCount > 0
+      ? `Operational · ${disabledCount} disabled`
+      : "Operational"
     : probes.some((state) => state === "Ok")
       ? "Degraded"
       : probes.some((state) => state === "Down")
         ? "Unavailable"
-        : probes.some((state) => state === "Disabled")
-          ? "Disabled"
-          : "Check pending";
+        : "Check pending";
   return [
     ["Account service", report.accountUp, "Connected", "Unavailable"],
-    ["Inference routing", routingUp(report) && allOk, "Operational", routingLabel],
+    ["Inference routing", up, routingLabel, routingLabel],
     ["Mainnet USDC", report.mainnetUp, "Configured", "Unavailable"],
     ["Deposit recovery", report.recoveryUp, "Running", "Check pending"],
   ] as const;
@@ -64,6 +67,10 @@ function useReceivedAt(report: Report | undefined) {
 
 export function StatusPage() {
   const { state, error } = useRemote<Board>("site");
+  const session = useSession();
+  const admin = useRemote<Registry>("admin");
+  const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : "";
+  const isOperator = Boolean(wallet && admin.state?.ops.roster.some((row) => row.wallet === wallet));
   const report = state?.tag === "Live" ? state.report : undefined;
   const healthy = report ? overall(report) === "Healthy" : undefined;
   const receivedAt = useReceivedAt(report);
@@ -158,15 +165,17 @@ export function StatusPage() {
                   ". The board shows the most recent check the gateway recorded."
                 : "Waiting for the first report."}
             </p>
-            <button
-              type="button"
-              className="button quiet small"
-              disabled={refreshing}
-              onClick={() => void runCheck()}
-            >
-              <RefreshCw size={14} aria-hidden="true" />
-              {refreshing ? "Checking…" : "Run a fresh check"}
-            </button>
+            {isOperator && (
+              <button
+                type="button"
+                className="button quiet small"
+                disabled={refreshing}
+                onClick={() => void runCheck()}
+              >
+                <RefreshCw size={14} aria-hidden="true" />
+                {refreshing ? "Checking…" : "Run a fresh check"}
+              </button>
+            )}
           </div>
           <p className={caption}>
             Provider catalog checks measure connectivity with a four-second timeout. They do not
