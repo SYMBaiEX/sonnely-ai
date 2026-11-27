@@ -242,6 +242,94 @@ describe("gateway realtime", () => {
     }
   }, 10_000);
 
+  type RealtimeRun = {
+    closeCode: number;
+    messages: Record<string, unknown>[];
+    rows: { status?: string; cost?: number }[];
+    ledgerRows: { kind?: string }[];
+  };
+
+  async function runCommittedSession(behaviour: (socket: WebSocket) => void): Promise<RealtimeRun> {
+    process.env.TINFOIL_API_KEY = "provider-secret";
+    const upstream = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    await new Promise<void>((resolve) => upstream.on("listening", resolve));
+    const upstreamPort = (upstream.address() as AddressInfo).port;
+    upstream.on("connection", (socket) => {
+      socket.send(JSON.stringify({ type: "session.created" }));
+      socket.on("message", (data) => {
+        const event = JSON.parse((data as Buffer).toString("utf8")) as Record<string, unknown>;
+        if (event.type === "input_audio_buffer.commit" && event.final === true) behaviour(socket);
+      });
+    });
+    realtimeUpstream.open.mockImplementation(() => Promise.resolve(new WebSocket("ws://127.0.0.1:" + upstreamPort)));
+    const gateway = await startGateway();
+    try {
+      await createInferenceKey(gateway.keys);
+      await Effect.runPromise(gateway.ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 }));
+      const messages: Record<string, unknown>[] = [];
+      const closed = new Promise<number>((resolve, reject) => {
+        const client = new WebSocket(`ws://127.0.0.1:${gateway.port}/api/sonnely/v1/realtime?model=voxtral-mini-4b-realtime`, {
+          headers: { authorization: "Bearer " + bearer },
+        });
+        client.on("message", (data) => {
+          const event = JSON.parse((data as Buffer).toString("utf8")) as Record<string, unknown>;
+          messages.push(event);
+          if (event.type === "session.created") {
+            client.send(JSON.stringify({ type: "input_audio_buffer.append", audio: Buffer.alloc(6_400).toString("base64") }));
+            client.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+          }
+        });
+        client.on("close", resolve);
+        client.on("error", reject);
+      });
+      const closeCode = await closed;
+      await vi.waitFor(async () => {
+        const rows = (await Effect.runPromise(gateway.usage.get())).rows;
+        expect(rows.length).toBeGreaterThan(0);
+        expect(rows[0]?.status).not.toBe("Pending");
+      }, { timeout: 3_000, interval: 20 });
+      const rows = (await Effect.runPromise(gateway.usage.get())).rows;
+      const ledgerRows = (await Effect.runPromise(gateway.ledger.get())).entries;
+      return { closeCode, messages, rows, ledgerRows };
+    } finally {
+      await stopGateway(gateway);
+      await new Promise<void>((resolve) => upstream.close(() => resolve()));
+    }
+  }
+
+  // spec/app/gateway/realtime.md, "Story: Run a metered realtime transcription": an upstream reset becomes a controlled error frame and a proportional settlement.
+  it("answers a protocol error and settles proportionally when the upstream resets after commit", async () => {
+    const run = await runCommittedSession((socket) => socket.terminate());
+    expect(run.closeCode).toBe(1_011);
+    const error = run.messages.find((event) => event.type === "error");
+    expect(error).toBeDefined();
+    expect(run.rows[0]).toMatchObject({ cost: 15, status: "Complete" });
+    expect(run.ledgerRows.filter((entry) => entry.kind === "Charge")).toHaveLength(1);
+  }, 10_000);
+
+  // spec/app/gateway/realtime.md, "Story: Run a metered realtime transcription": an upstream close before transcription.done never completes the transcript but still settles proportionally.
+  it("answers a protocol error and settles proportionally when the upstream closes before done", async () => {
+    const run = await runCommittedSession((socket) => socket.close(1_000));
+    expect(run.closeCode).toBe(1_011);
+    expect(run.messages.some((event) => event.type === "error")).toBe(true);
+    expect(run.messages.some((event) => event.type === "transcription.done")).toBe(false);
+    expect(run.rows[0]).toMatchObject({ cost: 15, status: "Complete" });
+    expect(run.ledgerRows.filter((entry) => entry.kind === "Charge")).toHaveLength(1);
+  }, 10_000);
+
+  // spec/app/gateway/realtime.md, "Story: Run a metered realtime transcription": malformed upstream frames are skipped without ending the session.
+  it("completes the transcription despite malformed upstream frames", async () => {
+    const run = await runCommittedSession((socket) => {
+      socket.send("this is not json");
+      socket.send(JSON.stringify({ type: "transcription.delta", delta: "transcribed " }));
+      socket.send(JSON.stringify({ type: "unexpected-garbage" }));
+      socket.send(JSON.stringify({ type: "transcription.done", text: "transcribed hello" }));
+    });
+    expect(run.closeCode).toBe(1_000);
+    expect(run.messages.some((event) => event.type === "transcription.done" && event.text === "transcribed hello")).toBe(true);
+    expect(run.rows[0]).toMatchObject({ cost: 15, status: "Complete" });
+  }, 10_000);
+
   // spec/app/gateway/realtime.md, "Story: Run a metered realtime transcription"
   it("settles committed audio exactly once when the client disconnects", async () => {
     process.env.TINFOIL_API_KEY = "provider-secret";
