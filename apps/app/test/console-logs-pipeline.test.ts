@@ -103,4 +103,58 @@ describe("console logs pipeline", () => {
     const logs = await providePipe(program);
     expect(logs?.entries.filter((row) => row.id === "ref-once")).toHaveLength(1);
   });
+
+  // spec/app/console/logs.md, "Served requests are recorded newest first": a write that dies is
+  // retried on the next scan rather than skipped until restart, and one dead row never blocks the rest.
+  it("retries a row whose write died and keeps scanning past it", async () => {
+    const now = Date.now();
+    const other = "logs-pipeline-other-wallet";
+    const program = Effect.gen(function* () {
+      const requests = yield* Requests.Machine;
+      yield* requests.send({ type: "open", ref: "ref-retry", key: keyRecord, endpoint: "ChatCompletions", model, stream: false });
+      yield* requests.send({ type: "open", ref: "ref-after", key: keyRecord, endpoint: "ChatCompletions", model, stream: false });
+      const usage = yield* Usage.Machine;
+      yield* usage.send({ type: "record", id: "ref-retry", time: now, keyName: "ci", keyId: "", project: "", model, provider: "NearAI", cost: 50 }, wallet);
+      yield* usage.send({ type: "charge", id: "ref-retry", input: 3, output: 2, cached: -1, cost: 5, providerMs: 40 }, wallet);
+      yield* usage.send({ type: "record", id: "ref-after", time: now, keyName: "ci", keyId: "", project: "", model, provider: "NearAI", cost: 50 }, other);
+      yield* usage.send({ type: "charge", id: "ref-after", input: 3, output: 2, cached: -1, cost: 5, providerMs: 40 }, other);
+      const kv = yield* KeyValueStore.KeyValueStore;
+      yield* kv.set("console__logs:" + wallet, "corrupt state that cannot decode");
+      const seen = new Set<string>();
+      const state = yield* usage.get();
+      yield* scanServed(state, seen);
+      const blockedYetScanning = {
+        retried: (yield* kv.get("console__logs:" + wallet)) === "corrupt state that cannot decode",
+        afterRecorded: (yield* kv.get("console__logs:" + other))?.includes("ref-after") ?? false,
+        retrySeen: seen.has("ref-retry"),
+      };
+      yield* kv.remove("console__logs:" + wallet);
+      yield* scanServed(yield* usage.get(), seen);
+      return {
+        blockedYetScanning,
+        recovered: (yield* kv.get("console__logs:" + wallet))?.includes("ref-retry") ?? false,
+      };
+    });
+    expect(await providePipe(program)).toEqual({
+      blockedYetScanning: { retried: true, afterRecorded: true, retrySeen: false },
+      recovered: true,
+    });
+  });
+
+  // spec/app/console/logs.md, "Served requests are recorded newest first": the scan window keeps
+  // the rescan bounded — rows older than seven days are dropped rather than retried forever.
+  it("leaves terminal rows older than the seven-day scan window out", async () => {
+    const now = Date.now();
+    const program = Effect.gen(function* () {
+      const requests = yield* Requests.Machine;
+      yield* requests.send({ type: "open", ref: "ref-ancient", key: keyRecord, endpoint: "ChatCompletions", model, stream: false });
+      const usage = yield* Usage.Machine;
+      yield* usage.send({ type: "record", id: "ref-ancient", time: now - 8 * dayMs, keyName: "ci", keyId: "", project: "", model, provider: "NearAI", cost: 50 }, wallet);
+      yield* usage.send({ type: "charge", id: "ref-ancient", input: 3, output: 2, cached: -1, cost: 5, providerMs: 40 }, wallet);
+      yield* scanServed(yield* usage.get(), new Set());
+      return yield* readLogs();
+    });
+    const logs = await providePipe(program);
+    expect((logs?.entries ?? []).filter((row) => row.id === "ref-ancient")).toHaveLength(0);
+  });
 });

@@ -58,7 +58,15 @@ function terminal(row: Row): boolean {
   return row.status != "Pending"
 }
 
-/** Records every terminal metered row `seen` has not settled yet, for tests and the worker. */
+/** Rows settle seconds after they open, so a scan looks back seven days: enough for any plausible
+ * worker downtime, bounded so a long-lived meter cannot make the rescan quadratic without end.
+ * Rows older than the window that never recorded are dropped rather than retried forever. */
+const scanWindowMs = 7 * dayMs
+
+/** Records every terminal metered row `seen` has not settled yet, for tests and the worker. A row
+ * enters `seen` only once its write is final: success, or a typed refusal, which the machine only
+ * ever gives a row it already holds. A dead write — the store refusing the keep — leaves the row
+ * unseen so the next scan retries it instead of skipping it until restart. */
 export effect function scanServed(state: Usage.Usage, seen: Set<string>) {
   const requests = try Requests.Machine
   const fleet = try Fleet
@@ -66,10 +74,13 @@ export effect function scanServed(state: Usage.Usage, seen: Set<string>) {
   const now = try Clock.currentTimeMillis
   for (const row of state.rows) {
     if (!terminal(row) || seen.has(row.id)) continue
-    seen.add(row.id)
+    if (now - row.time > scanWindowMs) continue
     const endpoint = served.requests.find((servedRequest) => servedRequest.ref == row.id)?.endpoint
-    const machine = try fleet.machine("console__logs", row.wallet)
-    machine.receive({ type: "record", entry: entryOf(row, endpoint, now) }) catch () => undefined
+    const result = try exit(effect {
+      const machine = try fleet.machine("console__logs", row.wallet)
+      return try machine.receive({ type: "record", entry: entryOf(row, endpoint, now) })
+    })
+    if (Exit.isSuccess(result) || Option.isSome(Cause.findErrorOption(result.cause))) seen.add(row.id)
   }
 }
 
