@@ -330,6 +330,32 @@ describe("row-level access", () => {
     });
   });
 
+  // spec/app/support.md, "A wallet opens at most five requests in a rolling day": the shell's
+  // server timestamp, never the client-supplied one, is what the window counts
+  it("refuses a sixth open in the rolling day even when the client spreads the timestamps", async () => {
+    const handler = makeApp();
+    const clientTimes = [0, 1, 2, 3, 4, 86_400_000];
+    const statuses: number[] = [];
+    for (const [index, now] of clientTimes.entries()) {
+      const response = await post(handler, { type: "open", id: "limited-" + index, email: "b@x.com", topic: "Billing", message: "help", wallet: walletB, now }, tokenB);
+      statuses.push(response.status);
+    }
+    expect(statuses).toEqual([200, 200, 200, 200, 200, 409]);
+  });
+
+  // spec/app/support.md, "A ticket and its replies"; spec/app/support.md, "The customer can reply on their request"
+  it("refuses oversized request and reply fields", async () => {
+    const handler = makeApp();
+    const open = (id: string, overrides: Record<string, unknown>) => post(handler, {
+      type: "open", id, email: "b@x.com", topic: "Billing", message: "help", wallet: walletB, now: 30, ...overrides,
+    }, tokenB);
+    const longEmail = await open("long-email", { email: "a".repeat(255) });
+    const longTopic = await open("long-topic", { topic: "a".repeat(61) });
+    const longMessage = await open("long-message", { message: "a".repeat(3001) });
+    const longReply = await post(handler, { type: "reply", id: "ticket-a", body: "a".repeat(4001), now: 31 }, tokenA);
+    expect([longEmail.status, longTopic.status, longMessage.status, longReply.status]).toEqual([409, 409, 409, 409]);
+  });
+
   // spec/app/console/chat.md, "The playground is the threads, the open one and the chosen model"
   it("keeps each wallet's chat threads in its own machine instance", async () => {
     const handler = makeApp();

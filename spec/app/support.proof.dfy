@@ -16,7 +16,7 @@ lemma findTicketAll(s: Tickets, id: string)
 }
 
 lemma wellP(s: Tickets)
-  ensures alwaysTicketsAreWellFormed(s) == (!((exists t :: t in s.tickets && !((((((((t.id != "") && (t.email != "")) && (t.topic != "")) && (t.message != "")) && (t.openedAt >= 0)) && (t.updatedAt >= 0)) && !((exists r :: r in t.replies && !(((r.body != "") && (r.time >= 0))))))))) && !((exists t :: t in s.tickets && !((|ProofLib.Filter((o: Ticket) => (o.id == t.id), s.tickets)| == 1)))))
+  ensures alwaysTicketsAreWellFormed(s) == (!((exists t :: t in s.tickets && !(((((((((((t.id != "") && (t.email != "")) && (t.topic != "")) && (t.message != "")) && (textLength(t.email) <= maxEmailLength)) && (textLength(t.topic) <= maxTopicLength)) && (textLength(t.message) <= maxMessageLength)) && (t.openedAt >= 0)) && (t.updatedAt >= 0)) && !((exists r :: r in t.replies && !((((r.body != "") && (textLength(r.body) <= maxReplyLength)) && (r.time >= 0))))))))) && !((exists t :: t in s.tickets && !((|ProofLib.Filter((o: Ticket) => (o.id == t.id), s.tickets)| == 1)))))
 {
 }
 
@@ -45,10 +45,10 @@ lemma open_ensures(s: Tickets, id: string, email: string, topic: string, message
     assert after.tickets == s.tickets + [x];
     wellP(s);
     forall t | t in after.tickets
-      ensures (((t.id != "") && (t.email != "") && (t.topic != "") && (t.message != "") && (t.openedAt >= 0) && (t.updatedAt >= 0) && !((exists r :: r in t.replies && !(((r.body != "") && (r.time >= 0)))))))
+      ensures (t.id != "" && t.email != "" && t.topic != "" && t.message != "" && textLength(t.email) <= maxEmailLength && textLength(t.topic) <= maxTopicLength && textLength(t.message) <= maxMessageLength && t.openedAt >= 0 && t.updatedAt >= 0 && !(exists r :: r in t.replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0)))
     {
     }
-    assert !(exists t :: t in after.tickets && !((((((((t.id != "") && (t.email != "")) && (t.topic != "")) && (t.message != "")) && (t.openedAt >= 0)) && (t.updatedAt >= 0)) && !((exists r :: r in t.replies && !(((r.body != "") && (r.time >= 0))))))));
+    assert !(exists t :: t in after.tickets && !(t.id != "" && t.email != "" && t.topic != "" && t.message != "" && textLength(t.email) <= maxEmailLength && textLength(t.topic) <= maxTopicLength && textLength(t.message) <= maxMessageLength && t.openedAt >= 0 && t.updatedAt >= 0 && !(exists r :: r in t.replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0))));
     forall t | t in after.tickets
       ensures (|ProofLib.Filter((o: Ticket) => (o.id == t.id), after.tickets)| == 1)
     {
@@ -100,10 +100,10 @@ lemma reply_ensures(s: Tickets, id: string, body: string, now: int)
     var after := reply(s, id, body, now);
     wellP(s);
     forall i | 0 <= i < |after.tickets|
-      ensures ((after.tickets[i].id != "") && (after.tickets[i].email != "") && (after.tickets[i].topic != "") && (after.tickets[i].message != "") && (after.tickets[i].openedAt >= 0) && (after.tickets[i].updatedAt >= 0) && !((exists r :: r in after.tickets[i].replies && !(((r.body != "") && (r.time >= 0))))))
+      ensures (after.tickets[i].id != "" && after.tickets[i].email != "" && after.tickets[i].topic != "" && after.tickets[i].message != "" && textLength(after.tickets[i].email) <= maxEmailLength && textLength(after.tickets[i].topic) <= maxTopicLength && textLength(after.tickets[i].message) <= maxMessageLength && after.tickets[i].openedAt >= 0 && after.tickets[i].updatedAt >= 0 && !(exists r :: r in after.tickets[i].replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0)))
     {
     }
-    assert !(exists t :: t in after.tickets && !((((((((t.id != "") && (t.email != "")) && (t.topic != "")) && (t.message != "")) && (t.openedAt >= 0)) && (t.updatedAt >= 0)) && !((exists r :: r in t.replies && !(((r.body != "") && (r.time >= 0))))))));
+    assert !(exists t :: t in after.tickets && !(t.id != "" && t.email != "" && t.topic != "" && t.message != "" && textLength(t.email) <= maxEmailLength && textLength(t.topic) <= maxTopicLength && textLength(t.message) <= maxMessageLength && t.openedAt >= 0 && t.updatedAt >= 0 && !(exists r :: r in t.replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0))));
     forall i | 0 <= i < |after.tickets|
       ensures (|ProofLib.Filter((o: Ticket) => (o.id == after.tickets[i].id), after.tickets)| == 1)
     {
@@ -164,10 +164,10 @@ lemma staffReply_ensures(s: Tickets, id: string, body: string, visibility: Visib
     var after := staffReply(s, id, body, visibility, author, now);
     wellP(s);
     forall i | 0 <= i < |after.tickets|
-      ensures ((after.tickets[i].id != "") && (after.tickets[i].email != "") && (after.tickets[i].topic != "") && (after.tickets[i].message != "") && (after.tickets[i].openedAt >= 0) && (after.tickets[i].updatedAt >= 0) && !((exists r :: r in after.tickets[i].replies && !(((r.body != "") && (r.time >= 0))))))
+      ensures (after.tickets[i].id != "" && after.tickets[i].email != "" && after.tickets[i].topic != "" && after.tickets[i].message != "" && textLength(after.tickets[i].email) <= maxEmailLength && textLength(after.tickets[i].topic) <= maxTopicLength && textLength(after.tickets[i].message) <= maxMessageLength && after.tickets[i].openedAt >= 0 && after.tickets[i].updatedAt >= 0 && !(exists r :: r in after.tickets[i].replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0)))
     {
     }
-    assert !(exists t :: t in after.tickets && !((((((((t.id != "") && (t.email != "")) && (t.topic != "")) && (t.message != "")) && (t.openedAt >= 0)) && (t.updatedAt >= 0)) && !((exists r :: r in t.replies && !(((r.body != "") && (r.time >= 0))))))));
+    assert !(exists t :: t in after.tickets && !(t.id != "" && t.email != "" && t.topic != "" && t.message != "" && textLength(t.email) <= maxEmailLength && textLength(t.topic) <= maxTopicLength && textLength(t.message) <= maxMessageLength && t.openedAt >= 0 && t.updatedAt >= 0 && !(exists r :: r in t.replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0))));
     forall i | 0 <= i < |after.tickets|
       ensures (|ProofLib.Filter((o: Ticket) => (o.id == after.tickets[i].id), after.tickets)| == 1)
     {
@@ -228,10 +228,10 @@ lemma setState_ensures(s: Tickets, id: string, status: TicketState, now: int)
     var after := setState(s, id, status, now);
     wellP(s);
     forall i | 0 <= i < |after.tickets|
-      ensures ((after.tickets[i].id != "") && (after.tickets[i].email != "") && (after.tickets[i].topic != "") && (after.tickets[i].message != "") && (after.tickets[i].openedAt >= 0) && (after.tickets[i].updatedAt >= 0) && !((exists r :: r in after.tickets[i].replies && !(((r.body != "") && (r.time >= 0))))))
+      ensures (after.tickets[i].id != "" && after.tickets[i].email != "" && after.tickets[i].topic != "" && after.tickets[i].message != "" && textLength(after.tickets[i].email) <= maxEmailLength && textLength(after.tickets[i].topic) <= maxTopicLength && textLength(after.tickets[i].message) <= maxMessageLength && after.tickets[i].openedAt >= 0 && after.tickets[i].updatedAt >= 0 && !(exists r :: r in after.tickets[i].replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0)))
     {
     }
-    assert !(exists t :: t in after.tickets && !((((((((t.id != "") && (t.email != "")) && (t.topic != "")) && (t.message != "")) && (t.openedAt >= 0)) && (t.updatedAt >= 0)) && !((exists r :: r in t.replies && !(((r.body != "") && (r.time >= 0))))))));
+    assert !(exists t :: t in after.tickets && !(t.id != "" && t.email != "" && t.topic != "" && t.message != "" && textLength(t.email) <= maxEmailLength && textLength(t.topic) <= maxTopicLength && textLength(t.message) <= maxMessageLength && t.openedAt >= 0 && t.updatedAt >= 0 && !(exists r :: r in t.replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0))));
     forall i | 0 <= i < |after.tickets|
       ensures (|ProofLib.Filter((o: Ticket) => (o.id == after.tickets[i].id), after.tickets)| == 1)
     {
@@ -274,10 +274,10 @@ lemma assignOwner_ensures(s: Tickets, id: string, wallet: string, now: int)
     var after := assignOwner(s, id, wallet, now);
     wellP(s);
     forall i | 0 <= i < |after.tickets|
-      ensures ((after.tickets[i].id != "") && (after.tickets[i].email != "") && (after.tickets[i].topic != "") && (after.tickets[i].message != "") && (after.tickets[i].openedAt >= 0) && (after.tickets[i].updatedAt >= 0) && !((exists r :: r in after.tickets[i].replies && !(((r.body != "") && (r.time >= 0))))))
+      ensures (after.tickets[i].id != "" && after.tickets[i].email != "" && after.tickets[i].topic != "" && after.tickets[i].message != "" && textLength(after.tickets[i].email) <= maxEmailLength && textLength(after.tickets[i].topic) <= maxTopicLength && textLength(after.tickets[i].message) <= maxMessageLength && after.tickets[i].openedAt >= 0 && after.tickets[i].updatedAt >= 0 && !(exists r :: r in after.tickets[i].replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0)))
     {
     }
-    assert !(exists t :: t in after.tickets && !((((((((t.id != "") && (t.email != "")) && (t.topic != "")) && (t.message != "")) && (t.openedAt >= 0)) && (t.updatedAt >= 0)) && !((exists r :: r in t.replies && !(((r.body != "") && (r.time >= 0))))))));
+    assert !(exists t :: t in after.tickets && !(t.id != "" && t.email != "" && t.topic != "" && t.message != "" && textLength(t.email) <= maxEmailLength && textLength(t.topic) <= maxTopicLength && textLength(t.message) <= maxMessageLength && t.openedAt >= 0 && t.updatedAt >= 0 && !(exists r :: r in t.replies && !(r.body != "" && textLength(r.body) <= maxReplyLength && r.time >= 0))));
     forall i | 0 <= i < |after.tickets|
       ensures (|ProofLib.Filter((o: Ticket) => (o.id == after.tickets[i].id), after.tickets)| == 1)
     {

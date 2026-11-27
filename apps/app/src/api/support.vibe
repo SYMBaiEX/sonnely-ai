@@ -2,13 +2,15 @@
 // A customer opens and replies on their own requests and reads only their own thread's public
 // replies; a listed operator reads the whole queue — internal notes included — and is the only
 // one who may send the staff events, with the staff author forced to the operator's own wallet.
-import { Machine, stored } from "../../gen/app__support.effect.vibe"
+import { Machine, opaque, stored } from "../../gen/app__support.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import type { Tickets } from "../../gen/app__support.ts"
 import { machineRegistration } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
 import { operatorRequired, operatorWithRoles } from "./admin.vibe"
 import { authenticatedWallet } from "./session.vibe"
+
+opaque.textLength = (text) => text.length
 
 const noStore = { "cache-control": "no-store" }
 
@@ -66,6 +68,7 @@ effect function postEvent(admin: Admin.Machine.Shape, m: QueueMachine) {
     return try HttpServerResponse.json({ ok: false, error: "This event is not yours to send." }, { status: 403, headers: noStore })
   }
   const bound = input as Record<string, unknown>
+  bound["now"] = try Clock.currentTimeMillis
   let operator = try operatorRequired(admin)
   if (staffEvents.includes(input.type as string)) {
     const staff = try operatorWithRoles(admin, ["support", "admin"])
