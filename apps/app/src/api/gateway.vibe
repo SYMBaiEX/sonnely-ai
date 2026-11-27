@@ -11,6 +11,7 @@ import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Usage from "../../gen/app__usage.effect.vibe"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
+import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { Fleet } from "../fleet.vibe"
 import { stateStore } from "../serve.vibe"
@@ -224,12 +225,19 @@ export effect function openMeter(ref: string, wallet: string, key: WorkspaceKeys
   return { meter: { ref, wallet, key, day, reserve: cost, endpoint, model, stream, startedAt: now } }
 }
 
+effect function markReferralActive(referrals: Referrals.Machine.Shape, wallet: string, charge: number) {
+  if (charge <= 0) return
+  referrals.send({ type: "markActive", wallet }) catch () => undefined
+}
+
 export effect function settleMeter(meter: MeterOpen, input: number, output: number, cached: number, cost: number, providerMs: number) {
   const charge = Math.min(meter.reserve, Math.max(0, cost))
   const refund = meter.reserve - charge
   const ledger = try Ledger.Machine
   const settledMoney = ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: charge }) catch (e) => e
   if (settledMoney instanceof Ledger.Rejected) return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
+  const referrals = try Referrals.Machine
+  try markReferralActive(referrals, meter.wallet, charge)
   if (meter.key != undefined && refund > 0) {
     const keys = try WorkspaceKeys.Machine
     keys.send({ type: "refundUse", id: meter.key.id, amount: refund, day: meter.day }, meter.wallet) catch () => undefined
@@ -421,6 +429,7 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
   const requestMachine = try Requests.Machine
   const keys = try WorkspaceKeys.Machine
   const teams = try Teams.Machine
+  const referrals = try Referrals.Machine
   const rememberId = (_id: string) => undefined
   const settleStream = (final: StreamFinal | undefined, _observedFirstTokenAt: number | undefined, servedOutputChars: number) =>
     runPromise(effect {
@@ -435,7 +444,8 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
           requestMachine.send({ type: "fault", ref }) catch () => undefined
           return undefined
         }
-        ledger.send({ type: "settleHold", wallet, detail: ref, amount: meter.reserve }) catch () => undefined
+        const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: meter.reserve }) catch (e) => e
+        if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, meter.reserve)
         usageMachine.send({ type: "unreported", id: ref }, wallet) catch () => undefined
         requestMachine.send({ type: "finish", ref, cost: meter.reserve }) catch () => undefined
         return undefined
@@ -444,7 +454,8 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
       const cost = try Effect.try(() => tokenCharge(candidate.rate, final.usage.prompt_tokens, cached, final.usage.completion_tokens))
       const charge = Math.min(meter.reserve, cost)
       const refund = meter.reserve - charge
-      ledger.send({ type: "settleHold", wallet, detail: ref, amount: charge }) catch () => undefined
+      const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: charge }) catch (e) => e
+      if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, charge)
       if (key != undefined && refund > 0) {
         keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day }, wallet) catch () => undefined
         if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund }) catch () => undefined

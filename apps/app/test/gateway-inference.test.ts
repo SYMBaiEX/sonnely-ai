@@ -7,6 +7,7 @@ import * as Admin from "../gen/app__admin.effect.vibe";
 import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
+import * as Referrals from "../gen/app__admin__referrals.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
 import { inferChat } from "../src/api/gateway.vibe";
@@ -22,6 +23,7 @@ const stateLayer = () =>
       Usage.stored("inference-test-usage"),
       Requests.stored("inference-test-requests"),
       Admin.stored("inference-test-admin"),
+      Referrals.stored("inference-test-referrals"),
     ),
     KeyValueStore.layerMemory,
   );

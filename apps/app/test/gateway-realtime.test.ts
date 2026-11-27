@@ -9,6 +9,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import * as Admin from "../gen/app__admin.effect.vibe";
 import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
+import * as Referrals from "../gen/app__admin__referrals.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Session from "../gen/app__session.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
@@ -34,6 +35,7 @@ const stateLayer = () => {
     Layer.mergeAll(
       WorkspaceKeys.stored(`realtime-test-keys-${instance}`),
       Admin.stored(`realtime-test-admin-${instance}`),
+      Referrals.stored(`realtime-test-referrals-${instance}`),
       Teams.stored(`realtime-test-teams-${instance}`),
       Ledger.stored(`realtime-test-ledger-${instance}`),
       Usage.stored(`realtime-test-usage-${instance}`),
@@ -53,6 +55,7 @@ type GatewayRuntime = {
   ledger: Ledger.Machine.Shape;
   usage: Usage.Machine.Shape;
   requests: Requests.Machine.Shape;
+  referrals: Referrals.Machine.Shape;
 };
 
 const listen = (server: Server) =>
@@ -66,6 +69,7 @@ async function startGateway() {
     const ledger = yield* Ledger.Machine;
     const usage = yield* Usage.Machine;
     const requests = yield* Requests.Machine;
+    const referrals = yield* Referrals.Machine;
     const scope = yield* Scope.make();
     const app = realtime();
     const handler = yield* NodeHttpServer.makeHandler(app, { scope });
@@ -75,7 +79,7 @@ async function startGateway() {
     server.on("request", (request, response) => handler(request, response));
     server.on("upgrade", (request, socket, head) => upgradeHandler(request, socket, head));
     const port = yield* Effect.promise(() => listen(server));
-    return { server, scope, wss, port, keys, ledger, usage, requests } satisfies GatewayRuntime;
+    return { server, scope, wss, port, keys, ledger, usage, requests, referrals } satisfies GatewayRuntime;
   });
   return Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
 }
@@ -190,6 +194,9 @@ describe("gateway realtime", () => {
     try {
       await createInferenceKey(gateway.keys);
       await Effect.runPromise(gateway.ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 }));
+      await Effect.runPromise(gateway.referrals.send({ type: "issueCode", wallet: "referrer", code: "referral-code" }));
+      await Effect.runPromise(gateway.referrals.send({ type: "signup", code: "referral-code", wallet, joined: 1 }));
+      await Effect.runPromise(gateway.referrals.send({ type: "markFunded", wallet }));
       const messages: Record<string, unknown>[] = [];
       const closed = new Promise<number>((resolve, reject) => {
         const client = new WebSocket(`ws://127.0.0.1:${gateway.port}/api/sonnely/v1/realtime?model=voxtral-mini-4b-realtime`, {
@@ -228,6 +235,7 @@ describe("gateway realtime", () => {
       expect(key?.spent).toBe(15);
       expect(ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount === 15)).toBe(true);
       expect(ledgerRows.some((entry) => entry.kind === "Release" && entry.amount === 2_200)).toBe(true);
+      expect((await Effect.runPromise(gateway.referrals.get())).signups[0]?.stage).toBe("Active");
     } finally {
       await stopGateway(gateway);
       await new Promise<void>((resolve) => upstream.close(() => resolve()));

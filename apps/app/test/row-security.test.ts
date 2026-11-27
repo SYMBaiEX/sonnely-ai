@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Layer, Scheduler } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
@@ -12,6 +12,7 @@ import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Support from "../gen/app__support.effect.vibe";
 import * as Keyring from "../gen/app__gateway__keyring.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
+import * as Referrals from "../gen/app__admin__referrals.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
 import { billingApi } from "../src/api/billing.vibe";
@@ -70,7 +71,7 @@ function writeSessions(dir: string) {
   }));
 }
 
-function seed(dir: string) {
+function seed(dir: string, finalizedDeposit = false) {
   writeFileSync(join(dir, "billing-ledger"), JSON.stringify({
     balance: 4900,
     entries: [
@@ -79,7 +80,10 @@ function seed(dir: string) {
     ],
   }));
   writeFileSync(join(dir, "billing-deposits"), JSON.stringify({
-    intents: [{ reference: "ref-a", wallet: walletA, asset: "USDC", amount: 5, atomic: 5_000_000, createdAt: 1, expiresAt: 2, status: { tag: "Pending" } }],
+    intents: [
+      { reference: "ref-a", wallet: walletA, asset: "USDC", amount: 5, atomic: 5_000_000, createdAt: 1, expiresAt: 2, status: { tag: "Pending" } },
+      ...(finalizedDeposit ? [{ reference: "ref-funded", wallet: walletA, asset: "USDC", amount: 5, atomic: 5_000_000, createdAt: 1, expiresAt: 2, status: { tag: "Finalized", signature: "signed" } }] : []),
+    ],
   }));
   writeFileSync(join(dir, "teams"), JSON.stringify({
     teams: [{ id: "team-a", name: "A's team", members: [{ wallet: walletA, role: "Owner" }], invites: [], projects: [] }],
@@ -104,11 +108,17 @@ function seed(dir: string) {
   }));
 }
 
-function makeApp() {
+function makeAppWithDir(finalizedDeposit = false) {
   const dir = mkdtempSync(join(process.cwd(), ".tmp-row-security-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   writeSessions(dir);
-  seed(dir);
+  seed(dir, finalizedDeposit);
+  if (finalizedDeposit) {
+    writeFileSync(join(dir, "admin-referrals"), JSON.stringify({
+      codes: [{ code: "code-a", owner: walletB }],
+      signups: [{ wallet: walletA, code: "code-a", stage: "SignedUp", joined: 1 }],
+    }));
+  }
   const scheduler = Layer.succeed(Scheduler.Scheduler, new Scheduler.MixedScheduler("sync"));
   const apis = Layer.mergeAll(
     billingApi,
@@ -129,6 +139,7 @@ function makeApp() {
       WorkspaceKeys.stored("workspace-keys"),
       Usage.stored("usage"),
       Admin.stored("admin"),
+      Referrals.stored("admin-referrals"),
       fleetLive,
     ),
     store(dir),
@@ -139,7 +150,11 @@ function makeApp() {
   );
   const app = HttpRouter.toWebHandler(appLayer);
   cleanups.push(() => app.dispose());
-  return app.handler;
+  return { handler: app.handler, dir };
+}
+
+function makeApp() {
+  return makeAppWithDir().handler;
 }
 
 function get(handler: (request: Request) => Promise<Response>, path: string, token?: string) {
@@ -183,6 +198,25 @@ describe("row-level access", () => {
     const a = await (await get(handler, "/api/machines/billing-deposits", tokenA)).json() as { intents: unknown[] };
     const b = await (await get(handler, "/api/machines/billing-deposits", tokenB)).json() as { intents: unknown[] };
     expect({ a: a.intents.length, b: b.intents.length }).toEqual({ a: 1, b: 0 });
+  });
+
+  // spec/app/admin/referrals.md, "A referral's reward only moves forward"; spec/app/billing/deposits.md, "Story: Finalize a paid intent"
+  it("marks a referred wallet funded when its finalized deposit is credited", async () => {
+    const { handler, dir } = makeAppWithDir(true);
+    const response = await handler(new Request("http://localhost/api/billing/deposits/confirm", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: "sonnely_session=" + tokenA },
+      body: JSON.stringify({ reference: "ref-funded" }),
+    }));
+    const body = await response.json() as { ok?: boolean };
+    const referrals = JSON.parse(readFileSync(join(dir, "admin-referrals"), "utf8")) as { signups: { stage: string }[] };
+    const ledger = JSON.parse(readFileSync(join(dir, "billing-ledger"), "utf8")) as { entries: { kind: string; detail: string }[] };
+    expect({
+      status: response.status,
+      ok: body.ok,
+      stage: referrals.signups[0]?.stage,
+      credited: ledger.entries.some((entry) => entry.kind === "Credit" && entry.detail === "ref-funded"),
+    }).toEqual({ status: 200, ok: true, stage: "Funded", credited: true });
   });
 
   // spec/app/teams.md, "A team, its members, invites and projects"

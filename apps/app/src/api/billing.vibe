@@ -9,6 +9,7 @@ import * as Usage from "../../gen/app__usage.effect.vibe"
 import * as WorkspaceKeys from "../../gen/app__keys.effect.vibe"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Requests from "../../gen/app__gateway__requests.effect.vibe"
+import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
 import * as intents from "./billing/intents.ts"
 import * as solana from "./billing/solana.ts"
@@ -227,6 +228,14 @@ effect function dropDraft(reference: string) {
   kv.remove("billing-deposit-draft:" + reference) catch () => undefined
 }
 
+effect function creditDeposit(wallet: string, detail: string, amount: number) {
+  const ledger = try Ledger.Machine
+  const credited = ledger.send({ type: "credit", wallet, detail, amount }) catch () => undefined
+  if (credited == undefined) return
+  const referrals = try Referrals.Machine
+  referrals.send({ type: "markFunded", wallet }) catch () => undefined
+}
+
 // spec/app/billing/deposits.md, "Story: Finalize a paid intent": only a transfer the cluster finalized,
 // bound to the intent's wallet, asset, exact amount and reference, marks the intent Finalized; then the
 // ledger credits its wallet once per reference.
@@ -248,8 +257,7 @@ effect function confirmDeposit() {
   if (intent == undefined) return try reply({ ok: false, error: "Payment request unavailable." }, 404)
   if (intent.wallet != sessionWallet) return try reply({ ok: false, error: "Payment request unavailable." }, 404)
   if (intent.status.tag == "Finalized") {
-    const ledger = try Ledger.Machine
-    ledger.send({ type: "credit", wallet: intent.wallet, detail: reference, amount: intent.amount }) catch () => undefined
+    try creditDeposit(intent.wallet, reference, intent.amount)
     try dropDraft(reference)
     return try reply({ ok: true, signature: intent.status.signature })
   }
@@ -292,9 +300,7 @@ effect function confirmDeposit() {
   if (finalized instanceof Deposits.Rejected) {
     return try reply({ ok: false, error: "This payment request is no longer open." }, 409)
   }
-  const ledger = try Ledger.Machine
-  const credit: Ledger.Event = { type: "credit", wallet: intent.wallet, detail: reference, amount: intent.amount }
-  ledger.send(credit) catch () => undefined
+  try creditDeposit(intent.wallet, reference, intent.amount)
   try dropDraft(reference)
   return try reply({ ok: true, signature: paid })
 }
@@ -366,8 +372,7 @@ effect function recoverOne(config: BillingConfig, intent: Deposits.Intent, now: 
     now,
   }) catch (e) => e
   if (finalized instanceof Deposits.Rejected) return false
-  const ledger = try Ledger.Machine
-  ledger.send({ type: "credit", wallet: intent.wallet, detail: intent.reference, amount: intent.amount }) catch () => undefined
+  try creditDeposit(intent.wallet, intent.reference, intent.amount)
   try dropDraft(intent.reference)
   return true
 }
@@ -381,8 +386,7 @@ effect function sweepDeposits(nextChecks: Map<string, number>) {
   const candidates: Deposits.Intent[] = []
   for (const intent of state.intents) {
     if (intent.status.tag == "Finalized") {
-      const ledger = try Ledger.Machine
-      ledger.send({ type: "credit", wallet: intent.wallet, detail: intent.reference, amount: intent.amount }) catch () => undefined
+      try creditDeposit(intent.wallet, intent.reference, intent.amount)
       try dropDraft(intent.reference)
       continue
     }
