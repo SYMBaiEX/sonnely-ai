@@ -102,13 +102,47 @@ export service Fleet {
   machine(name: string, wallet: string): FleetMachine!!
 }
 
+/** The cache cannot hold every wallet's machines forever, so past maxCachedMachines the
+ * longest-untouched entries evict. Eviction is safe because every machine is event-sourced:
+ * machineOver applies each event to what the store holds when it is sent, so a dropped object
+ * loses nothing and reloads on next access. A machine with a live changes subscriber is never
+ * evicted — dropping it would strand the stream on an instance no future write reaches, since
+ * writes always go through a fresh machine() lookup. */
+const maxCachedMachines = 200
+
+interface CachedMachine {
+  machine: FleetMachine
+  subscribers: number
+}
+
+function trackedEntry(machine: FleetMachine): CachedMachine {
+  const entry: CachedMachine = { machine, subscribers: 0 }
+  entry.machine = {
+    ...machine,
+    changes: Stream.unwrap(sync(() => {
+      entry.subscribers += 1
+      return machine.changes
+    })).pipe(Stream.ensuring(sync(() => {
+      entry.subscribers -= 1
+    }))),
+  }
+  return entry
+}
+
 export const fleetLive = Layer.effect(Fleet, effect {
-  const cache = try Ref.make(new Map<string, FleetMachine>())
+  const cache = try Ref.make(new Map<string, CachedMachine>())
   const kv = try KeyValueStore.KeyValueStore
   return {
     effect machine(name: string, wallet: string) {
       const key = name + ":" + wallet
-      const cached = (try Ref.get(cache)).get(key)
+      const cached = try Ref.modify(cache, (current: Map<string, CachedMachine>) => {
+        const held = current.get(key)
+        if (held == undefined) return [undefined, current] as const
+        const next = new Map(current)
+        next.delete(key)
+        next.set(key, held)
+        return [held.machine, next] as const
+      })
       if (cached != undefined) return cached
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the four machine shapes unify only as erasure
       const built: any = name == "console" ? try buildConsole(kv, key)
@@ -116,12 +150,18 @@ export const fleetLive = Layer.effect(Fleet, effect {
         : name == "console__logs" ? try buildLogs(kv, key)
         : name == "gateway-batch" ? try buildGatewayBatch(kv, key)
         : try buildBatch(kv, key)
-      return try Ref.modify(cache, (current: Map<string, FleetMachine>) => {
+      return try Ref.modify(cache, (current: Map<string, CachedMachine>) => {
         const existing = current.get(key)
-        if (existing != undefined) return [existing, current] as const
+        if (existing != undefined) return [existing.machine, current] as const
+        const entry = trackedEntry(built as FleetMachine)
         const next = new Map(current)
-        next.set(key, built as FleetMachine)
-        return [built as FleetMachine, next] as const
+        next.set(key, entry)
+        for (const [held, cachedEntry] of next) {
+          if (next.size <= maxCachedMachines) break
+          if (held == key || cachedEntry.subscribers > 0) continue
+          next.delete(held)
+        }
+        return [entry.machine, next] as const
       })
     },
   }

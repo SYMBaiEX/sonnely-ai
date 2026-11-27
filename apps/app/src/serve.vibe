@@ -25,25 +25,51 @@ function setting(name: string) {
   return Config.withDefault(Config.String(name), "")
 }
 
-/** Fails fast when production would boot open: no operator seed, wrong cluster or no billing target.
- * An empty SONNELY_OPERATORS leaves the roster bootstrap open to the first signer, so production
- * refuses to start without one. */
+function seededWallets(seed: string) {
+  return seed.split(",").map((wallet) => wallet.trim()).filter((wallet) => wallet != "")
+}
+
+/** Fails fast when production would boot open or dark: no operator seed, wrong cluster, no billing
+ * target or no usable inference provider. The operator roster seeds from SONNELY_ADMIN_WALLETS
+ * (with SONNELY_OPERATORS as its legacy spelling), SONNELY_SUPPORT_WALLETS and
+ * SONNELY_FINANCE_WALLETS, and an empty admin seed leaves the roster bootstrap open to the first
+ * signer. Provider keys gate inference through managedProviderKey in gateway/providers.ts: a key
+ * that is unset, paused or behind a public-inference kill switch serves nothing, so production
+ * refuses to boot an inference product with zero usable providers. */
 export effect function validateStartup() {
-  const env = setting("NODE_ENV") catch () => ""
-  if (env != "production") return
+  const nodeEnv = setting("NODE_ENV") catch () => ""
+  const vercelEnv = setting("VERCEL_ENV") catch () => ""
+  if (nodeEnv != "production" && vercelEnv != "production") return
   const missing: string[] = []
-  const operators = try setting("SONNELY_OPERATORS")
-  const wallets = operators.split(",").map((wallet) => wallet.trim()).filter((wallet) => wallet != "")
-  if (wallets.length == 0) {
-    missing.push("SONNELY_OPERATORS must seed at least one operator wallet")
-  } else if (wallets.some((wallet) => !validWallet(wallet))) {
-    missing.push("SONNELY_OPERATORS holds a wallet that is not a Solana address")
+  const admins = seededWallets((try setting("SONNELY_ADMIN_WALLETS")) + "," + (try setting("SONNELY_OPERATORS")))
+  const support = seededWallets(try setting("SONNELY_SUPPORT_WALLETS"))
+  const finance = seededWallets(try setting("SONNELY_FINANCE_WALLETS"))
+  if (admins.length == 0) {
+    missing.push("SONNELY_ADMIN_WALLETS must seed at least one operator wallet")
+  }
+  if ([...admins, ...support, ...finance].some((wallet) => !validWallet(wallet))) {
+    missing.push("An operator wallet seed holds a value that is not a Solana address")
   }
   if ((try setting("SOLANA_BILLING_CLUSTER")) != "mainnet") {
     missing.push("SOLANA_BILLING_CLUSTER must be mainnet in production")
   }
   if ((try setting("SOLANA_TREASURY")) == "") missing.push("SOLANA_TREASURY is required in production")
   if ((try setting("SOLANA_RPC_URL")) == "") missing.push("SOLANA_RPC_URL is required in production")
+  if ((try setting("SONNELY_PUBLIC_INFERENCE")) != "true") {
+    missing.push("SONNELY_PUBLIC_INFERENCE must be true in production: without it every provider key is unusable")
+  }
+  const paused = new Set(seededWallets(try setting("SONNELY_PAUSED_PROVIDERS")))
+  const nearKey = try setting("NEAR_AI_API_KEY")
+  const phalaKey = try setting("PHALA_AI_API_KEY")
+  const tinfoilKey = try setting("TINFOIL_API_KEY")
+  const usable = [
+    { provider: "near-ai", key: nearKey },
+    { provider: "phala", key: phalaKey },
+    { provider: "tinfoil", key: tinfoilKey },
+  ].filter((candidate) => candidate.key.trim() != "" && !paused.has(candidate.provider))
+  if (usable.length == 0) {
+    missing.push("At least one inference provider key (NEAR_AI_API_KEY, PHALA_AI_API_KEY, TINFOIL_API_KEY) must be set and unpaused in production")
+  }
   if (missing.length == 0) return
   try Console.error("Refusing to start in production:\n" + missing.map((line) => "  - " + line).join("\n"))
   throw new StartupConfig({ missing })

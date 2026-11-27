@@ -1,5 +1,5 @@
 // spec/app/usage.md, "Story: Meter a request"
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -7,7 +7,7 @@ import { Effect, Exit, Layer } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import postgres from "postgres";
 import { afterEach, describe, expect, it } from "vitest";
-import { postgresStore } from "../src/postgres-store.ts";
+import { cutoverMarkerName, postgresStore } from "../src/postgres-store.ts";
 import { stateStore, store } from "../src/store.ts";
 
 const cleanups: Array<() => void | Promise<void>> = [];
@@ -158,6 +158,47 @@ describe("machine state persistence (spec/app/usage.md, \"Story: Meter a request
     }
   });
 
+  async function withEnvironment<A>(env: Record<string, string | undefined>, run: () => A | Promise<A>): Promise<A> {
+    const keys = ["DATABASE_URL", "NODE_ENV", "VERCEL_ENV"] as const;
+    const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+    for (const key of keys) {
+      const value = env[key];
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    try {
+      return await run();
+    } finally {
+      for (const key of keys) {
+        const value = original[key];
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  }
+
+  it("refuses the file fallback in production once PostgreSQL holds the state", async () => {
+    const dir = tempDir("sonnely-cutover-refused-");
+    writeFileSync(join(dir, cutoverMarkerName), "migrated");
+    await withEnvironment({ DATABASE_URL: undefined, NODE_ENV: "production", VERCEL_ENV: undefined }, () => {
+      expect(() => stateStore(dir)).toThrow(/stale pre-migration state/);
+    });
+  });
+
+  it("still boots the file store outside production with the marker present", async () => {
+    const dir = tempDir("sonnely-cutover-dev-");
+    writeFileSync(join(dir, cutoverMarkerName), "migrated");
+    const written = await withEnvironment({ DATABASE_URL: undefined, NODE_ENV: "development", VERCEL_ENV: undefined }, () =>
+      Effect.runPromise(
+        Effect.gen(function* () {
+          const kv = yield* KeyValueStore.KeyValueStore;
+          yield* kv.set("dev-key", "dev-value");
+          return true;
+        }).pipe(Effect.provide(stateStore(dir))),
+      ));
+    expect({ written, file: readFileSync(join(dir, "dev-key"), "utf8") }).toEqual({ written: true, file: "dev-value" });
+  });
+
   describe("PostgreSQL", () => {
     const itWithDatabase = process.env.DATABASE_URL === undefined ? it.skip : it;
 
@@ -204,6 +245,39 @@ describe("machine state persistence (spec/app/usage.md, \"Story: Meter a request
         usage: JSON.stringify({ rows: [{ id: "database-row" }] }),
         console: JSON.stringify({ owner: "wallet" }),
         staging: undefined,
+      });
+    });
+
+    itWithDatabase("never resurrects a key deleted from PostgreSQL after the import", async () => {
+      const url = databaseUrl();
+      const schema = usePostgresSchema(url, "resurrection");
+      const dir = tempDir("sonnely-pg-resurrection-");
+      writeFileSync(join(dir, "usage"), JSON.stringify({ rows: [{ id: "file-row" }] }));
+      writeFileSync(join(dir, "session"), JSON.stringify({ logins: [] }));
+      const boot = () =>
+        Effect.runPromise(
+          Effect.gen(function* () {
+            const kv = yield* KeyValueStore.KeyValueStore;
+            return { usage: yield* kv.get("usage"), session: yield* kv.get("session") };
+          }).pipe(Effect.provide(postgresStore({ databaseUrl: url, migrationDir: dir, schema }))),
+        );
+      const first = await boot();
+      expect(first.usage).toBe(JSON.stringify({ rows: [{ id: "file-row" }] }));
+      expect({ original: existsSync(join(dir, "usage")), archived: existsSync(join(dir, "usage.migrated")) }).toEqual({
+        original: false,
+        archived: true,
+      });
+      const setup = postgres(url, { max: 1, onnotice: false });
+      try {
+        await setup`delete from ${setup.identifier(schema, "machine_state")} where key = ${"usage"}`;
+      } finally {
+        await setup.end();
+      }
+      const second = await boot();
+      expect({ usage: second.usage, session: second.session, markerFile: existsSync(join(dir, cutoverMarkerName)) }).toEqual({
+        usage: undefined,
+        session: JSON.stringify({ logins: [] }),
+        markerFile: true,
       });
     });
 

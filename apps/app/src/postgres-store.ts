@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, readdir } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Effect, Layer, Predicate, Result } from "effect";
 import { Base64 } from "effect/encoding";
@@ -30,6 +30,12 @@ interface AcquiredPostgres {
 }
 
 const tableName = "machine_state";
+const migrationTableName = "machine_migration";
+const migrationDoneKey = "file-import";
+/** Written into the data directory once PostgreSQL holds the state: a later boot that finds
+ * itself without DATABASE_URL must not silently serve the stale files it left behind. */
+export const cutoverMarkerName = ".postgres-cutover";
+const archivedSuffix = ".migrated";
 const identifierPattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const sharedStores = new Map<string, SharedPostgres>();
 
@@ -85,17 +91,28 @@ async function migrationEntries(dir: string) {
   }
   const migrated = [];
   for (const entry of entries) {
-    if (!entry.isFile() || entry.name.startsWith(".write-")) continue;
+    if (!entry.isFile() || entry.name.startsWith(".write-") || entry.name.endsWith(archivedSuffix) || entry.name === cutoverMarkerName) continue;
     const key = decodeFileKey(entry.name);
     if (key === undefined) continue;
-    migrated.push({ key, value: await readFile(join(dir, entry.name), "utf8") });
+    migrated.push({ file: entry.name, key, value: await readFile(join(dir, entry.name), "utf8") });
   }
   return migrated;
 }
 
+async function migrationDone(shared: SharedPostgres) {
+  const rows = await shared.sql<{ value: string }[]>`
+    select value from ${shared.sql.identifier(shared.schema, migrationTableName)}
+    where key = ${migrationDoneKey}
+  `;
+  return rows.length > 0;
+}
+
+/** Files import exactly once: the marker row lands in the same transaction as the import, so a key
+ * deleted from PostgreSQL later never resurrects from its file, and each imported file is renamed
+ * aside so even a fresh schema cannot re-import state the import already accounted for. */
 async function migrateFiles(shared: SharedPostgres) {
+  if (await migrationDone(shared)) return;
   const entries = await migrationEntries(shared.migrationDir);
-  if (entries.length === 0) return;
   await shared.sql.begin(async (sql) => {
     for (const entry of entries) {
       await sql`
@@ -104,7 +121,15 @@ async function migrateFiles(shared: SharedPostgres) {
         on conflict (key) do nothing
       `;
     }
+    await sql`
+      insert into ${sql.identifier(shared.schema, migrationTableName)} (key, value)
+      values (${migrationDoneKey}, ${new Date().toISOString()})
+      on conflict (key) do nothing
+    `;
   });
+  for (const entry of entries) {
+    await rename(join(shared.migrationDir, entry.file), join(shared.migrationDir, entry.file + archivedSuffix)).catch(() => undefined);
+  }
 }
 
 async function initialize(shared: SharedPostgres) {
@@ -119,7 +144,18 @@ async function initialize(shared: SharedPostgres) {
       updated_at timestamptz not null default now()
     )
   `;
+  await shared.sql`
+    create table if not exists ${shared.sql.identifier(shared.schema, migrationTableName)} (
+      key text primary key,
+      value text not null
+    )
+  `;
   await migrateFiles(shared);
+  await mkdir(shared.migrationDir, { recursive: true });
+  await writeFile(
+    join(shared.migrationDir, cutoverMarkerName),
+    `PostgreSQL holds the machine state for this deployment since this boot. Without DATABASE_URL these files are stale: booting the file store against them would roll the state back.\n`,
+  );
 }
 
 function createShared(databaseUrl: string, migrationDir: string, schema: string): SharedPostgres {

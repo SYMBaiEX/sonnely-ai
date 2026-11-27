@@ -6,7 +6,7 @@ import { fleetMachineApi } from "../../machines.vibe"
 import { Fleet, type FleetMachine } from "../../fleet.vibe"
 import { inferChat, inferSpecialized } from "../gateway.vibe"
 import { authenticatedWallet } from "../session.vibe"
-import { configuredProviders } from "../gateway/providers.ts"
+import { configuredProviders, stagingInference } from "../gateway/providers.ts"
 
 module playgroundNode {
   import { randomUUID } from "node:crypto"
@@ -142,12 +142,15 @@ function specializedFallback(endpoint: string) {
   return ""
 }
 
+// spec/app/console/chat.md, "Story: Converse with a model": the deterministic playground shapes are
+// a staging convenience — unmetered and invented. Production never fake-serves: as the gateway does,
+// anything but staging falls through to inferSpecialized, which refuses honestly when no provider is live.
 effect function playgroundJson(endpoint: string) {
   const request = try HttpServerRequest.HttpServerRequest
   const wallet = try authenticatedWallet()
   if (wallet == "") return try HttpServerResponse.json({ error: "Sign in with a Solana wallet." }, { status: 401, headers: noStore })
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length > 0) {
+  if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) {
     const multipart = endpoint == "images/edits" || endpoint == "audio/transcriptions" || endpoint == "audio/translations" || endpoint == "convert/file"
     const raw = multipart ? undefined : request.json catch () => undefined
     const ref = try Effect.try(() => newRef())
@@ -164,7 +167,7 @@ effect function playgroundSpeech() {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try HttpServerResponse.json({ error: "Sign in with a Solana wallet." }, { status: 401, headers: noStore })
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length > 0) {
+  if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) {
     const raw = request.json catch () => undefined
     const ref = try Effect.try(() => newRef())
     return try inferSpecialized("audio/speech", "AudioSpeech", "voxtral-tts", raw, undefined, wallet, ref)

@@ -1,18 +1,34 @@
 const windowMs = 60_000
-const attemptsPerWindow = 10
-const pruneBeyond = 10_000
+const maxEntries = 10_000
+const sessionAttempts = 10
+const machineWriteAttempts = 120
 
-function bucketFor(method: string, path: string): string {
-  if (method != "POST") return ""
-  if (path == "/api/session/challenge") return "session-challenge"
-  if (path.startsWith("/api/billing/deposits")) return "billing-deposits"
-  return ""
+interface Bucket {
+  name: string
+  attempts: number
 }
 
+/** The abuse-sensitive write endpoints and how many posts a minute one client may make to each.
+ * Machine writes carry the console's event traffic, so their budget is generous; the session and
+ * deposit endpoints are strict because they cost verification work or money movement. */
+function bucketFor(method: string, path: string): Bucket | undefined {
+  if (method != "POST") return undefined
+  if (path == "/api/session/challenge") return { name: "session-challenge", attempts: sessionAttempts }
+  if (path == "/api/session/verify") return { name: "session-verify", attempts: sessionAttempts }
+  if (path.startsWith("/api/billing/deposits")) return { name: "billing-deposits", attempts: sessionAttempts }
+  if (path.startsWith("/api/machines/")) return { name: "machine-write", attempts: machineWriteAttempts }
+  return undefined
+}
+
+/** The deployment sits behind one trusted edge proxy that appends the peer it truly connected
+ * from to x-forwarded-for, so the LAST hop is the only one the client cannot spoof: anything
+ * earlier in the chain is client-controlled bytes. With no header the direct peer answers. */
 function clientIp(headers: Record<string, string | undefined>, remote: Option.Option<string>): string {
   const forwarded = headers["x-forwarded-for"]
   if (forwarded != undefined && forwarded.trim() != "") {
-    return (forwarded.split(",")[0] ?? "").trim()
+    const hops = forwarded.split(",").map((hop) => hop.trim()).filter((hop) => hop != "")
+    const last = hops[hops.length - 1]
+    if (last != undefined) return last
   }
   return Option.getOrElse(remote, () => "unknown")
 }
@@ -22,14 +38,22 @@ interface Window {
   count: number
 }
 
+/** Fixed-window counters bounded to maxEntries: expired windows prune first, then the
+ * longest-held entries evict, so an attacker rotating source addresses cannot grow the map
+ * without bound — at worst they evict honest counters, which simply start a fresh window. */
 function throttle(windows: Map<string, Window>, key: string, now: number) {
-  if (windows.size > pruneBeyond) {
-    for (const [held, window] of windows) {
-      if (now - window.start >= windowMs) windows.delete(held)
-    }
-  }
   const current = windows.get(key)
   if (current == undefined || now - current.start >= windowMs) {
+    if (current == undefined && windows.size >= maxEntries) {
+      for (const [held, window] of windows) {
+        if (now - window.start >= windowMs) windows.delete(held)
+      }
+      while (windows.size >= maxEntries) {
+        const oldest = windows.keys().next()
+        if (oldest.done == true) break
+        windows.delete(oldest.value)
+      }
+    }
     windows.set(key, { start: now, count: 1 })
     return { count: 1, retryAfterSeconds: 0 }
   }
@@ -43,11 +67,11 @@ export const ratelimitApi = HttpRouter.middleware(effect {
   return (next: HttpServerResponse.HttpServerResponse!any!any): HttpServerResponse.HttpServerResponse!any!HttpServerRequest.HttpServerRequest => effect {
     const request = try HttpServerRequest.HttpServerRequest
     const bucket = bucketFor(request.method, (request.url.split("?")[0] ?? ""))
-    if (bucket == "") return try next
+    if (bucket == undefined) return try next
     const now = try Clock.currentTimeMillis
-    const key = bucket + "|" + clientIp(request.headers, request.remoteAddress)
+    const key = bucket.name + "|" + clientIp(request.headers, request.remoteAddress)
     const outcome = throttle(windows, key, now)
-    if (outcome.count > attemptsPerWindow) {
+    if (outcome.count > bucket.attempts) {
       return try HttpServerResponse.json({ ok: false, error: "Too many requests." }, {
         status: 429,
         headers: { "cache-control": "no-store", "retry-after": String(outcome.retryAfterSeconds) },
