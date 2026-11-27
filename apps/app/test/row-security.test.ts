@@ -11,7 +11,6 @@ import * as Ledger from "../gen/app__billing__ledger.effect.vibe";
 import * as Deposits from "../gen/app__billing__deposits.effect.vibe";
 import * as Teams from "../gen/app__teams.effect.vibe";
 import * as Support from "../gen/app__support.effect.vibe";
-import * as Keyring from "../gen/app__gateway__keyring.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as Referrals from "../gen/app__admin__referrals.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
@@ -159,7 +158,6 @@ function makeAppWithDir(finalizedDeposit = false) {
       Teams.stored("teams"),
       Support.stored("support"),
       Session.stored("session"),
-      Keyring.stored("keys"),
       Requests.stored("gateway-requests"),
       WorkspaceKeys.stored("workspace-keys"),
       Usage.stored("usage"),

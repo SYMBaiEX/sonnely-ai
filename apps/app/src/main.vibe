@@ -7,7 +7,6 @@ import { docsApi } from "./api/docs.vibe"
 import { gatewayApi, gatewayState } from "./api/gateway.vibe"
 import { healthApi } from "./api/health.vibe"
 import { keysApi, keysState } from "./api/keys.vibe"
-import { navApi, navState } from "./api/nav.vibe"
 import { payoutsApi, payoutsState } from "./api/payouts.vibe"
 import { ratelimitApi } from "./api/ratelimit.vibe"
 import { realtimeApi } from "./api/realtime.vibe"
@@ -24,7 +23,7 @@ effect function main() {
   const web = try path.fromFileUrl(new URL("../web", import.meta.url))
   const dir = (try path.fromFileUrl(new URL("../data", import.meta.url)))
   const port = try Config.withDefault(Config.Number("PORT"), 0)
-  const server = try Effect.try(() => serve(web, listening(port), Layer.mergeAll(ratelimitApi, healthApi, navApi, sessionApi, adminApi, billingApi, payoutsApi, siteApi, docsApi, gatewayApi, realtimeApi, keysApi, usageApi, supportApi, teamsApi, consoleApi), Layer.mergeAll(stateStore(dir), navState(dir), sessionState(dir), adminState(dir), billingState(dir), payoutsState(dir), siteState(dir), gatewayState(dir), keysState(dir), usageState(dir), supportState(dir), teamsState(dir), consoleState(dir))))
+  const server = try Effect.try(() => serve(web, listening(port), Layer.mergeAll(ratelimitApi, healthApi, sessionApi, adminApi, billingApi, payoutsApi, siteApi, docsApi, gatewayApi, realtimeApi, keysApi, usageApi, supportApi, teamsApi, consoleApi), Layer.mergeAll(stateStore(dir), sessionState(dir), adminState(dir), billingState(dir), payoutsState(dir), siteState(dir), gatewayState(dir), keysState(dir), usageState(dir), supportState(dir), teamsState(dir), consoleState(dir))))
   provide server {
     const { address } = try HttpServer.HttpServer
     if ("port" in address) try Console.log(`http://localhost:${address.port}`)

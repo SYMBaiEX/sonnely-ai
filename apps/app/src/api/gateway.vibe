@@ -896,11 +896,6 @@ effect function gone() {
   return try reply({ error: { message: "/api/v1 is retired; use /api/sonnely/v1.", type: "gone" } }, 410)
 }
 
-/** The keyring machine, stored under "keys" — the workspace shares the key. */
-export function keyringMachine() {
-  return Keyring.stored("keys")
-}
-
 /** The request ledger, stored under "gateway-requests". */
 export function requestsMachine() {
   return Requests.stored("gateway-requests")
@@ -909,12 +904,6 @@ export function requestsMachine() {
 /** The batch machine over one stored instance, for tests and drivers. */
 export function batchMachine() {
   return Batch.stored("gateway-batch")
-}
-
-/** An event from anywhere untrusted, decoded before the keyring's rules see it. */
-export effect function dispatchKeyring(input: unknown) {
-  const machine = try Keyring.Machine
-  return try machine.receive(input)
 }
 
 /** An event from anywhere untrusted, decoded before the ledger's rules see it. */
@@ -932,11 +921,8 @@ export effect function dispatchBatch(input: unknown) {
 // spec/app/gateway/index.md — the API surface: machine state and streams are read-only; every write
 // goes through the guards above.
 export const gatewayApi = Layer.unwrap(effect {
-  const keyring = try Keyring.Machine
   const requests = try Requests.Machine
   return Layer.mergeAll(
-    HttpRouter.add("GET", "/api/machines/keys", getState(keyring)),
-    HttpRouter.add("GET", "/api/machines/keys/stream", getStream(keyring)),
     HttpRouter.add("GET", "/api/machines/gateway-requests", getState(requests)),
     HttpRouter.add("GET", "/api/machines/gateway-requests/stream", getStream(requests)),
     HttpRouter.add("GET", "/api/sonnely/v1/models", listModels()),
@@ -960,7 +946,6 @@ export const gatewayApi = Layer.unwrap(effect {
 /** The gateway machines' state, kept under `dir`; each wallet's batch job is a fleet instance over the same store. */
 export function gatewayState(dir: string) {
   return Layer.mergeAll(
-    Layer.provide(Keyring.stored("keys"), stateStore(dir)),
     Layer.provide(Requests.stored("gateway-requests"), stateStore(dir)),
   )
 }
