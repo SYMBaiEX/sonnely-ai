@@ -40,6 +40,7 @@ import {
   requestCode,
   requestPathPoints,
   requestPathSteps,
+  traceStages,
   type DemoLanguage,
 } from "./content.ts";
 import { articles } from "./journal.ts";
@@ -384,8 +385,21 @@ function RouteSample() {
 function EndpointSample() {
   return (
     <div className="gateway-sample gateway-endpoint">
-      <span>SDK</span>
-      <code>new Sonnely()</code>
+      <p>Typed clients</p>
+      <dl>
+        <div>
+          <dt>typescript</dt>
+          <dd>
+            <code>new Sonnely(…)</code>
+          </dd>
+        </div>
+        <div>
+          <dt>python</dt>
+          <dd>
+            <code>Sonnely(…)</code>
+          </dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -418,18 +432,50 @@ function FundingPath() {
   );
 }
 
+const traceTotal = traceStages[traceStages.length - 1].end;
+
+function GatewayTrace() {
+  return (
+    <figure className="gateway-trace" data-reveal="fade">
+      <figcaption className="gateway-trace-head">
+        <span className="gateway-trace-label">
+          <i className="gateway-trace-dot" aria-hidden="true" /> example trace ·{" "}
+          {(traceTotal / 1000).toFixed(1)} s
+        </span>
+        <span className="gateway-trace-outcome">
+          <Check size={12} aria-hidden="true" /> settled
+        </span>
+      </figcaption>
+      <div className="gateway-trace-bar" aria-hidden="true">
+        {traceStages.map(({ name, start, end }) => (
+          <span
+            key={name}
+            className={"gateway-trace-segment gateway-trace-segment-" + name.split(" ")[0].toLowerCase()}
+            style={{
+              insetInlineStart: (start / traceTotal) * 100 + "%",
+              width: ((end - start) / traceTotal) * 100 + "%",
+            }}
+          />
+        ))}
+        <span className="gateway-trace-scan" />
+      </div>
+      <ol className="gateway-trace-stages">
+        {traceStages.map(({ name, start, end, icon }) => (
+          <li key={name}>
+            <ProductIcon name={icon} size={13} />
+            <span className="gateway-trace-name">{name}</span>
+            <span className="gateway-trace-ms">{end - start} ms</span>
+          </li>
+        ))}
+      </ol>
+    </figure>
+  );
+}
+
 const capabilities = [
   {
-    id: "route",
-    icon: Fingerprint,
-    title: "Confidential inference",
-    body: "Run models on confidential compute and check the evidence published for each request.",
-    href: "/inference#evidence",
-    action: "Verify the attestation",
-    Sample: RouteSample,
-  },
-  {
     id: "api",
+    stage: "request",
     icon: Braces,
     title: "Sonnely SDKs",
     body: "Use the typed TypeScript or Python client for completions, streams, receipts, and request references.",
@@ -439,6 +485,7 @@ const capabilities = [
   },
   {
     id: "budget",
+    stage: "limit",
     icon: KeyRound,
     title: "A budget for each key",
     body: "Set daily and lifetime limits for each key. See what each request cost in Usage.",
@@ -447,7 +494,18 @@ const capabilities = [
     Sample: BudgetSample,
   },
   {
+    id: "route",
+    stage: "execute",
+    icon: Fingerprint,
+    title: "Confidential inference",
+    body: "Run models on confidential compute and check the evidence published for each request.",
+    href: "/inference#evidence",
+    action: "Verify the attestation",
+    Sample: RouteSample,
+  },
+  {
     id: "funding",
+    stage: "settle",
     icon: Wallet,
     title: "Solana sign-in and funding",
     body: "Sign in with your Solana wallet. When checkout is available, top up with USDC or SOL.",
@@ -467,8 +525,9 @@ function HomeCapabilities() {
         </div>
         <p>Send a request, set a limit, and see what you were charged.</p>
       </header>
+      <GatewayTrace />
       <ul className="gateway-grid" role="list">
-        {capabilities.map(({ id, icon: Icon, title, body, href, action, Sample }) => (
+        {capabilities.map(({ id, stage, icon: Icon, title, body, href, action, Sample }, index) => (
           <li
             key={id}
             className={"gateway-tile gateway-tile-" + id}
@@ -479,6 +538,9 @@ function HomeCapabilities() {
                 <Icon size={19} aria-hidden="true" />
               </span>
               <div>
+                <p className="gateway-tile-stage" aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")} · {stage}
+                </p>
                 <h3>{title}</h3>
                 <p>{body}</p>
               </div>
@@ -557,18 +619,21 @@ function HomeModelList() {
 const workloads = [
   {
     icon: FileText,
+    slug: "notes",
     title: "Make sense of messy notes",
     prompt: "What did we decide, and what’s still open?",
     model: 0,
   },
   {
     icon: ScanLine,
+    slug: "handoff",
     title: "Pull out the details",
     prompt: "Find the owner and due date in this handoff.",
     model: 1,
   },
   {
     icon: Code2,
+    slug: "retry",
     title: "Read unfamiliar code",
     prompt: "Explain how this retry delay changes after each failure.",
     model: 2,
@@ -582,16 +647,27 @@ function HomeWorkloads() {
         <h2 id="workloads-heading">Start with a real task.</h2>
       </div>
       <div className="home-workload-grid">
-        {workloads.map(({ icon: Icon, title, prompt, model }) => {
+        {workloads.map(({ icon: Icon, slug, title, prompt, model }, index) => {
           const entry = featuredEntries[model];
           const route = entry ? chatRoute(entry) : undefined;
           return (
             <article className="workload-card" key={title} data-reveal="rise">
-              <span className="home-feature-icon">
-                <Icon size={20} aria-hidden="true" />
-              </span>
+              <header className="workload-card-head">
+                <Icon size={14} aria-hidden="true" />
+                <span>
+                  task/{String(index + 1).padStart(2, "0")} · {slug}
+                </span>
+              </header>
               <h3>{title}</h3>
-              <blockquote>“{prompt}”</blockquote>
+              <blockquote className="workload-prompt">
+                <span className="workload-prompt-mark" aria-hidden="true">
+                  ›
+                </span>
+                <span>
+                  {prompt}
+                  <span className="workload-caret" aria-hidden="true" />
+                </span>
+              </blockquote>
               {entry && route && (
                 <a className="text-link" href={modelPlaygroundHref(route.modelId, entry.provider)}>
                   Try {entry.name} <ArrowUpRight size={14} aria-hidden="true" />
@@ -608,18 +684,21 @@ function HomeWorkloads() {
 function KeyPreview() {
   return (
     <>
-      <p className="mono preview-name">docs-assistant</p>
+      <div className="preview-hero">
+        <strong>$5.00</strong>
+        <span>daily cap</span>
+      </div>
       <dl>
         <div>
-          <dt>Daily cap</dt>
-          <dd>$5.00</dd>
+          <dt>key</dt>
+          <dd>docs-assistant</dd>
         </div>
         <div>
-          <dt>Lifetime cap</dt>
+          <dt>lifetime cap</dt>
           <dd>$75.00</dd>
         </div>
         <div>
-          <dt>Expiry</dt>
+          <dt>expiry</dt>
           <dd>30 days</dd>
         </div>
       </dl>
@@ -630,23 +709,22 @@ function KeyPreview() {
 function UsagePreview() {
   return (
     <>
-      <p className="mono preview-name">GLM 5.3 Flash</p>
-      <div className="preview-usage-bar" aria-hidden="true">
-        <span />
-        <span />
+      <div className="preview-hero">
+        <strong>$0.000193</strong>
+        <span>charge · glm 5.3 flash</span>
+        <div className="preview-usage-bar" aria-hidden="true">
+          <span />
+          <span />
+        </div>
       </div>
       <dl>
         <div>
-          <dt>Input tokens</dt>
+          <dt>input tokens</dt>
           <dd>1,240</dd>
         </div>
         <div>
-          <dt>Output tokens</dt>
+          <dt>output tokens</dt>
           <dd>186</dd>
-        </div>
-        <div>
-          <dt>Charge</dt>
-          <dd>$0.000193</dd>
         </div>
       </dl>
     </>
@@ -656,19 +734,24 @@ function UsagePreview() {
 function PaymentPreview() {
   return (
     <>
-      <p className="mono preview-name">5.00 USDC</p>
+      <div className="preview-hero">
+        <strong>+$5.00</strong>
+        <span>compute credits</span>
+      </div>
       <dl>
         <div>
-          <dt>Network</dt>
-          <dd>Solana mainnet</dd>
+          <dt>payment</dt>
+          <dd>5.00 usdc</dd>
         </div>
         <div>
-          <dt>Payment</dt>
-          <dd>Finalized</dd>
+          <dt>network</dt>
+          <dd>solana mainnet</dd>
         </div>
         <div>
-          <dt>Compute credits</dt>
-          <dd>+$5.00</dd>
+          <dt>status</dt>
+          <dd>
+            finalized <Check size={12} aria-hidden="true" />
+          </dd>
         </div>
       </dl>
     </>
@@ -767,6 +850,9 @@ function WorkspacePreview() {
               onClick={() => setActive(index)}
               onKeyDown={(event) => navigate(event, index)}
             >
+              <span className="workspace-tab-index" aria-hidden="true">
+                {String(index + 1).padStart(2, "0")}
+              </span>
               <Icon size={18} aria-hidden="true" /> {label}
             </button>
           ))}
@@ -785,19 +871,14 @@ function WorkspacePreview() {
               {index === active && (
                 <>
                   <div className="workspace-visual">
-                    <img
-                      src={"/homepage/" + id + ".webp"}
-                      alt=""
-                      width={840}
-                      height={560}
-                      loading="lazy"
-                    />
                     <figure className="preview-data">
                       <figcaption>
                         <Icon size={15} aria-hidden="true" /> <strong>{previewTitle}</strong>
-                        <small>Example</small>
+                        <small>example</small>
                       </figcaption>
-                      <Preview />
+                      <div className="preview-body">
+                        <Preview />
+                      </div>
                     </figure>
                   </div>
                   <div className="workspace-preview-copy">

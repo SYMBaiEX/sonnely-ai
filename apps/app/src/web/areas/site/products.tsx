@@ -9,30 +9,60 @@ import { ProductIcon } from "./icons.tsx";
 import { buttonAccent, caption, textLink, wrap } from "./ui.ts";
 
 export function PlatformLinks({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
+  if (compact) {
+    return (
+      <section className={"product-related " + className} aria-labelledby="platform-links-heading">
+        <div className="product-indexIntro" data-reveal="rise">
+          <h2 id="platform-links-heading">Explore the platform</h2>
+        </div>
+        <ul className="product-linkList" role="list">
+          {platformLinks.map(({ href, label, icon }) => (
+            <li key={href}>
+              <a href={href}>
+                <ProductIcon name={icon} size={20} />
+                <span>
+                  <strong>{label}</strong>
+                </span>
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
   return (
-    <section
-      className={(compact ? "product-related" : "section product-index") + " " + className}
-      aria-labelledby="platform-links-heading"
-    >
+    <section className={"section product-index " + className} aria-labelledby="platform-links-heading">
       <div className="product-indexIntro" data-reveal="rise">
-        <h2 id="platform-links-heading">
-          {compact ? "Explore the platform" : "Inference, from API to operations."}
-        </h2>
-        {!compact && <p>Choose a model route and understand each request.</p>}
+        <h2 id="platform-links-heading">Inference, from API to operations.</h2>
+        <p>Choose a model route and understand each request.</p>
       </div>
-      <ul className="product-linkList" role="list">
-        {platformLinks.map(({ href, label, description, icon }) => (
-          <li key={href}>
-            <a href={href}>
-              <ProductIcon name={icon} size={20} />
-              <span>
+      <ul className="directory-modules" role="list">
+        {platformLinks.map(({ href, label, description, icon }) => {
+          const brief = directoryBriefs[href];
+          return (
+            <li key={href}>
+              <a href={href}>
+                <span className="directory-module-head">
+                  <span className="directory-path">
+                    <ProductIcon name={icon} size={14} /> ~{href}
+                  </span>
+                  <ArrowUpRight size={16} aria-hidden="true" />
+                </span>
                 <strong>{label}</strong>
-                {!compact && <small>{description}</small>}
-              </span>
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
-          </li>
-        ))}
+                <small>{description}</small>
+                <dl className="directory-facts">
+                  {brief.rows.map(([fact, value]) => (
+                    <div key={fact}>
+                      <dt>{fact}</dt>
+                      <dd>{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -331,6 +361,11 @@ const pageBriefs: Record<ProductPageId, SiteBrief> = {
     ],
   },
 };
+
+const directoryBriefs = {
+  "/inference": pageBriefs.inference,
+  "/observability": pageBriefs.observability,
+} as const;
 
 export function ProductPage({ page }: { page: ProductPageId }) {
   const [title, description] = pages[page];
