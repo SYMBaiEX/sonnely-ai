@@ -19,10 +19,14 @@ window covers, and `chargeTotal` is the cumulative net inference customer
 charge through that position. Because the customer charge is upstream cost
 plus ten percent, `marginOf` keeps the margin share and conservatively floors
 it to a whole micro-dollar; any fractional remainder stays in the treasury.
-`Prepared` has no signature. `Executed` records the signature the operator
-submitted, `Verified` the same signature after finality and exact-term
-verification, `Failed` a submitted transaction that finalized unsuccessfully,
-and `Cancelled` a prepared payout the operator abandoned before submission.
+`lastValidBlockHeight` is the chain height through which the prepared
+transaction's blockhash stays valid: while the chain has not passed it, a
+signed copy of the transaction could still land, so the payout cannot be
+safely abandoned. `Prepared` has no signature. `Executed` records the
+signature the operator submitted, `Verified` the same signature after
+finality and exact-term verification, `Failed` a submitted transaction that
+finalized unsuccessfully, and `Cancelled` a prepared payout the operator
+abandoned once its transaction could never land.
 
 ```quint
 type PayoutStatus =
@@ -40,6 +44,7 @@ type Payout = {
   throughEntry: int,
   chargeTotal: int,
   preparedBy: str,
+  lastValidBlockHeight: int,
   status: PayoutStatus,
 }
 
@@ -132,6 +137,10 @@ pure val chargeTotalValues = Set(0, 55, 110)
 
 pure val preparedAtValues = Set(0, 5)
 
+pure val lastValidBlockHeightValues = Set(0, 4)
+
+pure val chainHeightValues = Set(0, 4, 5)
+
 pure val executedAtValues = Set(0, 5, 10)
 
 pure val verifiedAtValues = Set(0, 5, 10)
@@ -161,14 +170,14 @@ acts outside the system and concurrent unsigned transfers cannot be ordered
 here.
 
 ```quint
-pure def canPrepare(p: Payouts, reference: str, destination: str, amount: int, throughEntry: int, chargeTotal: int, preparedAt: int, preparedBy: str): bool =
+pure def canPrepare(p: Payouts, reference: str, destination: str, amount: int, throughEntry: int, chargeTotal: int, preparedAt: int, preparedBy: str, lastValidBlockHeight: int): bool =
   reference != "" and destination == payoutWallet and amount > 0 and
-  throughEntry >= 0 and chargeTotal >= 0 and preparedAt >= 0 and preparedBy != "" and
+  throughEntry >= 0 and chargeTotal >= 0 and preparedAt >= 0 and preparedBy != "" and lastValidBlockHeight >= 0 and
   findPayout(p, reference).length() == 0 and not(hasLive(p)) and
   committed(p) + amount <= marginOf(chargeTotal)
 
-pure def prepare(p: Payouts, reference: str, destination: str, amount: int, throughEntry: int, chargeTotal: int, preparedAt: int, preparedBy: str): Payouts =
-  if (canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy)) {
+pure def prepare(p: Payouts, reference: str, destination: str, amount: int, throughEntry: int, chargeTotal: int, preparedAt: int, preparedBy: str, lastValidBlockHeight: int): Payouts =
+  if (canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight)) {
     payouts: p.payouts.concat(List({
       reference: reference,
       destination: destination,
@@ -177,6 +186,7 @@ pure def prepare(p: Payouts, reference: str, destination: str, amount: int, thro
       throughEntry: throughEntry,
       chargeTotal: chargeTotal,
       preparedBy: preparedBy,
+      lastValidBlockHeight: lastValidBlockHeight,
       status: Prepared,
     })),
   } else p
@@ -195,7 +205,8 @@ pure def alwaysReferencesUnique(p: Payouts): bool =
 pure def alwaysPayoutsHoldTerms(p: Payouts): bool =
   p.payouts.every(row =>
     row.reference != "" and row.destination == payoutWallet and row.amount > 0 and
-    row.preparedAt >= 0 and row.throughEntry >= 0 and row.chargeTotal >= 0 and row.preparedBy != "")
+    row.preparedAt >= 0 and row.throughEntry >= 0 and row.chargeTotal >= 0 and row.preparedBy != "" and
+    row.lastValidBlockHeight >= 0)
 ```
 
 ### A payout can be prepared
@@ -304,11 +315,16 @@ pure def markFailed(p: Payouts, reference: str, signature: str, failedAt: int, r
 }
 ```
 
-### A prepared payout can be cancelled before execution
+### A prepared payout can be cancelled only once its transaction can never land
 
-Cancellation only abandons an unsigned preparation. Once a signature has been
-reported, the transaction may exist outside the system, so the payout must be
-verified or failed rather than cancelled.
+Cancellation abandons an unsigned preparation, but the operator may already
+have signed and submitted it outside the system. A signed transaction can
+only land while its blockhash is valid, so the payment service supplies
+`chainHeight` — the configured cluster's finalized block height — and
+cancellation is refused until the chain has passed the prepared transaction's
+`lastValidBlockHeight`. Once a signature has been reported, the transaction
+may exist outside the system, so the payout must be verified or failed
+rather than cancelled.
 
 ```quint
 pure def cancellationAccepted(status: PayoutStatus): bool =
@@ -318,12 +334,13 @@ pure def cancellationAccepted(status: PayoutStatus): bool =
     | _ => false
   }
 
-pure def canCancel(p: Payouts, reference: str, cancelledAt: int, reason: str): bool =
+pure def canCancel(p: Payouts, reference: str, cancelledAt: int, reason: str, chainHeight: int): bool =
   val found = findPayout(p, reference)
   found.length() == 1 and reason != "" and cancelledAt >= found.head().preparedAt and
+  chainHeight > found.head().lastValidBlockHeight and
   cancellationAccepted(found.head().status)
 
-pure def cancel(p: Payouts, reference: str, cancelledAt: int, reason: str): Payouts = {
+pure def cancel(p: Payouts, reference: str, cancelledAt: int, reason: str, chainHeight: int): Payouts = {
   payouts: p.payouts.listMap(row =>
     if (row.reference == reference and row.status == Prepared)
       { ...row, status: Cancelled({ cancelledAt: cancelledAt, reason: reason }) }
@@ -346,6 +363,7 @@ pure def forwardFrom(before: Payout, after: Payout): bool =
   after.destination == before.destination and after.amount == before.amount and
   after.preparedAt == before.preparedAt and after.throughEntry == before.throughEntry and
   after.chargeTotal == before.chargeTotal and after.preparedBy == before.preparedBy and
+  after.lastValidBlockHeight == before.lastValidBlockHeight and
   (before.status == Prepared or after.status == before.status or
     (executedStatus(before.status) and (verifiedStatus(after.status) or failedStatus(after.status))))
 
@@ -365,7 +383,7 @@ pure def sometimesVerified(p: Payouts): bool =
 
 ```quint
 pure val eval_witness_sometimesVerified = (
-  ("prepare", "ref-a", "9Bn8PpGhhp2a2xR1AnkpENPJNZe1m3Av852p993QdxUQ", 5, 1, 110, 0, "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"),
+  ("prepare", "ref-a", "9Bn8PpGhhp2a2xR1AnkpENPJNZe1m3Av852p993QdxUQ", 5, 1, 110, 0, "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", 4),
   ("execute", "ref-a", "sig-a", 5),
   ("markVerified", "ref-a", "sig-a", "9Bn8PpGhhp2a2xR1AnkpENPJNZe1m3Av852p993QdxUQ", 5, 10))
 ```
@@ -379,8 +397,8 @@ pure def sometimesCancelled(p: Payouts): bool =
 
 ```quint
 pure val eval_witness_sometimesCancelled = (
-  ("prepare", "ref-a", "9Bn8PpGhhp2a2xR1AnkpENPJNZe1m3Av852p993QdxUQ", 5, 1, 110, 0, "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"),
-  ("cancel", "ref-a", 5, "abandoned"))
+  ("prepare", "ref-a", "9Bn8PpGhhp2a2xR1AnkpENPJNZe1m3Av852p993QdxUQ", 5, 1, 110, 0, "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", 4),
+  ("cancel", "ref-a", 5, "abandoned", 5))
 ```
 
 ### Verification is idempotent

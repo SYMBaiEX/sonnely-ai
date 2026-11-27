@@ -8,7 +8,7 @@ const operator = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
 const destination = "9Bn8PpGhhp2a2xR1AnkpENPJNZe1m3Av852p993QdxUQ"
 
 function prepare(reference: string, amount: number, chargeTotal: number = 110) {
-  return { type: "prepare", reference, destination, amount, throughEntry: 4, chargeTotal, preparedAt: 1, preparedBy: operator }
+  return { type: "prepare", reference, destination, amount, throughEntry: 4, chargeTotal, preparedAt: 1, preparedBy: operator, lastValidBlockHeight: 4 }
 }
 
 layer(KeyValueStore.layerMemory)((it) => {

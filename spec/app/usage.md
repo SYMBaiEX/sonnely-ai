@@ -116,7 +116,10 @@ pure def charge(u: Usage, by: str, id: str, input: int, output: int, cached: int
 
 A stream that dies after serving part of its answer never reports its usage:
 the row goes under review with what the shell estimated it served — tokens
-and the charge actually captured, never more than the reserve.
+and the charge actually captured, never more than the reserve. Bytes are not
+tokens: the shell estimates both input and output at four characters per
+token, the conservative factor it uses everywhere it must estimate, so the
+row never presents a byte count as measured tokens.
 
 ```quint
 pure def canRelease(u: Usage, by: str, id: str): bool = ownedRowWithId(u, id, by).some(r => r.status == Pending)

@@ -5,8 +5,10 @@ fresh reference, the wallet that will pay, the asset — SOL or USDC — and the
 exact amount the transfer must move. Only a transfer the configured cluster
 has finalized, carrying the intent's reference and moving the intent's exact
 amount of its asset from the intent's wallet to the treasury, may finalize
-it. An intent lives for a bounded time; an expired intent can never be
-finalized.
+it. An intent lives for a bounded time, and the deadline binds the transfer,
+not its discovery: a transfer the chain timed at or before the deadline
+finalizes the intent however late it is found, and one the chain timed after
+it never can.
 
 ## Domain
 
@@ -50,8 +52,8 @@ pure def signatureTaken(d: Deposits, reference: str, signature: str): bool =
 pure def termsMatch(i: Intent, wallet: str, asset: Asset, amount: int, atomic: int): bool =
   i.wallet == wallet and i.asset == asset and i.amount == amount and i.atomic == atomic
 
-pure def statusAccepts(status: DepositStatus, signature: str, expiresAt: int, now: int): bool =
-  match status { | Pending => expiresAt > now | Finalized(f) => f.signature == signature | _ => false }
+pure def statusAccepts(status: DepositStatus, signature: str, expiresAt: int, paidAt: int): bool =
+  match status { | Finalized(f) => f.signature == signature | _ => paidAt <= expiresAt }
 ```
 
 ```quint
@@ -70,6 +72,8 @@ pure val createdAtValues = Set(0, 1)
 pure val expiresAtValues = Set(0, 5, 10)
 
 pure val nowValues = Set(0, 5, 10, 20)
+
+pure val paidAtValues = Set(0, 5, 10, 20)
 ```
 
 ## Story: Open a payment intent
@@ -124,22 +128,24 @@ The payment service supplies `finalize` only after it confirms the signature
 names a transaction the configured cluster has finalized: one whose single
 matching transfer instruction carries this reference read-only, is signed by
 the intent's wallet, and moves the intent's exact `atomic` of the intent's
-asset to the treasury. The spec binds those facts: the reported wallet,
-asset and amounts must equal the intent's, and the intent must still be
-open. An intent already finalized accepts the same confirmation again —
-each reference credits once — and an expired intent refuses every
-confirmation.
+asset to the treasury. `paidAt` is that transaction's chain time, read from
+its finalized block. The spec binds those facts: the reported wallet,
+asset and amounts must equal the intent's, and the transfer's chain time
+must not pass the intent's deadline — however late the transfer is
+discovered, and whether the intent is still pending or already lapsed. An
+intent already finalized accepts the same confirmation again — each
+reference credits once.
 
 ```quint
-pure def canFinalize(d: Deposits, reference: str, signature: str, wallet: str, asset: Asset, amount: int, atomic: int, now: int): bool =
+pure def canFinalize(d: Deposits, reference: str, signature: str, wallet: str, asset: Asset, amount: int, atomic: int, paidAt: int): bool =
   val found = findIntent(d, reference)
   found.length() == 1 and signature != "" and not(signatureTaken(d, reference, signature)) and
   termsMatch(found.head(), wallet, asset, amount, atomic) and
-  statusAccepts(found.head().status, signature, found.head().expiresAt, now)
+  statusAccepts(found.head().status, signature, found.head().expiresAt, paidAt)
 
-pure def finalize(d: Deposits, reference: str, signature: str, wallet: str, asset: Asset, amount: int, atomic: int, now: int): Deposits = {
+pure def finalize(d: Deposits, reference: str, signature: str, wallet: str, asset: Asset, amount: int, atomic: int, paidAt: int): Deposits = {
   intents: d.intents.listMap(i =>
-    if (i.reference == reference and i.status == Pending) { ...i, status: Finalized({ signature: signature }) } else i),
+    if (i.reference == reference and (i.status == Pending or i.status == Expired)) { ...i, status: Finalized({ signature: signature }) } else i),
 }
 ```
 
@@ -154,10 +160,13 @@ pure def alwaysSignaturesUnique(d: Deposits): bool =
 ### Once opened, an intent's terms never change and it never reopens
 
 ```quint
+pure def finalizedStatus(status: DepositStatus): bool =
+  match status { | Finalized(_) => true | _ => false }
+
 pure def forwardFrom(i: Intent, j: Intent): bool =
   j.wallet == i.wallet and j.asset == i.asset and j.amount == i.amount and j.atomic == i.atomic and
   j.createdAt == i.createdAt and j.expiresAt == i.expiresAt and
-  (i.status == Pending or j.status == i.status)
+  (i.status == Pending or j.status == i.status or (i.status == Expired and finalizedStatus(j.status)))
 
 pure def stepIntentsOnlyMoveForward(before: Deposits, after: Deposits): bool =
   after.intents.length() >= before.intents.length() and
@@ -184,11 +193,13 @@ pure val eval_witness_sometimesFinalized =
 > As a workspace member, I want a payment link to lapse, so that a transfer
 > sent too late cannot be mistaken for a newer request.
 
-### An expired intent can never be finalized
+### An expired intent is closed to new payments, not to timely ones
 
-Once an intent's deadline passes, `expire` closes it for good. Nothing
-reopens it: `finalize` only ever takes effect while the intent is pending
-and its deadline has not passed.
+Once an intent's deadline passes, `expire` records that the payment link has
+lapsed: a transfer the chain times after the deadline can never finalize it.
+Expiry is not what refuses late transfers — the deadline is — so a transfer
+whose chain time beat the deadline still finalizes an expired intent when it
+is discovered, and nothing ever reopens an intent to pending.
 
 ```quint
 pure def canExpire(d: Deposits, reference: str, now: int): bool =
@@ -216,9 +227,9 @@ pure val eval_witness_sometimesExpired =
 ### Finalizing is idempotent
 
 ```quint
-pure def lawFinalizeIsIdempotent(d: Deposits, reference: str, signature: str, wallet: str, asset: Asset, amount: int, atomic: int, now: int): bool =
-  finalize(finalize(d, reference, signature, wallet, asset, amount, atomic, now), reference, signature, wallet, asset, amount, atomic, now) ==
-    finalize(d, reference, signature, wallet, asset, amount, atomic, now)
+pure def lawFinalizeIsIdempotent(d: Deposits, reference: str, signature: str, wallet: str, asset: Asset, amount: int, atomic: int, paidAt: int): bool =
+  finalize(finalize(d, reference, signature, wallet, asset, amount, atomic, paidAt), reference, signature, wallet, asset, amount, atomic, paidAt) ==
+    finalize(d, reference, signature, wallet, asset, amount, atomic, paidAt)
 ```
 
 ### Expiring is idempotent

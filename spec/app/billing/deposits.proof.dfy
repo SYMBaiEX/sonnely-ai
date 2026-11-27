@@ -60,18 +60,18 @@ lemma open_ensures(d: Deposits, reference: string, wallet: string, asset: Asset,
   }
 }
 
-lemma finalize_ensures(d: Deposits, reference: string, signature: string, wallet: string, asset: Asset, amount: int, atomic: int, now: int)
-  ensures (inv(d) ==> canFinalize(d, reference, signature, wallet, asset, amount, atomic, now) ==> alwaysReferencesUnique(finalize(d, reference, signature, wallet, asset, amount, atomic, now)))
-  ensures (inv(d) ==> canFinalize(d, reference, signature, wallet, asset, amount, atomic, now) ==> alwaysIntentsHoldTerms(finalize(d, reference, signature, wallet, asset, amount, atomic, now)))
-  ensures (inv(d) ==> canFinalize(d, reference, signature, wallet, asset, amount, atomic, now) ==> alwaysSignaturesUnique(finalize(d, reference, signature, wallet, asset, amount, atomic, now)))
-  ensures (inv(d) ==> canFinalize(d, reference, signature, wallet, asset, amount, atomic, now) ==> stepIntentsOnlyMoveForward(d, finalize(d, reference, signature, wallet, asset, amount, atomic, now)))
+lemma finalize_ensures(d: Deposits, reference: string, signature: string, wallet: string, asset: Asset, amount: int, atomic: int, paidAt: int)
+  ensures (inv(d) ==> canFinalize(d, reference, signature, wallet, asset, amount, atomic, paidAt) ==> alwaysReferencesUnique(finalize(d, reference, signature, wallet, asset, amount, atomic, paidAt)))
+  ensures (inv(d) ==> canFinalize(d, reference, signature, wallet, asset, amount, atomic, paidAt) ==> alwaysIntentsHoldTerms(finalize(d, reference, signature, wallet, asset, amount, atomic, paidAt)))
+  ensures (inv(d) ==> canFinalize(d, reference, signature, wallet, asset, amount, atomic, paidAt) ==> alwaysSignaturesUnique(finalize(d, reference, signature, wallet, asset, amount, atomic, paidAt)))
+  ensures (inv(d) ==> canFinalize(d, reference, signature, wallet, asset, amount, atomic, paidAt) ==> stepIntentsOnlyMoveForward(d, finalize(d, reference, signature, wallet, asset, amount, atomic, paidAt)))
 {
-  if inv(d) && canFinalize(d, reference, signature, wallet, asset, amount, atomic, now) {
-    var after := finalize(d, reference, signature, wallet, asset, amount, atomic, now);
+  if inv(d) && canFinalize(d, reference, signature, wallet, asset, amount, atomic, paidAt) {
+    var after := finalize(d, reference, signature, wallet, asset, amount, atomic, paidAt);
     assert |after.intents| == |d.intents|;
     forall k | 0 <= k < |d.intents|
       ensures after.intents[k].reference == d.intents[k].reference
-      ensures after.intents[k] == (if ((d.intents[k].reference == reference) && d.intents[k].status.Pending?) then d.intents[k].(status := Finalized(signature)) else d.intents[k])
+      ensures after.intents[k] == (if ((d.intents[k].reference == reference) && (d.intents[k].status.Pending? || d.intents[k].status.Expired?)) then d.intents[k].(status := Finalized(signature)) else d.intents[k])
     {
     }
     forall x | x in after.intents
@@ -99,7 +99,7 @@ lemma finalize_ensures(d: Deposits, reference: string, signature: string, wallet
           assert d.intents[k].reference == i.reference;
           uniqueReference(d, i, d.intents[k]);
           assert d.intents[k] == i;
-          if i.reference == reference && i.status.Pending? {
+          if i.reference == reference && (i.status.Pending? || i.status.Expired?) {
             assert j == i.(status := Finalized(signature));
             assert forwardFrom(i, j);
           } else {

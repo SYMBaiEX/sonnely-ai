@@ -90,9 +90,9 @@ describe("Solana deposit verification", () => {
     reportedGenesis = genesis.slice(0, 30);
     await expect(verifyPayment(rpc, paymentSignature, payer, order, "mainnet")).rejects.toThrow("different network");
     reportedGenesis = genesis;
-    await expect(verifyPayment(rpc, paymentSignature, payer, order, "mainnet")).resolves.toBeUndefined();
+    await expect(verifyPayment(rpc, paymentSignature, payer, order, "mainnet")).resolves.toEqual({ signature: paymentSignature, blockTime: 1_799_999_999 });
     checked = false;
-    await expect(verifyPayment(rpc, paymentSignature, payer, order, "mainnet")).resolves.toBeUndefined();
+    await expect(verifyPayment(rpc, paymentSignature, payer, order, "mainnet")).resolves.toEqual({ signature: paymentSignature, blockTime: 1_799_999_999 });
     transferReferencesOrder = false;
     await expect(verifyPayment(rpc, paymentSignature, payer, order, "mainnet")).rejects.toThrow("transfer does not match");
     transferReferencesOrder = true;

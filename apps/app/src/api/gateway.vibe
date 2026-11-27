@@ -462,17 +462,26 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
         // serving part of its answer, so the capture is the served part estimated from the characters
         // the client received plus the input the provider processed, never more than the reserve.
         const outputTokens = Math.ceil(servedOutputChars / 4)
-        const prorated = try Effect.try(() => tokenCharge(candidate.rate, selection.bytes + 256, 0, outputTokens))
+        // spec/app/usage.md, "A pending request can fail or go under review": bytes are not tokens —
+        // the input is estimated at four characters per token, the same conservative factor the
+        // specialized endpoints use, plus the request framing overhead the reserve estimated.
+        const inputTokens = Math.ceil((selection.bytes + 256) / 4)
+        const prorated = try Effect.try(() => tokenCharge(candidate.rate, inputTokens, 0, outputTokens))
         const cost = Math.min(meter.reserve, prorated)
         const refund = meter.reserve - cost
         const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: cost }) catch (e) => e
+        // spec/app/billing/ledger.md, "A failed reservation releases its whole hold": when the money
+        // step is refused the saga stops here — closing rows as charged would record a capture that
+        // never happened, and any refund keyed to this reference would pre-empt the reconciliation
+        // sweep's own compensation. The row stays Pending and the sweep finishes it from ledger truth.
+        if (settledMoney instanceof Ledger.Rejected) return undefined
         if (key != undefined && refund > 0) {
           keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day, ref }, wallet) catch () => undefined
           if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund, ref }) catch () => undefined
         }
-        if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, cost)
+        try markReferralActive(referrals, wallet, cost)
         requestMachine.send({ type: "finish", ref, cost }) catch () => undefined
-        usageMachine.send({ type: "unreported", id: ref, input: selection.bytes + 256, output: outputTokens, cost }, wallet) catch () => undefined
+        usageMachine.send({ type: "unreported", id: ref, input: inputTokens, output: outputTokens, cost }, wallet) catch () => undefined
         return undefined
       }
       const cached = try Effect.try(() => cachedTokens(final.usage))
@@ -480,11 +489,15 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
       const charge = Math.min(meter.reserve, cost)
       const refund = meter.reserve - charge
       const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: charge }) catch (e) => e
+      // spec/app/billing/ledger.md, "A failed reservation releases its whole hold": a refused money
+      // step ends the saga without closing anything — the row stays Pending for the reconciliation
+      // sweep rather than recording a charge the ledger never captured.
+      if (settledMoney instanceof Ledger.Rejected) return undefined
       if (key != undefined && refund > 0) {
         keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day, ref }, wallet) catch () => undefined
         if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund, ref }) catch () => undefined
       }
-      if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, charge)
+      try markReferralActive(referrals, wallet, charge)
       if (final.usage.completion_tokens > 0) requestMachine.send({ type: "emit", ref, tokens: final.usage.completion_tokens }) catch () => undefined
       requestMachine.send({ type: "finish", ref, cost: charge }) catch () => undefined
       usageMachine.send({ type: "charge", id: ref, input: final.usage.prompt_tokens, output: final.usage.completion_tokens, cached, cost: charge, providerMs }, wallet) catch () => undefined

@@ -4,7 +4,7 @@ import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Payouts from "../../gen/app__billing__payouts.effect.vibe"
 import * as Usage from "../../gen/app__usage.effect.vibe"
 import { stateStore } from "../serve.vibe"
-import { billingConfig, CheckoutUnavailable } from "./billing.vibe"
+import { billingConfig, CheckoutUnavailable, VerificationUnavailable } from "./billing.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
 import * as solana from "./billing/solana.ts"
 import { authenticatedWallet } from "./session.vibe"
@@ -156,6 +156,7 @@ effect function preparePayout() {
     chargeTotal: position.chargeTotal,
     preparedAt: payout.preparedAt,
     preparedBy: payout.preparedBy,
+    lastValidBlockHeight: (prepared as solana.PaymentDraft).lastValidBlockHeight,
   }) catch (e) => e
   if (sent instanceof Payouts.Rejected) {
     return try reply({ ok: false, error: "The payout rules refused this preparation." }, 409)
@@ -263,7 +264,18 @@ effect function cancelPayout() {
   if (payout == undefined) return try reply({ ok: false, error: "Payout unavailable." }, 404)
   if (payout.status.tag == "Cancelled") return try reply({ ok: true, status: "cancelled" })
   if (payout.status.tag != "Prepared") return try reply({ ok: false, error: "Only a prepared payout can be cancelled." }, 409)
-  const cancelled = payouts.send({ type: "cancel", reference, cancelledAt: try Clock.currentTimeMillis, reason }) catch (e) => e
+  // spec/app/billing/payouts.md, "A prepared payout can be cancelled only once its transaction can
+  // never land": a signed copy of the prepared transaction could still be submitted while its
+  // blockhash is valid, so cancellation waits on the chain passing its last valid block height.
+  const config = billingConfig() catch (e) => e
+  if (config instanceof CheckoutUnavailable) return try reply({ ok: false, error: "Payout cancellation is unavailable." }, 503)
+  const height = tryPromise({ try: () => solana.finalizedBlockHeight(config.rpc), catch: () => new VerificationUnavailable({ reason: "height" }) }) catch (e) => e
+  if (height instanceof VerificationUnavailable) return try reply({ ok: false, error: "Solana finalized block height is unavailable." }, 503)
+  const chainHeight = height as number
+  if (chainHeight <= payout.lastValidBlockHeight) {
+    return try reply({ ok: false, error: "The prepared transaction could still land on chain. Cancellation opens once its blockhash expires.", lastValidBlockHeight: payout.lastValidBlockHeight }, 409)
+  }
+  const cancelled = payouts.send({ type: "cancel", reference, cancelledAt: try Clock.currentTimeMillis, reason, chainHeight }) catch (e) => e
   if (cancelled instanceof Payouts.Rejected) return try reply({ ok: false, error: "The payout rules refused this cancellation." }, 409)
   return try reply({ ok: true, status: "cancelled" })
 }

@@ -34,6 +34,7 @@ const payoutSchema = z.object({
   throughEntry: z.number(),
   chargeTotal: z.number(),
   preparedBy: z.string(),
+  lastValidBlockHeight: z.number(),
   status: payoutStatusSchema,
 });
 

@@ -196,8 +196,12 @@ export async function openRealtimeUpstream(selection: RealtimeSelection) {
 export type UpstreamCall = { response: Response; evidence?: { status: "attested_router"; config_repo: string; release_digest: string } };
 export type ChatAttempt = UpstreamCall & { candidate: ChatRoute; body: string };
 
-/** Upstream deadlines: a hung provider must never hold a credit reserve open. */
-export const upstreamTimeouts = { headersMs: 30_000, totalMs: 120_000, streamIdleMs: 60_000 } as const;
+/**
+ * Upstream deadlines: a hung provider must never hold a credit reserve open. A stream's total
+ * lifetime stays safely below the reconciliation sweep's orphan threshold (15 minutes), so a live
+ * stream's reserve can never be settled out from under it.
+ */
+export const upstreamTimeouts = { headersMs: 30_000, totalMs: 120_000, streamIdleMs: 60_000, streamTotalMs: 600_000 } as const;
 
 function deadlineSignal(stream: boolean, signal: AbortSignal | undefined) {
   const headers = new AbortController();
@@ -364,16 +368,29 @@ function readSse(body: ReadableStream<Uint8Array>, onBytes?: (bytes: Uint8Array)
   const decoder = new TextDecoder("utf-8", { fatal: true });
   const pending: string[] = [];
   const parser = createParser({ onEvent: ({ data }: EventSourceMessage) => pending.push(data) });
+  const startedAt = Date.now();
   let size = 0;
   let ended = false;
   const events = (async function* () {
     const readWithIdleDeadline = async () => {
       let idle: ReturnType<typeof setTimeout> | undefined;
+      const totalRemaining = upstreamTimeouts.streamTotalMs - (Date.now() - startedAt);
+      if (totalRemaining <= 0) throw new Error("The provider stream exceeded its total stream deadline.");
       try {
         return await Promise.race([
           reader.read(),
           new Promise<never>((_resolve, reject) => {
-            idle = setTimeout(() => reject(new Error("The provider stream sent no data for 60 seconds.")), upstreamTimeouts.streamIdleMs);
+            idle = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    Date.now() - startedAt >= upstreamTimeouts.streamTotalMs
+                      ? "The provider stream exceeded its total stream deadline."
+                      : "The provider stream sent no data for 60 seconds.",
+                  ),
+                ),
+              Math.min(upstreamTimeouts.streamIdleMs, totalRemaining),
+            );
             idle.unref?.();
           }),
         ]);
@@ -518,8 +535,9 @@ function chatSseStream(options: ChatSseOptions) {
                 ...(options.includeUsage ? { usage: null } : {}),
               }));
             }
-          } catch {
+          } catch (readFailure) {
             malformed = true;
+            if (readFailure instanceof Error) error = readFailure.message;
           }
           if (canceled) {
             await settleOnce(undefined, firstTokenAt);

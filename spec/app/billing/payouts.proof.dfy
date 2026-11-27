@@ -64,15 +64,15 @@ lemma forwardAfterReferenceMap(before: Payouts, after: Payouts)
   }
 }
 
-lemma prepare_ensures(p: Payouts, reference: string, destination: string, amount: int, throughEntry: int, chargeTotal: int, preparedAt: int, preparedBy: string)
-  ensures (inv(p) ==> canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy) ==> alwaysReferencesUnique(prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy)))
-  ensures (inv(p) ==> canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy) ==> alwaysPayoutsHoldTerms(prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy)))
-  ensures (inv(p) ==> canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy) ==> alwaysSignaturesUnique(prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy)))
-  ensures (inv(p) ==> canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy) ==> stepPayoutsOnlyMoveForward(p, prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy)))
+lemma prepare_ensures(p: Payouts, reference: string, destination: string, amount: int, throughEntry: int, chargeTotal: int, preparedAt: int, preparedBy: string, lastValidBlockHeight: int)
+  ensures (inv(p) ==> canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight) ==> alwaysReferencesUnique(prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight)))
+  ensures (inv(p) ==> canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight) ==> alwaysPayoutsHoldTerms(prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight)))
+  ensures (inv(p) ==> canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight) ==> alwaysSignaturesUnique(prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight)))
+  ensures (inv(p) ==> canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight) ==> stepPayoutsOnlyMoveForward(p, prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight)))
 {
-  if inv(p) && canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy) {
-    var row := Payout(reference, destination, amount, preparedAt, throughEntry, chargeTotal, preparedBy, PayoutStatus.Prepared);
-    var after := prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy);
+  if inv(p) && canPrepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight) {
+    var row := Payout(reference, destination, amount, preparedAt, throughEntry, chargeTotal, preparedBy, lastValidBlockHeight, PayoutStatus.Prepared);
+    var after := prepare(p, reference, destination, amount, throughEntry, chargeTotal, preparedAt, preparedBy, lastValidBlockHeight);
     assert after.payouts == p.payouts + [row];
     findPayoutIsFilter(p, reference);
     ProofLib.FilterNone((x: Payout) => (x.reference == reference), p.payouts);
@@ -161,14 +161,14 @@ lemma markFailed_ensures(p: Payouts, reference: string, signature: string, faile
   }
 }
 
-lemma cancel_ensures(p: Payouts, reference: string, cancelledAt: int, reason: string)
-  ensures (inv(p) ==> canCancel(p, reference, cancelledAt, reason) ==> alwaysReferencesUnique(cancel(p, reference, cancelledAt, reason)))
-  ensures (inv(p) ==> canCancel(p, reference, cancelledAt, reason) ==> alwaysPayoutsHoldTerms(cancel(p, reference, cancelledAt, reason)))
-  ensures (inv(p) ==> canCancel(p, reference, cancelledAt, reason) ==> alwaysSignaturesUnique(cancel(p, reference, cancelledAt, reason)))
-  ensures (inv(p) ==> canCancel(p, reference, cancelledAt, reason) ==> stepPayoutsOnlyMoveForward(p, cancel(p, reference, cancelledAt, reason)))
+lemma cancel_ensures(p: Payouts, reference: string, cancelledAt: int, reason: string, chainHeight: int)
+  ensures (inv(p) ==> canCancel(p, reference, cancelledAt, reason, chainHeight) ==> alwaysReferencesUnique(cancel(p, reference, cancelledAt, reason, chainHeight)))
+  ensures (inv(p) ==> canCancel(p, reference, cancelledAt, reason, chainHeight) ==> alwaysPayoutsHoldTerms(cancel(p, reference, cancelledAt, reason, chainHeight)))
+  ensures (inv(p) ==> canCancel(p, reference, cancelledAt, reason, chainHeight) ==> alwaysSignaturesUnique(cancel(p, reference, cancelledAt, reason, chainHeight)))
+  ensures (inv(p) ==> canCancel(p, reference, cancelledAt, reason, chainHeight) ==> stepPayoutsOnlyMoveForward(p, cancel(p, reference, cancelledAt, reason, chainHeight)))
 {
-  if inv(p) && canCancel(p, reference, cancelledAt, reason) {
-    var after := cancel(p, reference, cancelledAt, reason);
+  if inv(p) && canCancel(p, reference, cancelledAt, reason, chainHeight) {
+    var after := cancel(p, reference, cancelledAt, reason, chainHeight);
     assert |after.payouts| == |p.payouts|;
     forall k | 0 <= k < |p.payouts|
       ensures after.payouts[k].reference == p.payouts[k].reference
