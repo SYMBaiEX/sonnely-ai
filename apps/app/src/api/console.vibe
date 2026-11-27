@@ -3,7 +3,7 @@ import { Machine, stored, initial } from "../../gen/app__console.effect.vibe"
 import { catalog } from "../../gen/app__console__catalog.ts"
 import { fleetMachineApi } from "../machines.vibe"
 import { fleetLive } from "../fleet.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { batchApi } from "./console/batch.vibe"
 import { chatApi } from "./console/chat.vibe"
 import { logsApi } from "./console/logs.vibe"
@@ -23,7 +23,7 @@ export const consoleApi = Layer.unwrap(effect {
 })
 
 export function consoleState(dir: string) {
-  return Layer.provide(fleetLive, store(dir))
+  return Layer.provide(fleetLive, stateStore(dir))
 }
 
 /** The settings machine's store, for tests and drivers. */

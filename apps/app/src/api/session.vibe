@@ -3,7 +3,7 @@
 // the establishing event. Session cookies bear a random token; the machine stores only its digest.
 import * as Crm from "../../gen/app__admin__crm.effect.vibe"
 import * as Session from "../../gen/app__session.effect.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import * as signin from "./session/signin.ts"
 
 const noStore = { "cache-control": "no-store" }
@@ -209,5 +209,5 @@ export const sessionApi = Layer.unwrap(effect {
 })
 
 export function sessionState(dir: string) {
-  return Layer.provide(Session.stored("session"), store(dir))
+  return Layer.provide(Session.stored("session"), stateStore(dir))
 }

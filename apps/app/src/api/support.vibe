@@ -6,7 +6,7 @@ import { Machine, stored } from "../../gen/app__support.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import type { Tickets } from "../../gen/app__support.ts"
 import { machineRegistration } from "../machines.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { operatorRequired } from "./admin.vibe"
 import { authenticatedWallet } from "./session.vibe"
 
@@ -101,5 +101,5 @@ export effect function dispatch(input: unknown) {
 }
 
 export function supportState(dir: string) {
-  return Layer.provide(support, store(dir))
+  return Layer.provide(support, stateStore(dir))
 }

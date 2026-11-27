@@ -5,6 +5,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { Effect, Layer } from "effect";
 import { layer as pathLayer } from "effect/Path";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
+import { postgresStore } from "./postgres-store.ts";
 
 function setAtomically(dir: string, key: string, value: string | Uint8Array) {
   return Effect.tryPromise({
@@ -20,6 +21,11 @@ function setAtomically(dir: string, key: string, value: string | Uint8Array) {
     },
     catch: (cause) => new KeyValueStore.KeyValueStoreError({ method: "set", key, message: `Unable to set item with key ${key}`, cause }),
   });
+}
+
+export function stateStore(dir: string): Layer.Layer<KeyValueStore.KeyValueStore, unknown, never> {
+  const databaseUrl = process.env.DATABASE_URL;
+  return databaseUrl === undefined || databaseUrl === "" ? store(dir) : postgresStore({ databaseUrl, migrationDir: dir });
 }
 
 export function store(dir: string) {

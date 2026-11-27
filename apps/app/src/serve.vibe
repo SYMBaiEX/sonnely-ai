@@ -11,12 +11,12 @@ module node {
   }
 }
 import { indexHtml, listening } from node
-import { store } from "./store.ts"
+import { stateStore, store } from "./store.ts"
 import { validWallet } from "./api/session/signin.ts"
 
 export { listening }
 
-export { store }
+export { stateStore, store }
 
 /** Production boot misconfiguration: the process must not come up to serve traffic. */
 export error StartupConfig { missing: string[] }

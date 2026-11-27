@@ -2,7 +2,7 @@
 import { Machine, stored } from "../../gen/app__teams.effect.vibe"
 import type { Teams } from "../../gen/app__teams.ts"
 import { machineApi } from "../machines.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 
 function project(state: Teams, wallet: string): Teams {
   return { teams: state.teams.filter((team) => team.members.some((m) => m.wallet == wallet) || team.invites.some((i) => i.wallet == wallet)) }
@@ -22,5 +22,5 @@ export effect function dispatch(input: unknown) {
 }
 
 export function teamsState(dir: string) {
-  return Layer.provide(teams, store(dir))
+  return Layer.provide(teams, stateStore(dir))
 }

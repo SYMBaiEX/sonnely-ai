@@ -4,7 +4,7 @@ import * as Admin from "../../gen/app__admin.effect.vibe"
 import { Machine, stored } from "../../gen/app__site.effect.vibe"
 import type { Probe, Report } from "../../gen/app__site.ts"
 import { machineRegistration } from "../machines.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
 
 module upstream {
@@ -129,7 +129,7 @@ export const siteApi = Layer.unwrap(effect {
 })
 
 export function siteState(dir: string) {
-  return Layer.provideMerge(site, store(dir))
+  return Layer.provideMerge(site, stateStore(dir))
 }
 
 // spec/app/site/index.md, "The board waits for its first report, then shows the latest"

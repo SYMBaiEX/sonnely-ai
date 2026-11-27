@@ -13,7 +13,7 @@ import * as Teams from "../../gen/app__teams.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import { authenticatedWallet } from "./session.vibe"
 import { Fleet } from "../fleet.vibe"
-import { store } from "../serve.vibe"
+import { stateStore } from "../serve.vibe"
 import { type StreamFinal, cachedTokens, callChatCandidates, callSpecialized, extractUsage, sliceTopResults, multipartForm, multipartInput, parseSpecialized, specializedInputTokens, specializedRoute, chatSseNodeResponse, configuredProviders, stagingInference, keyStatusPayload, idempotentRef, validIdempotencyKey, modelsPayload, parseChatCompletion, parseChatInput, nearEvidence, phalaEvidence, providerModelsPayload, providerRequestReference, publicUsage, selectChat, sha256, tokenCharge } from "./gateway/providers.ts"
 
 module node {
@@ -914,7 +914,7 @@ export const gatewayApi = Layer.unwrap(effect {
 /** The gateway machines' state, kept under `dir`; each wallet's batch job is a fleet instance over the same store. */
 export function gatewayState(dir: string) {
   return Layer.mergeAll(
-    Layer.provide(Keyring.stored("keys"), store(dir)),
-    Layer.provide(Requests.stored("gateway-requests"), store(dir)),
+    Layer.provide(Keyring.stored("keys"), stateStore(dir)),
+    Layer.provide(Requests.stored("gateway-requests"), stateStore(dir)),
   )
 }
