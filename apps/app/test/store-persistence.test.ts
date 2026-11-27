@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { Effect, Exit, Layer } from "effect";
+import { Effect, Exit, Layer, Scope } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import postgres from "postgres";
 import { afterEach, describe, expect, it } from "vitest";
@@ -281,21 +281,32 @@ describe("machine state persistence (spec/app/usage.md, \"Story: Meter a request
       });
     });
 
-    itWithDatabase("refuses a second writer for the same schema", async () => {
+    itWithDatabase("waits for the writer lock and hands it to a second instance after release", async () => {
       const url = databaseUrl();
       const schema = usePostgresSchema(url, "writer_lock");
       const firstDir = tempDir("sonnely-pg-first-");
       const secondDir = tempDir("sonnely-pg-second-");
-      const secondRefused = await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            yield* Layer.build(postgresStore({ databaseUrl: url, migrationDir: firstDir, schema }));
-            const second = yield* Effect.exit(Effect.scoped(Layer.build(postgresStore({ databaseUrl: url, migrationDir: secondDir, schema }))));
-            return Exit.isFailure(second);
-          }),
-        ),
+      const firstScope = Scope.makeUnsafe();
+      cleanups.push(async () => {
+        if (firstScope.state._tag !== "Closed") await Effect.runPromise(Scope.close(firstScope, Exit.void));
+      });
+      await Effect.runPromise(Layer.build(postgresStore({ databaseUrl: url, migrationDir: firstDir, schema })).pipe(Effect.provideService(Scope.Scope, firstScope)));
+      let secondFinished = false;
+      const secondOutcome = Effect.runPromise(Effect.scoped(Layer.build(postgresStore({ databaseUrl: url, migrationDir: secondDir, schema })))).then(
+        () => {
+          secondFinished = true;
+          return "acquired";
+        },
+        () => {
+          secondFinished = true;
+          return "failed";
+        },
       );
-      expect(secondRefused).toBe(true);
+      await Effect.runPromise(Effect.sleep("50 millis"));
+      const waiting = !secondFinished;
+      await Effect.runPromise(Scope.close(firstScope, Exit.void));
+      const handover = await secondOutcome;
+      expect({ waiting, handover }).toEqual({ waiting: true, handover: "acquired" });
     });
   });
 });

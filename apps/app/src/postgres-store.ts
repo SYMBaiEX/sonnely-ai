@@ -38,6 +38,7 @@ export const cutoverMarkerName = ".postgres-cutover";
 const archivedSuffix = ".migrated";
 const identifierPattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const sharedStores = new Map<string, SharedPostgres>();
+const advisoryLockWaitMilliseconds = 60_000;
 
 function validSchema(schema: string) {
   if (!identifierPattern.test(schema)) throw new Error(`Invalid PostgreSQL schema name ${schema}`);
@@ -57,11 +58,24 @@ function storeError(method: string, key: string | undefined, cause: unknown) {
   });
 }
 
+function queryCanceled(cause: unknown) {
+  return Predicate.isObject(cause) && "code" in cause && cause.code === "57014";
+}
+
 async function ensureSingleWriter(shared: SharedPostgres) {
   if (shared.lockHeld) return;
   shared.lockPromise ??= (async () => {
-    const rows = await shared.sql<{ locked: boolean }[]>`select pg_try_advisory_lock(${shared.lockKey}::bigint) as locked`;
-    if (rows[0]?.locked !== true) throw new Error("Another Sonnely instance holds the PostgreSQL machine-state writer lock");
+    try {
+      await shared.sql.begin(async (sql) => {
+        await sql`select set_config('statement_timeout', ${String(advisoryLockWaitMilliseconds)}, true)`;
+        await sql`select pg_advisory_lock(${shared.lockKey}::bigint)`;
+      });
+    } catch (cause) {
+      if (queryCanceled(cause)) {
+        throw new Error(`Timed out after ${advisoryLockWaitMilliseconds / 1000} seconds waiting for the PostgreSQL machine-state writer lock`, { cause });
+      }
+      throw cause;
+    }
     shared.lockHeld = true;
   })().finally(() => {
     shared.lockPromise = undefined;

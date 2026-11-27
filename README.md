@@ -46,6 +46,15 @@ bun run dev                     # or: pnpm dev
 | `pnpm accept` | Records reviewed rules in `spec/lock.json` |
 | `pnpm doctor` | Checks Node, pnpm, Dafny, Quint, Chromium, and skill links |
 
+## Deployment
+
+With `DATABASE_URL` set, machine state has exactly one active PostgreSQL writer per schema. A
+booting instance takes the database advisory writer lock and waits up to 60 seconds for an
+outgoing instance to release it, so a rolling deploy must drain the old instance within that
+window. If the old instance has not released the lock by then, the replacement fails its boot
+instead of splitting writes; once the release happens, the waiting boot continues immediately.
+The container healthcheck start period is longer than that handover window.
+
 ## Layout
 
 | Path | What |
