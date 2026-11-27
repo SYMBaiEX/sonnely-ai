@@ -43,6 +43,20 @@ type Ticket = {
 type Tickets = { tickets: List[Ticket] }
 ```
 
+### Text length is a nonnegative count
+
+The shell supplies `textLength`, the same UTF-16 code-unit count that the
+browser's `maxLength` uses. It is never negative, and it is zero exactly for
+empty text.
+
+```quint
+const textLength: (str) => int
+
+pure def lawTextLengthIsNonNegative(text: str): bool = textLength(text) >= 0
+
+pure def lawTextLengthEmptyIffZero(text: str): bool = (text == "") iff (textLength(text) == 0)
+```
+
 ### The queue starts empty
 
 ```quint
@@ -70,16 +84,45 @@ pure val walletValues = Set("", "operator", "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLV
 > topic and a message, so that the team can answer me in a thread I can
 > follow.
 
+### A wallet opens at most five requests in a rolling day
+
+A rolling day is 86,400,000 milliseconds. The queue is the ordered record of
+opens: a new open is never older than a request already recorded, and it is
+refused when five earlier opens by the same wallet still fall inside the
+trailing window.
+
+```quint
+pure val rollingDayMs = 86400000
+pure val maxOpensInRollingDay = 5
+
+pure def opensInRollingDay(s: Tickets, wallet: str, now: int): int =
+  s.tickets.select(t => t.wallet == wallet and t.openedAt <= now and now - t.openedAt < rollingDayMs).length()
+```
+
 ### A request needs valid fields and a fresh id
 
 The wallet is the workspace the shell authenticated for the request; a
-request never arrives without one, so the wallet is never empty.
+request never arrives without one, so the wallet is never empty. The email,
+topic and message are nonempty and within the product's field limits.
 
 ```quint
-pure def canOpen(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int): bool =
+pure val maxEmailLength = 254
+pure val maxTopicLength = 60
+pure val maxMessageLength = 3000
+pure val maxReplyLength = 4000
+
+pure def openFieldsValid(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int): bool =
   id != "" and email != "" and topic != "" and message != "" and wallet != ""
+  and textLength(email) <= maxEmailLength
+  and textLength(topic) <= maxTopicLength
+  and textLength(message) <= maxMessageLength
   and now >= 0
   and s.tickets.every(t => t.id != id)
+
+pure def canOpen(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int): bool =
+  openFieldsValid(s, id, email, topic, message, wallet, now)
+  and s.tickets.every(t => t.openedAt <= now)
+  and opensInRollingDay(s, wallet, now) < maxOpensInRollingDay
 
 pure def open(s: Tickets, id: str, email: str, topic: str, message: str, wallet: str, now: int): Tickets =
   { tickets: s.tickets.append({
@@ -93,8 +136,11 @@ pure def open(s: Tickets, id: str, email: str, topic: str, message: str, wallet:
 pure def alwaysTicketsAreWellFormed(s: Tickets): bool =
   s.tickets.every(t =>
     t.id != "" and t.email != "" and t.topic != "" and t.message != ""
+    and textLength(t.email) <= maxEmailLength
+    and textLength(t.topic) <= maxTopicLength
+    and textLength(t.message) <= maxMessageLength
     and t.openedAt >= 0 and t.updatedAt >= 0
-    and t.replies.every(r => r.body != "" and r.time >= 0))
+    and t.replies.every(r => r.body != "" and textLength(r.body) <= maxReplyLength and r.time >= 0))
   and s.tickets.every(t => s.tickets.select(o => o.id == t.id).length() == 1)
 ```
 
@@ -122,7 +168,7 @@ a resolved request reopens it.
 
 ```quint
 pure def canReply(s: Tickets, id: str, body: str, now: int): bool =
-  body != "" and now >= 0
+  body != "" and textLength(body) <= maxReplyLength and now >= 0
   and findTicket(s, id).length() == 1
 
 pure def reply(s: Tickets, id: str, body: str, now: int): Tickets =
@@ -141,7 +187,7 @@ of the team's side; an internal note stays with staff. A staff reply on an open 
 
 ```quint
 pure def canStaffReply(s: Tickets, id: str, body: str, visibility: Visibility, author: str, now: int): bool =
-  body != "" and author != "" and now >= 0
+  body != "" and textLength(body) <= maxReplyLength and author != "" and now >= 0
   and findTicket(s, id).length() == 1
 
 pure def staffReply(s: Tickets, id: str, body: str, visibility: Visibility, author: str, now: int): Tickets =

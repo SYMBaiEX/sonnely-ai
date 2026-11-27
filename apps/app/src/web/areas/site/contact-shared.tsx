@@ -167,8 +167,10 @@ export function useSupportRequest(): SupportRequestController {
     const cleanMessage = drafts[topicId].trim();
     const errors: ContactFieldErrors = {};
     if (!cleanEmail) errors.email = "Enter the email we should answer.";
+    else if (cleanEmail.length > 254) errors.email = "Keep the email under 254 characters.";
     else if (!emailPattern.test(cleanEmail)) errors.email = "Enter a valid email address.";
     if (!cleanMessage) errors.message = "Write a few details so the team can act.";
+    else if (cleanMessage.length > 3000) errors.message = "Keep the message under 3,000 characters.";
     setFieldErrors(errors);
     if (errors.email || errors.message) return;
     if (!wallet) {
