@@ -888,29 +888,6 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"],htm
   color: var(--muted);
   font: inherit;
 }
-.site .usage-max summary{
-  cursor: pointer;
-  width: fit-content;
-  font-weight: 620;
-  text-underline-offset: 0.2em;
-}
-.site .usage-max summary:hover{
-  text-decoration: underline;
-}
-.site .usage-max form{
-  display: grid;
-  gap: 0.85rem;
-  margin-top: 0.85rem;
-}
-.site .usage-max form > .primary{
-  justify-self: start;
-}
-.site .usage-max-fields{
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
-  align-items: start;
-  gap: 0.8rem;
-}
 .site /** === traces-surface === **/
 
 .trace-panel,.site .trace-list{

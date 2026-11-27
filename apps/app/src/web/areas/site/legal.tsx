@@ -52,10 +52,9 @@ export function PrivacyPage() {
             amounts. These receipts exclude prompts, responses, wallet addresses, and API keys.
           </p>
           <p>
-            The optional UsageMax export sends model and route names, token counts, timestamps, and
-            settled Sonnely charges to the collector you choose. The send uses your UsageMax
-            collector key for that request. Sonnely does not keep that key or export prompt bodies,
-            responses, wallet addresses, or API-key labels.
+            The optional UsageMax export downloads model and route names, token counts, timestamps,
+            and settled Sonnely charges for import into the UsageMax project you choose. Sonnely
+            does not export prompt bodies, responses, wallet addresses, or API-key labels.
           </p>
           <h2 id={privacySections[4][0]}>{privacySections[4][1]}</h2>
           <p>

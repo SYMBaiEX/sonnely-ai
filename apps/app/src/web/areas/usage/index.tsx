@@ -1,7 +1,7 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated usage class names and keeps the analytics workflow together */
+/* eslint-disable better-tailwindcss/no-unknown-classes -- this area intentionally uses the migrated usage class names */
 // spec/app/usage.md, "Story: Roll usage up"
 import { ArrowUpRight, BarChart3, Download } from "lucide-react";
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
@@ -113,96 +113,26 @@ function usageCsv(rows: readonly Row[]) {
 }
 
 function UsageMax({ days, hasUsage }: { days: number; hasUsage: boolean }) {
-  const [device, setDevice] = useState("");
-  const [pending, setPending] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
-  const deviceStorage = "sonnely.usagemax-device";
-
-  function installId() {
-    if (device) return;
-    try {
-      setDevice(localStorage.getItem(deviceStorage) ?? crypto.randomUUID());
-    } catch {
-      setDevice(crypto.randomUUID());
-    }
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const collector = new FormData(form).get("collector");
-    const token = typeof collector === "string" ? collector : "";
-    setPending(true);
-    setNotice("");
-    setError("");
-    try {
-      const response = await fetch("/api/sonnely/usage-max", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token, device, days }),
-      });
-      if (!response.ok) throw new Error("Unable to export usage.");
-      const result = (await response.json()) as { sent?: number };
-      try {
-        localStorage.setItem(deviceStorage, device);
-      } catch {
-        setDevice(device);
-      }
-      setNotice(result.sent ? `UsageMax accepted the export of ${result.sent} settled requests.` : "There is no settled inference usage in this period.");
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Unable to export usage.");
-    } finally {
-      form.reset();
-      setPending(false);
-    }
-  }
-
   return (
     <section className="panel stack-panel usage-max" aria-labelledby="usagemax-heading">
       <div className="between controls">
         <div>
           <h2 id="usagemax-heading">Export to UsageMax</h2>
-          <p className="caption">Take up to 100 settled requests from the selected date range into your UsageMax workspace.</p>
+          <p className="caption">Download up to 100 settled requests from the selected date range as a JSON file for import into UsageMax.</p>
         </div>
         <a href="https://usagemax.com/docs" target="_blank" rel="noreferrer" className="button quiet">
           UsageMax docs <ArrowUpRight size={15} aria-hidden />
         </a>
       </div>
       {hasUsage ? (
-        <>
-          <div className="actions">
-            <a className="button secondary" href={"/api/sonnely/usage-max?days=" + days}>
-              <Download size={16} aria-hidden /> Download telemetry JSON
-            </a>
-          </div>
-          <details onToggle={(event) => event.currentTarget.open && installId()}>
-            <summary>Send to my UsageMax workspace</summary>
-            <form onSubmit={(event) => void submit(event)}>
-              <p className="caption">
-                Create an advanced collector key in UsageMax. Each send includes model and route names, token counts, timestamps, and settled Sonnely charges. Sonnely uses the collector key for this send and never saves it.
-              </p>
-              <div className="usage-max-fields">
-                <label className="control-label">
-                  UsageMax collector key
-                  <input type="password" name="collector" autoComplete="off" required minLength={16} maxLength={256} />
-                </label>
-                <label className="control-label">
-                  Installation ID
-                  <input name="device" value={device} onChange={(event) => setDevice(event.target.value)} required spellCheck={false} autoComplete="off" maxLength={36} />
-                </label>
-              </div>
-              <button type="submit" className="button primary" disabled={pending}>
-                {pending ? "Sending…" : "Send usage to UsageMax"}
-              </button>
-            </form>
-          </details>
-        </>
+        <div className="actions">
+          <a className="button secondary" href={"/api/sonnely/usage-max?days=" + days}>
+            <Download size={16} aria-hidden /> Download UsageMax JSON
+          </a>
+        </div>
       ) : (
         <p className="caption">Completed inference requests will appear here when they settle.</p>
       )}
-      {notice && <p role="status" className="status">{notice}</p>}
-      {error && <p role="alert" className="error">{error}</p>}
     </section>
   );
 }
