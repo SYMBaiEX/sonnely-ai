@@ -151,18 +151,18 @@ export function Brand({ href = "/" }: { href?: string }) {
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({ current }: { current: string }) {
   return (
     <header className="site-header" aria-label="Sonnely">
       <div className="wrap site-nav glass">
         <Brand />
-        <SiteNavigation />
+        <SiteNavigation current={current} />
       </div>
     </header>
   );
 }
 
-function SiteNavigation() {
+function SiteNavigation({ current }: { current: string }) {
   const [openPath, setOpenPath] = useState<string | null>(null);
   const mobileOpen = openPath !== null;
   const menu = useRef<HTMLDetailsElement>(null);
@@ -173,7 +173,6 @@ function SiteNavigation() {
   );
 
   const closeMobile = () => setOpenPath(null);
-  const current = typeof window === "undefined" ? "/" : window.location.pathname;
 
   return (
     <>
@@ -292,7 +291,7 @@ export function SiteFooter() {
   );
 }
 
-export function ThemeSurface({ children }: { children: ReactNode }) {
+export function ThemeSurface({ current, children }: { current: string; children: ReactNode }) {
   const theme = useTheme();
   const motion = useAmbientMotion();
   return (
@@ -308,7 +307,7 @@ export function ThemeSurface({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <div className="workspace-scene" aria-hidden="true" />
-      <SiteHeader />
+      <SiteHeader current={current} />
       <main id="content" tabIndex={-1}>
         {children}
       </main>

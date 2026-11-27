@@ -88,7 +88,7 @@ export function DocsPage({ slug }: { slug: string }) {
         <div className="workspace-scene" />
         <AmbientVisualizer motion={motion} theme={theme} />
       </div>
-      <SiteHeader />
+      <SiteHeader current={slug === "index" ? "/docs" : `/docs/${slug}`} />
       <div className="docs-sidebar-pill" role="group" aria-label="Sidebar actions">
         <button type="button" aria-label="Open sidebar" onClick={() => reopen("docs-sidebar-collapse")}>
           <PanelLeftOpen size={15} aria-hidden="true" />

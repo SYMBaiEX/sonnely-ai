@@ -1,6 +1,7 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import type { Page } from "../../../../gen/app__nav.ts";
 import { ArrowUpRight } from "lucide-react";
+import { pathOf } from "../../routes.ts";
 import { SiteLead, ThemeSurface } from "./chrome.tsx";
 import { ProductIcon } from "./icons.tsx";
 import { Home } from "./home.tsx";
@@ -124,5 +125,5 @@ export function render(page: Page): React.ReactNode {
       return null;
   }
   if (body === undefined) return null;
-  return <ThemeSurface>{body}</ThemeSurface>;
+  return <ThemeSurface current={pathOf(page)}>{body}</ThemeSurface>;
 }
