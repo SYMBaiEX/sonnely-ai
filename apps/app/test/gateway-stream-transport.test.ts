@@ -310,6 +310,78 @@ describe("gateway stream transport", () => {
     expect(upstreamCalls).toBe(1);
   });
 
+  // spec/app/gateway/requests.md, "Story: Serve a metered completion": multipart endpoints validate files before proxying.
+  it("rejects wrong types, extra files and oversize files before any upstream call", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    let upstreamCalls = 0;
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.startsWith("https://cloud-api.near.ai/")) {
+        upstreamCalls += 1;
+        return Promise.resolve(new Response(JSON.stringify({ created: 1, data: [{ b64_json: "aGVsbG8=" }] }), { status: 200, headers: { "content-type": "application/json" } }));
+      }
+      return realFetch(input, init);
+    });
+    const post = async (port: number, form: FormData) => {
+      const response = await globalThis.fetch(`http://127.0.0.1:${port}/`, { method: "POST", body: form });
+      await response.text();
+      return response.status;
+    };
+    const program = Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "validate-key", label: "Inference", prefix: "sonnely_live_validate", hash: "validate-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "validate-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const editsApp = inferSpecialized("images/edits", "ImageEdits", "black-forest-labs/FLUX.2-klein-4B", undefined, key, "", "validate-edits-ref");
+      const convertApp = inferSpecialized("convert/file", "ConvertFile", "doc-upload", undefined, key, "", "validate-convert-ref");
+      const scope = yield* Scope.Scope;
+      const editsHandler = yield* NodeHttpServer.makeHandler(editsApp, { scope });
+      const convertHandler = yield* NodeHttpServer.makeHandler(convertApp, { scope });
+      const editsServer = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => editsHandler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const convertServer = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => convertHandler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const editsPort = (editsServer.address() as { port: number }).port;
+      const convertPort = (convertServer.address() as { port: number }).port;
+      const editsForm = (files: File[]) => {
+        const form = new FormData();
+        form.set("model", "black-forest-labs/FLUX.2-klein-4B");
+        form.set("prompt", "make it brighter");
+        for (const file of files) form.append("image", file);
+        return form;
+      };
+      const pixel = () => new File([new Uint8Array([1, 2, 3])], "pixel.png", { type: "image/png" });
+      const textFile = yield* Effect.promise(() => post(editsPort, editsForm([new File(["hello"], "notes.txt", { type: "text/plain" })])));
+      const fiveImages = yield* Effect.promise(() => post(editsPort, editsForm([pixel(), pixel(), pixel(), pixel(), pixel()])));
+      const oneImage = yield* Effect.promise(() => post(editsPort, editsForm([pixel()])));
+      const convertForm = (file: File) => {
+        const form = new FormData();
+        form.set("file", file);
+        return form;
+      };
+      const oversized = new File([new Uint8Array(2 * 1024 * 1024 + 1)], "big.pdf", { type: "application/pdf" });
+      const tooBig = yield* Effect.promise(() => post(convertPort, convertForm(oversized)));
+      const notPdf = yield* Effect.promise(() => post(convertPort, convertForm(pixel())));
+      const validPdf = yield* Effect.promise(() => post(convertPort, convertForm(new File(["%PDF-1.4"], "doc.pdf", { type: "application/pdf" }))));
+      return { textFile, fiveImages, oneImage, tooBig, notPdf, validPdf };
+    }));
+    const statuses = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    expect(statuses.textFile).toBe(400);
+    expect(statuses.fiveImages).toBe(400);
+    expect(statuses.oneImage).toBe(200);
+    expect(statuses.tooBig).toBe(413);
+    expect(statuses.notPdf).toBe(400);
+    expect(statuses.validPdf).not.toBe(400);
+    expect(upstreamCalls).toBe(1);
+  });
+
   // spec/app/gateway/requests.md, "Story: Serve a metered completion": reranking optionally accepts top_n.
   it("serves rerank requests with top_n and slices the results", async () => {
     process.env.NEAR_AI_API_KEY = "test-provider-key";

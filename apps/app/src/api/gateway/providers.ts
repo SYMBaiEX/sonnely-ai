@@ -698,6 +698,58 @@ export function multipartInput(form: FormData, fallbackModel: string): Result<Re
   }
   return ok(input);
 }
+
+/**
+ * Per-endpoint multipart ceilings. Every file stays under 2 MiB — inside the router's 3 MiB body cap —
+ * which for audio bounds the duration the upstream can be asked to process to minutes at speech
+ * bitrates, and document conversion to one small PDF per request.
+ */
+export const multipartLimits = { fileBytes: 2 * 1024 * 1024, textCharacters: 4_096, textFields: 12, editImages: 4 } as const;
+const audioMimeTypes = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/wave", "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/webm", "audio/ogg", "audio/flac", "audio/x-flac", "audio/aac", "audio/opus"]);
+const audioExtensions = [".mp3", ".wav", ".m4a", ".mp4", ".webm", ".ogg", ".oga", ".flac", ".aac", ".opus"];
+const imageMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+type MultipartRule = { files: [min: number, max: number]; types: Set<string>; extensions: string[]; label: string };
+const multipartRules: Record<string, MultipartRule> = {
+  "convert/file": { files: [1, 1], types: new Set(["application/pdf"]), extensions: [".pdf"], label: "one PDF" },
+  "audio/transcriptions": { files: [1, 1], types: audioMimeTypes, extensions: audioExtensions, label: "one audio file" },
+  "audio/translations": { files: [1, 1], types: audioMimeTypes, extensions: audioExtensions, label: "one audio file" },
+  "images/edits": { files: [1, multipartLimits.editImages], types: imageMimeTypes, extensions: [".png", ".jpg", ".jpeg", ".webp"], label: "1-4 PNG, JPEG or WebP images" },
+};
+
+function fileTypeAccepted(file: File, rule: MultipartRule): boolean {
+  if (rule.types.has(file.type.toLowerCase())) return true;
+  const name = file.name.toLowerCase();
+  return rule.extensions.some((extension) => name.endsWith(extension));
+}
+
+/**
+ * The endpoint-specific multipart contract, enforced before anything is proxied upstream: the files
+ * the endpoint expects, their types and byte ceilings, and bounded text fields. Anything else the
+ * form carries — extra files, wrong types, oversize parts — rejects the request rather than
+ * travelling upstream at the customer's reservation.
+ */
+export function validateMultipart(endpoint: string, form: FormData): Result<true> {
+  const rule = multipartRules[endpoint];
+  if (!rule) return ok(true);
+  const files: File[] = [];
+  let textFields = 0;
+  for (const [, value] of form.entries()) {
+    if (value instanceof File) files.push(value);
+    else {
+      textFields += 1;
+      if (typeof value === "string" && value.length > multipartLimits.textCharacters) return bad(400, "A text field exceeds the length limit.");
+    }
+  }
+  if (textFields > multipartLimits.textFields) return bad(400, "Too many form fields.");
+  if (files.length < rule.files[0] || files.length > rule.files[1]) return bad(400, "This endpoint takes " + rule.label + ".");
+  for (const file of files) {
+    if (file.size === 0) return bad(400, "Empty files cannot be processed.");
+    if (file.size > multipartLimits.fileBytes) return bad(413, "Files must be at most 2 MiB.");
+    if (!fileTypeAccepted(file, rule)) return bad(400, "This endpoint takes " + rule.label + ".");
+  }
+  return ok(true);
+}
 export async function callSpecialized(endpoint: string, selection: SpecializedSelection, input: Record<string, unknown> | FormData) {
   const providerPath = endpoint === "redact" ? "/redact" : "/v1/" + endpoint;
   const headers: Record<string, string> = { Authorization: "Bearer " + selection.key };
