@@ -1,13 +1,13 @@
 // spec/app/site/index.md, "Story: Check the service status"
-import { ArrowUpRight, CircleAlert, CircleCheck, Clock, RefreshCw } from "lucide-react";
+import { ArrowUpRight, CircleAlert, CircleCheck, Clock, RefreshCw, Activity } from "lucide-react";
 import { useState } from "react";
 import { overall, routingUp } from "../../../../gen/app__site.effect.vibe";
 import type { Board, ProbeState, Report } from "../../../../gen/app__site.ts";
 import type { Registry } from "../../../../gen/app__admin.ts";
 import { useRemote } from "../../remote.ts";
 import { useSession } from "../../session.ts";
-import { SiteLead } from "./chrome.tsx";
-import { caption, panel, textLink, wrap } from "./ui.ts";
+import { CorrespondenceHero } from "./chrome.tsx";
+import { caption, textLink } from "./ui.ts";
 
 const checkExplanations: Record<string, string> = {
   "Account service": "The workspace store behind sign-in, API keys, and billing records.",
@@ -91,109 +91,117 @@ export function StatusPage() {
     }
   }
 
+  const upCount = report ? services(report).filter(([, ok]) => ok).length : 0;
+
   return (
-    <div className={wrap + " inner-page market-page"}>
-      <SiteLead
-        title="Service status"
-        status={
-          healthy === undefined
-            ? "Check pending"
-            : healthy
-              ? "Checks passed"
-              : "Check needs attention"
-        }
-        description={
-          healthy === undefined
-            ? "Waiting for the first report from the status board."
-            : healthy
-              ? "Account and payment recovery checks passed."
-              : "One or more service checks need attention."
-        }
-      />
-      <div className="status-layout">
-        <section className={panel + " status-board"} aria-labelledby="status-checks">
-          <header>
-            <h2 id="status-checks">Workspace checks</h2>
-            <span className="market-status">Access mode · public</span>
-          </header>
-          <dl>
-            {(report ? services(report) : []).map(([name, ok, ready, unavailable]) => (
-              <div key={name}>
-                <dt>
-                  {name}
-                  <small>{checkExplanations[name]}</small>
-                </dt>
-                <dd>
-                  {ok ? (
-                    <CircleCheck size={17} aria-hidden="true" className="text-ok" />
-                  ) : (
-                    <CircleAlert size={17} aria-hidden="true" className="text-warn" />
-                  )}
-                  {ok ? ready : unavailable}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          {report && (
-            <>
-              <h3 className="status-subhead">Provider connectivity</h3>
-              <ul className="status-probes" role="list" aria-label="Provider connectivity">
-                {report.probes.map((probe) => (
-                  <li key={probe.provider} data-state={probe.state} className="status-probe">
-                    {probe.label} · {probe.state === "Ok" ? "Reachable" : probe.state}
-                  </li>
-                ))}
-              </ul>
-              <ul className="status-legend" role="list" aria-label="What the provider states mean">
-                {(Object.keys(stateExplanations) as ProbeState[]).map((state) => (
-                  <li key={state}>
-                    <span data-state={state} className="status-probe">
-                      {stateExplanations[state][0]}
-                    </span>
-                    <p>{stateExplanations[state][1]}</p>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-          <div className="status-meta">
-            <p className={caption}>
-              <Clock size={13} aria-hidden="true" />
-              {receivedAt
-                ? "This report reached your browser at " +
-                  checkedAtFormat.format(new Date(receivedAt)) +
-                  ". The board shows the most recent check the gateway recorded."
-                : "Waiting for the first report."}
-            </p>
-            {isOperator && (
-              <button
-                type="button"
-                className="button quiet small"
-                disabled={refreshing}
-                onClick={() => void runCheck()}
-              >
-                <RefreshCw size={14} aria-hidden="true" />
-                {refreshing ? "Checking…" : "Run a fresh check"}
-              </button>
-            )}
+    <div className="wrap cor-page cor-status-page">
+      <CorrespondenceHero
+        eyebrow="Service status · Sonnely"
+        title="Live checks, on the record."
+        description="What the gateway last measured of its account store, inference routing, payment configuration and deposit recovery."
+        brief={{
+          title: "Latest report",
+          rows: [
+            ["Board", healthy === undefined ? "Check pending" : healthy ? "Healthy" : "Needs attention"],
+            ["Checks up", report ? `${upCount} of 4` : "—"],
+            ["Providers", report ? `${report.probes.filter((probe) => probe.state === "Ok").length} reachable` : "—"],
+          ],
+        }}
+        actionsLabel="Status actions"
+        asideLabel="Latest report"
+      >
+        <a href="/api/health">
+          Health endpoint <ArrowUpRight size={15} aria-hidden="true" />
+        </a>
+        <a href="/docs/troubleshooting">
+          Errors and recovery <ArrowUpRight size={15} aria-hidden="true" />
+        </a>
+      </CorrespondenceHero>
+
+      <section className="cor-sheet cor-status-board" aria-labelledby="status-checks">
+        <header className="cor-sheet-head">
+          <div>
+            <span>Workspace checks</span>
+            <h2 id="status-checks">What the board measures</h2>
           </div>
+          <span className="cor-stamp" aria-hidden="true"><Activity size={20} /></span>
+        </header>
+        <dl className="status-checks">
+          {(report ? services(report) : []).map(([name, ok, ready, unavailable]) => (
+            <div key={name}>
+              <dt>
+                {name}
+                <small>{checkExplanations[name]}</small>
+              </dt>
+              <dd>
+                {ok ? (
+                  <CircleCheck size={17} aria-hidden="true" className="text-ok" />
+                ) : (
+                  <CircleAlert size={17} aria-hidden="true" className="text-warn" />
+                )}
+                {ok ? ready : unavailable}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {report && (
+          <>
+            <h3 className="status-subhead">Provider connectivity</h3>
+            <ul className="status-probes" role="list" aria-label="Provider connectivity">
+              {report.probes.map((probe) => (
+                <li key={probe.provider} data-state={probe.state} className="status-probe">
+                  {probe.label} · {probe.state === "Ok" ? "Reachable" : probe.state}
+                </li>
+              ))}
+            </ul>
+            <ul className="status-legend" role="list" aria-label="What the provider states mean">
+              {(Object.keys(stateExplanations) as ProbeState[]).map((state) => (
+                <li key={state}>
+                  <span data-state={state} className="status-probe">
+                    {stateExplanations[state][0]}
+                  </span>
+                  <p>{stateExplanations[state][1]}</p>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        <footer className="status-meta">
           <p className={caption}>
-            Provider catalog checks measure connectivity with a four-second timeout. They do not
-            send billable requests.
+            <Clock size={13} aria-hidden="true" />
+            {receivedAt
+              ? "This report reached your browser at " +
+                checkedAtFormat.format(new Date(receivedAt)) +
+                ". The board shows the most recent check the gateway recorded."
+              : "Waiting for the first report."}
           </p>
-          {(error || refreshError) && <p className={caption}>{error || refreshError}</p>}
-          <div className="actions">
-            <a className={textLink} href="/api/health">
-              Health endpoint <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
-            <a className={textLink} href="/docs/troubleshooting">
-              Errors and recovery <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
-          </div>
-        </section>
-        <aside className="status-aside">
-          <section className={panel} aria-labelledby="status-incidents">
-            <h2 id="status-incidents">Incident history</h2>
+          {isOperator && (
+            <button
+              type="button"
+              className="button quiet small"
+              disabled={refreshing}
+              onClick={() => void runCheck()}
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              {refreshing ? "Checking…" : "Run a fresh check"}
+            </button>
+          )}
+        </footer>
+        <p className={caption}>
+          Provider catalog checks measure connectivity with a four-second timeout. They do not
+          send billable requests.
+        </p>
+        {(error || refreshError) && <p className={caption}>{error || refreshError}</p>}
+      </section>
+
+      <section className="cor-terms" aria-labelledby="status-notes">
+        <header>
+          <span>Reading this page</span>
+          <h2 id="status-notes">Notes on checks</h2>
+        </header>
+        <div>
+          <article>
+            <h3>Incident history</h3>
             <p>
               This board reports live checks only; it does not yet publish an incident timeline.
               Scheduled inference alerts flag request errors, high latency, and pending billing
@@ -207,9 +215,9 @@ export function StatusPage() {
             <a className={textLink} href="/contact">
               Report a problem <ArrowUpRight size={14} aria-hidden="true" />
             </a>
-          </section>
-          <section className={panel} aria-labelledby="status-reading">
-            <h2 id="status-reading">Reading this page</h2>
+          </article>
+          <article>
+            <h3>Configuration, not outage</h3>
             <p>
               Workspace checks cover the account store, inference routing, payment configuration,
               and deposit recovery. A deployment can intentionally disable providers or payment
@@ -219,9 +227,9 @@ export function StatusPage() {
               Your browser receives updates over a live stream while this page is open. Reloading
               the page shows the most recent stored report.
             </p>
-          </section>
-        </aside>
-      </div>
+          </article>
+        </div>
+      </section>
     </div>
   );
 }

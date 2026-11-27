@@ -39,7 +39,7 @@ function scrollToHash(hash: string): boolean {
  */
 export function App({ runtime, path }: AppProps) {
   const { state } = useMachine(runtime);
-  const openedHash = useRef(location.hash);
+  const openedHash = useRef<string | null>(location.hash);
 
   useEffect(() => {
     if (!state) return;

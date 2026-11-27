@@ -10,8 +10,8 @@ import {
   verifyReceiptEvidence,
 } from "./receipt.ts";
 import { creditBalance, providerNames, providerOfSlug } from "./data.ts";
-import { SiteLead } from "./chrome.tsx";
-import { buttonAccent, buttonQuiet, monoSm, panel, textLink, wrap } from "./ui.ts";
+import { CorrespondenceHero } from "./chrome.tsx";
+import { buttonAccent, buttonQuiet, monoSm, textLink } from "./ui.ts";
 
 const nearDocs = "https://docs.near.ai/cloud/verification/cloud-api/response-signatures";
 const phalaDocs = "https://phala.com/confidential-ai-models/verification";
@@ -168,11 +168,15 @@ function ReceiptInspector() {
 
   return (
     <div className="verify-grid">
-      <form className={panel + " verify-panel grid gap-4"} onSubmit={(event) => void inspect(event)}>
-        <div className="verify-panel-head">
-          <h2>Completion receipt</h2>
-          <p>Use a receipt, a JSON completion response, or a stream containing a receipt.</p>
-        </div>
+      <form className="cor-sheet verify-panel grid gap-4" onSubmit={(event) => void inspect(event)}>
+        <header className="cor-sheet-head">
+          <div>
+            <span>Completion receipt</span>
+            <h2>Inspect a receipt</h2>
+          </div>
+          <span className="cor-stamp" aria-hidden="true"><Fingerprint size={20} /></span>
+        </header>
+        <p className="verify-panel-lede">Use a receipt, a JSON completion response, or a stream containing a receipt.</p>
         <fieldset className="grid gap-4 disabled:opacity-60" disabled={busy}>
           <div className="grid gap-1.5">
             <label htmlFor="receipt-json" className="text-sm font-medium">
@@ -268,17 +272,21 @@ function ReceiptInspector() {
           <ShieldCheck size={16} aria-hidden="true" /> The receipt and files stay in this browser.
         </p>
       </form>
-      <section className={panel + " verify-panel grid gap-4"} aria-labelledby="verification-result">
-        <div className="verify-panel-head">
-          <h2 id="verification-result">Inspection results</h2>
-          <p role="status">
-            {inspection
-              ? "Receipt format validated."
-              : busy
-                ? "Checking receipt evidence…"
-                : "Results appear after inspection."}
-          </p>
-        </div>
+      <section className="cor-sheet verify-panel grid gap-4" aria-labelledby="verification-result">
+        <header className="cor-sheet-head">
+          <div>
+            <span>Inspection results</span>
+            <h2 id="verification-result">What the receipt shows</h2>
+          </div>
+          <span className="cor-stamp" aria-hidden="true"><ShieldCheck size={20} /></span>
+        </header>
+        <p role="status" className="verify-panel-lede">
+          {inspection
+            ? "Receipt format validated."
+            : busy
+              ? "Checking receipt evidence…"
+              : "Results appear after inspection."}
+        </p>
         {inspection ? (
           <>
             <EvidenceSummary receipt={inspection.receipt} evidence={inspection.evidence} />
@@ -385,12 +393,26 @@ function ReceiptInspector() {
 
 export function VerifyPage() {
   return (
-    <div className={wrap + " inner-page market-page"}>
-      <SiteLead
-        title="Verify an inference receipt"
-        description="Review what the serving route reported and check supported signatures and file hashes on this device."
-        back={["/docs/attestation", "Attestation guide"]}
-      />
+    <div className="wrap cor-page cor-verify-page">
+      <CorrespondenceHero
+        eyebrow="Receipt verification · Sonnely"
+        title="Check the evidence yourself."
+        description="Review what the serving route reported and verify supported signatures and file hashes on this device — nothing leaves the browser."
+        brief={{
+          title: "Inspection",
+          rows: [
+            ["Receipt format", "Sonnely v1"],
+            ["Runs in", "This browser"],
+            ["Signatures", "NEAR AI local"],
+          ],
+        }}
+        actionsLabel="Verification actions"
+        asideLabel="Inspection"
+      >
+        <a href="/docs/attestation">
+          Attestation guide <ArrowUpRight size={15} aria-hidden="true" />
+        </a>
+      </CorrespondenceHero>
       <ReceiptInspector />
     </div>
   );
