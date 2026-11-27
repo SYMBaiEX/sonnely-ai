@@ -21,3 +21,5 @@ export const cn = cnFor(tokens);
 
 /** The ring every control shows under keyboard focus. */
 export const focusRing = "outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+export const fieldFocus = "outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";

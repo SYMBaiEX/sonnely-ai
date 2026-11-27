@@ -253,11 +253,6 @@
   font-family: var(--font-mono, monospace);
 }
 
-.batch-legacy .batch-key-form input:focus-visible {
-  border-color: var(--accent);
-  outline: none;
-}
-
 .batch-legacy .batch-key-ready {
   display: flex;
   flex-wrap: wrap;

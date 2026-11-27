@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { cn, focusRing } from "../lib/cn.ts";
+import { cn, fieldFocus } from "../lib/cn.ts";
 
 export type TextareaProps = Omit<ComponentProps<"textarea">, "children"> & {
   /** Marks the value as refused, visibly and through `aria-invalid`. */
@@ -12,7 +12,7 @@ export function Textarea({ invalid = false, className, ...props }: TextareaProps
     <textarea
       aria-invalid={invalid || undefined}
       className={cn(
-        focusRing,
+        fieldFocus,
         "field-sizing-content min-h-9 w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive",
         className,
       )}

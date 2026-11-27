@@ -53,12 +53,6 @@
   border-color: var(--input);
 }
 
-.site .cx-form input:focus-visible,.site .cx-form textarea:focus-visible{
-  border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 18%, transparent);
-  outline: none;
-}
-
 .site .cx-form textarea{
   min-height: 154px;
   resize: vertical;

@@ -325,12 +325,14 @@
     font-size: 1rem;
   }
 
-.console-playground .composer textarea:focus-visible {
+.theme-root.site .console-playground .composer textarea:focus-visible {
     outline: none;
+    box-shadow: none;
   }
 
 .console-playground .playground-entry:has(.composer):focus-within {
-    border-color: var(--focus-ring);
+    border-color: var(--field-focus-edge);
+    box-shadow: 0 0 0 3px var(--field-focus-glow);
   }
 
 .console-playground .chat-note {
@@ -1287,10 +1289,6 @@
     border-radius: .625rem;
   }
 
-.console-playground .playground-editor .playground-request textarea:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
 
 .console-playground .playground-editor .playground-request textarea {
     min-block-size: 6rem;

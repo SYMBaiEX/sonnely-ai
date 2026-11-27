@@ -877,13 +877,6 @@ a.docs-page-action {
   scrollbar-width: thin;
 }
 
-.docs-tryit-key input:focus-visible,
-.docs-tryit-body textarea:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -1px;
-}
-
 .docs-tryit-actions {
   display: flex;
   flex-wrap: wrap;

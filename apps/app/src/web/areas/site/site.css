@@ -4,6 +4,8 @@
   --site-header-height: 88px;
   --focus-ring: var(--ring);
   --control-edge: light-dark(#7c86a1, #7e7182);
+  --field-focus-edge: color-mix(in oklch, var(--focus-ring) 68%, var(--control-edge));
+  --field-focus-glow: color-mix(in oklch, var(--focus-ring) 15%, transparent);
   --site-mobile-header-height: calc(72px + env(safe-area-inset-top));
   --surface: #0c0b0e;
   --ink: #faf7f9;
@@ -1282,6 +1284,20 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
 .site :focus-visible{
   outline: 2px solid var(--focus-ring);
   outline-offset: 4px;
+}
+/* Text fields show focus as a quiet accent-tinted edge with a soft glow rather
+   than the hard ring buttons and links keep. */
+.theme-root.site :is(input:not([type="checkbox"], [type="radio"]), textarea, select):focus-visible{
+  outline: none;
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-glow);
+}
+@media (forced-colors: active) {
+  .theme-root.site :is(input:not([type="checkbox"], [type="radio"]), textarea, select):focus-visible{
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+    box-shadow: none;
+  }
 }
 .site :is(code, pre){
   font-family: var(--mono);
@@ -3508,7 +3524,7 @@ html:has(.mobile-dock) { scroll-padding-block-end: calc(80px + env(safe-area-ins
 .site button, .site input, .site textarea, .site select { font: inherit;color: inherit }
 .site code, .site pre, .site .mono { font-family: var(--mono) }
 .site img { max-width: 100% }
-.site input:not([type="checkbox"], [type="radio"]), .site textarea, .site select { width: 100%;border: 1px solid var(--control-edge);background: var(--card);border-radius: 9px;padding: 10px 12px;min-height: 42px }
+.site input:not([type="checkbox"], [type="radio"]), .site textarea, .site select { width: 100%;border: 1px solid var(--control-edge);background: var(--card);border-radius: 9px;padding: 10px 12px;min-height: 42px;transition: border-color var(--duration-base) var(--ease-standard),box-shadow var(--duration-base) var(--ease-standard) }
 .site textarea { resize: vertical }
 .site ::placeholder { color: var(--muted);opacity: 1 }
 .site form label { display: grid;gap: 6px;min-width: 0;font-size: 13px }
