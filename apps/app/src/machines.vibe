@@ -4,7 +4,8 @@
 // originate, identity fields are forced to the session wallet, and the machine's trusted sender is
 // the session wallet — never anything the client supplied.
 import * as Admin from "../gen/app__admin.effect.vibe"
-import { authenticatedWallet } from "./api/session.vibe"
+import * as Session from "../gen/app__session.effect.vibe"
+import { authenticatedSession, authenticatedWallet } from "./api/session.vibe"
 import { Fleet, fleetMachineNames, type FleetMachine } from "./fleet.vibe"
 
 export interface MachineLike {
@@ -126,11 +127,39 @@ effect function postEvent(m: MachineLike, policy: WritePolicy, scoping: Scoping)
   return try HttpServerResponse.json({ ok: true, state: scoped }, { headers: noStore })
 }
 
+// spec/app/session.md, "Only an active session can sign out": a stream opened for one session is
+// bound to it for life. Every frame is revalidated against the live signing state, so no frame
+// crosses after the session ends — sign-out or wall-clock expiry alike. The connection itself is
+// interrupted as soon as the session machine publishes a state in which the credential is no
+// longer active; a quiet server publishes nothing, so an idle connection can stay open past
+// expiry, but nothing crosses it in either case.
+function sessionBound<A>(frames: Stream.Stream<A>, sessions: Session.Machine.Shape, digest: string): Stream.Stream<A> {
+  const revocation = effect {
+    for try (const state of sessions.changes) {
+      if (Session.activeWallet(state, digest, Date.now()) == "") break
+    }
+  }
+  return frames.pipe(
+    Stream.takeWhileEffect(effect () => {
+      return Session.activeWallet(try sessions.get(), digest, Date.now()) != ""
+    }),
+    Stream.interruptWhen(revocation),
+  )
+}
+
+effect function sessionBoundFrames<A>(frames: Stream.Stream<A>, wallet: string, digest: string) {
+  if (wallet == "") return frames
+  const sessions = try Session.Machine
+  return sessionBound(frames, sessions, digest)
+}
+
 effect function getStream(m: MachineLike, scoping: Scoping) {
-  const wallet = try authenticatedWallet()
+  const session = try authenticatedSession()
+  const wallet = session.wallet
   if (scoping.visibility != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   try observeFirstSeen(wallet)
-  const pushes = Stream.map(m.changes, (raw) => {
+  const frames = try sessionBoundFrames(m.changes, wallet, session.digest)
+  const pushes = Stream.map(frames, (raw) => {
     const state = scoping.project != undefined && wallet != "" ? scoping.project(raw, wallet) : raw
     return `data: ${JSON.stringify(state)}\n\n`
   })
@@ -149,11 +178,13 @@ effect function getFleetState(fleet: Fleet.Shape, name: string) {
 }
 
 effect function getFleetStream(fleet: Fleet.Shape, name: string) {
-  const wallet = try authenticatedWallet()
+  const session = try authenticatedSession()
+  const wallet = session.wallet
   if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   try observeFirstSeen(wallet)
   const machine = try fleet.machine(name, wallet)
-  const pushes = Stream.map(machine.changes, (state) => `data: ${JSON.stringify(state)}\n\n`)
+  const frames = try sessionBoundFrames(machine.changes, wallet, session.digest)
+  const pushes = Stream.map(frames, (state) => `data: ${JSON.stringify(state)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
     headers: noStore,
@@ -199,7 +230,8 @@ export function fleetMachineApi(name: string, policy: WritePolicy = { events: []
 }
 
 effect function getMultiplexedStream(registry: MachineRegistry.Shape) {
-  const wallet = try authenticatedWallet()
+  const session = try authenticatedSession()
+  const wallet = session.wallet
   const machines = try registry.entries()
   const visible = machines.filter(([, entry]) => entry.scoping.visibility == "public" || (entry.scoping.visibility == "user" && wallet != ""))
   const streams = visible.map(([name, entry]) => Stream.map(entry.machine.changes, (raw) => {
@@ -213,7 +245,8 @@ effect function getMultiplexedStream(registry: MachineRegistry.Shape) {
       streams.push(Stream.map(instance.changes, (state) => `data: ${JSON.stringify({ machine: name, state })}\n\n`))
     }
   }
-  return HttpServerResponse.stream(Stream.encodeText(Stream.mergeAll(streams, { concurrency: "unbounded" })), {
+  const merged = try sessionBoundFrames(Stream.mergeAll(streams, { concurrency: "unbounded" }), wallet, session.digest)
+  return HttpServerResponse.stream(Stream.encodeText(merged), {
     contentType: "text/event-stream",
     headers: noStore,
   })

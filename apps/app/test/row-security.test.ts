@@ -21,6 +21,7 @@ import { keysApi } from "../src/api/keys.vibe";
 import { teamsApi } from "../src/api/teams.vibe";
 import { supportApi } from "../src/api/support.vibe";
 import { gatewayApi } from "../src/api/gateway.vibe";
+import { sessionApi } from "../src/api/session.vibe";
 import { fleetMachineApi } from "../src/machines.vibe";
 import { fleetLive } from "../src/fleet.vibe";
 import { sessionDigest } from "../src/api/session/signin.ts";
@@ -61,11 +62,11 @@ function apiKey(id: string, token: string, wallet: string) {
   };
 }
 
-function writeSessions(dir: string) {
+function writeSessions(dir: string, aExpiresIn = 60_000) {
   writeFileSync(join(dir, "session"), JSON.stringify({
     challenges: [],
     logins: [
-      { digest: sessionDigest(tokenA), nonce: "nonce", wallet: walletA, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
+      { digest: sessionDigest(tokenA), nonce: "nonce", wallet: walletA, createdAt: 1, expiresAt: Date.now() + aExpiresIn, state: "LoginActive" },
       { digest: sessionDigest(tokenB), nonce: "nonce", wallet: walletB, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
       { digest: sessionDigest(tokenOp), nonce: "nonce", wallet: walletOp, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
       { digest: sessionDigest(tokenAdm), nonce: "nonce", wallet: walletAdm, createdAt: 1, expiresAt: Date.now() + 60_000, state: "LoginActive" },
@@ -130,10 +131,10 @@ function seed(dir: string, finalizedDeposit = false) {
   }));
 }
 
-function makeAppWithDir(finalizedDeposit = false) {
+function makeAppWithDir(finalizedDeposit = false, aExpiresIn?: number) {
   const dir = mkdtempSync(join(process.cwd(), ".tmp-row-security-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
-  writeSessions(dir);
+  writeSessions(dir, aExpiresIn);
   seed(dir, finalizedDeposit);
   if (finalizedDeposit) {
     writeFileSync(join(dir, "admin-referrals"), JSON.stringify({
@@ -149,6 +150,7 @@ function makeAppWithDir(finalizedDeposit = false) {
     teamsApi,
     supportApi,
     gatewayApi,
+    sessionApi,
     fleetMachineApi("console__chat", { events: ["newChat", "send"] }),
   );
   const state = Layer.provideMerge(
@@ -592,4 +594,58 @@ describe("row-level access", () => {
       after: after.records.find((row) => row.id === walletB)?.status,
     }).toEqual({ registered: true, suspendStatus: 200, during: "Suspended", reinstateStatus: 200, after: "Active" });
   });
+
+  function readToEnd(reader: ReadableStreamDefaultReader<Uint8Array>, ms: number) {
+    const collected: string[] = [];
+    const decoder = new TextDecoder();
+    const reading = (async () => {
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.done) return "done";
+        collected.push(decoder.decode(chunk.value, { stream: true }));
+      }
+    })();
+    const expiry = new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), ms));
+    return Promise.race([reading, expiry]).then((outcome) => ({ outcome, text: collected.join("") }));
+  }
+
+  // spec/app/session.md, "Only an active session can sign out": signing out ends the streams the
+  // session opened — the connection closes and no further frame crosses it
+  it("terminates a wallet's machine stream when its session signs out", async () => {
+    const handler = makeApp();
+    const stream = await get(handler, "/api/machines/console__chat/stream", tokenA);
+    expect(stream.status).toBe(200);
+    const reader = stream.body!.getReader();
+    const first = await Promise.race([reader.read(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))]);
+    const opening = first && !first.done ? new TextDecoder().decode(first.value) : "";
+    await handler(new Request("http://localhost/api/session/signout", {
+      method: "POST",
+      headers: { cookie: "sonnely_session=" + tokenA },
+    }));
+    const rest = await readToEnd(reader, 5000);
+    expect({
+      openedLive: opening.includes("secret prompt"),
+      outcome: rest.outcome,
+      deliveredAfterSignOut: rest.text,
+    }).toEqual({ openedLive: true, outcome: "done", deliveredAfterSignOut: "" });
+  }, 15_000);
+
+  // spec/app/session.md, "Expiry closes open challenges and active sessions": a session that
+  // expires mid-stream ends delivery — another wallet's writes never reach the expired stream
+  it("ends delivery on a stream whose session expires while open", async () => {
+    const { handler } = makeAppWithDir(false, 900);
+    const stream = await get(handler, "/api/machines/stream", tokenA);
+    expect(stream.status).toBe(200);
+    const reader = stream.body!.getReader();
+    const first = await Promise.race([reader.read(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))]);
+    const opening = first && !first.done ? new TextDecoder().decode(first.value) : "";
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+    await postMachine(handler, "teams", { type: "createTeam", id: "team-b-expiry", name: "B expiry team", actor: walletB, now: 70 }, tokenB);
+    const rest = await readToEnd(reader, 5000);
+    expect({
+      openedLive: opening.includes("data: "),
+      outcome: rest.outcome,
+      leak: rest.text.includes("team-b-expiry"),
+    }).toEqual({ openedLive: true, outcome: "done", leak: false });
+  }, 15_000);
 });

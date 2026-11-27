@@ -41,8 +41,10 @@ function tokenDigest(token: string | undefined): string {
   return token == undefined || token == "" ? "" : signin.sessionDigest(token)
 }
 
-/** Expire due challenges and sessions, then answer the wallet this request's session token names. */
-effect function authenticatedWallet() {
+/** Expire due challenges and sessions, then answer the wallet and credential digest this request's
+ * session token names. The digest pairs with the wallet so a stream opened for the session can keep
+ * revalidating that exact session: the wallet alone cannot say when the session ended. */
+effect function authenticatedSession() {
   const request = try HttpServerRequest.HttpServerRequest
   const sessions = try Session.Machine
   const now = try Clock.currentTimeMillis
@@ -51,10 +53,16 @@ effect function authenticatedWallet() {
     sessions.send({ type: "expire", now }) catch () => undefined
   }
   const state = try sessions.get()
-  return Session.activeWallet(state, tokenDigest(request.cookies["sonnely_session"]), now)
+  const digest = tokenDigest(request.cookies["sonnely_session"])
+  return { wallet: Session.activeWallet(state, digest, now), digest }
 }
 
-export { authenticatedWallet }
+/** Expire due challenges and sessions, then answer the wallet this request's session token names. */
+effect function authenticatedWallet() {
+  return (try authenticatedSession()).wallet
+}
+
+export { authenticatedSession, authenticatedWallet }
 
 function publicSession(state: Session.Sessions, digest: string, now: number) {
   const wallet = Session.activeWallet(state, digest, now)
