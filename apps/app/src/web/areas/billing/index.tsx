@@ -18,7 +18,6 @@ import type { Page } from "../../../../gen/app__nav.ts";
 import { useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
 import { solanaWalletClients } from "../console/solana-wallet.ts";
-import { IntentsCheckout } from "./intents-checkout.tsx";
 import {
   CopyButton,
   creditBalance,
@@ -239,10 +238,8 @@ function BillingConsole() {
   const cluster = config.cluster ?? "devnet";
   const billingEnabled = config.enabled;
   const paymentVerificationEnabled = config.enabled;
-  const termsRequired = false;
   const showSol = Boolean(billingEnabled && cluster === "mainnet");
   const showOther = cluster === "mainnet";
-  const intentsWidgetUrl = undefined;
   const mine = deposits.state?.intents.filter((item) => item.wallet === wallet) ?? [];
   const paymentHistory = mine.map((item) => ({ item, time: item.createdAt })).sort((left, right) => right.time - left.time);
   const fundingDetails = intent?.recipient === wallet ? intent : null;
@@ -387,13 +384,11 @@ function BillingConsole() {
           {(method === "usdc" || method === "sol") && (
             <>
               <p className="caption">
-                {termsRequired
-                  ? "Accept the current terms above to buy credits."
-                  : profile
-                    ? method === "sol"
-                      ? "Enter the USD credit amount. You’ll review a time-limited SOL quote before you pay."
-                      : "Credits post after your public USDC transfer finalizes."
-                    : "Connect your Solana wallet in the header to buy credits."}
+                {profile
+                  ? method === "sol"
+                    ? "Enter the USD credit amount. You’ll review a time-limited SOL quote before you pay."
+                    : "Credits post after your public USDC transfer finalizes."
+                  : "Connect your Solana wallet in the header to buy credits."}
               </p>
               <form
                 className="inline-form"
@@ -461,20 +456,7 @@ function BillingConsole() {
               {failure?.action === "deposit" && <Failure message={failure.message} />}
             </>
           )}
-          {method === "other" && showOther && intentsWidgetUrl && (
-            <IntentsCheckout
-              url={intentsWidgetUrl}
-              wallet={wallet}
-              unavailableReason={
-                termsRequired
-                  ? "Accept the current terms above to use NEAR Intents."
-                  : !billingEnabled
-                    ? "Swaps are temporarily unavailable."
-                    : undefined
-              }
-            />
-          )}
-          {method === "other" && showOther && !intentsWidgetUrl && (
+          {method === "other" && showOther && (
             <div className="stack-panel">
               <p className="caption">
                 NEAR Intents converts your funds to USDC in your wallet. Then pay with USDC to add credits.
@@ -583,7 +565,7 @@ function BillingConsole() {
                     <button
                       type="button"
                       className="button accent"
-                      disabled={!!pending || !billingEnabled || termsRequired}
+                      disabled={!!pending || !billingEnabled}
                       onClick={() =>
                         void run("prepare-swap", async () => {
                           if (!wallet) throw new Error("Connect your Solana wallet to start a swap.");
@@ -742,7 +724,7 @@ function BillingConsole() {
                             </div>
                           ) : archive === item.reference ? (
                             <div className="payment-status">
-                              <span className="caption">Archive this payment request?</span>
+                              <span className="caption">Archive this payment request on this device?</span>
                               <button
                                 className="text-link destructive"
                                 type="button"
@@ -758,7 +740,7 @@ function BillingConsole() {
                                   saveMeta(next);
                                   if (order?.intent.reference === item.reference) setOrder(opened);
                                   setArchive("");
-                                  setStatus("Payment request archived. You can still check for a finalized transfer.");
+                                  setStatus("Payment request archived on this device. You can still check for a finalized transfer.");
                                 }}
                               >
                                 Confirm archive
@@ -789,7 +771,7 @@ function BillingConsole() {
                                   </button>
                                   {meta[item.reference]?.archivedAt === undefined && (
                                     <button className="text-link destructive" type="button" disabled={!!pending} onClick={() => setArchive(item.reference)}>
-                                      Archive request
+                                      Archive on this device
                                     </button>
                                   )}
                                 </>
