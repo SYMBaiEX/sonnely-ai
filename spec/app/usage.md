@@ -137,9 +137,13 @@ The wallet is part of the row, and the trusted sender of record and settlement
 events must be that wallet. The API derives the sender from the verified
 session or from the already authenticated key owner inside the gateway; it
 never trusts a wallet supplied by the client. Reads project rows for the
-session wallet.
+session wallet; rows tagged with a team project are also visible to members of
+the owning team, while workspace rows remain private to the requester.
 
 ```quint
+pure def visibleRows(u: Usage, wallet: str, teamProjects: Set[str]): List[Row] =
+  u.rows.select(r => r.wallet == wallet or (r.project != "" and teamProjects.contains(r.project)))
+
 pure def stepWalletNeverChanges(before: Usage, after: Usage): bool =
   before.rows.every(r => rowWithId(after, r.id).every(a => a.wallet == r.wallet))
 ```

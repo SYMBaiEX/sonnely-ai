@@ -14,6 +14,24 @@ export function managedProjectIds(directory: Teams, wallet: string) {
   return directory.teams.filter((team) => manages(team, wallet)).flatMap((team) => team.projects.map((project) => project.id))
 }
 
+effect function currentDirectory() {
+  const service = try Effect.serviceOption(Machine)
+  if (!Option.isSome(service)) return initial
+  return try service.value.get()
+}
+
+export effect function managedProjectsFor(wallet: string) {
+  return managedProjectIds(try currentDirectory(), wallet)
+}
+
+export function memberProjectIds(directory: Teams, wallet: string) {
+  return directory.teams.filter((team) => team.members.some((member) => member.wallet == wallet)).flatMap((team) => team.projects.map((project) => project.id))
+}
+
+export effect function memberProjectsFor(wallet: string) {
+  return memberProjectIds(try currentDirectory(), wallet)
+}
+
 function acceptedMembershipCascade(input: unknown) {
   if (input == undefined || typeof input != "object") return undefined
   const event = input as { type?: unknown; teamId?: unknown; wallet?: unknown; role?: unknown }

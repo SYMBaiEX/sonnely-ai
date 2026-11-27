@@ -8,7 +8,7 @@ import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
-import { managedProjectIds } from "./teams.vibe"
+import { managedProjectsFor } from "./teams.vibe"
 
 const noStore = { "cache-control": "no-store" }
 
@@ -21,14 +21,8 @@ function project(state: Keys.Keys, wallet: string, projectIds: readonly string[]
   return { keys: state.keys.filter((key) => key.wallet == wallet || (key.project != "" && managed.has(key.project))) }
 }
 
-effect function managedProjects(wallet: string) {
-  const service = try Effect.serviceOption(Teams.Machine)
-  if (!Option.isSome(service)) return []
-  return managedProjectIds(try service.value.get(), wallet)
-}
-
 effect function projectState(state: Keys.Keys, wallet: string) {
-  return project(state, wallet, try managedProjects(wallet))
+  return project(state, wallet, try managedProjectsFor(wallet))
 }
 
 effect function managesProject(projectId: string, wallet: string) {

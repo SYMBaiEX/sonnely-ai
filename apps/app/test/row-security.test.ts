@@ -19,6 +19,7 @@ import { adminApi } from "../src/api/admin.vibe";
 import { billingApi } from "../src/api/billing.vibe";
 import { keysApi } from "../src/api/keys.vibe";
 import { teamsApi } from "../src/api/teams.vibe";
+import { usageApi } from "../src/api/usage.vibe";
 import { supportApi } from "../src/api/support.vibe";
 import { gatewayApi } from "../src/api/gateway.vibe";
 import { fleetMachineApi } from "../src/machines.vibe";
@@ -58,6 +59,25 @@ function apiKey(id: string, token: string, wallet: string) {
     spent: 0,
     dayKey: "",
     daySpent: 0,
+  };
+}
+
+function usageRow(id: string, wallet: string, project: string): Usage.Row {
+  return {
+    id,
+    time: 1,
+    keyName: "project key",
+    keyId: "key-project",
+    project,
+    wallet,
+    model: "model-a",
+    provider: "NearAI",
+    input: 10,
+    output: 5,
+    cached: 0,
+    cost: 100,
+    providerMs: 20,
+    status: "Complete",
   };
 }
 
@@ -130,11 +150,12 @@ function seed(dir: string, finalizedDeposit = false) {
   }));
 }
 
-function makeAppWithDir(finalizedDeposit = false) {
+function makeAppWithDir(finalizedDeposit = false, usageRows: Usage.Row[] = []) {
   const dir = mkdtempSync(join(process.cwd(), ".tmp-row-security-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   writeSessions(dir);
   seed(dir, finalizedDeposit);
+  writeFileSync(join(dir, "usage"), JSON.stringify({ rows: usageRows }));
   if (finalizedDeposit) {
     writeFileSync(join(dir, "admin-referrals"), JSON.stringify({
       codes: [{ code: "code-a", owner: walletB }],
@@ -147,6 +168,7 @@ function makeAppWithDir(finalizedDeposit = false) {
     billingApi,
     keysApi,
     teamsApi,
+    usageApi,
     supportApi,
     gatewayApi,
     fleetMachineApi("console__chat", { events: ["newChat", "send"] }),
@@ -249,6 +271,42 @@ describe("row-level access", () => {
     const a = await (await get(handler, "/api/machines/teams", tokenA)).json() as { teams: unknown[] };
     const b = await (await get(handler, "/api/machines/teams", tokenB)).json() as { teams: unknown[] };
     expect({ a: a.teams.length, b: b.teams.length }).toEqual({ a: 1, b: 0 });
+  });
+
+  // spec/app/usage.md, "Every usage row belongs to the wallet that metered it": teammates read
+  // project rows together, while workspace rows stay with the wallet that metered them
+  it("shows project usage to teammates without exposing workspace usage", async () => {
+    const { handler } = makeAppWithDir(false, [
+      usageRow("request-project", walletB, "proj-a"),
+      usageRow("request-workspace", walletB, ""),
+    ]);
+    const inviteFirstAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin", expiresAt: 1000, now: 1 }, tokenA);
+    const acceptFirstAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletB, accept: true, now: 2 }, tokenB);
+    const inviteSecondAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletFin, role: "Admin", expiresAt: 1000, now: 3 }, tokenA);
+    const acceptSecondAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletFin, accept: true, now: 4 }, tokenFin);
+    const inviteMember = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletOp, role: "Member", expiresAt: 1000, now: 5 }, tokenA);
+    const acceptMember = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletOp, accept: true, now: 6 }, tokenOp);
+    const ids = (rows: { id: string }[]) => rows.map((row) => row.id);
+    const owner = await (await get(handler, "/api/machines/usage", tokenA)).json() as { rows: { id: string }[] };
+    const firstAdmin = await (await get(handler, "/api/machines/usage", tokenB)).json() as { rows: { id: string }[] };
+    const secondAdmin = await (await get(handler, "/api/machines/usage", tokenFin)).json() as { rows: { id: string }[] };
+    const member = await (await get(handler, "/api/machines/usage", tokenOp)).json() as { rows: { id: string }[] };
+    const outsider = await (await get(handler, "/api/machines/usage", tokenAdm)).json() as { rows: { id: string }[] };
+    expect({
+      setup: [inviteFirstAdmin.status, acceptFirstAdmin.status, inviteSecondAdmin.status, acceptSecondAdmin.status, inviteMember.status, acceptMember.status],
+      owner: ids(owner.rows),
+      firstAdmin: ids(firstAdmin.rows),
+      secondAdmin: ids(secondAdmin.rows),
+      member: ids(member.rows),
+      outsider: ids(outsider.rows),
+    }).toEqual({
+      setup: [200, 200, 200, 200, 200, 200],
+      owner: ["request-project"],
+      firstAdmin: ["request-project", "request-workspace"],
+      secondAdmin: ["request-project"],
+      member: ["request-project"],
+      outsider: [],
+    });
   });
 
   // spec/app/support.md, "A ticket and its replies"
