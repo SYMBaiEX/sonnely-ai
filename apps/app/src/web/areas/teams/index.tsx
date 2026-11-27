@@ -413,7 +413,7 @@ function ProjectWorkspace({
         </Section>
       )}
       <Section title="Recent project requests">
-        <p className="caption">Requests run with keys you created appear here; teammates see their own.</p>
+        <p className="caption">Teammates can review every request made with this project's keys.</p>
         {requests.length === 0 ? (
           <Empty title="No requests yet" icon={<Activity size={22} />}>
             <p>Requests will appear here.</p>
