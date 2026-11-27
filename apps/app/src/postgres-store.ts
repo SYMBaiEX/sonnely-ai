@@ -151,11 +151,15 @@ async function initialize(shared: SharedPostgres) {
     )
   `;
   await migrateFiles(shared);
-  await mkdir(shared.migrationDir, { recursive: true });
-  await writeFile(
-    join(shared.migrationDir, cutoverMarkerName),
-    `PostgreSQL holds the machine state for this deployment since this boot. Without DATABASE_URL these files are stale: booting the file store against them would roll the state back.\n`,
-  );
+  try {
+    await mkdir(shared.migrationDir, { recursive: true });
+    await writeFile(
+      join(shared.migrationDir, cutoverMarkerName),
+      `PostgreSQL holds the machine state for this deployment since this boot. Without DATABASE_URL these files are stale: booting the file store against them would roll the state back.\n`,
+    );
+  } catch (error) {
+    console.warn(`cutover marker not written to ${shared.migrationDir}: the file-rollback guard is inactive on this deployment`, error);
+  }
 }
 
 function createShared(databaseUrl: string, migrationDir: string, schema: string): SharedPostgres {
