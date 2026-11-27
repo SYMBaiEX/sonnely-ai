@@ -5,6 +5,7 @@ import { creditBalance, creditDecimal } from "../lib/credit-amount.ts";
 import { models, shorten } from "../lib/models.ts";
 import { providerIds, providerNames } from "../lib/provider-catalog.ts";
 import { CopyButton } from "../shared.tsx";
+import { SearchField } from "../../../../search.tsx";
 import {
   localTime,
   outcomes,
@@ -253,9 +254,8 @@ export function TracesPanel({ open }: { open?: (id: string) => void }) {
           reset();
         }}
       >
-        <input
+        <SearchField
           name="search"
-          type="search"
           maxLength={80}
           aria-label="Search request traces"
           placeholder="Request ID"

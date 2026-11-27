@@ -661,40 +661,8 @@
     font-weight: 620;
   }
 
-.console-playground .playground-route-dialog .playground-model-search {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 7px;
-    padding-inline: 9px;
+.console-playground .playground-route-dialog .search-field {
     margin-block-end: 6px;
-    border: 1px solid var(--control-edge);
-    border-radius: 8px;
-  }
-
-.console-playground .playground-model-search svg {
-    flex: none;
-    color: var(--muted);
-  }
-
-/* the search field is borderless chrome inside its bordered label; the label
-   carries the boundary and the focus state. The dialog ancestor in the selector
-   keeps this above the site-wide input resets that tie on specificity. */
-.console-playground .playground-route-dialog .playground-model-search input {
-    min-width: 0;
-    min-height: 44px;
-    border: 0;
-    background: transparent;
-    outline: none;
-    box-shadow: none;
-  }
-
-.console-playground .playground-route-dialog .playground-model-search input:focus-visible {
-    outline: none;
-  }
-
-.console-playground .playground-route-dialog .playground-model-search:focus-within {
-    border-color: var(--focus-ring);
   }
 
 .console-playground .playground-model-results {

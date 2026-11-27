@@ -1,7 +1,7 @@
 // spec/app/site/index.md, "Story: Check the service status"
-import { ArrowUpRight, Search } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { useState } from "react";
-import { Input } from "@repo/ui";
+import { SearchField } from "../../search.tsx";
 import { articles, categoryIcons, readingMinutes } from "./journal.ts";
 import { ProductIcon } from "./icons.tsx";
 
@@ -35,16 +35,12 @@ export function JournalIndex() {
             </button>
           ))}
         </div>
-        <label>
-          <Search size={16} aria-hidden="true" />
-          <Input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search the archive"
-            aria-label="Search the journal"
-          />
-        </label>
+        <SearchField
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search the archive"
+          aria-label="Search the journal"
+        />
       </div>
       {featured && (
         <a className="cor-featured-dispatch" href={"/blog/" + featured.slug}>

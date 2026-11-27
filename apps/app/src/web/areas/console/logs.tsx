@@ -6,6 +6,7 @@ import type { LogEntry, Logs, LogStatus, Window } from "../../../../gen/app__con
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { visible } from "../../../../gen/app__console__logs.ts";
 import { useRemote } from "../../remote.ts";
+import { SearchField } from "../../search.tsx";
 import { useWorkspaceSession } from "./frame.tsx";
 import {
   CopyButton,
@@ -479,10 +480,10 @@ export function LogsSection() {
             if (id) openDetail(id);
           }}
         >
-          <label>
-            Find a request by reference
-            <input
-              type="search"
+          <div className="log-lookup-field">
+            <label htmlFor="log-lookup-input">Find a request by reference</label>
+            <SearchField
+              id="log-lookup-input"
               placeholder="Paste a request reference"
               minLength={20}
               maxLength={80}
@@ -493,7 +494,7 @@ export function LogsSection() {
               value={lookup}
               onChange={(event) => setLookup(event.target.value)}
             />
-          </label>
+          </div>
           <button type="submit" className="button quiet">
             <Search size={16} aria-hidden="true" /> Find request
           </button>

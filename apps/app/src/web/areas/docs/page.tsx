@@ -14,7 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Input } from "@repo/ui";
+import { SearchField } from "../../search.tsx";
 import { docAt } from "../../../../gen/app__docs.ts";
 import {
   bodyLines,
@@ -283,8 +283,7 @@ function SearchDocs() {
         }
       }}
     >
-      <Search size={14} className="docs-search-icon" />
-      <Input
+      <SearchField
         id="docs-search-input"
         value={query}
         onChange={(event) => {
@@ -295,7 +294,7 @@ function SearchDocs() {
         onKeyDown={(event) => {
           if (event.key !== "ArrowDown" || results.length === 0) return;
           event.preventDefault();
-          event.currentTarget.parentElement?.querySelector("a")?.focus();
+          event.currentTarget.closest(".docs-search")?.querySelector("a")?.focus();
         }}
         placeholder="Search"
         aria-label="Search documentation"

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { Chat, Thread } from "../../../../gen/app__console__chat.ts";
 import { MarkdownContent } from "../../syntax.tsx";
+import { SearchField } from "../../search.tsx";
 import { useRemote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
 import { readReceiptEnvelope, type ReceiptEnvelope } from "../site/receipt.ts";
@@ -350,8 +351,7 @@ function ChatPlayground() {
             <Plus size={18} />
           </button>
         </div>
-        <input
-          type="search"
+        <SearchField
           aria-label="Search conversations"
           placeholder="Search conversations"
           value={search}

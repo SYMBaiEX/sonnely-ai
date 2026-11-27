@@ -15,7 +15,6 @@ export const sectionIntro = "section-intro";
 export const eyebrow = "eyebrow";
 export const featureIcon = "nav-icon";
 export const serif: CSSProperties = { fontFamily: "var(--serif)" };
-export const searchBox = "search";
 export const selectClass = "button quiet small";
 export const modelMark = "model-mark";
 export const markColors: Record<string, string> = {

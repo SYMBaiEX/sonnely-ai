@@ -630,24 +630,7 @@
 }
 
 .site .cor-archive-tools label{
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 42px;
   flex: 0 1 300px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 6px);
-  background: var(--cor-paper);
-  color: var(--muted-foreground);
-}
-
-.site .cor-archive-tools input{
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  padding-inline: 0;
 }
 
 .site .cor-featured-dispatch{

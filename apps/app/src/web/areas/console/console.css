@@ -371,40 +371,8 @@
   background: var(--card);
 }
 
-.theme-root.site .console .catalog-tools :is(select, .search) {
+.theme-root.site .console .catalog-tools :is(select, .search-field) {
   min-height: 44px;
-}
-
-/* the catalog search is one bordered box: the label carries the boundary and
-   the focus state, the field inside it is borderless chrome */
-.theme-root.site .console .catalog-search {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding-inline: 12px;
-  border: 1px solid var(--control-edge);
-  border-radius: 9px;
-  background: var(--card);
-  color: var(--muted);
-}
-.theme-root.site .console .catalog-search:focus-within {
-  border-color: var(--focus-ring);
-}
-.theme-root.site .console .catalog-search input {
-  min-width: 0;
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  outline: none;
-  color: var(--ink);
-  font: inherit;
-}
-.theme-root.site .console .catalog-search input::placeholder {
-  color: var(--muted);
 }
 
 .theme-root.site .console :is(.chart-panel, .breakdown) .controls h2 {
@@ -1638,16 +1606,4 @@
 }
 .theme-root.site .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item):disabled {
   cursor: not-allowed;
-}
-/* the palette field is borderless chrome inside the command-search strip: the
-   strip carries the boundary and the focus state, never the field itself */
-.theme-root.site .console .command-search input {
-  font: inherit;
-  color: inherit;
-  min-height: 0;
-  padding-inline: 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  outline: none;
 }

@@ -4,6 +4,7 @@ import { ArrowLeft, Search } from "lucide-react";
 import { shorten } from "../lib/models.ts";
 import { request } from "../wallet";
 import { CopyButton } from "../shared.tsx";
+import { SearchField } from "../../../../search.tsx";
 import { EmptyState, Pill, Skeleton, Toolbar, usePolling } from "./ui.tsx";
 import {
   Identity,
@@ -464,9 +465,8 @@ export function SupportInbox({ open }: { open?: (account: string) => void }) {
             setTrail([]);
           }}
         >
-          <input
+          <SearchField
             name="search"
-            type="search"
             maxLength={80}
             aria-label="Search support requests"
             placeholder="Topic, email, or message"

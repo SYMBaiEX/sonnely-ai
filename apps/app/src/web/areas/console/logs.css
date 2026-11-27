@@ -586,16 +586,12 @@
   gap: 10px;
 }
 
-.logs-legacy .log-lookup label {
+.logs-legacy .log-lookup-field {
   display: grid;
   flex: 1 1 230px;
   gap: 5px;
   min-width: 0;
   font-size: 0.875rem;
-}
-
-.logs-legacy .log-lookup input {
-  min-width: 0;
 }
 
 .logs-legacy .log-panel {

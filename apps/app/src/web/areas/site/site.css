@@ -73,12 +73,6 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"],htm
   border-radius: 13px;
   padding-inline: 18px;
 }
-.site .catalog-search svg{
-  flex: none;
-}
-.site .catalog-search input{
-  min-width: 0;
-}
 .site .command-dialog{
   padding: 10px;
   width: min(495px, calc(100vw - 28px));
@@ -91,18 +85,24 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"],htm
   padding: 6px 7px 12px 12px;
   color: var(--muted);
   border-bottom: 1px solid var(--line);
+  transition: border-color var(--duration-base) var(--ease-standard);
 }
-.site .command-search input{
+.theme-root.site .command-search input{
   min-width: 0;
+  min-height: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
   outline: none;
   padding-inline: 0;
 }
-.site .command-search:has(input:focus-visible){
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+.theme-root.site .command-dialog .command-search input:focus-visible{
+  border-color: transparent;
+  box-shadow: none;
+}
+.site .command-search:focus-within{
+  border-bottom-color: var(--field-focus-edge);
+  color: var(--ink);
 }
 .site .command-results{
   padding-top: 8px;
@@ -733,7 +733,7 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"],htm
 .site .crm-search{
   flex: 1 1 18rem;
 }
-.site .crm-search input{
+.site .crm-search .search-field{
   flex: 1 1 10rem;
 }
 .site .crm-controls > select{
@@ -1814,19 +1814,46 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
   font-size: 18px;
   color: var(--muted);
 }
-.site .search{
+/* A search field is one bordered box: the label carries the boundary and the
+   focus state, the magnifier sits inside it and the field is borderless chrome.
+   The label in the selector keeps these above the site-wide input rules. */
+.theme-root.site .search-field{
   display: flex;
   align-items: center;
-  gap: 4px;
-  max-width: 370px;
-  padding-left: 13px;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding-inline: 12px;
   background: var(--card);
   border: 1px solid var(--control-edge);
   border-radius: 9px;
+  color: var(--muted);
+  transition: border-color var(--duration-base) var(--ease-standard), box-shadow var(--duration-base) var(--ease-standard);
 }
-.site .search input{
+.theme-root.site .search-field:focus-within{
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-glow);
+}
+@media (forced-colors: active) {
+  .theme-root.site .search-field:focus-within{
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
+    box-shadow: none;
+  }
+}
+.theme-root.site label.search-field input{
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
   border: 0;
   background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+}
+.theme-root.site label.search-field input:focus-visible{
+  outline: none;
+  box-shadow: none;
 }
 .site .caption,.site .subtle{
   color: var(--muted);
@@ -2070,7 +2097,7 @@ html[data-initial-theme="light"] .theme-root,.theme-root[data-theme="light"]{
 .site .sessions strong{
   font-size: 13px;
 }
-.site .sessions input{
+.site .sessions .search-field{
   margin: 16px 0 10px;
   font-size: 13px;
 }

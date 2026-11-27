@@ -2,6 +2,7 @@
 import { useState, type FormEvent } from "react";
 import { Search } from "lucide-react";
 import { request } from "./wallet";
+import { SearchField } from "../../../search.tsx";
 import {
   BulkFlagBar,
   CustomerFilters,
@@ -141,9 +142,8 @@ export function AdminCrm({ view, canOpenCustomer = true }: { view: CrmView; canO
               setTrail([]);
             }}
           >
-            <input
+            <SearchField
               name="search"
-              type="search"
               maxLength={80}
               aria-label="Search customers"
               placeholder="@username or wallet address"

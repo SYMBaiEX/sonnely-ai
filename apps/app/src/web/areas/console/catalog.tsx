@@ -1,6 +1,6 @@
 // spec/app/console/catalog.md, "Story: Browse the catalog"
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { SearchField } from "../../search.tsx";
 import type { CatalogModel } from "../../../../gen/app__console__catalog.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { formatRate } from "./bits.tsx";
@@ -214,16 +214,13 @@ export function CatalogSection() {
         </button>
       </div>
       <div className="grid grid-cols-2 gap-2 xl:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(0,1fr))]">
-        <label className="catalog-search col-span-2 self-end xl:col-span-1">
-          <Search size={15} aria-hidden />
-          <input
-            type="search"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder="Find a model"
-            aria-label="Find a model"
-          />
-        </label>
+        <SearchField
+          className="col-span-2 self-end xl:col-span-1"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="Find a model"
+          aria-label="Find a model"
+        />
         <label className="grid gap-1 text-xs text-muted-foreground">
           <span>Provider</span>
           <select className={selectClass} value={provider} onChange={(event) => setProvider(event.target.value)}>

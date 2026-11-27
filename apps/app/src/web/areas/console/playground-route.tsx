@@ -1,6 +1,7 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax, @eslint-react/naming-convention-ref-name -- playground migration preserves the original form markup, class names and screen structure */
 import { useRef, useState } from "react";
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
+import { SearchField } from "../../search.tsx";
 import {
   contextFormat,
   formatRate,
@@ -96,16 +97,12 @@ export function PlaygroundRoute({
         <div className="playground-route-body">
           <fieldset className="playground-model-options">
             <legend>Model</legend>
-            <label className="playground-model-search">
-              <Search size={16} aria-hidden="true" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Find a model"
-                aria-label="Find a model"
-              />
-            </label>
+            <SearchField
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Find a model"
+              aria-label="Find a model"
+            />
             <div className="playground-model-results">
               {matches.map((item) => (
                 <label key={item.id}>

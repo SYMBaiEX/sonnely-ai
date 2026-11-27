@@ -1,6 +1,6 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowRight, ArrowUpRight, Search } from "lucide-react";
-import { Input } from "@repo/ui";
+import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
+import { SearchField } from "../../search.tsx";
 import { useMachine } from "../../../../gen/app__models.react.ts";
 import {
   catalog,
@@ -29,7 +29,6 @@ import { entryActions, pages } from "./content.ts";
 import { PlatformLinks } from "./products.tsx";
 import {
   buttonAccent,
-  searchBox,
   sectionHead,
   selectClass,
   serif,
@@ -55,17 +54,13 @@ function CatalogTools({
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "";
   return (
     <div className="mb-4 grid grid-cols-2 gap-3 min-[900px]:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] min-[900px]:items-end">
-      <label className={searchBox + " col-span-2 min-[900px]:col-span-1"}>
-        <Search size={17} aria-hidden="true" />
-        <Input
-          type="search"
-          value={filter.query}
-          onChange={(event) => void send({ type: "search", query: event.target.value })}
-          placeholder="Find a model"
-          aria-label="Find a model"
-          className="border-0 bg-transparent px-0 shadow-none"
-        />
-      </label>
+      <SearchField
+        className="col-span-2 min-[900px]:col-span-1"
+        value={filter.query}
+        onChange={(event) => void send({ type: "search", query: event.target.value })}
+        placeholder="Find a model"
+        aria-label="Find a model"
+      />
       <label className="grid gap-1.5 text-xs text-muted-foreground">
         <span>Provider</span>
         <select
