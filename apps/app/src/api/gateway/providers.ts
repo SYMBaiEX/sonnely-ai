@@ -822,15 +822,17 @@ export type UsageSettlement = { kind: "measured"; input: number; output: number;
 
 /**
  * What one specialized response settles for. Fixed-price routes cost their reservation regardless of
- * reported tokens. Token-priced routes cost their metered usage capped at the reservation; when the
+ * reported tokens; redact adds its request charge to metered input tokens. Other token-priced routes
+ * cost their metered usage capped at the reservation; when the
  * provider omits or garbles a priced field the settlement is unmeasured and must go under review at
  * the reservation rather than completing at zero cost.
  */
 export function settleUsageCost(route: ModelRoute, reserve: number, endpoint: string, output: unknown): UsageSettlement {
   const usage = extractUsage(endpoint, output);
-  if (route.request >= 0) return { kind: "measured", input: usage?.input ?? 0, output: usage?.output ?? 0, cost: reserve };
+  if (route.request >= 0 && endpoint !== "redact") return { kind: "measured", input: usage?.input ?? 0, output: usage?.output ?? 0, cost: reserve };
   if (!usageIsPriced(route, usage)) return { kind: "unmeasured" };
   const input = usage?.input ?? 0;
   const outputTokens = usage?.output ?? 0;
-  return { kind: "measured", input, output: outputTokens, cost: Math.min(reserve, tokenCharge(route, input, 0, outputTokens)) };
+  const requestCharge = endpoint === "redact" ? Math.max(0, route.request) : 0;
+  return { kind: "measured", input, output: outputTokens, cost: Math.min(reserve, requestCharge + tokenCharge(route, input, 0, outputTokens)) };
 }

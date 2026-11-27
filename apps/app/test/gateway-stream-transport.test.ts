@@ -584,11 +584,14 @@ describe("gateway stream transport", () => {
     const embeddingsRoute: ModelRoute = { endpoint: "embeddings", modelId: "Qwen/Qwen3-Embedding-0.6B", input: 11_000, cache: -1, output: -1, request: -1, session: -1 };
     const responsesRoute: ModelRoute = { endpoint: "responses", modelId: "tinfoil/gpt-oss-120b", input: 165_000, cache: -1, output: 660_000, request: -1, session: -1 };
     const imagesRoute: ModelRoute = { endpoint: "images/generations", modelId: "black-forest-labs/FLUX.2-klein-4B", input: -1, cache: -1, output: -1, request: 13_200, session: -1 };
+    const redactRoute: ModelRoute = { endpoint: "redact", modelId: "pii-filter", input: 880_000, cache: -1, output: -1, request: 220, session: -1 };
     expect(settleUsageCost(embeddingsRoute, 11, "embeddings", { usage: { prompt_tokens: 500, total_tokens: 500 } })).toEqual({ kind: "measured", input: 500, output: 0, cost: 6 });
     expect(settleUsageCost(embeddingsRoute, 11, "embeddings", { data: [] })).toEqual({ kind: "unmeasured" });
     expect(settleUsageCost(responsesRoute, 100, "responses", { usage: { input_tokens: 10 } })).toEqual({ kind: "unmeasured" });
     expect(settleUsageCost(responsesRoute, 100, "responses", { usage: { input_tokens: 10, output_tokens: 5 } })).toEqual({ kind: "measured", input: 10, output: 5, cost: 5 });
     expect(settleUsageCost(imagesRoute, 13_200, "images/generations", {})).toEqual({ kind: "measured", input: 0, output: 0, cost: 13_200 });
+    expect(settleUsageCost(redactRoute, 660, "redact", { usage: { prompt_tokens: 300, total_tokens: 300 } })).toEqual({ kind: "measured", input: 300, output: 0, cost: 484 });
+    expect(settleUsageCost(redactRoute, 660, "redact", {})).toEqual({ kind: "unmeasured" });
   });
 
 
