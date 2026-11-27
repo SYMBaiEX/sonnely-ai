@@ -14,7 +14,6 @@ import * as Keyring from "../gen/app__gateway__keyring.effect.vibe";
 import * as Requests from "../gen/app__gateway__requests.effect.vibe";
 import * as WorkspaceKeys from "../gen/app__keys.effect.vibe";
 import * as Usage from "../gen/app__usage.effect.vibe";
-import * as Admin from "../gen/app__admin.effect.vibe";
 import { billingApi } from "../src/api/billing.vibe";
 import { teamsApi } from "../src/api/teams.vibe";
 import { supportApi } from "../src/api/support.vibe";
