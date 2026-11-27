@@ -1,3 +1,4 @@
+// spec/app/session.md, "Story: Sign in with a wallet"; spec/app/billing/deposits.md, "Story: Open a payment intent"
 import { Layer, Scheduler } from "effect";
 import { HttpRouter, HttpServer, HttpServerResponse } from "effect/http";
 import { afterEach, describe, expect, it } from "vitest";

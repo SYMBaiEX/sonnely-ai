@@ -1,4 +1,4 @@
-// spec/app/docs/index.md, "Docs"; spec/app/gateway/index.md, "Gateway"
+// spec/app/docs/index.md, "Every endpoint the reference lists is documented"
 
 const provider = { type: "string", enum: ["near-ai", "phala", "tinfoil"] };
 

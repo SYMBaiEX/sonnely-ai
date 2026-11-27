@@ -14,7 +14,7 @@ export type Result<T> = { ok: true; value: T } | ({ ok: false } & GatewayProblem
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const bad = (status: number, message: string, retryAfter = false): Result<never> => ({ ok: false, status, message, retryAfter });
 export const sha256 = (bytes: Uint8Array | string) => createHash("sha256").update(bytes).digest("hex");
-/** spec/app/docs/index.md, "Request references and retries": one reference per wallet, credential and key. */
+/** spec/app/gateway/requests.md, "Every request reference is unique": one reference per wallet, credential and key. */
 export const validIdempotencyKey = (header: string) => /^[a-zA-Z0-9_.:-]{8,128}$/.test(header);
 export const idempotentRef = (wallet: string, keyId: string, header: string) => "idem" + sha256(wallet + ":" + keyId + ":" + header).slice(0, 32);
 export const providerIds = ["near-ai", "phala", "tinfoil"] as const;
@@ -591,7 +591,7 @@ const keyBudget = (cap: number, used: number) => ({
   remaining_microusd: cap === 0 ? null : Math.max(0, cap - used),
 });
 
-/** spec/app/docs/index.md, "Check the current API key": name, expiry, and both budgets in micro-USD. */
+/** spec/app/keys.md, "A key record and its lifetime": name, expiry, and both budgets in micro-USD. */
 export function keyStatusPayload(key: { label: string; prefix: string; status: string; cap: number; dailyCap: number; expiresAt: number; spent: number; dayKey: string; daySpent: number }, now: number) {
   const day = new Date(now).toISOString().slice(0, 10);
   const midnightUtcMs = new Date(day + "T00:00:00.000Z").getTime();

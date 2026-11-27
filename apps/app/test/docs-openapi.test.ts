@@ -13,7 +13,7 @@ function makeDocsApi() {
 }
 
 describe("GET /api/openapi", () => {
-  // spec/app/docs/index.md, "Docs"
+  // spec/app/docs/index.md, "Every endpoint the reference lists is documented"
   it("serves the OpenAPI 3.1 document as JSON", async () => {
     const app = makeDocsApi();
     const response = await app.handler(new Request("http://localhost/api/openapi"));

@@ -159,7 +159,7 @@ describe("gateway stream transport", () => {
     expect(settlements).toEqual([undefined]);
   });
 
-  // FACTORY-R1 A1: a stream that goes silent must not hold the reserve open.
+  // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge"
   it("kills an upstream stream that sends no chunk within the idle timeout", async () => {
     vi.useFakeTimers();
     try {
@@ -196,7 +196,7 @@ describe("gateway stream transport", () => {
     }
   });
 
-  // spec/app/docs/index.md, "Request references and retries": a repeat answers 409 without reserving again.
+  // spec/app/gateway/requests.md, "Every request reference is unique": a repeat answers 409 without reserving again.
   it("deduplicates specialized endpoint retries by Idempotency-Key", async () => {
     process.env.NEAR_AI_API_KEY = "test-provider-key";
     const realFetch = globalThis.fetch;
@@ -256,7 +256,7 @@ describe("gateway stream transport", () => {
     expect(result.secondError).toMatchObject({ param: null, code: null });
   });
 
-  // spec/app/docs/index.md, "Embeddings, decisions, images, and audio": every endpoint accepts max_cost_microusd.
+  // spec/app/gateway/requests.md, "Story: Serve a metered completion": metered endpoints accept max_cost_microusd.
   it("enforces max_cost_microusd on multipart endpoints", async () => {
     process.env.NEAR_AI_API_KEY = "test-provider-key";
     let upstreamCalls = 0;
@@ -309,7 +309,7 @@ describe("gateway stream transport", () => {
     expect(upstreamCalls).toBe(1);
   });
 
-  // spec/app/docs/index.md, "Embeddings, decisions, images, and audio": reranking optionally accepts top_n.
+  // spec/app/gateway/requests.md, "Story: Serve a metered completion": reranking optionally accepts top_n.
   it("serves rerank requests with top_n and slices the results", async () => {
     process.env.NEAR_AI_API_KEY = "test-provider-key";
     const realFetch = globalThis.fetch;

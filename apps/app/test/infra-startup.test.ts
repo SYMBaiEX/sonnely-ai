@@ -1,3 +1,4 @@
+// spec/app/admin/operators.md, "Story: Grant and revoke access"; spec/app/billing/deposits.md, "Story: Open a payment intent"
 import { ConfigProvider, Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
 import { validateStartup } from "../src/serve.vibe";

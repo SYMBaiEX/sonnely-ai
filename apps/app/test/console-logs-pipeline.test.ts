@@ -60,7 +60,7 @@ describe("console logs pipeline", () => {
     });
   });
 
-  // spec/app/console/logs.md, "A row is recorded once, under its own request id"
+  // spec/app/console/logs.md, "Request ids are never repeated"
   it("records failed rows, derives age from the row's time and leaves pending rows out", async () => {
     const now = Date.now();
     const program = Effect.gen(function* () {
@@ -85,7 +85,7 @@ describe("console logs pipeline", () => {
     });
   });
 
-  // spec/app/console/logs.md, "A row is recorded once, under its own request id"
+  // spec/app/console/logs.md, "Request ids are never repeated"
   it("never double-records when the scan replays without its seen set", async () => {
     const now = Date.now();
     const program = Effect.gen(function* () {

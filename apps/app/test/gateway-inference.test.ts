@@ -193,7 +193,7 @@ describe("gateway inference", () => {
     expect(state.ledgerRows.some((entry) => entry.kind === "Release" && entry.amount > 0)).toBe(true);
   });
 
-  // FACTORY-R1 A1: a hung provider must never hold a credit reserve open.
+  // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge"
   it("aborts a chat candidate that never sends response headers", async () => {
     vi.useFakeTimers();
     try {
@@ -217,7 +217,7 @@ describe("gateway inference", () => {
     }
   });
 
-  // FACTORY-R1 A1: a hung provider must never hold a credit reserve open.
+  // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge"
   it("answers 502 and charges nothing when the provider never responds", async () => {
     process.env.NEAR_AI_API_KEY = "test-provider-key";
     vi.useFakeTimers();
@@ -248,7 +248,7 @@ describe("gateway inference", () => {
     }
   });
 
-  // FACTORY-R1 A2: no provider keys in production means 503, never a paid fake answer.
+  // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge"
   it("fails closed with 503 and no reservation in production when no provider is configured", async () => {
     process.env.VERCEL_ENV = "production";
     const program = Effect.gen(function* () {
@@ -271,7 +271,7 @@ describe("gateway inference", () => {
     expect(state.rows).toHaveLength(0);
   });
 
-  // FACTORY-R1 A2: staging answers remain a development-only convenience.
+  // spec/app/gateway/requests.md, "Story: Serve a metered completion"
   it("still serves a metered staging answer outside production when no provider is configured", async () => {
     delete process.env.VERCEL_ENV;
     const program = Effect.gen(function* () {
@@ -330,7 +330,7 @@ describe("gateway inference", () => {
     expect(ledgerRows.some((entry) => entry.wallet === wallet && (entry.kind === "Reserve" || entry.kind === "Charge"))).toBe(false);
   });
 
-  // spec/app/docs/index.md, "Check the current API key": budgets in micro-USD with resets_at.
+  // spec/app/keys.md, "A key record and its lifetime": budgets in micro-USD with resets_at.
   it("serializes the documented key status budgets and expiry", () => {
     const payload = keyStatusPayload(
       { label: "Production", prefix: "sonnely_live_abc", status: "Active", cap: 50_000, dailyCap: 10_000, expiresAt: 1_800_000_000_000, spent: 7_000, dayKey: "2026-01-15", daySpent: 2_000 },
@@ -348,7 +348,7 @@ describe("gateway inference", () => {
     });
   });
 
-  // spec/app/docs/index.md, "Check the current API key": unlimited caps and their remainders are null.
+  // spec/app/keys.md, "A key record and its lifetime": unlimited caps and their remainders are null.
   it("serializes unlimited budgets and missing expiry as null and zeroes stale daily spend", () => {
     const payload = keyStatusPayload(
       { label: "Dev", prefix: "sonnely_live_dev", status: "Active", cap: 0, dailyCap: 0, expiresAt: 0, spent: 3_000, dayKey: "2026-01-14", daySpent: 2_000 },
@@ -361,7 +361,7 @@ describe("gateway inference", () => {
     });
   });
 
-  // spec/app/docs/index.md, "Additional Tinfoil endpoints": Responses accepts instructions with stream/store false.
+  // spec/app/gateway/requests.md, "Story: Serve a metered completion": Responses accepts instructions with stream/store false.
   it("accepts the documented Responses fields and rejects live streaming or storage", () => {
     const accepted = parseSpecialized("responses", { model: "tinfoil/gpt-oss-120b", input: "hello", instructions: "be brief", store: false, stream: false });
     const streaming = parseSpecialized("responses", { model: "tinfoil/gpt-oss-120b", input: "hello", stream: true });
@@ -369,7 +369,7 @@ describe("gateway inference", () => {
     expect([accepted.ok, streaming.ok, storing.ok]).toEqual([true, false, false]);
   });
 
-  // spec/app/docs/index.md, "Embeddings, decisions, images, and audio": reranking optionally accepts top_n.
+  // spec/app/gateway/requests.md, "Story: Serve a metered completion": reranking optionally accepts top_n.
   it("accepts rerank top_n and slices results to it", () => {
     const parsed = parseSpecialized("rerank", { model: "Qwen/Qwen3-Reranker-0.6B", query: "q", documents: ["a", "b"], top_n: 1 });
     const sliced = sliceTopResults("rerank", { results: [{ index: 0 }, { index: 1 }], usage: { prompt_tokens: 1, completion_tokens: 0 } }, 1);

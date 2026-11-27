@@ -1,3 +1,4 @@
+// spec/app/site/index.md, "Story: Check the service status"
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Layer, Scheduler } from "effect";
