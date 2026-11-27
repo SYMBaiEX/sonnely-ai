@@ -3,11 +3,12 @@ import * as Admin from "../../gen/app__admin.effect.vibe"
 import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Payouts from "../../gen/app__billing__payouts.effect.vibe"
 import * as Usage from "../../gen/app__usage.effect.vibe"
+import { sessionBoundFrames } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
 import { billingConfig, CheckoutUnavailable, VerificationUnavailable } from "./billing.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
 import * as solana from "./billing/solana.ts"
-import { authenticatedWallet } from "./session.vibe"
+import { authenticatedSession, authenticatedWallet } from "./session.vibe"
 
 const noStore = { "cache-control": "no-store" }
 
@@ -302,9 +303,11 @@ effect function getState(m: ReadMachine) {
 }
 
 effect function getStream(m: ReadMachine) {
+  const session = try authenticatedSession()
   const operator = try operatorRequired()
   if (operator == "") return try reply({ error: "operator access required" }, 403)
-  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  const frames = try sessionBoundFrames(m.changes, operator, session.digest)
+  const pushes = Stream.map(frames, (s) => `data: ${JSON.stringify(s)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
     headers: noStore,

@@ -2,8 +2,9 @@
 // boundary. Reads project the requesting wallet's rows plus project rows of teams it belongs to,
 // and every write's trusted sender is that wallet — never a wallet or sender supplied by the client.
 import * as Usage from "../../gen/app__usage.effect.vibe"
+import { sessionBoundFrames } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
-import { authenticatedWallet } from "./session.vibe"
+import { authenticatedSession, authenticatedWallet } from "./session.vibe"
 import { memberProjectsFor } from "./teams.vibe"
 
 const noStore = { "cache-control": "no-store" }
@@ -23,9 +24,11 @@ effect function getState(usage: Usage.Machine.Shape) {
 }
 
 effect function getStream(usage: Usage.Machine.Shape) {
-  const wallet = try authenticatedWallet()
+  const session = try authenticatedSession()
+  const wallet = session.wallet
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
-  const pushes = Stream.mapEffect(usage.changes, (state) => effect {
+  const frames = try sessionBoundFrames(usage.changes, wallet, session.digest)
+  const pushes = Stream.mapEffect(frames, (state) => effect {
     const visible = try projectState(state, wallet)
     return `data: ${JSON.stringify(visible)}\n\n`
   })

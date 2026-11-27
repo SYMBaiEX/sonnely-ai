@@ -93,6 +93,7 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
     });
   }
 
+  // spec/app/session.md, "Only an active session can sign out"
   it("closes every machine stream and drops machine state on sign-out", async () => {
     stubTransport();
     const probe = await renderProbe();
@@ -115,6 +116,7 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
     }).toEqual({ multiplexedClosed: true, stateAfterSignOut: undefined, sessionTag: "SignedOut" });
   });
 
+  // spec/app/session.md, "Only an active session can sign out"
   it("never reuses a prior wallet's stream when a different wallet signs in", async () => {
     stubTransport();
     const probe = await renderProbe();

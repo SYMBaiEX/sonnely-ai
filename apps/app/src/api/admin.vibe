@@ -6,9 +6,9 @@ import * as Crm from "../../gen/app__admin__crm.effect.vibe"
 import * as Ledger from "../../gen/app__billing__ledger.effect.vibe"
 import * as Operators from "../../gen/app__admin__operators.effect.vibe"
 import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
-import { machineApi } from "../machines.vibe"
+import { machineApi, sessionBoundFrames } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
-import { authenticatedWallet } from "./session.vibe"
+import { authenticatedSession, authenticatedWallet } from "./session.vibe"
 
 const noStore = { "cache-control": "no-store" }
 
@@ -42,11 +42,13 @@ effect function getScopedState(admin: Admin.Machine.Shape, m: SenderMachine, pro
 }
 
 effect function getScopedStream(admin: Admin.Machine.Shape, m: SenderMachine, project: (state: any, wallet: string) => unknown) {
-  const wallet = try authenticatedWallet()
+  const session = try authenticatedSession()
+  const wallet = session.wallet
   if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   const operator = try operatorRequired(admin)
   const full = operator != ""
-  const pushes = Stream.map(m.changes, (raw) => `data: ${JSON.stringify(full ? raw : project(raw, wallet))}\n\n`)
+  const frames = try sessionBoundFrames(m.changes, wallet, session.digest)
+  const pushes = Stream.map(frames, (raw) => `data: ${JSON.stringify(full ? raw : project(raw, wallet))}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
     headers: noStore,
@@ -170,9 +172,11 @@ effect function postOperatorEvent(admin: Admin.Machine.Shape, m: SenderMachine, 
 }
 
 effect function getStream(admin: Admin.Machine.Shape, m: SenderMachine) {
+  const session = try authenticatedSession()
   const operator = try operatorRequired(admin)
   if (operator == "") return try HttpServerResponse.json({ error: "operator access required" }, { status: 403, headers: noStore })
-  const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(s)}\n\n`)
+  const frames = try sessionBoundFrames(m.changes, operator, session.digest)
+  const pushes = Stream.map(frames, (s) => `data: ${JSON.stringify(s)}\n\n`)
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
     headers: noStore,
