@@ -449,7 +449,7 @@ effect function keyRefundComplete(row: Usage.Row, refund: number, day: string) {
   const confirmed = try compensationConfirmed(row.id, "key")
   if (confirmed != false) return confirmed == true
   if (key == undefined) return false
-  const refunded = keys.send({ type: "refundUse", id: row.keyId, amount: refund, day }, row.wallet) catch (e) => e
+  const refunded = keys.send({ type: "refundUse", id: row.keyId, amount: refund, day, ref: row.id }, row.wallet) catch (e) => e
   if (refunded instanceof WorkspaceKeys.Rejected) return false
   return try markCompensation(row.id, "key")
 }
@@ -461,7 +461,7 @@ effect function projectRefundComplete(row: Usage.Row, refund: number) {
   const confirmed = try compensationConfirmed(row.id, "project")
   if (confirmed != false) return confirmed == true
   if (project == undefined) return false
-  const released = teams.send({ type: "releaseProject", projectId: row.project, amount: refund }) catch (e) => e
+  const released = teams.send({ type: "releaseProject", projectId: row.project, amount: refund, ref: row.id }) catch (e) => e
   if (released instanceof Teams.Rejected) return false
   return try markCompensation(row.id, "project")
 }

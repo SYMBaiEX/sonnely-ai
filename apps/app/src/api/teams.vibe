@@ -1,10 +1,11 @@
 // spec/app/teams.md, "Story: Form a team"
-import { Machine, stored } from "../../gen/app__teams.effect.vibe"
+import { Machine, initial, decodeState, machineOver, NotAState } from "../../gen/app__teams.effect.vibe"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import type { Teams } from "../../gen/app__teams.ts"
 import { machineApi } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
 
-function project(state: Teams, wallet: string): Teams {
+function project(state: Teams, wallet: string) {
   return { teams: state.teams.filter((team) => team.members.some((m) => m.wallet == wallet) || team.invites.some((i) => i.wallet == wallet)) }
 }
 
@@ -12,8 +13,23 @@ export const teamsApi = Layer.unwrap(effect {
   return machineApi("teams", try Machine, { events: ["createTeam", "invite", "respond", "cancelInvite", "changeRole", "removeMember", "createProject", "updateProject", "archiveProject"], bind: ["actor"] }, { visibility: "user", project })
 })
 
-/** The directory machine, kept under "teams". */
-export const teams = stored("teams")
+function withReleaseRefs(parsed: unknown) {
+  if (parsed == undefined || typeof parsed != "object" || Array.isArray(parsed) || "releaseRefs" in parsed) return parsed
+  return { ...(parsed as Record<string, unknown>), releaseRefs: [] }
+}
+
+/** The directory machine, kept under "teams". Directories written before releases carried
+ * references decode with none recorded. */
+export const teams = Layer.effect(Machine, effect {
+  const store = try KeyValueStore.KeyValueStore
+  effect function load() {
+    const found = try store.get("teams")
+    if (found === undefined) return initial
+    const parsed = try Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new NotAState({ input: found }) })
+    return try decodeState(withReleaseRefs(parsed))
+  }
+  return try machineOver(load, (next) => Effect.orDie(store.set("teams", JSON.stringify(next))))
+})
 
 /** An event from anywhere untrusted, decoded before the rules see it. */
 export effect function dispatch(input: unknown) {

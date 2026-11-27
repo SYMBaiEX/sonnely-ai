@@ -3,6 +3,7 @@
 // that wallet — never a wallet or sender supplied by the client. A key scoped to a team project
 // names only a project of a team the wallet belongs to: any other id is another workspace's.
 import * as Keys from "../../gen/app__keys.effect.vibe"
+import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
@@ -13,7 +14,7 @@ effect function reply(value: unknown, status: number = 200) {
   return try HttpServerResponse.json(value, { status, headers: noStore })
 }
 
-function project(state: Keys.Keys, wallet: string): Keys.Keys {
+function project(state: Keys.Keys, wallet: string) {
   return { keys: state.keys.filter((key) => key.wallet == wallet) }
 }
 
@@ -69,8 +70,23 @@ export const keysApi = Layer.unwrap(effect {
   )
 })
 
-/** The registry machine, kept under "workspace-keys". */
-export const keys = Keys.stored("workspace-keys")
+function withRefundRefs(parsed: unknown) {
+  if (parsed == undefined || typeof parsed != "object" || Array.isArray(parsed) || "refundRefs" in parsed) return parsed
+  return { ...(parsed as Record<string, unknown>), refundRefs: [] }
+}
+
+/** The registry machine, kept under "workspace-keys". Registries written before refunds carried
+ * references decode with none recorded. */
+export const keys = Layer.effect(Keys.Machine, effect {
+  const store = try KeyValueStore.KeyValueStore
+  effect function load() {
+    const found = try store.get("workspace-keys")
+    if (found === undefined) return Keys.initial
+    const parsed = try Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Keys.NotAState({ input: found }) })
+    return try Keys.decodeState(withRefundRefs(parsed))
+  }
+  return try Keys.machineOver(load, (next) => Effect.orDie(store.set("workspace-keys", JSON.stringify(next))))
+})
 
 /** An event from anywhere untrusted, decoded before the rules see it. */
 export effect function dispatch(input: unknown, by: unknown) {

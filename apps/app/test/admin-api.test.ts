@@ -120,14 +120,14 @@ describe("admin API", () => {
   // spec/app/admin/index.md, "What the admin reads elsewhere"
   it("joins the keys and billing states the machines persist", async () => {
     const { handler, dir } = makeAdminApi();
-    writeFileSync(join(dir, "workspace-keys"), JSON.stringify({ keys: [] }));
+    writeFileSync(join(dir, "workspace-keys"), JSON.stringify({ keys: [], refundRefs: [] }));
     writeFileSync(join(dir, "billing-ledger"), JSON.stringify({ balance: 0, entries: [] }));
     await grantOperator(handler);
     const response = await handler(new Request("http://localhost/api/admin/overview", { headers: { cookie: "sonnely_session=" + token } }));
     const body = await response.json() as Record<string, unknown>;
     expect({ status: response.status, keys: body.keys, billing: body.billing }).toEqual({
       status: 200,
-      keys: { keys: [] },
+      keys: { keys: [], refundRefs: [] },
       billing: { balance: 0, entries: [] },
     });
   });

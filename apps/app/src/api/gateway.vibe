@@ -118,11 +118,11 @@ function providerOfModel(model: string): Usage.Provider {
 effect function unwindMeter(ref: string, wallet: string, key: WorkspaceKeys.Key | undefined, cost: number, day: string, projectHeld: boolean, keyHeld: boolean, usageRecorded: boolean, opened: boolean) {
   if (key != undefined && keyHeld) {
     const keys = try WorkspaceKeys.Machine
-    keys.send({ type: "refundUse", id: key.id, amount: cost, day }, wallet) catch () => undefined
+    keys.send({ type: "refundUse", id: key.id, amount: cost, day, ref }, wallet) catch () => undefined
   }
   if (key != undefined && projectHeld) {
     const teams = try Teams.Machine
-    teams.send({ type: "releaseProject", projectId: key.project, amount: cost }) catch () => undefined
+    teams.send({ type: "releaseProject", projectId: key.project, amount: cost, ref }) catch () => undefined
   }
   const ledger = try Ledger.Machine
   ledger.send({ type: "release", wallet, detail: ref }) catch () => undefined
@@ -250,10 +250,10 @@ export effect function settleMeter(meter: MeterOpen, input: number, output: numb
   if (settledMoney instanceof Ledger.Rejected) return { refused: { error: { message: "The charge could not be recorded.", type: "insufficient_quota" }, status: 402 } }
   if (meter.key != undefined && refund > 0) {
     const keys = try WorkspaceKeys.Machine
-    keys.send({ type: "refundUse", id: meter.key.id, amount: refund, day: meter.day }, meter.wallet) catch () => undefined
+    keys.send({ type: "refundUse", id: meter.key.id, amount: refund, day: meter.day, ref: meter.ref }, meter.wallet) catch () => undefined
     if (meter.key.project != "") {
       const teams = try Teams.Machine
-      teams.send({ type: "releaseProject", projectId: meter.key.project, amount: refund }) catch () => undefined
+      teams.send({ type: "releaseProject", projectId: meter.key.project, amount: refund, ref: meter.ref }) catch () => undefined
     }
   }
   const referrals = try Referrals.Machine
@@ -283,10 +283,10 @@ export effect function failMeter(meter: MeterOpen, unreported: boolean) {
     ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: 0 }) catch () => undefined
     if (meter.key != undefined) {
       const keys = try WorkspaceKeys.Machine
-      keys.send({ type: "refundUse", id: meter.key.id, amount: meter.reserve, day: meter.day }, meter.wallet) catch () => undefined
+      keys.send({ type: "refundUse", id: meter.key.id, amount: meter.reserve, day: meter.day, ref: meter.ref }, meter.wallet) catch () => undefined
       if (meter.key.project != "") {
         const teams = try Teams.Machine
-        teams.send({ type: "releaseProject", projectId: meter.key.project, amount: meter.reserve }) catch () => undefined
+        teams.send({ type: "releaseProject", projectId: meter.key.project, amount: meter.reserve, ref: meter.ref }) catch () => undefined
       }
     }
     requests.send({ type: "fault", ref: meter.ref }) catch () => undefined
@@ -451,8 +451,8 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
         if (servedOutputChars == 0) {
           ledger.send({ type: "settleHold", wallet, detail: ref, amount: 0 }) catch () => undefined
           if (key != undefined) {
-            keys.send({ type: "refundUse", id: key.id, amount: meter.reserve, day: meter.day }, wallet) catch () => undefined
-            if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: meter.reserve }) catch () => undefined
+            keys.send({ type: "refundUse", id: key.id, amount: meter.reserve, day: meter.day, ref }, wallet) catch () => undefined
+            if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: meter.reserve, ref }) catch () => undefined
           }
           requestMachine.send({ type: "fault", ref }) catch () => undefined
           usageMachine.send({ type: "release", id: ref }, wallet) catch () => undefined
@@ -467,8 +467,8 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
         const refund = meter.reserve - cost
         const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: cost }) catch (e) => e
         if (key != undefined && refund > 0) {
-          keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day }, wallet) catch () => undefined
-          if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund }) catch () => undefined
+          keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day, ref }, wallet) catch () => undefined
+          if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund, ref }) catch () => undefined
         }
         if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, cost)
         requestMachine.send({ type: "finish", ref, cost }) catch () => undefined
@@ -481,8 +481,8 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
       const refund = meter.reserve - charge
       const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: charge }) catch (e) => e
       if (key != undefined && refund > 0) {
-        keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day }, wallet) catch () => undefined
-        if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund }) catch () => undefined
+        keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day, ref }, wallet) catch () => undefined
+        if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund, ref }) catch () => undefined
       }
       if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, charge)
       if (final.usage.completion_tokens > 0) requestMachine.send({ type: "emit", ref, tokens: final.usage.completion_tokens }) catch () => undefined

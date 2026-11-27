@@ -261,16 +261,77 @@ lemma recordUse_ensures(s: Keys, by_: string, id: string, cost: int, day: string
 // refundUse: a returned hold lowers spend only on the metered key; the day tally is
 // subtracted when the hold belongs to the day the key still carries.
 
-lemma refundUse_ensures(s: Keys, by_: string, id: string, amount: int, day: string)
-  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> alwaysKeysAreWellFormed(refundUse(s, by_, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> alwaysCredentialsAreUnique(refundUse(s, by_, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepKeyWalletNeverChanges(s, refundUse(s, by_, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepSpendMovesOnlyWithUse(s, "refundUse", refundUse(s, by_, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepUseMarksUse(s, "refundUse", refundUse(s, by_, id, amount, day)))
-  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day) ==> stepRevokedStaysRevoked(s, refundUse(s, by_, id, amount, day)))
+lemma refundUse_ensures(s: Keys, by_: string, id: string, amount: int, day: string, ref: string)
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day, ref) ==> alwaysKeysAreWellFormed(refundUse(s, by_, id, amount, day, ref)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day, ref) ==> alwaysCredentialsAreUnique(refundUse(s, by_, id, amount, day, ref)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day, ref) ==> stepKeyWalletNeverChanges(s, refundUse(s, by_, id, amount, day, ref)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day, ref) ==> stepSpendMovesOnlyWithUse(s, "refundUse", refundUse(s, by_, id, amount, day, ref)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day, ref) ==> stepUseMarksUse(s, "refundUse", refundUse(s, by_, id, amount, day, ref)))
+  ensures (inv(s) ==> canRefundUse(s, by_, id, amount, day, ref) ==> stepRevokedStaysRevoked(s, refundUse(s, by_, id, amount, day, ref)))
 {
-  if inv(s) && canRefundUse(s, by_, id, amount, day) {
-    var after := refundUse(s, by_, id, amount, day);
+  if inv(s) && canRefundUse(s, by_, id, amount, day, ref) {
+    var after := refundUse(s, by_, id, amount, day, ref);
+    if ref in s.refundRefs {
+      assert after == s;
+      uniqueP(s);
+      forall k | k in s.keys
+        ensures !(exists a :: a in keyWithId(after, k.id) && !((a.wallet == k.wallet)))
+      {
+        forall j | 0 <= j < |after.keys|
+          ensures (after.keys[j].id == k.id) ==> (after.keys[j].wallet == k.wallet)
+        {
+          if after.keys[j].id == k.id {
+            assert s.keys[j].id == k.id;
+            sameIdIsSame(s, s.keys[j], k);
+          }
+        }
+        forall a | a in keyWithId(after, k.id)
+          ensures a.wallet == k.wallet
+        {
+          withIdAll(after, k.id);
+        }
+      }
+      assert stepKeyWalletNeverChanges(s, after);
+      forall k | k in s.keys
+        ensures !(exists a :: a in keyWithId(after, k.id) && !((a.spent <= k.spent) && (a.lastUsedAt == k.lastUsedAt)))
+      {
+        forall j | 0 <= j < |after.keys|
+          ensures (after.keys[j].id == k.id) ==> ((after.keys[j].spent <= k.spent) && (after.keys[j].lastUsedAt == k.lastUsedAt))
+        {
+          if after.keys[j].id == k.id {
+            assert s.keys[j].id == k.id;
+            sameIdIsSame(s, s.keys[j], k);
+          }
+        }
+        forall a | a in keyWithId(after, k.id)
+          ensures (a.spent <= k.spent) && (a.lastUsedAt == k.lastUsedAt)
+        {
+          withIdAll(after, k.id);
+        }
+      }
+      assert stepSpendMovesOnlyWithUse(s, "refundUse", after);
+      assert stepUseMarksUse(s, "refundUse", after);
+      forall k | k in s.keys
+        ensures ((k.status.Active?) || !(exists a :: a in keyWithId(after, k.id) && !(a.status.Revoked?)))
+      {
+        if k.status.Revoked? {
+          forall j | 0 <= j < |after.keys|
+            ensures (after.keys[j].id == k.id) ==> (after.keys[j].status.Revoked?)
+          {
+            if after.keys[j].id == k.id {
+              assert s.keys[j].id == k.id;
+              sameIdIsSame(s, s.keys[j], k);
+            }
+          }
+          forall a | a in keyWithId(after, k.id)
+            ensures a.status.Revoked?
+          {
+            withIdAll(after, k.id);
+          }
+        }
+      }
+      assert stepRevokedStaysRevoked(s, after);
+    } else {
     var w :| w in ownedKeyWithId(s, id, by_) && w.spent >= amount;
     ownedKeyWithIdAll(s, id, by_);
     withIdAll(s, id);
@@ -361,6 +422,7 @@ lemma refundUse_ensures(s: Keys, by_: string, id: string, amount: int, day: stri
       }
     }
     assert stepRevokedStaysRevoked(s, after);
+    }
   }
 }
 

@@ -17,7 +17,7 @@ record the gateway authorizes and meters inference against:
   "cap": 0, "dailyCap": 0, "expiresAt": 0,
   "status": "Active", "createdAt": 0, "lastUsedAt": 0,
   "spent": 0, "dayKey": "", "daySpent": 0
-} ] }
+} ], "refundRefs": [] }
 ```
 
 Amounts are micro-USD; `cap`, `dailyCap`, `expiresAt` and `lastUsedAt` are `0`
@@ -53,13 +53,13 @@ type Key = {
   daySpent: int,
 }
 
-type Keys = { keys: List[Key] }
+type Keys = { keys: List[Key], refundRefs: Set[str] }
 ```
 
 ### The registry starts empty
 
 ```quint
-pure val initial: Keys = { keys: List() }
+pure val initial: Keys = { keys: List(), refundRefs: Set() }
 ```
 
 ```quint
@@ -84,6 +84,7 @@ pure val expiresAtValues = Set(0, 2000)
 pure val nowValues = Set(0, 1000, 5000)
 pure val costValues = Set(0, 1, 5000, 9000)
 pure val dayValues = Set("2026-01-05", "2026-01-06")
+pure val refValues = Set("r1", "r2")
 ```
 
 ## Story: Issue a key
@@ -108,7 +109,7 @@ pure def canCreate(s: Keys, by: str, id: str, label: str, prefix: str, hash: str
   and s.keys.every(k => k.id != id and k.prefix != prefix and k.hash != hash)
 
 pure def create(s: Keys, by: str, id: str, label: str, prefix: str, hash: str, project: str, scopes: Set[str], cap: int, dailyCap: int, expiresAt: int, now: int): Keys =
-  { keys: s.keys.append({
+  { ...s, keys: s.keys.append({
       id: id, label: label, prefix: prefix, hash: hash, wallet: by, project: project, scopes: scopes,
       cap: cap, dailyCap: dailyCap, expiresAt: expiresAt,
       status: Active, createdAt: now, lastUsedAt: 0, spent: 0, dayKey: "", daySpent: 0 }) }
@@ -127,7 +128,7 @@ pure def canUpdate(s: Keys, by: str, id: str, label: str, cap: int, dailyCap: in
   and (expiresAt == 0 or expiresAt > now)
 
 pure def update(s: Keys, by: str, id: str, label: str, cap: int, dailyCap: int, expiresAt: int, now: int): Keys =
-  { keys: s.keys.listMap(k =>
+  { ...s, keys: s.keys.listMap(k =>
       if (k.id == id and k.wallet == by) { ...k, label: label, cap: cap, dailyCap: dailyCap, expiresAt: expiresAt } else k) }
 ```
 
@@ -197,7 +198,7 @@ pure def canRecordUse(s: Keys, by: str, id: str, cost: int, day: str, now: int):
   and ownedKeyWithId(s, id, by).every(k => k.dailyCap == 0 or (if (k.dayKey == day) k.daySpent else 0) + cost <= k.dailyCap)
 
 pure def recordUse(s: Keys, by: str, id: str, cost: int, day: str, now: int): Keys =
-  { keys: s.keys.listMap(k =>
+  { ...s, keys: s.keys.listMap(k =>
       if (k.id == id and k.wallet == by)
         { ...k, lastUsedAt: now, spent: k.spent + cost,
                 dayKey: day, daySpent: (if (k.dayKey == day) k.daySpent else 0) + cost }
@@ -209,21 +210,29 @@ pure def recordUse(s: Keys, by: str, id: str, cost: int, day: str, now: int): Ke
 When a reservation settles for less than it held, or fails outright, the
 difference leaves the key's lifetime tally. It leaves the day tally too when
 the reservation belongs to the day that tally still counts; an older day's
-tally no longer caps new use, so nothing is subtracted there.
+tally no longer caps new use, so nothing is subtracted there. Every refund
+carries the reference of the reservation it compensates; the registry records
+that reference, so a retry of the same refund is accepted as a no-op rather
+than returning the amount twice.
 
 ```quint
-pure def canRefundUse(s: Keys, by: str, id: str, amount: int, day: str): bool =
-  amount > 0 and day != ""
-  and ownedKeyWithId(s, id, by).some(k =>
+pure def canRefundUse(s: Keys, by: str, id: str, amount: int, day: str, ref: str): bool =
+  amount > 0 and day != "" and ref != ""
+  and (s.refundRefs.contains(ref) or ownedKeyWithId(s, id, by).some(k =>
     k.spent >= amount and
-    (if (k.dayKey == day) k.daySpent >= amount else k.spent - k.daySpent >= amount))
+    (if (k.dayKey == day) k.daySpent >= amount else k.spent - k.daySpent >= amount)))
 
-pure def refundUse(s: Keys, by: str, id: str, amount: int, day: str): Keys =
-  { keys: s.keys.listMap(k =>
+pure def refundUse(s: Keys, by: str, id: str, amount: int, day: str, ref: str): Keys =
+  if (s.refundRefs.contains(ref)) s
+  else {
+    ...s,
+    keys: s.keys.listMap(k =>
       if (k.id == id and k.wallet == by)
         { ...k, spent: k.spent - amount,
                 daySpent: if (k.dayKey == day) k.daySpent - amount else k.daySpent }
-      else k) }
+      else k),
+    refundRefs: s.refundRefs.union(Set(ref))
+  }
 ```
 
 ### Spend moves only with metering or a returned hold
@@ -250,6 +259,7 @@ pure def stepUseMarksUse(before: Keys, via: str, after: Keys): bool =
       or via == "recordUse" or via == "refundUse"))
 ```
 
+
 ### A key can be metered
 
 ```quint
@@ -268,7 +278,7 @@ pure def canRevoke(s: Keys, by: str, id: str): bool =
   ownedKeyWithId(s, id, by).some(k => k.status == Active)
 
 pure def revoke(s: Keys, by: str, id: str): Keys =
-  { keys: s.keys.listMap(k => if (k.id == id and k.wallet == by) { ...k, status: Revoked } else k) }
+  { ...s, keys: s.keys.listMap(k => if (k.id == id and k.wallet == by) { ...k, status: Revoked } else k) }
 ```
 
 ### Revoked is final

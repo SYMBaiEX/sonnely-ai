@@ -101,6 +101,7 @@ function seed(dir: string, finalizedDeposit = false) {
     ],
   }));
   writeFileSync(join(dir, "teams"), JSON.stringify({
+    releaseRefs: [],
     teams: [{
       id: "team-a",
       name: "A's team",
@@ -126,6 +127,7 @@ function seed(dir: string, finalizedDeposit = false) {
   }));
   writeFileSync(join(dir, "workspace-keys"), JSON.stringify({
     keys: [apiKey("key-a", apiTokenA, walletA), apiKey("key-b", apiTokenB, walletB)],
+    refundRefs: [],
   }));
 }
 

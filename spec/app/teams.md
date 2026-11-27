@@ -26,13 +26,13 @@ type Project = { id: str, name: str, budget: int, spent: int, archived: bool }
 
 type Team = { id: str, name: str, members: List[Membership], invites: List[Invite], projects: List[Project] }
 
-type Teams = { teams: List[Team] }
+type Teams = { teams: List[Team], releaseRefs: Set[str] }
 ```
 
 ### The directory starts empty
 
 ```quint
-pure val initial: Teams = { teams: List() }
+pure val initial: Teams = { teams: List(), releaseRefs: Set() }
 ```
 
 ```quint
@@ -63,6 +63,7 @@ pure val expiresAtValues = Set(0, 2000, 6000)
 pure val nowValues = Set(0, 1000, 5000)
 pure val projectIdValues = Set("p1", "p2")
 pure val budgetValues = Set(0, 9999, 10000, 5000000, 100000000000)
+pure val refValues = Set("r1", "r2")
 ```
 
 ## Story: Form a team
@@ -82,7 +83,7 @@ pure def canCreateTeam(s: Teams, id: str, name: str, actor: str, now: int): bool
   and membershipsOf(s, actor) < 50
 
 pure def createTeam(s: Teams, id: str, name: str, actor: str, now: int): Teams =
-  { teams: s.teams.append({
+  { ...s, teams: s.teams.append({
       id: id, name: name, members: List({ wallet: actor, role: Owner }), invites: List(), projects: List() }) }
 ```
 
@@ -126,7 +127,7 @@ pure def canInvite(s: Teams, teamId: str, actor: str, wallet: str, role: Role, e
        and t.invites.select(i => i.expiresAt > now).length() < 50)
 
 pure def invite(s: Teams, teamId: str, actor: str, wallet: str, role: Role, expiresAt: int, now: int): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       if (t.id == teamId)
         { ...t, invites: t.invites.select(i => i.wallet != wallet)
                          .append({ wallet: wallet, role: role, inviter: actor, expiresAt: expiresAt }) }
@@ -151,7 +152,7 @@ pure def canRespond(s: Teams, teamId: str, actor: str, accept: bool, now: int): 
          and (not(accept) or (t.members.length() < 50 and membershipsOf(s, actor) < 50))))
 
 pure def respond(s: Teams, teamId: str, actor: str, accept: bool, now: int): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       if (t.id != teamId) t
       else if (inviteOf(t, actor).length() == 0) t
       else {
@@ -173,7 +174,7 @@ pure def canCancelInvite(s: Teams, teamId: str, actor: str, wallet: str): bool =
     and inviteOf(t, wallet).some(i => i.role != Admin or owns(t, actor)))
 
 pure def cancelInvite(s: Teams, teamId: str, actor: str, wallet: str): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       if (t.id == teamId) { ...t, invites: t.invites.select(i => i.wallet != wallet) } else t) }
 ```
 
@@ -235,7 +236,7 @@ pure def canChangeRole(s: Teams, teamId: str, actor: str, wallet: str, role: Rol
        and memberRole(t, wallet).some(r => r != Owner))
 
 pure def changeRole(s: Teams, teamId: str, actor: str, wallet: str, role: Role): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       if (t.id == teamId)
         { ...t, members: t.members.listMap(m => if (m.wallet == wallet) { ...m, role: role } else m) }
       else t) }
@@ -255,7 +256,7 @@ pure def canRemoveMember(s: Teams, teamId: str, actor: str, wallet: str): bool =
       and (actor == wallet or owns(t, actor) or (target == Member and memberRole(t, actor).includes(Admin)))))
 
 pure def removeMember(s: Teams, teamId: str, actor: str, wallet: str): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       if (t.id == teamId) { ...t, members: t.members.select(m => m.wallet != wallet) } else t) }
 ```
 
@@ -297,7 +298,7 @@ pure def canCreateProject(s: Teams, teamId: str, projectId: str, actor: str, nam
        manages(t, actor) and t.projects.select(p => not(p.archived)).length() < 50)
 
 pure def createProject(s: Teams, teamId: str, projectId: str, actor: str, name: str, budget: int): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       if (t.id == teamId)
         { ...t, projects: t.projects.append({ id: projectId, name: name, budget: budget, spent: 0, archived: false }) }
       else t) }
@@ -312,7 +313,7 @@ pure def canUpdateProject(s: Teams, projectId: str, actor: str, name: str, budge
        manages(t, actor) and t.projects.every(p => p.id != projectId or not(p.archived)))
 
 pure def updateProject(s: Teams, projectId: str, actor: str, name: str, budget: int): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       { ...t, projects: t.projects.listMap(p =>
           if (p.id == projectId) { ...p, name: name, budget: budget } else p) }) }
 
@@ -320,7 +321,7 @@ pure def canArchiveProject(s: Teams, projectId: str, actor: str): bool =
   teamOfProject(s, projectId).some(t => manages(t, actor))
 
 pure def archiveProject(s: Teams, projectId: str, actor: str): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       { ...t, projects: t.projects.listMap(p =>
           if (p.id == projectId) { ...p, archived: true } else p) }) }
 ```
@@ -338,7 +339,7 @@ pure def canHoldProject(s: Teams, projectId: str, amount: int): bool =
     t.projects.some(p => p.id == projectId and not(p.archived) and p.spent + amount <= p.budget))
 
 pure def holdProject(s: Teams, projectId: str, amount: int): Teams =
-  { teams: s.teams.listMap(t =>
+  { ...s, teams: s.teams.listMap(t =>
       { ...t, projects: t.projects.listMap(p =>
           if (p.id == projectId) { ...p, spent: p.spent + amount } else p) }) }
 ```
@@ -347,18 +348,28 @@ pure def holdProject(s: Teams, projectId: str, amount: int): Teams =
 
 The unused part of a reservation leaves `spent`; the final charge remains.
 Existing holds may settle after archival, so this transition does not ask
-whether the project is live.
+whether the project is live. Every release carries the reference of the
+reservation it compensates; the directory records that reference, so a retry
+of the same release is accepted as a no-op rather than returning the amount
+twice.
 
 ```quint
-pure def canReleaseProject(s: Teams, projectId: str, amount: int): bool =
-  amount > 0 and teamOfProject(s, projectId).some(t =>
-    t.projects.some(p => p.id == projectId and p.spent >= amount))
+pure def canReleaseProject(s: Teams, projectId: str, amount: int, ref: str): bool =
+  amount > 0 and ref != ""
+  and (s.releaseRefs.contains(ref) or teamOfProject(s, projectId).some(t =>
+    t.projects.some(p => p.id == projectId and p.spent >= amount)))
 
-pure def releaseProject(s: Teams, projectId: str, amount: int): Teams =
-  { teams: s.teams.listMap(t =>
+pure def releaseProject(s: Teams, projectId: str, amount: int, ref: str): Teams =
+  if (s.releaseRefs.contains(ref)) s
+  else {
+    ...s,
+    teams: s.teams.listMap(t =>
       { ...t, projects: t.projects.listMap(p =>
-          if (p.id == projectId) { ...p, spent: p.spent - amount } else p) }) }
+          if (p.id == projectId) { ...p, spent: p.spent - amount } else p) }),
+    releaseRefs: s.releaseRefs.union(Set(ref))
+  }
 ```
+
 
 ### A project can be created and archived
 

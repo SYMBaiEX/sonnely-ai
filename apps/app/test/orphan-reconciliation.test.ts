@@ -79,6 +79,7 @@ describe("orphan reconciliation", () => {
       rows: [{ id: "ref-partial", time: old, keyName: "Inference", keyId: "key-partial", project: "project-partial", wallet, model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", provider: "NearAI", input: 0, output: 0, cached: -1, cost: 100, providerMs: -1, status: "Pending" }],
     }));
     writeFileSync(join(dir, "workspace-keys"), JSON.stringify({
+      refundRefs: [],
       keys: [{ id: "key-partial", label: "Inference", prefix: "sonnely_live_partial", hash: "partial-hash", wallet, project: "project-partial", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, status: "Active", createdAt: 1, lastUsedAt: old, spent: 100, dayKey: day, daySpent: 100 }],
     }));
     writeFileSync(join(dir, "gateway-requests"), JSON.stringify({
@@ -90,11 +91,13 @@ describe("orphan reconciliation", () => {
       const afterFirst = (yield* keys.get()).keys[0];
       const usage = yield* Usage.Machine;
       const pendingAfterFirst = (yield* usage.get()).rows[0]?.status;
+      yield* keys.send({ type: "refundUse", id: "key-partial", amount: 60, day, ref: "ref-partial" }, wallet);
       const teams = yield* Teams.Machine;
       yield* teams.send({ type: "createTeam", id: "team-partial", name: "Team", actor: wallet, now: 1 });
       yield* teams.send({ type: "createProject", teamId: "team-partial", projectId: "project-partial", actor: wallet, name: "Project", budget: 10_000 });
       yield* teams.send({ type: "holdProject", projectId: "project-partial", amount: 100 });
       yield* sweepOrphanedReservations();
+      yield* teams.send({ type: "releaseProject", projectId: "project-partial", amount: 60, ref: "ref-partial" });
       const key = (yield* keys.get()).keys[0];
       const project = (yield* teams.get()).teams[0]?.projects[0];
       const row = (yield* usage.get()).rows[0];

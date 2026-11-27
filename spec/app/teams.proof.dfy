@@ -979,13 +979,19 @@ lemma holdProject_ensures(s: Teams, projectId: string, amount: int)
 
 // releaseProject: metered spend moves only the attributed project total.
 
-lemma releaseProject_ensures(s: Teams, projectId: string, amount: int)
-  ensures (inv(s) ==> canReleaseProject(s, projectId, amount) ==> alwaysTeamsAreWellFormed(releaseProject(s, projectId, amount)))
-  ensures (inv(s) ==> canReleaseProject(s, projectId, amount) ==> stepRespondConsumesTheInvite(s, "releaseProject", releaseProject(s, projectId, amount)))
-  ensures (inv(s) ==> canReleaseProject(s, projectId, amount) ==> stepOwnersSurvive(s, releaseProject(s, projectId, amount)))
+lemma releaseProject_ensures(s: Teams, projectId: string, amount: int, ref: string)
+  ensures (inv(s) ==> canReleaseProject(s, projectId, amount, ref) ==> alwaysTeamsAreWellFormed(releaseProject(s, projectId, amount, ref)))
+  ensures (inv(s) ==> canReleaseProject(s, projectId, amount, ref) ==> stepRespondConsumesTheInvite(s, "releaseProject", releaseProject(s, projectId, amount, ref)))
+  ensures (inv(s) ==> canReleaseProject(s, projectId, amount, ref) ==> stepOwnersSurvive(s, releaseProject(s, projectId, amount, ref)))
 {
-  if inv(s) && canReleaseProject(s, projectId, amount) {
-    var after := releaseProject(s, projectId, amount);
+  if inv(s) && canReleaseProject(s, projectId, amount, ref) {
+    var after := releaseProject(s, projectId, amount, ref);
+    if ref in s.releaseRefs {
+      assert after == s;
+      assert stepRespondConsumesTheInvite(s, "releaseProject", after);
+      ownersSurvivePointwise(s, after);
+      assert stepOwnersSurvive(s, after);
+    } else {
     wellP(s);
     var wt :| wt in teamOfProject(s, projectId) && (exists q :: q in wt.projects && (q.id == projectId) && (q.spent >= amount));
     var wp :| wp in wt.projects && (wp.id == projectId) && (wp.spent >= amount);
@@ -1060,6 +1066,7 @@ lemma releaseProject_ensures(s: Teams, projectId: string, amount: int)
     assert alwaysTeamsAreWellFormed(after);
     ownersSurvivePointwise(s, after);
     assert stepOwnersSurvive(s, after);
+    }
   }
 }
 
