@@ -65,7 +65,7 @@ export const articles: Article[] = [
     body: [
       "When you send a message in the console, your browser sends it over HTTPS to Sonnely. The Sonnely server reads the request in order to validate it, reserve credits, and forward it to a confidential execution environment.",
       "Each route supplies its own execution evidence, which describes the environment the model ran in. The Sonnely server is a separate trust boundary. The standard Sonnely gateway does not provide client-to-model end-to-end encryption.",
-      "The account ledger stores the model ID, API key label, token counts, request status, and charge. Prompts and responses are excluded from the ledger. If you enable chat history, the console stores it in your browser.",
+      "The account ledger stores the model ID, API key label, token counts, request status, and charge. Prompts and responses are excluded from the ledger. Console chat history is kept server-side under your wallet; you can turn it off or clear it in Settings.",
     ],
   },
   {

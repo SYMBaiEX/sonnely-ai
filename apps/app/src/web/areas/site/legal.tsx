@@ -72,8 +72,8 @@ export function PrivacyPage() {
       description="The privacy boundary of the gateway, the account records behind the console, and the choices you keep."
       rows={[
         ["Version", termsVersion],
-        ["Prompt bodies", "Never stored"],
-        ["Chat history", "Your browser"],
+        ["Usage ledger", "Metadata only, no prompt bodies"],
+        ["Chat history", "Server-side per wallet, yours to clear"],
       ]}
       other={["/terms", "Terms of Service"]}
       sections={privacySections}
@@ -85,8 +85,13 @@ export function PrivacyPage() {
           provider for execution. The gateway does not provide end-to-end encryption from your
           device to the model enclave. The Sonnely usage ledger stores request metadata, such as
           model, token counts, charge, status, and request IDs. It does not store prompt or
-          response bodies. Optional console chat history is stored in your browser. Contact us for
-          the data handling terms that apply to the compute providers that execute requests.
+          response bodies. Console playground chat history — the prompts and answers of your
+          conversations — is stored server-side under your wallet so conversations reopen on any
+          device. It is ordinary service data held outside the confidential enclaves that run the
+          models. In Settings you can turn chat history off so new
+          conversations live only in your browser session, and you can erase the stored history at
+          any time. Contact us for the data handling terms that apply to the compute providers
+          that execute requests.
         </p>
       </section>
       <section>
@@ -127,8 +132,9 @@ export function PrivacyPage() {
         <h2 id={privacySections[4][0]}>{privacySections[4][1]}</h2>
         <p>
           Billing and security records may be kept to resolve disputes, prevent abuse, and meet
-          legal obligations. You can clear local chat history in your browser and revoke API keys
-          in the console. To request access, correction, or deletion of data that Sonnely
+          legal obligations. You can turn off or clear the chat history the server keeps for your
+          wallet in the console Settings, and revoke API keys in the console. To request access,
+          correction, or deletion of data that Sonnely
           controls, use <a href="/contact">Sonnely Support</a>. Sonnely cannot alter public
           blockchain records.
         </p>

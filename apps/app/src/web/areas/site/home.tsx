@@ -979,7 +979,8 @@ function HomeResources() {
             </summary>
             <p>
               It records the model, key label, token counts, request status, and charge. The gateway
-              reads prompt text during forwarding. Optional chat history lives in your browser.{" "}
+              reads prompt text during forwarding. Playground chat history is kept server-side under
+              your wallet, and Settings can turn it off or erase it.{" "}
               <a href="/docs/attestation#data-handling" aria-label="Data handling in the attestation guide">Read about data handling</a>.
             </p>
           </details>
