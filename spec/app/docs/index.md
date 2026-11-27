@@ -544,7 +544,7 @@ pure val bodies: List[List[str]] = List(
         "",
         "## Realtime transcription",
         "",
-        "Realtime transcription over WebSocket is planned and not yet served. The TypeScript `realtimeConnection` and Python `realtime_connection` helpers prepare the URL and bearer headers for a server-side WebSocket client ahead of the endpoint’s release. For audio transcription today, use [`POST /audio/transcriptions`](/docs/providers#embeddings-decisions-images-and-audio) through `infer`."
+        "Realtime transcription is served over WebSocket at `GET /api/sonnely/v1/realtime?model=voxtral-mini-4b-realtime` with bearer authentication. Send JSON `input_audio_buffer.append` frames whose `audio` is base64 mono 16 kHz PCM16, then send `input_audio_buffer.commit`. Sonnely forwards `transcription.delta` frames and finishes with `transcription.done`. A session accepts up to 30 seconds of audio, reserves the full-session price when it opens, and settles the proportion of that price the audio duration represents. For one-shot files, use [`POST /audio/transcriptions`](/docs/providers#embeddings-decisions-images-and-audio) through `infer`."
     ),
     List(
         "## Create a key",
@@ -857,7 +857,7 @@ pure val bodies: List[List[str]] = List(
         "",
         "Responses accepts single-turn text with `stream: false` and `store: false`. Audio translation returns `text` in English. Tinfoil processes the audio and translates the transcript through an attested text route. PDF conversion returns `document.md_content`. Redaction returns `redacted_text` and charges the request fee plus an input estimate based on UTF-8 bytes with a 256-token allowance. Review redacted output before sharing it. A detector can miss sensitive information.",
         "",
-        "Realtime transcription over WebSocket (`voxtral-mini-4b-realtime`) is planned and not yet served. Audio transcription is available today through `POST /audio/transcriptions`.",
+        "Realtime transcription over WebSocket (`voxtral-mini-4b-realtime`) is served at `/api/sonnely/v1/realtime`. One-shot audio transcription is available through `POST /audio/transcriptions`.",
         "",
         "## Compare prices",
         "",
