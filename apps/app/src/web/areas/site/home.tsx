@@ -249,23 +249,41 @@ function HomeDemo() {
 
   return (
     <section className="home-quickstart" id="quickstart" aria-labelledby="home-quickstart-heading">
-      <div className="home-quickstart-intro" data-reveal="rise">
-        <h2 id="home-quickstart-heading">Your first API request.</h2>
-        <p>
-          <a href="/console/keys">Create an API key</a> and export it as{" "}
-          <code>SONNELY_API_KEY</code>. Pick a language, then copy the example into your terminal or
-          app.
-        </p>
-        <div className="home-quickstart-links">
-          <a href="/docs/quickstart" className="text-link">
-            Read the quickstart <ArrowRight size={16} aria-hidden="true" />
-          </a>
-          <a href="/docs/sdks" className="text-link">
-            SDKs <ArrowUpRight size={14} aria-hidden="true" />
-          </a>
+      <div className={sectionHead} data-reveal="rise">
+        <div>
+          <h2 id="home-quickstart-heading">Your first API request.</h2>
         </div>
-        <div className="home-api-samples">
-          <p id="home-api-example-label">Example</p>
+        <div className="home-quickstart-aside">
+          <p>
+            <a href="/console/keys">Create an API key</a> and export it as{" "}
+            <code>SONNELY_API_KEY</code>. Pick a language, then copy the example into your terminal
+            or app.
+          </p>
+          <div className="home-quickstart-links">
+            <a href="/docs/quickstart" className="text-link">
+              Read the quickstart <ArrowRight size={16} aria-hidden="true" />
+            </a>
+            <a href="/docs/sdks" className="text-link">
+              SDKs <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </div>
+      <div className="term home-quickstart-term" data-scan data-reveal="fade">
+        <div className="term-chrome">
+          <span className="term-path">
+            <Terminal size={13} aria-hidden="true" /> ~/quickstart
+            <span className="term-caret" aria-hidden="true" />
+          </span>
+          <span className="quickstart-endpoint">
+            <span className="quickstart-method">post</span>
+            <code>{apiBasePath}/chat/completions</code>
+          </span>
+        </div>
+        <div className="quickstart-toolbar">
+          <span className="quickstart-toolbar-label" id="home-api-example-label">
+            example
+          </span>
           <div
             className="home-api-segments"
             role="group"
@@ -284,15 +302,12 @@ function HomeDemo() {
             ))}
           </div>
         </div>
-      </div>
-      <div className="home-api" data-reveal="fade">
-        <div className="home-api-endpoint">
-          <span className="home-api-method">POST</span>
-          <code>{apiBasePath}/chat/completions</code>
-        </div>
-        <div className="home-api-panes">
-          <div className="home-api-request">
-            <div className="home-api-pane-head">
+        <div className="quickstart-panes">
+          <div className="quickstart-request">
+            <div className="quickstart-pane-head">
+              <span className="quickstart-pane-label">
+                <i aria-hidden="true">→</i> request
+              </span>
               <div
                 className="home-api-segments"
                 role="group"
@@ -324,38 +339,43 @@ function HomeDemo() {
               </code>
             </pre>
           </div>
-          <div className="home-api-response" aria-labelledby="home-api-response-title">
-            <div className="home-api-pane-head">
-              <h3 id="home-api-response-title">Sample response</h3>
+          <div className="quickstart-response">
+            <div className="quickstart-pane-head">
+              <span className="quickstart-pane-label">
+                <i aria-hidden="true">←</i> response · sample
+              </span>
               <button
                 className="button quiet small"
                 type="button"
                 aria-pressed={showJson}
                 onClick={() => setShowJson(!showJson)}
               >
-                JSON
+                json
               </button>
             </div>
-            <div className="home-api-result" aria-live="polite">
+            <div className="quickstart-result" aria-live="polite">
               {showJson ? (
                 <pre key={active} aria-label="Sample response JSON">
                   <HighlightedCode source={JSON.stringify(sampleResponse, null, 2)} language="json" />
                 </pre>
               ) : (
-                <p key={active} className={active === 1 ? "mono" : undefined}>
+                <p key={active}>
                   {example.output}
+                  <span className="term-caret" aria-hidden="true" />
                 </p>
               )}
             </div>
-            <div className="home-api-response-footer">
-              <span>{model?.name}</span>
+            <div className="quickstart-response-foot">
+              <span>
+                <i className="term-dot" aria-hidden="true" /> {model?.name}
+              </span>
               {model && (
                 <a
                   className="text-link"
                   href={modelPlaygroundHref(modelId, model.provider)}
                   aria-label={"Open in playground: " + model.name}
                 >
-                  Open in playground <ArrowUpRight size={14} aria-hidden="true" />
+                  Open in playground <ArrowUpRight size={13} aria-hidden="true" />
                 </a>
               )}
             </div>
