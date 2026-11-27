@@ -462,7 +462,10 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
         // serving part of its answer, so the capture is the served part estimated from the characters
         // the client received plus the input the provider processed, never more than the reserve.
         const outputTokens = Math.ceil(servedOutputChars / 4)
-        const inputTokens = selection.bytes + 256
+        // spec/app/usage.md, "A pending request can fail or go under review": bytes are not tokens —
+        // the input is estimated at four characters per token, the same conservative factor the
+        // specialized endpoints use, plus the request framing overhead the reserve estimated.
+        const inputTokens = Math.ceil((selection.bytes + 256) / 4)
         const prorated = try Effect.try(() => tokenCharge(candidate.rate, inputTokens, 0, outputTokens))
         const cost = Math.min(meter.reserve, prorated)
         const refund = meter.reserve - cost

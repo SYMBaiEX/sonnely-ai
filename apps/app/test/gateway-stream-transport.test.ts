@@ -353,6 +353,56 @@ describe("gateway stream transport", () => {
     expect(state.entries.some((entry) => entry.kind === "Charge" && entry.detail === "rejected-ref" && entry.amount > 0)).toBe(false);
   });
 
+  // spec/app/usage.md, "A pending request can fail or go under review": an interrupted stream records
+  // tokens estimated at four characters per byte of request input, never the raw byte count.
+  it("records estimated tokens rather than byte counts for an interrupted stream", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const messages = [{ role: "user", content: "hello" }];
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "https://cloud-api.near.ai/v1/chat/completions") {
+        const encoder = new TextEncoder();
+        return Promise.resolve(new Response(new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode('data: {"id":"interrupted-stream","object":"chat.completion.chunk","created":1,"choices":[{"index":0,"delta":{"content":"partial answer"},"finish_reason":null}]}\n\n'));
+          },
+          pull(controller) {
+            controller.error(new Error("upstream reset"));
+          },
+        }), { status: 200, headers: { "content-type": "text/event-stream" } }));
+      }
+      return realFetch(input, init);
+    });
+    const program = Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "estimate-key", label: "Inference", prefix: "sonnely_live_estimate", hash: "estimate-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "estimate-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const app = inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages, stream: true }, key, wallet, "estimate-ref");
+      const scope = yield* Scope.Scope;
+      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+      const server = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => handler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const address = server.address();
+      if (typeof address !== "object" || address === null) throw new Error("missing server address");
+      const response = yield* Effect.promise(() => globalThis.fetch(`http://127.0.0.1:${address.port}/`, { headers: { accept: "text/event-stream" } }));
+      yield* Effect.promise(() => response.text());
+      const usage = yield* Usage.Machine;
+      return { usage };
+    }));
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const rows = await Effect.runPromise(Effect.gen(function* () {
+      return (yield* result.usage.get()).rows;
+    }));
+    const bytes = new TextEncoder().encode(JSON.stringify(messages)).length;
+    expect(rows[0]).toMatchObject({ id: "estimate-ref", status: "Unreported", input: Math.ceil((bytes + 256) / 4), output: Math.ceil("partial answer".length / 4) });
+  });
+
   // spec/app/gateway/requests.md, "Every request reference is unique": a repeat answers 409 without reserving again.
   it("deduplicates specialized endpoint retries by Idempotency-Key", async () => {
     process.env.NEAR_AI_API_KEY = "test-provider-key";
