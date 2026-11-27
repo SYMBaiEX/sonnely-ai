@@ -57,6 +57,7 @@ describe("console logs pipeline", () => {
       cost: 42,
       durationMs: 120,
       ageDays: 0,
+      time: now - 500,
     });
   });
 

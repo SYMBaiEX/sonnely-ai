@@ -10,8 +10,13 @@ the page has something to show.
 
 ### A request row records what ran, how it ended and what it cost
 
-`ageDays` is how many days ago the request ran; 0 is today. `input`,
-`output` and `durationMs` are tokens and milliseconds; `cost` is micro-USD.
+`time` is the millisecond epoch the request started, or 0 when it was never
+recorded — the sample rows below and rows written before the field existed.
+`ageDays` is how many days ago the request ran, frozen when the row is
+recorded; 0 is today. A row with a real `time` ages as time passes — the
+console derives its age from `time` against now — while a row with `time` 0
+keeps its frozen `ageDays`. `input`, `output` and `durationMs` are tokens
+and milliseconds; `cost` is micro-USD.
 
 ```quint
 type LogStatus = Pending | Complete | Failed | Unreported
@@ -28,6 +33,7 @@ type LogEntry = {
   cost: int,
   durationMs: int,
   ageDays: int,
+  time: int,
 }
 ```
 
@@ -60,9 +66,9 @@ pure def windowDays(r: Window): int = match r { | Week => 7 | Month => 30 | Quar
 ```quint
 pure val initial: Logs = {
   entries: List(
-    { id: "req-4f8c2a1b9d0e6f5a2b3c", model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", provider: "near-ai", endpoint: "chat/completions", keyName: "playground", status: Complete, input: 812, output: 348, cost: 684, durationMs: 3210, ageDays: 0 },
-    { id: "req-77aa10bc9d2f4e6a8c0d", model: "z-ai/glm-5.3-flash", provider: "near-ai", endpoint: "chat/completions", keyName: "playground", status: Complete, input: 156, output: 92, cost: 102, durationMs: 1180, ageDays: 1 },
-    { id: "req-1b2c3d4e5f6a7b8c9d0e", model: "Qwen/Qwen3.6-35B-A3B-FP8", provider: "near-ai", endpoint: "batch/chat", keyName: "playground", status: Failed, input: 40, output: 0, cost: 0, durationMs: 640, ageDays: 3 },
+    { id: "req-4f8c2a1b9d0e6f5a2b3c", model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", provider: "near-ai", endpoint: "chat/completions", keyName: "playground", status: Complete, input: 812, output: 348, cost: 684, durationMs: 3210, ageDays: 0, time: 0 },
+    { id: "req-77aa10bc9d2f4e6a8c0d", model: "z-ai/glm-5.3-flash", provider: "near-ai", endpoint: "chat/completions", keyName: "playground", status: Complete, input: 156, output: 92, cost: 102, durationMs: 1180, ageDays: 1, time: 0 },
+    { id: "req-1b2c3d4e5f6a7b8c9d0e", model: "Qwen/Qwen3.6-35B-A3B-FP8", provider: "near-ai", endpoint: "batch/chat", keyName: "playground", status: Failed, input: 40, output: 0, cost: 0, durationMs: 640, ageDays: 3, time: 0 },
   ),
   window: Week,
   provider: "",
@@ -99,7 +105,7 @@ A row is recorded once, under its own request id.
 
 ```quint
 pure def canRecord(l: Logs, entry: LogEntry): bool =
-  entry.id != "" and entry.ageDays >= 0 and
+  entry.id != "" and entry.ageDays >= 0 and entry.time >= 0 and
     l.entries.select((x) => x.id == entry.id).length() == 0
 
 pure def record(l: Logs, entry: LogEntry): Logs =
@@ -165,9 +171,9 @@ pure def sometimesNoMatches(l: Logs): bool = l.entries.length() > 0 and visible(
 
 ```quint
 pure val entryValues = Set(
-  { id: "req-new", model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", provider: "near-ai", endpoint: "chat/completions", keyName: "playground", status: Complete, input: 10, output: 20, cost: 30, durationMs: 400, ageDays: 0 },
-  { id: "req-4f8c2a1b9d0e6f5a2b3c", model: "z-ai/glm-5.3-flash", provider: "phala", endpoint: "chat/completions", keyName: "ci", status: Failed, input: 5, output: 0, cost: 0, durationMs: 200, ageDays: 40 },
-  { id: "req-stream", model: "Qwen/Qwen3.6-35B-A3B-FP8", provider: "tinfoil", endpoint: "responses", keyName: "agent", status: Pending, input: 0, output: 0, cost: 0, durationMs: 0, ageDays: 2 },
+  { id: "req-new", model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", provider: "near-ai", endpoint: "chat/completions", keyName: "playground", status: Complete, input: 10, output: 20, cost: 30, durationMs: 400, ageDays: 0, time: 1764000000000 },
+  { id: "req-4f8c2a1b9d0e6f5a2b3c", model: "z-ai/glm-5.3-flash", provider: "phala", endpoint: "chat/completions", keyName: "ci", status: Failed, input: 5, output: 0, cost: 0, durationMs: 200, ageDays: 40, time: 1760544000000 },
+  { id: "req-stream", model: "Qwen/Qwen3.6-35B-A3B-FP8", provider: "tinfoil", endpoint: "responses", keyName: "agent", status: Pending, input: 0, output: 0, cost: 0, durationMs: 0, ageDays: 2, time: 1763827200000 },
 )
 
 pure val windowValues = Set(Week, Month, Quarter, AllTime)

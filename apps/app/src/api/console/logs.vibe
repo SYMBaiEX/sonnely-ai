@@ -50,6 +50,7 @@ function entryOf(row: Row, endpoint: Requests.Endpoint | undefined, now: number)
     cost: row.cost,
     durationMs: row.providerMs >= 0 ? row.providerMs : Math.max(0, now - row.time),
     ageDays: Math.max(0, Math.floor((now - row.time) / dayMs)),
+    time: row.time,
   }
 }
 

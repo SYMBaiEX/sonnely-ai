@@ -59,7 +59,6 @@ const logPath = "/console/logs";
 const pageSize = 50;
 
 type LogRow = LogEntry & {
-  time?: number;
   providerRejections?: { provider: string; model: string; startedAt: number; endedAt: number; httpStatus: 429 }[];
   providerRequest?: string;
   providerStatus?: number;
@@ -106,7 +105,7 @@ function detailPath(id: string) {
 }
 
 function rowTime(row: LogRow) {
-  return row.time ?? Date.now() - row.ageDays * 86_400_000;
+  return row.time > 0 ? row.time : Date.now() - row.ageDays * 86_400_000;
 }
 
 function billing(row: LogRow) {
@@ -397,7 +396,17 @@ export function LogsSection() {
   const requestId = new URLSearchParams(useSyncExternalStore(subscribeLocation, locationSearch)).get("request");
   const state = logs.state;
 
-  const rows = useMemo(() => (state ? (visible(state) as LogRow[]) : []), [state]);
+  const rows = useMemo(() => {
+    if (!state) return [];
+    const now = Date.now();
+    const aged = {
+      ...state,
+      entries: state.entries.map((entry) =>
+        entry.time > 0 ? { ...entry, ageDays: Math.max(0, Math.floor((now - entry.time) / 86_400_000)) } : entry,
+      ),
+    };
+    return visible(aged) as LogRow[];
+  }, [state]);
   const allRows = useMemo(() => (state?.entries ?? []) as LogRow[], [state]);
   const detailRow = requestId ? allRows.find((row) => row.id === requestId) : undefined;
 

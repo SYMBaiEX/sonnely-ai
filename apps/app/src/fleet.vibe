@@ -53,12 +53,21 @@ interface Storekv {
   set(key: string, value: string): void!any
 }
 
+// spec/app/console/logs.md, "A request row records what ran, how it ended and what it cost":
+// rows written before the entry carried its start time have none — they decode with time 0,
+// the unknown time that keeps their frozen ageDays.
+function withEntryTimes(parsed: unknown) {
+  if (parsed == undefined || typeof parsed != "object" || !Array.isArray((parsed as { entries?: unknown }).entries)) return parsed
+  const state = parsed as { entries: Array<Record<string, unknown>> }
+  return { ...state, entries: state.entries.map((entry) => (typeof entry.time == "number" ? entry : { ...entry, time: 0 })) }
+}
+
 effect function buildLogs(kv: Storekv, key: string) {
   effect function load() {
     const found = try Effect.orDie(kv.get(key))
     if (found === undefined) return Logs.initial
     const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Logs.NotAState({ input: found }) }))
-    return try Effect.orDie(Logs.decodeState(parsed))
+    return try Effect.orDie(Logs.decodeState(withEntryTimes(parsed)))
   }
   return try Effect.orDie(Logs.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
 }
