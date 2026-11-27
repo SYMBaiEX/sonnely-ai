@@ -575,6 +575,7 @@ describe("row-level access", () => {
     });
   });
 
+// spec/app/admin/index.md, "Accounts are registered once": the shell registers a workspace at first sight, and moderation then works end to end.
   it("registers a wallet the first time it is served and moderates it end to end", async () => {
     const handler = makeApp();
     await get(handler, "/api/machines/teams", tokenB);

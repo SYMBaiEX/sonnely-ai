@@ -58,6 +58,42 @@ afterEach(() => {
   delete process.env.TINFOIL_API_KEY;
 });
 
+const embeddingsHarness = (upstream: (url: string) => Promise<Response>, keyId: string, ref: string) => {
+  process.env.NEAR_AI_API_KEY = "test-provider-key";
+  const realFetch = globalThis.fetch;
+  vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url === "https://cloud-api.near.ai/v1/embeddings") return upstream(url);
+    return realFetch(input, init);
+  });
+  return Effect.scoped(Effect.gen(function* () {
+    const keys = yield* WorkspaceKeys.Machine;
+    yield* keys.send({ type: "create", id: keyId, label: "Inference", prefix: "sonnely_live_" + keyId, hash: keyId + "-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+    const ledger = yield* Ledger.Machine;
+    yield* ledger.send({ type: "credit", wallet, detail: keyId + "-deposit", amount: 100_000 });
+    const key = (yield* keys.get()).keys[0];
+    if (!key) throw new Error("missing key");
+    const app = inferSpecialized("embeddings", "Embeddings", "Qwen/Qwen3-Embedding-0.6B", { model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }, key, "", ref);
+    const scope = yield* Scope.Scope;
+    const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+    const server = yield* Effect.acquireRelease(
+      Effect.promise(() => listen((request, response) => handler(request, response))),
+      (open) => Effect.promise(() => close(open)),
+    );
+    const address = server.address();
+    if (typeof address !== "object" || address === null) throw new Error("missing server address");
+    const response = yield* Effect.promise(() => globalThis.fetch(`http://127.0.0.1:${address.port}/`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }),
+    }));
+    yield* Effect.promise(() => response.text());
+    const usage = yield* Usage.Machine;
+    const requests = yield* Requests.Machine;
+    return { status: response.status, usage, requests, keys, ledger };
+  }));
+};
+
 describe("gateway stream transport", () => {
   // spec/app/gateway/requests.md, "Story: Serve a metered completion"
   it("serves a live provider stream through the Node HTTP server", async () => {
@@ -555,41 +591,6 @@ describe("gateway stream transport", () => {
     expect(settleUsageCost(imagesRoute, 13_200, "images/generations", {})).toEqual({ kind: "measured", input: 0, output: 0, cost: 13_200 });
   });
 
-  const embeddingsHarness = (upstream: (url: string) => Promise<Response>, keyId: string, ref: string) => {
-    process.env.NEAR_AI_API_KEY = "test-provider-key";
-    const realFetch = globalThis.fetch;
-    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-      if (url === "https://cloud-api.near.ai/v1/embeddings") return upstream(url);
-      return realFetch(input, init);
-    });
-    return Effect.scoped(Effect.gen(function* () {
-      const keys = yield* WorkspaceKeys.Machine;
-      yield* keys.send({ type: "create", id: keyId, label: "Inference", prefix: "sonnely_live_" + keyId, hash: keyId + "-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
-      const ledger = yield* Ledger.Machine;
-      yield* ledger.send({ type: "credit", wallet, detail: keyId + "-deposit", amount: 100_000 });
-      const key = (yield* keys.get()).keys[0];
-      if (!key) throw new Error("missing key");
-      const app = inferSpecialized("embeddings", "Embeddings", "Qwen/Qwen3-Embedding-0.6B", { model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }, key, "", ref);
-      const scope = yield* Scope.Scope;
-      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
-      const server = yield* Effect.acquireRelease(
-        Effect.promise(() => listen((request, response) => handler(request, response))),
-        (open) => Effect.promise(() => close(open)),
-      );
-      const address = server.address();
-      if (typeof address !== "object" || address === null) throw new Error("missing server address");
-      const response = yield* Effect.promise(() => globalThis.fetch(`http://127.0.0.1:${address.port}/`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }),
-      }));
-      yield* Effect.promise(() => response.text());
-      const usage = yield* Usage.Machine;
-      const requests = yield* Requests.Machine;
-      return { status: response.status, usage, requests, keys, ledger };
-    }));
-  };
 
   const meterState = (result: { usage: Usage.Machine.Shape; requests: Requests.Machine.Shape; keys: WorkspaceKeys.Machine.Shape; ledger: Ledger.Machine.Shape }) =>
     Effect.runPromise(Effect.gen(function* () {
