@@ -281,7 +281,7 @@ export effect function realtime() {
   let key: WorkspaceKeys.Key | undefined = undefined
   let wallet = ""
   if ((request.headers["authorization"] ?? "") != "") {
-    const auth = try bearerKey()
+    const auth = try bearerKey("realtime")
     if ("refused" in auth) {
       const r = auth.refused as { error: unknown; status: number }
       return try reply(r.error, r.status)

@@ -88,6 +88,33 @@ pure val dayValues = Set("2026-01-05", "2026-01-06")
 pure val refValues = Set("r1", "r2")
 ```
 
+### Endpoint scopes form a capability matrix
+
+The matrix uses the gateway's canonical route names without their
+`/api/sonnely` or `/api/sonnely/v1` prefix. `inference` authorizes the
+serving routes: chat completions, embeddings, rerank, responses, redact,
+systemone, image generations and edits, audio speech, transcriptions and
+translations, file conversion and realtime transcription. `batch`
+authorizes the batch job and batch row routes. The matrix is complete for
+bearer-key authorization: a scope outside it authorizes no route, while
+the public catalogs and key-status route are not serving routes. Console
+sessions are not API keys; where the console uses batch, the signed-in
+session itself is the credential.
+
+```quint
+pure val inferenceEndpointRoutes = Set(
+  "chat/completions", "embeddings", "rerank", "responses", "redact", "systemone",
+  "images/generations", "images/edits", "audio/speech", "audio/transcriptions",
+  "audio/translations", "convert/file", "realtime"
+)
+
+pure val batchEndpointRoutes = Set("batch", "batch/interrupt", "batch/chat")
+
+pure def scopeAllows(route: str, scopes: Set[str]): bool =
+  (inferenceEndpointRoutes.contains(route) and scopes.contains("inference"))
+  or (batchEndpointRoutes.contains(route) and scopes.contains("batch"))
+```
+
 ## Story: Issue a key
 
 > As a wallet holder or team manager, I want to create an API key with a

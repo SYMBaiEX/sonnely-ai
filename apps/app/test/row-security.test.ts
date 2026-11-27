@@ -41,7 +41,7 @@ const apiTokenA = "row-security-api-key-a";
 const apiTokenB = "row-security-api-key-b";
 const cleanups: Array<() => void | Promise<void>> = [];
 
-function apiKey(id: string, token: string, wallet: string) {
+function apiKey(id: string, token: string, wallet: string, scopes = ["inference", "batch"]) {
   return {
     id,
     label: id,
@@ -49,7 +49,7 @@ function apiKey(id: string, token: string, wallet: string) {
     hash: createHash("sha256").update(token).digest("hex"),
     wallet,
     project: "",
-    scopes: ["inference"],
+    scopes,
     cap: 0,
     dailyCap: 0,
     expiresAt: 0,
@@ -470,6 +470,48 @@ describe("row-level access", () => {
       bearerId: bearerView.job?.id,
       otherTag: otherSession.tag,
     }).toEqual({ created: 200, sessionTag: "Running", sessionId: jobA, bearerTag: "Running", bearerId: jobA, otherTag: "Empty" });
+  });
+
+  // spec/app/keys.md, "Endpoint scopes form a capability matrix"
+  it("refuses inference-only keys on batch routes and serves batch-scope keys", async () => {
+    const handler = makeApp();
+    const inferenceToken = "row-security-inference-only";
+    const batchToken = "row-security-batch-only";
+    const createScopedKey = (id: string, token: string, scopes: string[]) =>
+      postMachine(handler, "workspace-keys", keyEvent({
+        id,
+        prefix: "sonnely_live_" + id,
+        hash: createHash("sha256").update(token).digest("hex"),
+        scopes,
+      }), tokenA);
+    const inferenceCreated = await createScopedKey("key-inference-only", inferenceToken, ["inference"]);
+    const batchCreated = await createScopedKey("key-batch-only", batchToken, ["batch"]);
+    const inferenceBatch = await batchWrite(handler, "POST", "/api/sonnely/batch", inferenceToken, { id: jobB, filename: "refused.jsonl", customIds: ["row-1"] });
+    const batchCreate = await batchWrite(handler, "POST", "/api/sonnely/batch", batchToken, { id: jobA, filename: "batch.jsonl", customIds: ["row-1"] });
+    const chatBody = JSON.stringify({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] });
+    const batchInference = await handler(new Request("http://localhost/api/sonnely/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer " + batchToken },
+      body: chatBody,
+    }));
+    const batchRow = await handler(new Request("http://localhost/api/sonnely/batch/chat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer " + batchToken,
+        "x-sonnely-batch-wallet": walletA,
+        "idempotency-key": "batch:" + jobA + ":0",
+      },
+      body: chatBody,
+    }));
+    expect({
+      inferenceCreated: inferenceCreated.status,
+      batchCreated: batchCreated.status,
+      inferenceBatch: inferenceBatch.status,
+      batchCreate: batchCreate.status,
+      batchInference: batchInference.status,
+      batchRow: batchRow.status,
+    }).toEqual({ inferenceCreated: 200, batchCreated: 200, inferenceBatch: 402, batchCreate: 200, batchInference: 402, batchRow: 200 });
   });
 
   function postMachine(handler: (request: Request) => Promise<Response>, machine: string, body: unknown, token: string) {

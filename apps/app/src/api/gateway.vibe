@@ -66,8 +66,8 @@ effect function suspendedAccount(wallet: string) {
   return registry.records.some((record) => record.id == wallet && record.status == "Suspended")
 }
 
-/** The key the request's bearer names, or the refusal in the OpenAI shape. */
-export effect function bearerKey() {
+/** The key the request's bearer names for a canonical route, or the refusal in the OpenAI shape. */
+export effect function bearerKey(route: string) {
   const request = try HttpServerRequest.HttpServerRequest
   const id = bearerId(request)
   if (id == "") return { refused: { error: { message: "A valid bearer key is required.", type: "invalid_request_error" }, status: 401 } }
@@ -81,8 +81,8 @@ export effect function bearerKey() {
   if (key.expiresAt != 0 && key.expiresAt <= now) {
     return { refused: { error: { message: "The key has expired.", type: "invalid_request_error" }, status: 401 } }
   }
-  if (!key.scopes.includes("inference")) {
-    return { refused: { error: { message: "The key cannot use inference.", type: "insufficient_quota" }, status: 402 } }
+  if (!WorkspaceKeys.scopeAllows(route, key.scopes)) {
+    return { refused: { error: { message: "The key cannot use this endpoint.", type: "insufficient_quota" }, status: 402 } }
   }
   if (try suspendedAccount(key.wallet)) {
     return { refused: { error: { message: "This account's inference access is suspended.", type: "invalid_request_error" }, status: 403 } }
@@ -90,8 +90,8 @@ export effect function bearerKey() {
   return { key }
 }
 
-effect function authorized(endpoint: Requests.Endpoint, model: string) {
-  const auth = try bearerKey()
+effect function authorized(endpoint: Requests.Endpoint, model: string, route: string) {
+  const auth = try bearerKey(route)
   if ("refused" in auth) return auth
   if (!Requests.registered(endpoint, model)) {
     return { refused: { error: { message: "Choose a model from the catalog.", type: "invalid_request_error" }, status: 404 } }
@@ -576,7 +576,7 @@ effect function chatCompletions() {
   if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
   const raw = request.json catch () => undefined
   const body = chatBody(raw)
-  const auth = try authorized("ChatCompletions", body.model)
+  const auth = try authorized("ChatCompletions", body.model, "chat/completions")
   if ("refused" in auth) {
     const r = auth.refused as { error: unknown; status: number }
     return try refusalReply(r, "")
@@ -657,7 +657,7 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
   const named = typeof fields.model == "string" && fields.model != "" ? fields.model : fallbackModel
   let meterKey = key
   if (key == undefined && wallet == "") {
-    const auth = try authorized(endpoint, named)
+    const auth = try authorized(endpoint, named, path)
     if ("refused" in auth) {
       const r = auth.refused as { error: unknown; status: number }
       return try refusalReply(r, ref)
@@ -747,7 +747,7 @@ function endpointRoute({ path, endpoint, model, shape }: (typeof endpoints)[numb
       return try inferSpecialized(path, endpoint, model({}), raw, undefined, "", ref)
     }
     const named = model(raw)
-    const auth = try authorized(endpoint, named)
+    const auth = try authorized(endpoint, named, path)
     if ("refused" in auth) {
       const r = auth.refused as { error: unknown; status: number }
       return try refusalReply(r, "")
@@ -797,10 +797,10 @@ interface BatchMachine {
   send(event: unknown): unknown!unknown
 }
 
-effect function batchWallet() {
+effect function batchWallet(route: string) {
   const request = try HttpServerRequest.HttpServerRequest
   if (bearerId(request) != "") {
-    const auth = try bearerKey()
+    const auth = try bearerKey(route)
     if ("refused" in auth) return { refused: auth.refused }
     return { wallet: auth.key.wallet }
   }
@@ -817,7 +817,7 @@ effect function batchInstance(wallet: string) {
 effect function batchCreate() {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
-  const owner = try batchWallet()
+  const owner = try batchWallet("batch")
   if ("refused" in owner) {
     const r = owner.refused as { error: unknown; status: number }
     return try refusalReply(r, "")
@@ -835,7 +835,7 @@ effect function batchCreate() {
 }
 
 effect function batchShow() {
-  const owner = try batchWallet()
+  const owner = try batchWallet("batch")
   if ("refused" in owner) {
     const r = owner.refused as { error: unknown; status: number }
     return try refusalReply(r, "")
@@ -845,7 +845,7 @@ effect function batchShow() {
 }
 
 effect function batchClear() {
-  const owner = try batchWallet()
+  const owner = try batchWallet("batch")
   if ("refused" in owner) {
     const r = owner.refused as { error: unknown; status: number }
     return try refusalReply(r, "")
@@ -859,7 +859,7 @@ effect function batchClear() {
 effect function batchInterrupt() {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) return try oops("send application/json", 415)
-  const owner = try batchWallet()
+  const owner = try batchWallet("batch/interrupt")
   if ("refused" in owner) {
     const r = owner.refused as { error: unknown; status: number }
     return try refusalReply(r, "")
@@ -880,7 +880,7 @@ effect function batchChat() {
   const raw = request.json catch () => undefined
   const body = chatBody(raw)
   if (body.stream) return try oops("Batch rows must be non-streaming chat completions.", 400)
-  const auth = try authorized("BatchChatCompletions", body.model)
+  const auth = try authorized("BatchChatCompletions", body.model, "batch/chat")
   if ("refused" in auth) {
     const r = auth.refused as { error: unknown; status: number }
     return try refusalReply(r, "")
