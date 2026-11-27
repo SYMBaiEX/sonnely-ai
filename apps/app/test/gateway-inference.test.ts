@@ -38,6 +38,23 @@ afterEach(() => {
 });
 
 describe("gateway inference", () => {
+  // spec/app/gateway/requests.md, "A served request": batch chat rows are marked apart from direct chat.
+  it("marks a batch chat completion in the request ledger", async () => {
+    const program = Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "key-batch", label: "Inference", prefix: "sonnely_live_batch", hash: "batch-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const response = yield* inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }] }, key, wallet, "batch-row-ref", false, "BatchChatCompletions");
+      const requests = yield* Requests.Machine;
+      return { status: response.status, endpoint: (yield* requests.get()).requests[0]?.endpoint };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    expect(result).toEqual({ status: 200, endpoint: "BatchChatCompletions" });
+  });
+
   // spec/app/gateway/requests.md, "Story: Serve a metered completion"
   it("sends a NEAR-shaped upstream request and settles usage instead of the whole reserve", async () => {
     process.env.NEAR_AI_API_KEY = "test-provider-key";

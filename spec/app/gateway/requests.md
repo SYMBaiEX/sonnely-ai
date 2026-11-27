@@ -18,7 +18,7 @@ tables. A request that names a pair outside the registry never opens.
 import keyring as K from "./keyring"
 
 type Endpoint =
-  | ChatCompletions | Embeddings | Rerank | ResponsesApi | Redact | Systemone
+  | ChatCompletions | BatchChatCompletions | Embeddings | Rerank | ResponsesApi | Redact | Systemone
   | ImageGenerations | ImageEdits | AudioSpeech | AudioTranscriptions
   | AudioTranslations | ConvertFile | Realtime
 
@@ -47,6 +47,7 @@ pure val chatModels = List(
 pure def registered(endpoint: Endpoint, model: str): bool =
   match endpoint {
   | ChatCompletions => chatModels.includes(model)
+  | BatchChatCompletions => chatModels.includes(model)
   | Embeddings => List("Qwen/Qwen3-Embedding-0.6B", "nomic-embed-text").includes(model)
   | Rerank => List("Qwen/Qwen3-Reranker-0.6B").includes(model)
   | ResponsesApi => List("deepseek-ai/DeepSeek-V4.1-Flash-1017", "z-ai/glm-5.3", "tinfoil/inkling-2-small", "tinfoil/kimi-k3-1-pro", "tinfoil/gemma4-31b", "tinfoil/gpt-oss-120b").includes(model)
@@ -65,8 +66,9 @@ pure def registered(endpoint: Endpoint, model: str): bool =
 ### A served request
 
 Each entry keeps the request's reference, the key record the shell resolved
-when it authorized the call, the endpoint and model, whether it streams, the
-tokens it has emitted, where it stands and — once — what it was charged.
+when it authorized the call, the endpoint and model, whether it streams —
+including whether a chat completion came through a batch row — the tokens it
+has emitted, where it stands and — once — what it was charged.
 `charged` is `-1` until the request completes.
 
 ```quint

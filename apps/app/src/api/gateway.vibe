@@ -301,7 +301,7 @@ effect function stageMeter(ref: string, key: WorkspaceKeys.Key, endpoint: Reques
     const requests = try Requests.Machine
     requests.send({ type: "emit", ref, tokens }) catch () => undefined
   }
-  return try settleMeter(opened.meter, 0, endpoint == "ChatCompletions" ? (stream ? emits.reduce((n, t) => n + t, 0) : 8) : 0, -1, cost, -1)
+  return try settleMeter(opened.meter, 0, (endpoint == "ChatCompletions" || endpoint == "BatchChatCompletions") ? (stream ? emits.reduce((n, t) => n + t, 0) : 8) : 0, -1, cost, -1)
 }
 
 effect function inferenceFailure(message: string, status: number, ref: string) {
@@ -335,7 +335,7 @@ effect function receiptFor(input: unknown, candidate: unknown, completionId: str
   }
 }
 
-export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string, withReceipt: boolean = false) {
+export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefined, wallet: string, ref: string, withReceipt: boolean = false, endpoint: Requests.Endpoint = "ChatCompletions") {
   if (key == undefined && wallet != "" && try suspendedAccount(wallet)) return try inferenceFailure("This account's inference access is suspended.", 403, ref)
   const parsedResult = try Effect.try(() => parseChatInput(raw))
   if (!parsedResult.ok) return try inferenceFailure(parsedResult.message, parsedResult.status, ref)
@@ -347,7 +347,7 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
   if (liveProviders.length == 0 && try Effect.try(() => stagingInference())) {
     const input = parsedResult.value
     const cost = stagedCost(JSON.stringify(raw ?? {}).length)
-    const openedStage = try openMeter(ref, wallet, key, "ChatCompletions", input.model, input.stream === true, cost)
+    const openedStage = try openMeter(ref, wallet, key, endpoint, input.model, input.stream === true, cost)
     if ("refused" in openedStage) {
       const r = openedStage.refused as { error: unknown; status: number }
       return try refusalReply(r, ref)
@@ -378,7 +378,7 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
   const firstCandidate = selection.candidates[0]
   if (firstCandidate == undefined) return try inferenceFailure("Managed inference is awaiting provider activation.", 503, ref)
   const reserve = selection.candidates.reduce((max, item) => Math.max(max, item.estimate), 0)
-  const opened = try openMeter(ref, wallet, key, "ChatCompletions", selection.input.model, selection.stream, reserve, meterProvider(firstCandidate.provider))
+  const opened = try openMeter(ref, wallet, key, endpoint, selection.input.model, selection.stream, reserve, meterProvider(firstCandidate.provider))
   if ("refused" in opened) {
     const r = opened.refused as { error: unknown; status: number }
     return try refusalReply(r, ref)
@@ -867,7 +867,7 @@ effect function batchChat() {
   const raw = request.json catch () => undefined
   const body = chatBody(raw)
   if (body.stream) return try oops("Batch rows must be non-streaming chat completions.", 400)
-  const auth = try authorized("ChatCompletions", body.model)
+  const auth = try authorized("BatchChatCompletions", body.model)
   if ("refused" in auth) {
     const r = auth.refused as { error: unknown; status: number }
     return try refusalReply(r, "")
@@ -880,9 +880,9 @@ effect function batchChat() {
   }
   const ref = try Effect.try(() => idempotentRef(auth.key.wallet, auth.key.id, idempotency))
   const liveProviders = try Effect.try(() => configuredProviders())
-  if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) return try inferChat(raw, auth.key, auth.key.wallet, ref)
+  if (liveProviders.length > 0 || !(try Effect.try(() => stagingInference()))) return try inferChat(raw, auth.key, auth.key.wallet, ref, false, "BatchChatCompletions")
   const cost = stagedCost(body.bytes)
-  const settled = try stageMeter(ref, auth.key, "ChatCompletions", body.model, false, [], cost)
+  const settled = try stageMeter(ref, auth.key, "BatchChatCompletions", body.model, false, [], cost)
   if ("refused" in settled) {
     const r = settled.refused as { error: unknown; status: number }
     return try refusalReply(r, ref)
