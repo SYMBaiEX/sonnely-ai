@@ -25,13 +25,13 @@ describe("fleet machine cache", () => {
     const program = Effect.gen(function* () {
       const fleet = yield* Fleet;
       const first = yield* fleet.machine("console", "wallet-evict");
-      yield* first.receive({ type: "setSaveOnDevice", on: true });
+      yield* first.receive({ type: "setPlain", on: true });
       yield* overflow(fleet, "a");
       const reloaded = yield* fleet.machine("console", "wallet-evict");
-      const state = (yield* reloaded.get()) as { saveOnDevice: boolean };
-      return { rebuilt: reloaded !== first, saveOnDevice: state.saveOnDevice };
+      const state = (yield* reloaded.get()) as { plain: boolean };
+      return { rebuilt: reloaded !== first, plain: state.plain };
     });
-    expect(await providePipe(program)).toEqual({ rebuilt: true, saveOnDevice: true });
+    expect(await providePipe(program)).toEqual({ rebuilt: true, plain: true });
   });
 
   it("keeps a machine its stream subscribers are listening to", async () => {
