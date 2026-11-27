@@ -130,6 +130,14 @@ pure def establish(s: Sessions, nonce: str, digest: str, wallet: str, now: int, 
 
 ### Only an active session can sign out
 
+A stream the shell opened for a session is bound to it for life: each frame is
+revalidated against the live signing state before it crosses, and the
+connection closes when the session machine reports the credential ended. A
+quiet server publishes nothing, so an idle connection can stay open past its
+session's expiry — but no frame crosses it either way. The console keys its
+machine state and streams by the same wallet: a different wallet, sign-out
+included, never reuses what the last one had.
+
 ```quint
 pure def canSignOut(s: Sessions, digest: str): bool =
   loginWithDigest(s, digest).some(l => l.state == LoginActive)

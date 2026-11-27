@@ -127,6 +127,26 @@ function openStreams() {
   for (const name of machineListeners.keys()) if (scopedMachines.has(name)) openScopedStream(name);
 }
 
+// spec/app/session.md, "Only an active session can sign out": machine state and streams are bound
+// to the wallet the session names. A different wallet — sign-out included — never reuses what the
+// last one had: every open stream closes and every cached state drops before fresh streams open,
+// so nothing one wallet saw can be served to another.
+let boundWallet: string | undefined;
+let walletBound = false;
+
+export function bindSessionWallet(wallet: string | undefined) {
+  if (walletBound && boundWallet !== wallet) {
+    closeStreams();
+    machineSnapshots.clear();
+    for (const listeners of machineListeners.values()) {
+      for (const notify of listeners) notify();
+    }
+  }
+  boundWallet = wallet;
+  walletBound = true;
+  openStreams();
+}
+
 if (typeof window !== "undefined") {
   window.addEventListener("pagehide", closeStreams);
   window.addEventListener("pageshow", openStreams);
