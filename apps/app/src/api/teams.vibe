@@ -1,5 +1,6 @@
-// spec/app/teams.md, "Story: Form a team"
-import { Machine, initial, decodeState, machineOver, NotAState } from "../../gen/app__teams.effect.vibe"
+// spec/app/teams.md, "Story: Form a team"; spec/app/teams.md, "Story: Manage members"
+import { Machine, initial, decodeState, machineOver, manages, NotAState } from "../../gen/app__teams.effect.vibe"
+import * as Keys from "../../gen/app__keys.effect.vibe"
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import type { Teams } from "../../gen/app__teams.ts"
 import { machineApi } from "../machines.vibe"
@@ -9,8 +10,53 @@ function project(state: Teams, wallet: string) {
   return { teams: state.teams.filter((team) => team.members.some((m) => m.wallet == wallet) || team.invites.some((i) => i.wallet == wallet)) }
 }
 
+export function managedProjectIds(directory: Teams, wallet: string) {
+  return directory.teams.filter((team) => manages(team, wallet)).flatMap((team) => team.projects.map((project) => project.id))
+}
+
+function acceptedMembershipCascade(input: unknown) {
+  if (input == undefined || typeof input != "object") return undefined
+  const event = input as { type?: unknown; teamId?: unknown; wallet?: unknown; role?: unknown }
+  if (typeof event.teamId != "string" || typeof event.wallet != "string") return undefined
+  if (event.type == "removeMember" || (event.type == "changeRole" && event.role == "Member")) {
+    return { teamId: event.teamId, wallet: event.wallet }
+  }
+  return undefined
+}
+
+function roleOf(team: Teams["teams"][number], wallet: string) {
+  return team.members.find((member) => member.wallet == wallet)?.role
+}
+
+effect function revokeCreatorProjectKeys(before: Teams, after: Teams, input: unknown) {
+  const cascade = acceptedMembershipCascade(input)
+  if (cascade == undefined) return
+  const prior = before.teams.find((team) => team.id == cascade.teamId)
+  const team = after.teams.find((entry) => entry.id == cascade.teamId)
+  if (prior == undefined || team == undefined) return
+  const removal = roleOf(prior, cascade.wallet) != undefined && roleOf(team, cascade.wallet) == undefined
+  const demotion = roleOf(prior, cascade.wallet) != "Member" && roleOf(team, cascade.wallet) == "Member"
+  if (!removal && !demotion) return
+  const projects = new Set(team.projects.map((entry) => entry.id))
+  const service = try Effect.serviceOption(Keys.Machine)
+  if (!Option.isSome(service)) return
+  const registry = try service.value.get()
+  for (const key of registry.keys) {
+    if (key.wallet == cascade.wallet && key.status == "Active" && projects.has(key.project)) {
+      service.value.send({ type: "revoke", id: key.id }, key.wallet) catch () => undefined
+    }
+  }
+}
+
 export const teamsApi = Layer.unwrap(effect {
-  return machineApi("teams", try Machine, { events: ["createTeam", "invite", "respond", "cancelInvite", "changeRole", "removeMember", "createProject", "updateProject", "archiveProject"], bind: ["actor"] }, { visibility: "user", project })
+  const directory = try Machine
+  effect function receive(input: unknown) {
+    const before = try directory.get()
+    const next = try directory.receive(input)
+    try revokeCreatorProjectKeys(before, next, input)
+    return next
+  }
+  return machineApi("teams", { get: directory.get, changes: directory.changes, receive }, { events: ["createTeam", "invite", "respond", "cancelInvite", "changeRole", "removeMember", "createProject", "updateProject", "archiveProject"], bind: ["actor"] }, { visibility: "user", project })
 })
 
 function withReleaseRefs(parsed: unknown) {

@@ -552,6 +552,62 @@ describe("row-level access", () => {
     }).toEqual({ setup: [200, 200, 200, 200], member: 403, admin: 200, owner: 200 });
   });
 
+  // spec/app/keys.md, "Story: Revoke a key": the key owner can revoke it, and owners and admins
+  // of the project team can revoke project keys as project resources
+  it("lets key owners and project team managers revoke project keys", async () => {
+    const handler = makeApp();
+    const inviteAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin", expiresAt: 1000, now: 1 }, tokenA);
+    const acceptAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletB, accept: true, now: 2 }, tokenB);
+    const selfKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-self", prefix: "sonnely_live_self", hash: "self-hash", project: "proj-a" }), tokenB);
+    const adminKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-admin-controlled", prefix: "sonnely_live_adminctl", hash: "admin-controlled-hash", project: "proj-a" }), tokenB);
+    const ownerKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-owner-controlled", prefix: "sonnely_live_ownerctl", hash: "owner-controlled-hash", project: "proj-a" }), tokenA);
+    const foreign = await postMachine(handler, "workspace-keys", { type: "revoke", id: "key-admin-controlled" }, tokenFin);
+    const byOwner = await postMachine(handler, "workspace-keys", { type: "revoke", id: "key-admin-controlled" }, tokenA);
+    const byAdmin = await postMachine(handler, "workspace-keys", { type: "revoke", id: "key-owner-controlled" }, tokenB);
+    const bySelf = await postMachine(handler, "workspace-keys", { type: "revoke", id: "key-self" }, tokenB);
+    const visible = await (await get(handler, "/api/machines/workspace-keys", tokenB)).json() as { keys: { id: string; status: string; project: string }[] };
+    expect({
+      setup: [inviteAdmin.status, acceptAdmin.status, selfKey.status, adminKey.status, ownerKey.status],
+      revocation: [foreign.status, byOwner.status, byAdmin.status, bySelf.status],
+      visible: visible.keys.map((key) => ({ id: key.id, status: key.status, project: key.project })),
+    }).toEqual({
+      setup: [200, 200, 200, 200, 200],
+      revocation: [403, 200, 200, 200],
+      visible: [
+        { id: "key-b", status: "Active", project: "" },
+        { id: "key-self", status: "Revoked", project: "proj-a" },
+        { id: "key-admin-controlled", status: "Revoked", project: "proj-a" },
+        { id: "key-owner-controlled", status: "Revoked", project: "proj-a" },
+      ],
+    });
+  });
+
+  // spec/app/teams.md, "Members can leave; an owner can remove anyone but an owner": removal and
+  // demotion revoke only the target wallet's keys scoped to that team's projects
+  it("revokes project keys when their creator is demoted or removed", async () => {
+    const handler = makeApp();
+    const inviteAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin", expiresAt: 1000, now: 1 }, tokenA);
+    const acceptAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletB, accept: true, now: 2 }, tokenB);
+    const workspaceKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-workspace", prefix: "sonnely_live_workspace", hash: "workspace-hash", project: "" }), tokenB);
+    const demotedKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-demoted", prefix: "sonnely_live_demoted", hash: "demoted-hash", project: "proj-a" }), tokenB);
+    const demote = await postMachine(handler, "teams", { type: "changeRole", teamId: "team-a", actor: walletA, wallet: walletB, role: "Member" }, tokenA);
+    const afterDemotion = await (await get(handler, "/api/machines/workspace-keys", tokenB)).json() as { keys: { id: string; status: string }[] };
+    const promote = await postMachine(handler, "teams", { type: "changeRole", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin" }, tokenA);
+    const removedKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-removed", prefix: "sonnely_live_removed", hash: "removed-hash", project: "proj-a" }), tokenB);
+    const remove = await postMachine(handler, "teams", { type: "removeMember", teamId: "team-a", actor: walletA, wallet: walletB }, tokenA);
+    const afterRemoval = await (await get(handler, "/api/machines/workspace-keys", tokenB)).json() as { keys: { id: string; status: string }[] };
+    const statuses = (rows: { id: string; status: string }[]) => Object.fromEntries(rows.map((row) => [row.id, row.status]));
+    expect({
+      setup: [inviteAdmin.status, acceptAdmin.status, workspaceKey.status, demotedKey.status, demote.status, promote.status, removedKey.status, remove.status],
+      afterDemotion: statuses(afterDemotion.keys),
+      afterRemoval: statuses(afterRemoval.keys),
+    }).toEqual({
+      setup: [200, 200, 200, 200, 200, 200, 200, 200],
+      afterDemotion: { "key-b": "Active", "key-workspace": "Active", "key-demoted": "Revoked" },
+      afterRemoval: { "key-b": "Active", "key-workspace": "Active", "key-demoted": "Revoked", "key-removed": "Revoked" },
+    });
+  });
+
   // spec/app/keys.md, "Story: Issue a key": a project-scoped key names only a project of a team
   // the wallet belongs to
   it("refuses a key scoped to another workspace's project", async () => {

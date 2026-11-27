@@ -2,9 +2,10 @@
 
 API keys are how a workspace calls the inference API. A key has a label, a
 shown-once secret the workspace keeps (only its prefix and SHA-256 hash are
-recorded here), the wallet whose credits pay for it, optional daily and
-lifetime spend limits, an optional expiry, and a status. A key scoped to a
-team project records the project's id.
+recorded here), the wallet that created it and whose credits pay for it,
+optional daily and lifetime spend limits, an optional expiry, and a status. A
+key scoped to a team project records the project's id and is a resource of
+that project.
 
 **Stored shape.** The machine's state is kept as JSON under the KeyValueStore
 key `workspace-keys`; it is the registry the console's Keys area owns and the
@@ -140,7 +141,8 @@ The wallet is part of the key record, not a filter added later. The trusted
 sender of every create, update, metering, refund or revocation event must be
 that wallet; the API derives it from the verified session, or inside the
 gateway from the already authenticated key, rather than accepting it from the
-client. Reads project only rows whose wallet matches.
+client. Reads project rows whose wallet matches, plus project-scoped rows of
+projects whose owning team the reader owns or administers.
 
 ```quint
 pure def stepKeyWalletNeverChanges(before: Keys, after: Keys): bool =
@@ -270,10 +272,14 @@ pure def sometimesMetered(s: Keys): bool = s.keys.some(k => k.lastUsedAt != 0)
 
 ## Story: Revoke a key
 
-> As a workspace member, I want to revoke a key, so that clients using it
-> lose API access immediately and forever.
+> As a key owner or team manager, I want to revoke a key, so that clients
+> using it lose API access immediately and forever.
 
 ### Only an active key can be revoked
+
+A workspace key can be revoked by the wallet that owns it. A project key can
+be revoked by that wallet or by an owner or admin of the team that owns the
+project; the shell checks that team role before applying the revocation.
 
 ```quint
 pure def canRevoke(s: Keys, by: str, id: str): bool =

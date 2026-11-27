@@ -246,7 +246,9 @@ pure def changeRole(s: Teams, teamId: str, actor: str, wallet: str, role: Role):
 
 A member removes itself; a non-owner admin removes member-role wallets;
 removing an admin or another member's role needs an owner — and an owner is
-never removable.
+never removable. When a wallet leaves or is removed, or is demoted to member,
+the shell revokes the keys it created for that team's projects; keys already
+revoked stay revoked.
 
 ```quint
 pure def canRemoveMember(s: Teams, teamId: str, actor: str, wallet: str): bool =
