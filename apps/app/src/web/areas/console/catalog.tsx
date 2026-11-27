@@ -1,9 +1,10 @@
 // spec/app/console/catalog.md, "Story: Browse the catalog"
 import { useState } from "react";
+import { Cpu } from "lucide-react";
 import { SearchField } from "../../search.tsx";
 import type { CatalogModel } from "../../../../gen/app__console__catalog.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
-import { formatRate } from "./bits.tsx";
+import { WorkspaceHeading, formatRate } from "./bits.tsx";
 import { groupCatalog, type CanonicalModel } from "../site/catalog-groups.ts";
 import {
   CatalogCards,
@@ -113,7 +114,7 @@ function displayEntry(model: CatalogModel): CatalogDisplayEntry {
       endpointPath: route.endpoint,
       docsHref: endpointDocs(route.endpoint),
       modelId: route.modelId,
-      chatHref: route.endpoint === "chat/completions" ? "/console/chat" : undefined,
+      chatHref: route.endpoint === "chat/completions" ? "/console/chat?model=" + encodeURIComponent(route.modelId) : undefined,
       rates: rateLabels.flatMap(([key, label]) =>
         route[key] < 0
           ? []
@@ -195,6 +196,7 @@ export function CatalogSection() {
 
   return (
     <div className="flex flex-col gap-4">
+      <WorkspaceHeading icon={Cpu} title="Models" description="Browse the providers' models, their routes and their Sonnely rates." />
       <div className="flex flex-wrap items-center gap-2" aria-label="Catalog inventory">
         <button
           type="button"

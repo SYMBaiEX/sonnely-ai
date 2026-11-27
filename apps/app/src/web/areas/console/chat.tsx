@@ -1,6 +1,6 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax, max-lines-per-function, react-hooks/refs, @eslint-react/no-use-context, @eslint-react/naming-convention-ref-name, @eslint-react/no-array-index-key -- playground migration preserves the original form markup, class names and screen structure */
 import { createPortal } from "react-dom";
-import { useContext, useRef, useState, type FormEvent } from "react";
+import { useCallback, useContext, useRef, useState, type FormEvent } from "react";
 import {
   ArrowUp,
   ArrowUpRight,
@@ -137,6 +137,8 @@ function ChatPlayground() {
   const state = chat.state;
   const initialSelection = useRef<Selection | null>(null);
   initialSelection.current ??= readSelection();
+  const modelHandoff = useRef<string | null>(null);
+  modelHandoff.current ??= new URLSearchParams(window.location.search).get("model");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -173,6 +175,25 @@ function ChatPlayground() {
   const routeReady = Boolean(providerRoute(entry, provider));
   const threads = state?.threads ?? [];
 
+  const handoffSent = useRef(false);
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- send is a stable useCallback closure held on the remote, not a this-bound method
+  const sendChat = chat.send;
+  const noteModelHandoff = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node || handoffSent.current) return;
+      handoffSent.current = true;
+      const wanted = modelHandoff.current;
+      modelHandoff.current = null;
+      if (!wanted) return;
+      if (models.some((entry) => entry.id === wanted)) void sendChat({ type: "pickModel", model: wanted });
+      const params = new URLSearchParams(window.location.search);
+      params.delete("model");
+      const search = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (search ? "?" + search : "") + window.location.hash);
+    },
+    [sendChat],
+  );
+
   function rememberSelection(nextProvider = provider, nextFallbacks = fallbacks, receipt = includeReceipt) {
     localStorage.setItem("sonnely.playground.selection", JSON.stringify({ provider: nextProvider, fallbacks: nextFallbacks, receipt }));
   }
@@ -184,6 +205,7 @@ function ChatPlayground() {
     setText("");
     setError("");
     setEditIndex(null);
+    setLive(null);
   }
 
   function conversationTooLong(prompt: string) {
@@ -270,6 +292,7 @@ function ChatPlayground() {
     } finally {
       abortRef.current = null;
       setBusy(false);
+      setLive(null);
     }
   }
 
@@ -296,6 +319,7 @@ function ChatPlayground() {
     } finally {
       abortRef.current = null;
       setBusy(false);
+      setLive(null);
     }
   }
 
@@ -332,7 +356,7 @@ function ChatPlayground() {
   }
 
   return (
-    <div className={"chat-layout" + (showHistory ? " show-sessions" : "")}>
+    <div ref={noteModelHandoff} className={"chat-layout" + (showHistory ? " show-sessions" : "")}>
       <aside
         id="playground-history"
         className="sessions"
@@ -377,6 +401,7 @@ function ChatPlayground() {
                       composerRef.current?.focus();
                       setError("");
                       setEditIndex(null);
+                      setLive(null);
                     }}
                   >
                     <span>{title}</span>
