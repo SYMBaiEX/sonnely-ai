@@ -16,8 +16,9 @@ on a session.
 ### Console settings are a profile and a set of device choices
 
 The console keeps one record for the workspace: the display name and
-username the profile shows, and this device's choices of theme,
-plain-writing requests and saved chat history.
+username the profile shows, and the workspace's choices of theme and
+plain-writing requests. Chat history lives server-side with the workspace,
+not in the browser, so there is no per-device save choice.
 
 ```quint
 type Theme = System | Light | Dark
@@ -27,14 +28,13 @@ type Console = {
   username: str,
   theme: Theme,
   plain: bool,
-  saveOnDevice: bool,
 }
 ```
 
 ### The console starts unnamed with factory defaults
 
 ```quint
-pure val initial: Console = { name: "", username: "", theme: Dark, plain: true, saveOnDevice: false }
+pure val initial: Console = { name: "", username: "", theme: Dark, plain: true }
 ```
 
 ## Story: Set up the workspace profile
@@ -60,7 +60,7 @@ pure def saveProfile(c: Console, name: str, username: str): Console =
 ```quint
 pure def lawSaveProfileKeepsDeviceChoices(c: Console, name: str, username: str): bool =
   val saved = saveProfile(c, name, username)
-  saved.theme == c.theme and saved.plain == c.plain and saved.saveOnDevice == c.saveOnDevice
+  saved.theme == c.theme and saved.plain == c.plain
 ```
 
 ### A profile can be personalized
@@ -84,19 +84,18 @@ pure def canChooseTheme(c: Console, theme: Theme): bool = theme != c.theme
 pure def chooseTheme(c: Console, theme: Theme): Console = { ...c, theme: theme }
 ```
 
-### The plain-writing and device-history choices toggle independently
+### The plain-writing choice toggles
 
-Plain writing asks the chat model for concise, clear language; save on this
-device keeps chat history in the browser.
+Plain writing asks the chat model for concise, clear language. When it is
+on, the chat request assembly prepends a system instruction asking for
+concise, clear language.
 
 ```quint
 pure def setPlain(c: Console, on: bool): Console = { ...c, plain: on }
-
-pure def setSaveOnDevice(c: Console, on: bool): Console = { ...c, saveOnDevice: on }
 ```
 
-### The device can be asked to keep chat history
+### Plain writing can be turned off
 
 ```quint
-pure def sometimesSavedOnDevice(c: Console): bool = c.saveOnDevice
+pure def sometimesPlainOff(c: Console): bool = not(c.plain)
 ```
