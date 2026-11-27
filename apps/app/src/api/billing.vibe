@@ -446,7 +446,6 @@ effect function keyRefundComplete(row: Usage.Row, refund: number, day: string) {
   if (row.keyId == "" || refund == 0) return true
   const keys = try WorkspaceKeys.Machine
   const key = (try keys.get()).keys.find((candidate) => candidate.id == row.keyId && candidate.wallet == row.wallet)
-  if (key != undefined && key.spent < row.cost) return try markCompensation(row.id, "key")
   const confirmed = try compensationConfirmed(row.id, "key")
   if (confirmed != false) return confirmed == true
   if (key == undefined) return false
@@ -459,7 +458,6 @@ effect function projectRefundComplete(row: Usage.Row, refund: number) {
   if (row.project == "" || refund == 0) return true
   const teams = try Teams.Machine
   const project = (try teams.get()).teams.flatMap((team) => team.projects).find((candidate) => candidate.id == row.project)
-  if (project != undefined && project.spent < row.cost) return try markCompensation(row.id, "project")
   const confirmed = try compensationConfirmed(row.id, "project")
   if (confirmed != false) return confirmed == true
   if (project == undefined) return false
