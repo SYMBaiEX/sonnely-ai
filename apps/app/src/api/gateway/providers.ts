@@ -698,6 +698,58 @@ export function multipartInput(form: FormData, fallbackModel: string): Result<Re
   }
   return ok(input);
 }
+
+/**
+ * Per-endpoint multipart ceilings. Every file stays under 2 MiB — inside the router's 3 MiB body cap —
+ * which for audio bounds the duration the upstream can be asked to process to minutes at speech
+ * bitrates, and document conversion to one small PDF per request.
+ */
+export const multipartLimits = { fileBytes: 2 * 1024 * 1024, textCharacters: 4_096, textFields: 12, editImages: 4 } as const;
+const audioMimeTypes = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/wave", "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/webm", "audio/ogg", "audio/flac", "audio/x-flac", "audio/aac", "audio/opus"]);
+const audioExtensions = [".mp3", ".wav", ".m4a", ".mp4", ".webm", ".ogg", ".oga", ".flac", ".aac", ".opus"];
+const imageMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+type MultipartRule = { files: [min: number, max: number]; types: Set<string>; extensions: string[]; label: string };
+const multipartRules: Record<string, MultipartRule> = {
+  "convert/file": { files: [1, 1], types: new Set(["application/pdf"]), extensions: [".pdf"], label: "one PDF" },
+  "audio/transcriptions": { files: [1, 1], types: audioMimeTypes, extensions: audioExtensions, label: "one audio file" },
+  "audio/translations": { files: [1, 1], types: audioMimeTypes, extensions: audioExtensions, label: "one audio file" },
+  "images/edits": { files: [1, multipartLimits.editImages], types: imageMimeTypes, extensions: [".png", ".jpg", ".jpeg", ".webp"], label: "1-4 PNG, JPEG or WebP images" },
+};
+
+function fileTypeAccepted(file: File, rule: MultipartRule): boolean {
+  if (rule.types.has(file.type.toLowerCase())) return true;
+  const name = file.name.toLowerCase();
+  return rule.extensions.some((extension) => name.endsWith(extension));
+}
+
+/**
+ * The endpoint-specific multipart contract, enforced before anything is proxied upstream: the files
+ * the endpoint expects, their types and byte ceilings, and bounded text fields. Anything else the
+ * form carries — extra files, wrong types, oversize parts — rejects the request rather than
+ * travelling upstream at the customer's reservation.
+ */
+export function validateMultipart(endpoint: string, form: FormData): Result<true> {
+  const rule = multipartRules[endpoint];
+  if (!rule) return ok(true);
+  const files: File[] = [];
+  let textFields = 0;
+  for (const [, value] of form.entries()) {
+    if (value instanceof File) files.push(value);
+    else {
+      textFields += 1;
+      if (typeof value === "string" && value.length > multipartLimits.textCharacters) return bad(400, "A text field exceeds the length limit.");
+    }
+  }
+  if (textFields > multipartLimits.textFields) return bad(400, "Too many form fields.");
+  if (files.length < rule.files[0] || files.length > rule.files[1]) return bad(400, "This endpoint takes " + rule.label + ".");
+  for (const file of files) {
+    if (file.size === 0) return bad(400, "Empty files cannot be processed.");
+    if (file.size > multipartLimits.fileBytes) return bad(413, "Files must be at most 2 MiB.");
+    if (!fileTypeAccepted(file, rule)) return bad(400, "This endpoint takes " + rule.label + ".");
+  }
+  return ok(true);
+}
 export async function callSpecialized(endpoint: string, selection: SpecializedSelection, input: Record<string, unknown> | FormData) {
   const providerPath = endpoint === "redact" ? "/redact" : "/v1/" + endpoint;
   const headers: Record<string, string> = { Authorization: "Bearer " + selection.key };
@@ -725,13 +777,60 @@ export function sliceTopResults(endpoint: string, body: Record<string, unknown>,
   if (endpoint !== "rerank" || typeof topN !== "number" || !Array.isArray(body.results)) return body;
   return { ...body, results: body.results.slice(0, topN) };
 }
-export function extractUsage(endpoint: string, value: unknown): { input: number; output: number; costTokens: number } {
-  if (typeof value === "object" && value !== null && "usage" in value) {
-    const usage = (value as { usage?: unknown }).usage;
-    const parsed = usageSchema.safeParse(usage);
-    if (parsed.success) return { input: parsed.data.prompt_tokens, output: parsed.data.completion_tokens, costTokens: parsed.data.prompt_tokens + parsed.data.completion_tokens };
-    const decision = z.object({ input_tokens: z.int().nonnegative(), output_tokens: z.int().nonnegative() }).safeParse(usage);
-    if (decision.success) return { input: decision.data.input_tokens, output: decision.data.output_tokens, costTokens: decision.data.input_tokens + decision.data.output_tokens };
+/** Input-only usage: embeddings and rerank responses commonly report prompt tokens with no completion field. */
+const inputOnlyUsageSchema = z.object({
+  prompt_tokens: z.int().nonnegative(),
+  completion_tokens: z.int().nonnegative().nullish(),
+}).loose();
+const responsesUsageSchema = z.object({
+  input_tokens: z.int().nonnegative(),
+  output_tokens: z.int().nonnegative().nullish(),
+}).loose();
+
+export type ExtractedUsage = { input: number | undefined; output: number | undefined };
+
+/**
+ * The usage a specialized endpoint reported, or undefined when the response carries no recognizable
+ * usage at all. A field is undefined when the provider did not meter it: token-priced routes must
+ * treat an unmeasured priced field as unreported rather than as zero usage.
+ */
+export function extractUsage(endpoint: string, value: unknown): ExtractedUsage | undefined {
+  if (typeof value !== "object" || value === null || !("usage" in value)) return undefined;
+  const usage = (value as { usage?: unknown }).usage;
+  if (endpoint === "responses") {
+    const decision = responsesUsageSchema.safeParse(usage);
+    if (decision.success) return { input: decision.data.input_tokens, output: decision.data.output_tokens ?? undefined };
   }
-  return { input: 0, output: 0, costTokens: 0 };
+  const chat = usageSchema.safeParse(usage);
+  if (chat.success) return { input: chat.data.prompt_tokens, output: chat.data.completion_tokens };
+  const inputOnly = inputOnlyUsageSchema.safeParse(usage);
+  if (inputOnly.success) return { input: inputOnly.data.prompt_tokens, output: inputOnly.data.completion_tokens ?? undefined };
+  const decision = responsesUsageSchema.safeParse(usage);
+  if (decision.success) return { input: decision.data.input_tokens, output: decision.data.output_tokens ?? undefined };
+  return undefined;
+}
+
+/** Whether the extraction meters every field the route prices: an unmeasured priced field can never settle as a zero-cost completion. */
+export function usageIsPriced(route: ModelRoute, usage: ExtractedUsage | undefined): boolean {
+  if (usage === undefined) return false;
+  if (route.input >= 0 && usage.input === undefined) return false;
+  if (route.output >= 0 && usage.output === undefined) return false;
+  return true;
+}
+
+export type UsageSettlement = { kind: "measured"; input: number; output: number; cost: number } | { kind: "unmeasured" };
+
+/**
+ * What one specialized response settles for. Fixed-price routes cost their reservation regardless of
+ * reported tokens. Token-priced routes cost their metered usage capped at the reservation; when the
+ * provider omits or garbles a priced field the settlement is unmeasured and must go under review at
+ * the reservation rather than completing at zero cost.
+ */
+export function settleUsageCost(route: ModelRoute, reserve: number, endpoint: string, output: unknown): UsageSettlement {
+  const usage = extractUsage(endpoint, output);
+  if (route.request >= 0) return { kind: "measured", input: usage?.input ?? 0, output: usage?.output ?? 0, cost: reserve };
+  if (!usageIsPriced(route, usage)) return { kind: "unmeasured" };
+  const input = usage?.input ?? 0;
+  const outputTokens = usage?.output ?? 0;
+  return { kind: "measured", input, output: outputTokens, cost: Math.min(reserve, tokenCharge(route, input, 0, outputTokens)) };
 }

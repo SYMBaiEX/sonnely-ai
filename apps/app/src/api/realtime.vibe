@@ -39,6 +39,14 @@ function providerFailure(): BridgeOutcome {
   return { status: "failed", text: undefined, message: "The realtime provider ended the session before completion." }
 }
 
+function transportFailure(): BridgeOutcome {
+  return { status: "failed", text: undefined, message: "The realtime provider connection failed before completion." }
+}
+
+function clientLostFailure(): BridgeOutcome {
+  return { status: "failed", text: undefined, message: "The client disconnected before completion." }
+}
+
 function invalidFrameFailure(): BridgeOutcome {
   return { status: "failed", text: undefined, message: "Invalid realtime frame, session state, or audio size." }
 }
@@ -54,7 +62,8 @@ effect function bridgeRealtime(
 ) {
   const machine = try Realtime.Machine
   let state = try machine.get()
-  const first = try upstreamReader.pull
+  const first = upstreamReader.pull catch () => undefined
+  if (first == undefined) return transportFailure()
   let created = false
   for (const frame of first) {
     const event = parseRealtimeProviderFrame(frame)
@@ -62,12 +71,15 @@ effect function bridgeRealtime(
     if (event?.type == "error") return providerFailure()
   }
   if (!created) return providerFailure()
-  try upstreamWriter.write(realtimeClientMessage({ type: "session.update", model }))
-  try upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.commit" }))
+  const wroteUpdate = upstreamWriter.write(realtimeClientMessage({ type: "session.update", model })) catch () => "failed"
+  if (wroteUpdate == "failed") return transportFailure()
+  const wroteOpen = upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.commit" })) catch () => "failed"
+  if (wroteOpen == "failed") return transportFailure()
   try clientWriter.write(realtimeClientMessage({ type: "session.created", model, sonnely_request_id: ref }))
 
   while (!state.committed) {
-    const frames = try clientReader.pull
+    const frames = clientReader.pull catch () => undefined
+    if (frames == undefined) return clientLostFailure()
     for (const frame of frames) {
       const event = parseRealtimeClientFrame(frame)
       if (event == undefined) {
@@ -80,7 +92,8 @@ effect function bridgeRealtime(
           clientWriter.write(realtimeClientMessage({ type: "error", error: { message: invalidFrameFailure().message } })) catch () => undefined
           return invalidFrameFailure()
         }
-        try upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.append", audio: event.audio }))
+        const wroteAudio = upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.append", audio: event.audio })) catch () => "failed"
+        if (wroteAudio == "failed") return transportFailure()
         state = try machine.send({ type: "appendAudio", bytes: event.bytes })
         continue
       }
@@ -88,19 +101,23 @@ effect function bridgeRealtime(
         clientWriter.write(realtimeClientMessage({ type: "error", error: { message: invalidFrameFailure().message } })) catch () => undefined
         return invalidFrameFailure()
       }
-      try upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.commit", final: true }))
+      const wroteCommit = upstreamWriter.write(realtimeClientMessage({ type: "input_audio_buffer.commit", final: true })) catch () => "failed"
+      if (wroteCommit == "failed") return transportFailure()
       state = try machine.send({ type: "commit" })
     }
   }
 
   while (true) {
-    const winner = try raceFirst(
+    const winner = raceFirst(
       effect { return { source: "upstream", frames: try upstreamReader.pull } },
       effect { return { source: "client", frames: try clientReader.pull } },
-    )
+    ) catch () => undefined
+    if (winner == undefined) return transportFailure()
     if (winner.source == "client") return invalidFrameFailure()
     for (const frame of winner.frames) {
       const event = parseRealtimeProviderFrame(frame)
+      // spec/app/gateway/realtime.md, "Story: Run a metered realtime transcription": malformed upstream
+      // frames are skipped — one garbled frame never ends a metered session the provider is still serving.
       if (event == undefined) continue
       if (event.type == "transcription.delta" && event.delta != undefined) {
         if (!Realtime.canDelta(state, event.delta.length)) return providerFailure()
@@ -133,13 +150,21 @@ effect function runRealtimeBridge(
     machine.send({ type: "abandon" }) catch () => undefined
     return { upgraded: false, state: try machine.get(), outcome: undefined, clientWriter: undefined }
   }
-  const upstreamWriter = try upstream.writer
+  const upstreamWriter = upstream.writer catch () => undefined
+  if (upstreamWriter == undefined) {
+    machine.send({ type: "abandon" }) catch () => undefined
+    return { upgraded: false, state: try machine.get(), outcome: undefined, clientWriter: undefined }
+  }
   const clientReader = client.reader catch () => undefined
   if (clientReader == undefined) {
     machine.send({ type: "abandon" }) catch () => undefined
     return { upgraded: false, state: try machine.get(), outcome: undefined, clientWriter: undefined }
   }
-  const clientWriter = try client.writer
+  const clientWriter = client.writer catch () => undefined
+  if (clientWriter == undefined) {
+    machine.send({ type: "abandon" }) catch () => undefined
+    return { upgraded: false, state: try machine.get(), outcome: undefined, clientWriter: undefined }
+  }
   const outcome = try ensuring(effect {
     return timeout(bridgeRealtime(clientReader, clientWriter, upstreamReader, upstreamWriter, ref, model), "45 seconds") catch () => undefined
   }, effect {
@@ -204,7 +229,10 @@ effect function serveRealtime(
 
       const charge = Realtime.proportionalCost(reserve, run.state.audioBytes)
       const settled = try settleMeter(meter, 0, 0, -1, charge, providerMs)
-      meterSettled = true
+      // spec/app/gateway/realtime.md, "A committed session closes through exactly one proportional settlement":
+      // the meter latches only when the settlement was served — a refused settlement is retried once in
+      // the finalizer below, and if that fails the row stays pending for the reconciliation sweep.
+      if (!("refused" in settled)) meterSettled = true
       if ("refused" in settled) {
         if (writer != undefined) {
           writer.write(realtimeClientMessage({ type: "error", error: { message: "Sonnely could not finalize this realtime session. Check Usage before retrying." }, sonnely_request_id: ref })) catch () => undefined
@@ -217,7 +245,8 @@ effect function serveRealtime(
           writer.write(realtimeClientMessage({ type: "transcription.done", text: run.outcome.text, sonnely_request_id: ref })) catch () => undefined
           try closeWriter(writer, 1000)
         } else {
-          writer.write(realtimeClientMessage({ type: "error", error: { message: "Realtime transcription ended before completion. The charge is proportional to the audio sent upstream." }, sonnely_request_id: ref })) catch () => undefined
+          const message = run.outcome?.message ?? "Realtime transcription ended before completion."
+          writer.write(realtimeClientMessage({ type: "error", error: { message: message + " The charge is proportional to the audio sent upstream." }, sonnely_request_id: ref })) catch () => undefined
           try closeWriter(writer, 1011)
         }
       }
