@@ -520,7 +520,9 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
       const next: BatchJob = { version: 1, id: crypto.randomUUID(), filename: file.name, createdAt: Date.now(), rows: result.rows };
       await writeBatch(wallet, next);
       if (machine.state?.tag !== "Idle") await machine.send({ type: "clear" });
-      await machine.send({ type: "submit", id: next.id, filename: next.filename, requests: next.rows.map((row) => ({ customId: row.customId, model: row.body.model })) });
+      if (!(await machine.send({ type: "submit", id: next.id, filename: next.filename, requests: next.rows.map((row) => ({ customId: row.customId, model: row.body.model })) }))) {
+        setError("The batch machine refused this batch, so the progress display may be out of sync. Refresh the saved batch.");
+      }
       focusSummaryRef.current = true;
       setSaved(next);
       setScope("all");
@@ -529,11 +531,12 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
   }
 
   async function sendMachine(index: number, row: BatchRow) {
-    if (row.status === "succeeded") await machine.send({ type: "succeed", index });
-    else if (row.status === "failed") await machine.send({ type: "failed", index, detail: row.detail ?? "" });
-    else if (row.status === "blocked") await machine.send({ type: "block", index, detail: row.detail ?? "" });
-    else if (row.status === "interrupted") await machine.send({ type: "interrupt", index, detail: row.detail ?? "" });
-    else if (row.status === "review") await machine.send({ type: "review", index, detail: row.detail ?? "" });
+    if (row.status === "succeeded") return machine.send({ type: "succeed", index });
+    if (row.status === "failed") return machine.send({ type: "failed", index, detail: row.detail ?? "" });
+    if (row.status === "blocked") return machine.send({ type: "block", index, detail: row.detail ?? "" });
+    if (row.status === "interrupted") return machine.send({ type: "interrupt", index, detail: row.detail ?? "" });
+    if (row.status === "review") return machine.send({ type: "review", index, detail: row.detail ?? "" });
+    return true;
   }
 
   function useKey(event: FormEvent<HTMLFormElement>) {
@@ -581,13 +584,21 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
           await writeBatch(wallet, job);
           break;
         }
-        if (retryIndex === index) await machine.send({ type: "retry", index });
-        await machine.send({ type: "start", index });
+        if (retryIndex === index && !(await machine.send({ type: "retry", index }))) {
+          await writeBatch(wallet, job);
+          throw new Error("The batch machine refused to retry this row. Refresh the saved batch before running again.");
+        }
+        if (!(await machine.send({ type: "start", index }))) {
+          await writeBatch(wallet, job);
+          throw new Error("The batch machine refused to start this row, so the request was not sent. Refresh the saved batch before running again.");
+        }
         setSaved(started);
         const result = await sendBatchRow(wallet, key, job.id, index, row);
         job = replaceRow(started, index, result);
         await writeBatch(wallet, job);
-        await sendMachine(index, result);
+        if (!(await sendMachine(index, result))) {
+          setError("The batch machine rejected a row update, so the progress display may be out of sync. Refresh the saved batch.");
+        }
         setSaved(job);
         if (batchKeyError(result.httpStatus)) {
           setInferenceKey("");
@@ -611,7 +622,9 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
       if (!job || job.id !== jobId) throw new Error("This batch changed in another tab. Refresh the saved batch.");
       if (signal.aborted) return;
       await writeBatch(wallet);
-      await machine.send({ type: "clear" });
+      if (!(await machine.send({ type: "clear" }))) {
+        setError("The batch machine refused to clear, so the progress display may be out of sync.");
+      }
       focusUploaderRef.current = true;
       setSaved(undefined);
       setConfirmClear(false);
@@ -645,6 +658,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
       </WorkspaceHeading>
       <p aria-live="polite" className="batch-message">{message}</p>
       {error && <p role="alert" className="error">{error}</p>}
+      {machine.error && <p role="alert" className="error">The batch machine reported: {machine.error}</p>}
       {!saved ? (
         <section className="panel batch-panel-section" aria-labelledby="batch-input-title">
           <div className="batch-section-heading">

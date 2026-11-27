@@ -66,22 +66,6 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
           <span />
         </button>
       </div>
-      <div className="settings-row">
-        <div>
-          <strong>Save on this device</strong>
-          <p>Turning this off clears saved Sonnely chats from this browser.</p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          className="toggle"
-          aria-label="Save on this device"
-          aria-checked={state?.saveOnDevice ?? false}
-          onClick={() => void settings.send({ type: "setSaveOnDevice", on: !(state?.saveOnDevice ?? false) })}
-        >
-          <span />
-        </button>
-      </div>
     </section>
   );
 }
@@ -176,6 +160,8 @@ function SettingsContent() {
                 name="username"
                 aria-describedby="username-help"
                 maxLength={24}
+                pattern="[A-Za-z][A-Za-z0-9_]{2,23}"
+                title={usernameHelp}
                 defaultValue={state?.username ?? ""}
                 placeholder="your_username"
                 autoCapitalize="none"

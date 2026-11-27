@@ -226,8 +226,27 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     function dismiss(event: KeyboardEvent) {
       if (event.key === "Escape") closeNavigation();
     }
+    function contain(event: KeyboardEvent) {
+      if (event.key !== "Tab" || !panel) return;
+      const focusable = panel.querySelectorAll<HTMLElement>("a[href], button:not([disabled])");
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      const inside = panel.contains(document.activeElement);
+      if (event.shiftKey && (!inside || document.activeElement === first)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (!inside || document.activeElement === last)) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
     document.addEventListener("keydown", dismiss);
-    return () => document.removeEventListener("keydown", dismiss);
+    document.addEventListener("keydown", contain);
+    return () => {
+      document.removeEventListener("keydown", dismiss);
+      document.removeEventListener("keydown", contain);
+    };
   }, [navOpen]);
 
   function closeNavigation() {
@@ -270,7 +289,8 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   async function saveProfile(name: string, username: string) {
     const deviceChanged = name !== settings.state?.name || username !== settings.state?.username;
     if (deviceChanged && !(await settings.send({ type: "saveProfile", name, username }))) return false;
-    return saveCrmProfile({ name, username });
+    const crmChanged = name !== (crmProfile?.name ?? "") || username !== (crmProfile?.username ?? "");
+    return !crmChanged || saveCrmProfile({ name, username });
   }
 
   async function acceptTerms() {

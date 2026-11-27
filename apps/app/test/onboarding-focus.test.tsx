@@ -58,3 +58,52 @@ it("moves focus to the step heading when the step changes", async () => {
   });
   expect(document.activeElement).toBe(el.querySelector("#onboarding-title"));
 });
+
+function renderOnboardingWithFinish(onFinish: () => Promise<boolean>, close: () => void) {
+  const el = document.createElement("div");
+  document.body.appendChild(el);
+  const root = createRoot(el);
+  act(() => {
+    root.render(
+      <Onboarding
+        wallet="So11111111111111111111111111111111111111112"
+        settings={undefined}
+        cluster="mainnet"
+        canFund
+        onSignIn={() => Promise.resolve(true)}
+        onSignOut={() => Promise.resolve(true)}
+        onSaveProfile={() => Promise.resolve(true)}
+        onAcceptTerms={() => Promise.resolve(true)}
+        onFinish={onFinish}
+        onChooseTheme={() => Promise.resolve(true)}
+        close={close}
+      />,
+    );
+  });
+  return el;
+}
+
+// spec/app/console/index.md, "Story: Set up the workspace profile": a failed finish keeps the
+// setup open so the choice is not lost — closing early would drop the workspace back into the
+// pending onboarding state with no way to see why.
+it("stays open and surfaces the failure when finishing the setup fails", async () => {
+  let closed = false;
+  const el = renderOnboardingWithFinish(() => Promise.resolve(false), () => { closed = true; });
+  const form = el.querySelector("form.onboarding-form");
+  if (!form) throw new Error("profile form did not render");
+  await act(async () => {
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
+  const addCredits = [...el.querySelectorAll("button")].find((button) => button.textContent?.includes("Add credits"));
+  if (!addCredits) throw new Error("funding step did not render");
+  await act(async () => {
+    addCredits.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  expect({ closed, errorShown: el.querySelector("p.error")?.textContent ?? "" }).toEqual({
+    closed: false,
+    errorShown: "Could not save your setup choice. Check your connection and try again.",
+  });
+});

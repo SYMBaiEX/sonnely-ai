@@ -5,7 +5,7 @@ import { useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
 import type { LogEntry, Logs, LogStatus, Window } from "../../../../gen/app__console__logs.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { visible } from "../../../../gen/app__console__logs.ts";
-import { useRemote } from "../../remote.ts";
+import { useRemote, type Remote } from "../../remote.ts";
 import { SearchField } from "../../search.tsx";
 import { useWorkspaceSession } from "./frame.tsx";
 import {
@@ -58,6 +58,8 @@ const windows: Record<string, Window> = { "7": "Week", "30": "Month", "90": "Qua
 const windowDays: Record<Window, string> = { Week: "7", Month: "30", Quarter: "90", AllTime: "all" };
 const logPath = "/console/logs";
 const pageSize = 50;
+
+const sampleHistoryIds = new Set(["req-4f8c2a1b9d0e6f5a2b3c", "req-77aa10bc9d2f4e6a8c0d", "req-1b2c3d4e5f6a7b8c9d0e"]);
 
 type LogRow = LogEntry & {
   providerRejections?: { provider: string; model: string; startedAt: number; endedAt: number; httpStatus: 429 }[];
@@ -181,7 +183,7 @@ function DetailList({ fields }: { fields: [string, string | number | undefined][
   );
 }
 
-function RequestDetail({ id, row, close }: { id: string; row: LogRow | undefined; close: () => void }) {
+function RequestDetail({ id, row, loaded, close }: { id: string; row: LogRow | undefined; loaded: boolean; close: () => void }) {
   const [error, setError] = useState("");
 
   return (
@@ -219,15 +221,21 @@ function RequestDetail({ id, row, close }: { id: string; row: LogRow | undefined
               Retry
             </button>
           </>
+        ) : !row && loaded ? (
+          <p role="status" className="caption">
+            Request {id} is not in this workspace’s history. Check the reference, or sign in with the wallet that ran it.
+          </p>
         ) : !row ? (
-          <>
-            <p role="status" className="caption">
-              Loading request details…
-            </p>
-            <p className="caption">Reference {id} is not in the loaded workspace history.</p>
-          </>
+          <p role="status" className="caption">
+            Loading request details…
+          </p>
         ) : (
           <>
+            {sampleHistoryIds.has(row.id) && (
+              <p className="caption" role="note">
+                Sample row: part of the seeded example history every workspace opens with, not a real request you ran.
+              </p>
+            )}
             <div className="log-actions">
               <CopyButton value={row.id} label="Copy request reference" />
               <CopyButton value={location.origin + detailPath(row.id)} label="Copy link to request" />
@@ -363,6 +371,7 @@ function LogResults({ rows, error, open }: { rows: LogRow[]; error: string | und
                       </a>
                       <span className="caption">{time(rowTime(row))}</span>
                       {row.endpoint && <code className="caption">/{row.endpoint}</code>}
+                      {sampleHistoryIds.has(row.id) && <span className="caption">Sample</span>}
                     </div>
                   </th>
                   <td data-label="Provider">{providerNames[row.provider] ?? row.provider}</td>
@@ -389,63 +398,24 @@ function LogResults({ rows, error, open }: { rows: LogRow[]; error: string | und
   );
 }
 
-export function LogsSection() {
-  const session = useWorkspaceSession();
-  const logs = useRemote<Logs>("console__logs");
-  const [lookup, setLookup] = useState("");
-  const [draft, setDraft] = useState(defaults);
-  const requestId = new URLSearchParams(useSyncExternalStore(subscribeLocation, locationSearch)).get("request");
-  const state = logs.state;
+function machineDraft(state: Logs): typeof defaults {
+  return {
+    days: windowDays[state.window],
+    provider: state.provider,
+    model: state.model,
+    keyName: state.keyName,
+    status: state.showing.tag === "One" ? machineStatus[state.showing.status] : "",
+  };
+}
 
-  const rows = useMemo(() => {
-    if (!state) return [];
-    const now = Date.now();
-    const aged = {
-      ...state,
-      entries: state.entries.map((entry) =>
-        entry.time > 0 ? { ...entry, ageDays: Math.max(0, Math.floor((now - entry.time) / 86_400_000)) } : entry,
-      ),
-    };
-    return visible(aged) as LogRow[];
-  }, [state]);
-  const allRows = useMemo(() => (state?.entries ?? []) as LogRow[], [state]);
-  const detailRow = requestId ? allRows.find((row) => row.id === requestId) : undefined;
+function filtersAreDefault(state: Logs | undefined) {
+  return !state || (state.window === "Week" && !state.provider && !state.model && !state.keyName && state.showing.tag === "AnyStatus");
+}
 
-  const signedIn = session.state?.tag === "SignedIn";
+function FiltersForm({ initial, logs }: { initial: typeof defaults; logs: Remote<Logs> }) {
+  const [draft, setDraft] = useState(initial);
 
-  function closeDetail() {
-    navigateLogs(logPath, true);
-  }
-
-  function openDetail(id: string) {
-    navigateLogs(detailPath(id));
-  }
-
-  async function applyFilters(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const applied = { ...draft, model: draft.model.trim(), keyName: draft.keyName.trim() };
-    setDraft(applied);
-    await logs.send({ type: "setWindow", window: windows[applied.days] ?? "Week" });
-    await logs.send({ type: "setProvider", provider: applied.provider });
-    await logs.send({
-      type: "setShowing",
-      showing: applied.status ? { tag: "One", status: lowerStatus[applied.status] } : { tag: "AnyStatus" },
-    });
-    await logs.send({ type: "setModel", model: applied.model });
-    await logs.send({ type: "setKeyName", keyName: applied.keyName });
-  }
-
-  function resetFilters() {
-    setDraft(defaults);
-    void logs.send({ type: "resetFilters" });
-  }
-
-  function refresh() {
-    if (!state) return;
-    void applyWindowlessFilters(draft);
-  }
-
-  async function applyWindowlessFilters(applied: typeof defaults) {
+  async function sendFilters(applied: typeof defaults) {
     await logs.send({ type: "setWindow", window: windows[applied.days] ?? "Week" });
     await logs.send({ type: "setProvider", provider: applied.provider });
     await logs.send({
@@ -454,6 +424,115 @@ export function LogsSection() {
     });
     await logs.send({ type: "setModel", model: applied.model.trim() });
     await logs.send({ type: "setKeyName", keyName: applied.keyName.trim() });
+  }
+
+  async function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const applied = { ...draft, model: draft.model.trim(), keyName: draft.keyName.trim() };
+    setDraft(applied);
+    await sendFilters(applied);
+  }
+
+  return (
+    <form className="log-filters-form" onSubmit={(event) => void applyFilters(event)}>
+      <div className="log-controls">
+        <label>
+          Date range
+          <select value={draft.days} onChange={(event) => setDraft({ ...draft, days: event.target.value })}>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="all">All time</option>
+          </select>
+        </label>
+        <label>
+          Provider
+          <select value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })}>
+            <option value="">All providers</option>
+            {providerIds.map((id) => (
+              <option key={id} value={id}>
+                {providerNames[id]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Status
+          <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
+            <option value="">All statuses</option>
+            {Object.keys(lowerStatus).map((id) => (
+              <option key={id} value={id}>
+                {statusLabels[lowerStatus[id]]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Model ID
+          <input
+            value={draft.model}
+            maxLength={100}
+            placeholder="Any model"
+            onChange={(event) => setDraft({ ...draft, model: event.target.value })}
+          />
+        </label>
+        <label>
+          Key name
+          <input
+            value={draft.keyName}
+            maxLength={60}
+            placeholder="Any key"
+            onChange={(event) => setDraft({ ...draft, keyName: event.target.value })}
+          />
+        </label>
+      </div>
+      <div className="log-actions">
+        <button className="button accent" type="submit">
+          Apply filters
+        </button>
+        <button className="button quiet" type="button" disabled={filtersAreDefault(logs.state)} onClick={() => void logs.send({ type: "resetFilters" })}>
+          Reset
+        </button>
+        <button className="button quiet" type="button" onClick={() => void sendFilters(initial)}>
+          <RefreshCw size={15} aria-hidden="true" /> Refresh
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function LogsSection() {
+  const session = useWorkspaceSession();
+  const logs = useRemote<Logs>("console__logs");
+  const [lookup, setLookup] = useState("");
+  const requestId = new URLSearchParams(useSyncExternalStore(subscribeLocation, locationSearch)).get("request");
+  const state = logs.state;
+
+  const [mountedAt] = useState(() => Date.now());
+  const rows = useMemo(() => {
+    if (!state) return [];
+    const aged = {
+      ...state,
+      entries: state.entries.map((entry) =>
+        entry.time > 0 ? { ...entry, ageDays: Math.max(0, Math.floor((mountedAt - entry.time) / 86_400_000)) } : entry,
+      ),
+    };
+    return visible(aged);
+  }, [state, mountedAt]);
+  const allRows = useMemo(() => state?.entries ?? [], [state]);
+  const detailRow = requestId ? allRows.find((row) => row.id === requestId) : undefined;
+
+  const signedIn = session.state?.tag === "SignedIn";
+  const filterSignature = state
+    ? JSON.stringify([state.window, state.provider, state.model, state.keyName, state.showing.tag === "One" ? state.showing.status : ""])
+    : "loading";
+
+  function closeDetail() {
+    navigateLogs(logPath, true);
+  }
+
+  function openDetail(id: string) {
+    navigateLogs(detailPath(id));
   }
 
   return (
@@ -514,74 +593,11 @@ export function LogsSection() {
           }
           className="log-filter-panel"
         >
-        <form className="log-filters-form" onSubmit={(event) => void applyFilters(event)}>
-          <div className="log-controls">
-            <label>
-              Date range
-              <select value={draft.days} onChange={(event) => setDraft({ ...draft, days: event.target.value })}>
-                <option value="7">Last 7 days</option>
-                <option value="30">Last 30 days</option>
-                <option value="90">Last 90 days</option>
-                <option value="all">All time</option>
-              </select>
-            </label>
-            <label>
-              Provider
-              <select value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })}>
-                <option value="">All providers</option>
-                {providerIds.map((id) => (
-                  <option key={id} value={id}>
-                    {providerNames[id]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Status
-              <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
-                <option value="">All statuses</option>
-                {Object.keys(lowerStatus).map((id) => (
-                  <option key={id} value={id}>
-                    {statusLabels[lowerStatus[id]]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Model ID
-              <input
-                value={draft.model}
-                maxLength={100}
-                placeholder="Any model"
-                onChange={(event) => setDraft({ ...draft, model: event.target.value })}
-              />
-            </label>
-            <label>
-              Key name
-              <input
-                value={draft.keyName}
-                maxLength={60}
-                placeholder="Any key"
-                onChange={(event) => setDraft({ ...draft, keyName: event.target.value })}
-              />
-            </label>
-          </div>
-          <div className="log-actions">
-            <button className="button accent" type="submit">
-              Apply filters
-            </button>
-            <button className="button quiet" type="button" onClick={resetFilters}>
-              Reset
-            </button>
-            <button className="button quiet" type="button" onClick={refresh}>
-              <RefreshCw size={15} aria-hidden="true" /> Refresh
-            </button>
-          </div>
-        </form>
+        <FiltersForm key={filterSignature} initial={state ? machineDraft(state) : defaults} logs={logs} />
         </FilterPanel>
       </section>
           <LogResults key={state ? windowDays[state.window] + state.provider + state.model + state.keyName + state.showing.tag : "loading"} rows={rows} error={logs.error} open={openDetail} />
-          {requestId && <RequestDetail key={requestId} id={requestId} row={detailRow} close={closeDetail} />}
+          {requestId && <RequestDetail key={requestId} id={requestId} row={detailRow} loaded={state !== undefined} close={closeDetail} />}
         </>
       )}
     </div>
