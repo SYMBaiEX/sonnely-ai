@@ -101,7 +101,7 @@ function jsonRpc(result: unknown, id: unknown) {
 
 let payoutReference = "";
 
-function stubRpc(options: { finalized: boolean }) {
+function stubRpc(options: { finalized: boolean; blockHeight?: number }) {
   const source = "11111111111111111111111111111115";
   const destination = "11111111111111111111111111111116";
   const amount = 5;
@@ -113,6 +113,7 @@ function stubRpc(options: { finalized: boolean }) {
     const request = batched[0];
     const reply = (result: unknown) => jsonRpc(result, request.id);
     if (request.method === "getGenesisHash") return reply(genesis);
+    if (request.method === "getBlockHeight") return reply(options.blockHeight ?? 123);
     if (request.method === "getLatestBlockhash") {
       return reply({ context: { slot: 10 }, value: { blockhash: "11111111111111111111111111111111", lastValidBlockHeight: 123 } });
     }
@@ -224,6 +225,37 @@ describe("admin payout API", () => {
       secondBodyStatus: "verified",
       recordedTag: "Verified",
       recordedSignature: signature,
+    });
+  });
+
+  // spec/app/billing/payouts.md, "A prepared payout can be cancelled only once its transaction can never land":
+  // the prepared transaction's blockhash is valid through height 123, so cancellation is refused at
+  // height 123 — a signed copy could still land — and allowed once the chain passes it.
+  it("refuses cancellation before the prepared blockhash expires and allows it after", async () => {
+    stubRpc({ finalized: false, blockHeight: 123 });
+    const { handler } = makeApi();
+    await grantOperator(handler);
+    const prepared = await post(handler, "/api/admin/payouts/prepare", { amount: 5, version: 0 });
+    const body = (await prepared.json()) as { payout: { reference: string; lastValidBlockHeight: number } };
+    const early = await post(handler, "/api/admin/payouts/cancel", { reference: body.payout.reference, reason: "operator changed their mind" });
+    const earlyBody = (await early.json()) as { error?: string };
+    vi.unstubAllGlobals();
+    stubRpc({ finalized: false, blockHeight: 124 });
+    const late = await post(handler, "/api/admin/payouts/cancel", { reference: body.payout.reference, reason: "operator changed their mind" });
+    const machine = await handler(new Request("http://localhost/api/machines/billing-payouts", { headers: { cookie: "sonnely_session=" + token } }));
+    const payouts = (await machine.json()) as Payouts.Payouts;
+    expect({
+      lastValidBlockHeight: body.payout.lastValidBlockHeight,
+      earlyStatus: early.status,
+      earlyError: earlyBody.error,
+      lateStatus: late.status,
+      recordedTag: payouts.payouts[0]?.status.tag,
+    }).toEqual({
+      lastValidBlockHeight: 123,
+      earlyStatus: 409,
+      earlyError: "The prepared transaction could still land on chain. Cancellation opens once its blockhash expires.",
+      lateStatus: 200,
+      recordedTag: "Cancelled",
     });
   });
 });
