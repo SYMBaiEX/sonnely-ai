@@ -58,14 +58,6 @@ function availabilityFor(entry: CatalogEntry, live: LiveAvailability): Availabil
       runnable: false,
     };
   }
-  if (entry.routes.every((route) => route.endpoint === "Realtime")) {
-    return {
-      label: "Planned",
-      tone: "muted",
-      body: "Realtime transcription over WebSocket is planned and not yet served. Examples below are reference examples, not currently runnable requests.",
-      runnable: false,
-    };
-  }
   if (!live.loaded) {
     return {
       label: "Checking availability",

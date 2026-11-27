@@ -368,7 +368,7 @@ const providerModels = {
         ],
       },
     },
-    realtime_model: { type: "string", description: "The upstream realtime transcription model ID. The realtime endpoint itself is not yet served." },
+    realtime_model: { type: "string", description: "The upstream realtime transcription model ID, served over WebSocket at GET /api/sonnely/v1/realtime." },
   },
   required: ["providers", "catalog", "specialized", "realtime_model"],
 };
@@ -730,6 +730,38 @@ export const openApiDocument = {
             headers: requestIdHeaders,
           },
           ...authedErrors,
+        },
+      },
+    },
+    "/api/sonnely/v1/realtime": {
+      get: {
+        summary: "Open a realtime transcription session over a WebSocket upgrade.",
+        description:
+          "The request must be a WebSocket upgrade carrying `model=voxtral-mini-4b-realtime` as its only parameter. " +
+          "Authentication uses a Sonnely API key as a bearer token, or the signed-in console session for same-origin browser clients. " +
+          "Once upgraded, the client sends JSON frames: `input_audio_buffer.append` frames whose `audio` is base64 mono 16 kHz PCM16, " +
+          "up to 30 seconds of audio in total, then one `input_audio_buffer.commit`. Sonnely answers `session.created` with the request reference, " +
+          "forwards `transcription.delta` frames as the provider produces them, and closes with `transcription.done` or an `error` frame. " +
+          "A session reserves the full-session price when it opens and settles the proportion of that price the committed audio duration represents; " +
+          "a session abandoned before commit is not charged.",
+        security: specializedSecurity,
+        parameters: [
+          {
+            name: "model",
+            in: "query",
+            required: true,
+            schema: { type: "string", const: "voxtral-mini-4b-realtime" },
+            description: "The realtime transcription model. The native transcription protocol is the only intent.",
+          },
+        ],
+        responses: {
+          "101": { description: "The WebSocket upgrade is complete; the session runs as JSON frames on the socket." },
+          "400": errorResponse("The model parameter is missing or names another model."),
+          "401": errorResponse("A valid bearer key or signed-in console session is required."),
+          "402": errorResponse("The workspace cannot cover the session reserve."),
+          "403": errorResponse("The realtime origin does not match this site."),
+          "426": errorResponse("Use a WebSocket upgrade for realtime audio."),
+          "502": errorResponse("The realtime provider is unavailable. Nothing was served, so nothing was charged."),
         },
       },
     },
