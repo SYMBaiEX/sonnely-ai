@@ -4,7 +4,7 @@ import { ArrowUpRight, KeyRound, Plus } from "lucide-react";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
-import { useRemote } from "../../remote.ts";
+import { reconnectMachine, useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
 import { CopyButton, Empty, Failure, WorkspaceHeading, creditBalance, date, day, parseCreditAmount } from "../console/bits.tsx";
 import "../console/logs.css";
@@ -72,7 +72,6 @@ function KeysConsole() {
   const [busy, setBusy] = useState(false);
   const [revoke, setRevoke] = useState<Key | null>(null);
   const [editing, setEditing] = useState<Key | null>(null);
-  const [attempt, setAttempt] = useState(0);
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const rowActionRef = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState("");
@@ -176,7 +175,7 @@ function KeysConsole() {
   }
 
   return (
-    <div className="telemetry-legacy keys-legacy" key={attempt}>
+    <div className="telemetry-legacy keys-legacy">
       <WorkspaceHeading icon={KeyRound} title="API keys" description="Issue keys, set spending limits, and revoke access.">
         <button
           type="button"
@@ -201,7 +200,7 @@ function KeysConsole() {
         </button>
       </WorkspaceHeading>
       <Failure message={failure || error || ""} />
-      {error && <button type="button" className="button quiet" onClick={() => setAttempt((value) => value + 1)}>Reload keys</button>}
+      {error && <button type="button" className="button quiet" onClick={() => reconnectMachine("workspace-keys")}>Reload keys</button>}
       <div role="status" className="visually-hidden">{status}</div>
       {signedIn && !!key && (
         <section className="panel callout" aria-label="New API key">
@@ -287,7 +286,7 @@ function KeysConsole() {
         ) : (
           <Empty title={signedIn && error ? "API keys unavailable" : signedIn && !data ? "Loading keys…" : "No API keys to show"} icon={<KeyRound size={23} />}>
             <p>{!signedIn ? "Connect a Solana wallet to open your workspace." : error ? "Try reloading the list." : data ? "Create a key to call the API from your own client." : "Getting your workspace keys."}</p>
-            {signedIn && error ? <button className="button quiet small" type="button" onClick={() => setAttempt((value) => value + 1)}>Reload keys</button> : <a className="text-link" href="/docs/quickstart">Read the quickstart <ArrowUpRight size={15} /></a>}
+            {signedIn && error ? <button className="button quiet small" type="button" onClick={() => reconnectMachine("workspace-keys")}>Reload keys</button> : <a className="text-link" href="/docs/quickstart">Read the quickstart <ArrowUpRight size={15} /></a>}
           </Empty>
         )}
       </div>

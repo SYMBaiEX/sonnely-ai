@@ -26,7 +26,10 @@ const frameSchema = z.object({
 const postAnswerSchema = z.looseObject({
   ok: z.boolean(),
   error: z.string().optional(),
+  state: z.unknown().optional(),
 });
+
+const writeAnswerStateVisible = new Set(["console", "console__chat", "console__logs", "console__batch", "workspace-keys"]);
 
 type MachineFrame = z.infer<typeof frameSchema>;
 
@@ -147,6 +150,18 @@ function subscribeMachine(name: string, notify: () => void) {
   };
 }
 
+export function reconnectMachine(name: string) {
+  updateMachine(name, { error: undefined });
+  if (scopedMachines.has(name)) {
+    closeScopedStream(name);
+    if (machineListeners.has(name)) openScopedStream(name);
+    return;
+  }
+  if (machineListeners.size === 0) return;
+  closeStream();
+  openStream();
+}
+
 /** One spec machine kept by the server: its state, and a way to send it events. */
 export function useRemote<T>(name: string): Remote<T> {
   const subscribe = useCallback((notify: () => void) => subscribeMachine(name, notify), [name]);
@@ -162,8 +177,12 @@ export function useRemote<T>(name: string): Remote<T> {
         });
         const parsed = postAnswerSchema.safeParse(await response.json().catch(() => undefined));
         const answer = parsed.success ? parsed.data : undefined;
-        if (!answer?.ok) updateMachine(name, { error: answer?.error ?? `request failed (HTTP ${response.status})` });
-        return answer?.ok ?? false;
+        if (!answer?.ok) {
+          updateMachine(name, { error: answer?.error ?? `request failed (HTTP ${response.status})` });
+          return false;
+        }
+        updateMachine(name, writeAnswerStateVisible.has(name) && answer.state !== undefined ? { state: answer.state, error: undefined } : { error: undefined });
+        return true;
       } catch (cause) {
         updateMachine(name, { error: cause instanceof Error ? cause.message : "request failed" });
         return false;
