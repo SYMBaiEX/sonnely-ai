@@ -73,12 +73,14 @@ export function Onboarding({
   async function finish(funding: "fund" | "later", href: string) {
     setBusy(true);
     setError("");
-    try {
-      await onFinish(funding);
-    } finally {
-      close();
-      window.location.assign(href);
+    const finished = await onFinish(funding);
+    if (!finished) {
+      setBusy(false);
+      setError("Could not save your setup choice. Check your connection and try again.");
+      return;
     }
+    close();
+    window.location.assign(href);
   }
 
   const heading = {
