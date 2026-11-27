@@ -263,7 +263,7 @@ export effect function failMeter(meter: MeterOpen, unreported: boolean) {
   const requests = try Requests.Machine
   if (unreported) {
     ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: meter.reserve }) catch () => undefined
-    usage.send({ type: "unreported", id: meter.ref }, meter.wallet) catch () => undefined
+    usage.send({ type: "unreported", id: meter.ref, input: 0, output: 0, cost: meter.reserve }, meter.wallet) catch () => undefined
     requests.send({ type: "finish", ref: meter.ref, cost: meter.reserve }) catch () => undefined
   } else {
     ledger.send({ type: "settleHold", wallet: meter.wallet, detail: meter.ref, amount: 0 }) catch () => undefined
@@ -444,10 +444,21 @@ export effect function inferChat(raw: unknown, key: WorkspaceKeys.Key | undefine
           requestMachine.send({ type: "fault", ref }) catch () => undefined
           return undefined
         }
-        const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: meter.reserve }) catch (e) => e
-        if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, meter.reserve)
-        usageMachine.send({ type: "unreported", id: ref }, wallet) catch () => undefined
-        requestMachine.send({ type: "finish", ref, cost: meter.reserve }) catch () => undefined
+        // spec/app/usage.md, "A pending request can fail or go under review": the stream died after
+        // serving part of its answer, so the capture is the served part estimated from the characters
+        // the client received plus the input the provider processed, never more than the reserve.
+        const outputTokens = Math.ceil(servedOutputChars / 4)
+        const prorated = try Effect.try(() => tokenCharge(candidate.rate, selection.bytes + 256, 0, outputTokens))
+        const cost = Math.min(meter.reserve, prorated)
+        const refund = meter.reserve - cost
+        const settledMoney = ledger.send({ type: "settleHold", wallet, detail: ref, amount: cost }) catch (e) => e
+        if (!(settledMoney instanceof Ledger.Rejected)) try markReferralActive(referrals, wallet, cost)
+        if (key != undefined && refund > 0) {
+          keys.send({ type: "refundUse", id: key.id, amount: refund, day: meter.day }, wallet) catch () => undefined
+          if (key.project != "") teams.send({ type: "releaseProject", projectId: key.project, amount: refund }) catch () => undefined
+        }
+        usageMachine.send({ type: "unreported", id: ref, input: selection.bytes + 256, output: outputTokens, cost }, wallet) catch () => undefined
+        requestMachine.send({ type: "finish", ref, cost }) catch () => undefined
         return undefined
       }
       const cached = try Effect.try(() => cachedTokens(final.usage))

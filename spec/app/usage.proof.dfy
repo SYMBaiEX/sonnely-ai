@@ -465,16 +465,16 @@ lemma release_ensures(u: Usage, by_: string, id: string)
 
 // unreported: the pending row with the id becomes unreported.
 
-lemma unreported_ensures(u: Usage, by_: string, id: string)
-  ensures (inv(u) ==> canUnreported(u, by_, id) ==> alwaysPendingIsClean(unreported(u, by_, id)))
-  ensures (inv(u) ==> canUnreported(u, by_, id) ==> alwaysRowsAreWellFormed(unreported(u, by_, id)))
-  ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepWalletNeverChanges(u, unreported(u, by_, id)))
-  ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepRowsOnlyGrow(u, unreported(u, by_, id)))
-  ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepSettledRowsAreFixed(u, unreported(u, by_, id)))
-  ensures (inv(u) ==> canUnreported(u, by_, id) ==> stepPendingSettles(u, unreported(u, by_, id)))
+lemma unreported_ensures(u: Usage, by_: string, id: string, input: int, output: int, cost: int)
+  ensures (inv(u) ==> canUnreported(u, by_, id, input, output, cost) ==> alwaysPendingIsClean(unreported(u, by_, id, input, output, cost)))
+  ensures (inv(u) ==> canUnreported(u, by_, id, input, output, cost) ==> alwaysRowsAreWellFormed(unreported(u, by_, id, input, output, cost)))
+  ensures (inv(u) ==> canUnreported(u, by_, id, input, output, cost) ==> stepWalletNeverChanges(u, unreported(u, by_, id, input, output, cost)))
+  ensures (inv(u) ==> canUnreported(u, by_, id, input, output, cost) ==> stepRowsOnlyGrow(u, unreported(u, by_, id, input, output, cost)))
+  ensures (inv(u) ==> canUnreported(u, by_, id, input, output, cost) ==> stepSettledRowsAreFixed(u, unreported(u, by_, id, input, output, cost)))
+  ensures (inv(u) ==> canUnreported(u, by_, id, input, output, cost) ==> stepPendingSettles(u, unreported(u, by_, id, input, output, cost)))
 {
-  if inv(u) && canUnreported(u, by_, id) {
-    var after := unreported(u, by_, id);
+  if inv(u) && canUnreported(u, by_, id, input, output, cost) {
+    var after := unreported(u, by_, id, input, output, cost);
     var tr :| tr in ownedRowWithId(u, id, by_) && tr.status.Pending?;
     ownedRowWithIdAll(u, id, by_);
     assert tr in u.rows && tr.id == id && tr.wallet == by_;
@@ -491,7 +491,7 @@ lemma unreported_ensures(u: Usage, by_: string, id: string)
         var r := u.rows[i];
         var a := after.rows[i];
         sameIdIsSame(u, r, tr);
-        assert a == r.(status := Status.Unreported);
+        assert a == r.(input := input, output := output, cost := cost, status := Status.Unreported);
       }
     }
     rowsWFFromElems(after);

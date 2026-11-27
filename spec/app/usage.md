@@ -114,16 +114,21 @@ pure def charge(u: Usage, by: str, id: str, input: int, output: int, cached: int
 
 ### A pending request can fail or go under review
 
+A stream that dies after serving part of its answer never reports its usage:
+the row goes under review with what the shell estimated it served — tokens
+and the charge actually captured, never more than the reserve.
+
 ```quint
 pure def canRelease(u: Usage, by: str, id: str): bool = ownedRowWithId(u, id, by).some(r => r.status == Pending)
 
 pure def release(u: Usage, by: str, id: str): Usage =
   { rows: u.rows.listMap(r => if (r.id == id and r.wallet == by) { ...r, status: Failed } else r) }
 
-pure def canUnreported(u: Usage, by: str, id: str): bool = ownedRowWithId(u, id, by).some(r => r.status == Pending)
+pure def canUnreported(u: Usage, by: str, id: str, input: int, output: int, cost: int): bool =
+  ownedRowWithId(u, id, by).some(r => r.status == Pending and input >= 0 and output >= 0 and cost >= 0 and cost <= r.cost)
 
-pure def unreported(u: Usage, by: str, id: str): Usage =
-  { rows: u.rows.listMap(r => if (r.id == id and r.wallet == by) { ...r, status: Unreported } else r) }
+pure def unreported(u: Usage, by: str, id: str, input: int, output: int, cost: int): Usage =
+  { rows: u.rows.listMap(r => if (r.id == id and r.wallet == by) { ...r, input: input, output: output, cost: cost, status: Unreported } else r) }
 ```
 
 ### Every usage row belongs to the wallet that metered it

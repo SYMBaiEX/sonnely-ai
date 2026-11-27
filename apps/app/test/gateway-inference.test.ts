@@ -193,6 +193,53 @@ describe("gateway inference", () => {
     expect(state.ledgerRows.some((entry) => entry.kind === "Release" && entry.amount > 0)).toBe(true);
   });
 
+  // spec/app/usage.md, "A pending request can fail or go under review": a stream dying after serving part of its answer captures only the prorated charge, never the whole reserve.
+  it("captures a prorated charge under review when the stream dies after serving content", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const encoder = new TextEncoder();
+    const upstream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('data: {"id":"upstream-partial","object":"chat.completion.chunk","created":1,"model":"deepseek-ai/DeepSeek-V4.1-Flash-1017","choices":[{"index":0,"delta":{"content":"partial answer here"},"finish_reason":null}]}\n\n'));
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(upstream, { status: 200, headers: { "content-type": "text/event-stream", "inference-id": "inference-partial" } }))));
+    const program = Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "key-partial", label: "Inference", prefix: "sonnely_live_partial", hash: "partial-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const response = yield* inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }], stream: true }, key, wallet, "partial-ref");
+      const usage = yield* Usage.Machine;
+      const requests = yield* Requests.Machine;
+      return { response, ledger, usage, requests, keys };
+    });
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const body = result.response.body;
+    if (body._tag !== "Raw" || !(body.body instanceof Readable)) throw new Error("expected a stream response");
+    await readStreamText(body.body).catch(() => "");
+    const state = await Effect.runPromise(Effect.gen(function* () {
+      return {
+        rows: (yield* result.usage.get()).rows,
+        ledgerRows: (yield* result.ledger.get()).entries,
+        requests: (yield* result.requests.get()).requests,
+        key: (yield* result.keys.get()).keys[0],
+      };
+    }));
+    const row = state.rows[0];
+    const reserved = state.ledgerRows.find((entry) => entry.kind === "Reserve")?.amount ?? 0;
+    expect(row?.status).toBe("Unreported");
+    expect(row?.output).toBe(Math.ceil("partial answer here".length / 4));
+    expect(row?.input).toBeGreaterThan(0);
+    expect(row?.cost).toBeGreaterThan(0);
+    expect(row?.cost).toBeLessThan(reserved);
+    expect(state.key?.spent).toBe(row?.cost);
+    expect(state.ledgerRows.some((entry) => entry.kind === "Charge" && entry.amount === row?.cost)).toBe(true);
+    expect(state.requests[0]).toMatchObject({ ref: "partial-ref", status: "Complete", charged: row?.cost });
+  });
+
   // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge"
   it("aborts a chat candidate that never sends response headers", async () => {
     vi.useFakeTimers();
