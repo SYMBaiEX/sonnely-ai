@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 const migration = process.env.MIGRATION_URL ?? "http://127.0.0.1:3104";
 const legacy = process.env.LEGACY_URL ?? "http://127.0.0.1:3000";
 const out = process.env.SHOTS_DIR ?? "shots/admin";
-const areas = ["", "customers", "support", "traces", "gateway", "operators", "privacy-rings", "analytics", "logs"];
+const areas = ["", "customers", "support", "traces", "operators", "payouts", "analytics", "logs"];
 
 await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ headless: true });

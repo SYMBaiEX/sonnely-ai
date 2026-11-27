@@ -5,7 +5,7 @@ import { WorkspaceHeading } from "../console/bits.tsx";
 import { adminTabs, type AdminTab } from "./legacy/admin-tabs.tsx";
 import type { AdminArea } from "./legacy/admin-areas.ts";
 import { AdminCrm } from "./legacy/admin-crm.tsx";
-import { AdminInvoices } from "./legacy/admin-gateway.tsx";
+import { AdminPayouts } from "./payouts.tsx";
 import { AdminOverview, useNavBadges } from "./overview.tsx";
 
 const descriptions: Record<string, string> = {
@@ -13,10 +13,8 @@ const descriptions: Record<string, string> = {
   customers: "Find a wallet and review its account, referrals, payments, requests, and support history.",
   support: "Triage the queue, assign ownership, and reply without losing your place.",
   traces: "Inspect request metadata, provider outcomes, and settlement amounts.",
-  gateway: "UsageMax reporting, operational alerts, request traces, and invoice reconciliation.",
   operators: "Admin, support, and finance wallets for this deployment.",
   payouts: "Ledger-derived margin, unsigned treasury payout preparation, and execution verification.",
-  "privacy-rings": "Register the treasury for confidential transfers and review private payments.",
   analytics: "Platform requests, spend, signups, and deposits by UTC day.",
   logs: "Privileged admin actions recorded across the workspace.",
 };
@@ -73,13 +71,13 @@ export function AdminWorkspace({ area, wallet, role }: { area: AdminArea; wallet
           description={
             role === "support"
               ? "Review and assign support requests."
-              : "Reconcile finalized provider statements."
+              : "Prepare and verify treasury payouts from ledger-derived margin."
           }
         />
         {role === "support" ? (
           <AdminCrm view="support" key={wallet} canOpenCustomer={false} />
         ) : (
-          <AdminInvoices key={wallet} />
+          <AdminPayouts />
         )}
       </>
     );

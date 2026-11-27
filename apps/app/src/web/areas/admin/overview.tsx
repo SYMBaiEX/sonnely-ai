@@ -12,11 +12,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { creditBalance } from "../console/bits.tsx";
-import { EmptyState, Pill, Skeleton } from "./legacy/admin/ui.tsx";
+import { EmptyState, Skeleton } from "./legacy/admin/ui.tsx";
 import { CreditRecovery } from "./legacy/credit-recovery.tsx";
 import { models, shorten } from "./legacy/lib/models.ts";
-import { payWithWallet, request } from "./legacy/wallet.tsx";
-import { CopyButton } from "./legacy/shared.tsx";
+import { request } from "./legacy/wallet.tsx";
 
 type ModelMetric = {
   requests: number;
@@ -414,71 +413,14 @@ export function AdminOverview({ wallet, badges }: { wallet: string; badges: NavB
         </div>
         <section className="panel stack-panel">
           <h2 id="admin-payouts">Profit payouts</h2>
-          {data.payouts.length ? (
-            data.payouts.map((payout) => (
-              <div className="admin-payout" key={payout.reference}>
-                <strong title={payout.recipient}>
-                  {creditBalance(payout.amount)} USDC to {shorten(payout.recipient)}
-                </strong>{" "}
-                <Pill tone={payout.signature ? "ok" : "warn"}>
-                  {payout.signature ? "Finalized" : "Awaiting signature"}
-                </Pill>
-                {payout.signature ? (
-                  <a className="text-link" href={"https://explorer.solana.com/tx/" + payout.signature}>
-                    Finalized receipt <ArrowUpRight size={13} aria-hidden="true" />
-                  </a>
-                ) : (
-                  <>
-                    <p className="caption">
-                      From {shorten(payout.treasury)} on Solana mainnet. The treasury pays network fees and any
-                      token account setup.
-                    </p>
-                    <span className="cell-copy">
-                      <code title={payout.recipient}>{payout.recipient}</code>
-                      <CopyButton value={payout.recipient} label="Copy recipient wallet" />
-                    </span>
-                    <div className="actions">
-                      {wallet === payout.treasury && (
-                        <button
-                          type="button"
-                          className="button accent"
-                          disabled={busy}
-                          onClick={() =>
-                            void act(async () => {
-                              await payWithWallet();
-                              return "Payout submitted. Check finality before attempting another transfer.";
-                            })
-                          }
-                        >
-                          Approve with treasury wallet
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="button quiet"
-                        disabled={busy}
-                        onClick={() =>
-                          void act(async () => {
-                            const { ok } = await request<{ ok: boolean }>("admin-confirm-payout", {
-                              reference: payout.reference,
-                            });
-                            return ok ? "Payout finalized." : "Waiting for a matching finalized transfer.";
-                          })
-                        }
-                      >
-                        Check finality
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))
-          ) : (
-            <EmptyState
-              title="No payouts"
-              hint="Prepared profit payouts awaiting treasury approval will appear here."
-            />
-          )}
+          <p className="caption">
+            Payout preparation, treasury approval and finality verification live on the payouts surface.
+          </p>
+          <div className="actions">
+            <a className="button quiet" href="/console/admin/payouts">
+              Open payouts
+            </a>
+          </div>
         </section>
       </div>
       <div className="admin-grid">
@@ -637,41 +579,14 @@ export function AdminOverview({ wallet, badges }: { wallet: string; badges: NavB
             </div>
           </dl>
           <p className="caption">
-            Only reconciled margin is available. Older usage without an upstream billing ID is excluded.
+            Provider cost reconciliation is not modeled in this shell, so only customer-side ledger
+            figures are shown. Payouts are prepared and verified on the payouts surface.
           </p>
           <div className="actions">
-            <button
-              className="button quiet"
-              type="button"
-              disabled={busy || !data.hasUnreconciled}
-              onClick={() =>
-                void act(async () => {
-                  const { count } = await request<{ count: number }>("admin-reconcile", {});
-                  return count
-                    ? "Reconciled " + count + " requests."
-                    : "NEAR has no new finalized cost records yet.";
-                })
-              }
-            >
-              Reconcile NEAR costs
-            </button>
-            <button
-              className="button accent"
-              type="button"
-              disabled={busy || !data.finance.availableMicros || data.payouts.some((payout) => !payout.signature)}
-              onClick={() =>
-                void act(async () => {
-                  await request("admin-open-payout", {});
-                  return "Payout prepared for treasury approval.";
-                })
-              }
-            >
-              Prepare profit payout
-            </button>
+            <a className="button accent" href="/console/admin/payouts">
+              Open payouts
+            </a>
           </div>
-          <a className="text-link" href="https://cloud.near.ai/">
-            Manage NEAR funding <ArrowUpRight size={13} aria-hidden="true" />
-          </a>
         </section>
         <section className="panel breakdown">
           <h2 id="admin-inference-by-model">Inference by model</h2>

@@ -47,8 +47,14 @@ a public name and the store key it reads: `session` reads `session` and holds
 `usage` reads `usage` and holds the request records the traces and analytics
 views aggregate; `support` reads `support` and holds the tickets the support
 inbox lists; `teams` reads `teams` and holds the workspaces an account belongs
-to. Each is read as untrusted JSON — a view shows `—` for what a key does not
-hold or does not carry in the shape it expects.
+to; `deposits` reads `billing-deposits` and holds the payment intents an
+account's funding history comes from; `crm` reads `admin-crm` and holds the
+profiles, timeline and adjustments the customer view is told through. The
+join is the shell's operator-only read over the store itself: the per-wallet
+projections the machine endpoints answer with are for the wallet asking, so
+an admin view built from them would show the operator's own rows as if they
+were the platform's. Each is read as untrusted JSON — a view shows `—` for
+what a key does not hold or does not carry in the shape it expects.
 
 ```quint
 type JoinedKey = { projection: str, storage: str }
@@ -59,7 +65,9 @@ pure val joinedKeys: List[JoinedKey] = List(
   { projection: "billing", storage: "billing-ledger" },
   { projection: "usage", storage: "usage" },
   { projection: "support", storage: "support" },
-  { projection: "teams", storage: "teams" })
+  { projection: "teams", storage: "teams" },
+  { projection: "deposits", storage: "billing-deposits" },
+  { projection: "crm", storage: "admin-crm" })
 ```
 
 ## Story: Grant and revoke access

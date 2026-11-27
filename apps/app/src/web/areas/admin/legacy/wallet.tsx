@@ -48,10 +48,26 @@ async function readMachine(name: string) {
   return response.ok ? await response.json() : undefined;
 }
 
+// spec/app/admin/index.md, "What the admin reads elsewhere": the join is the shell's
+// operator-only read over the store itself. The per-wallet machine endpoints project the
+// requesting wallet's rows, so an admin view built from them would show the operator's own
+// rows as if they were the platform's — the false data this adapter used to display.
 async function readMachines() {
-  const names = ["session", "admin", "admin-crm", "usage", "support", "workspace-keys", "billing-ledger", "billing-deposits", "teams", "console", "console__logs"];
-  const entries = await Promise.all(names.map(async (name) => [name, await readMachine(name)]));
-  return Object.fromEntries(entries) as Record<string, any>;
+  const session = await readMachine("session");
+  const response = await fetch("/api/admin/overview", { cache: "no-store" });
+  if (!response.ok) return { session } as Record<string, any>;
+  const joined = await response.json();
+  return {
+    session,
+    admin: joined?.registry ?? undefined,
+    "admin-crm": joined?.crm ?? undefined,
+    usage: joined?.usage ?? undefined,
+    support: joined?.support ?? undefined,
+    "workspace-keys": joined?.keys ?? undefined,
+    "billing-ledger": joined?.billing ?? undefined,
+    "billing-deposits": joined?.deposits ?? undefined,
+    teams: joined?.teams ?? undefined,
+  } as Record<string, any>;
 }
 
 async function postMachine(name: string, event: unknown) {
@@ -139,20 +155,19 @@ function traceRow(row: any, account: string) {
   };
 }
 
+// The registry is the account list: every wallet the shell has served registers itself there,
+// so no record is invented client-side. Usage rows and ledger entries attribute themselves by
+// wallet — a row belongs to the customer it names, never to the first record in the list.
 function customersFrom(states: Record<string, any>) {
   const admin = states.admin;
   const crm = crmOf(states);
   const records = [...(admin?.records ?? [])];
-  const wallet = states.session?.tag === "SignedIn" ? states.session.wallet : undefined;
-  if (wallet && !records.some((row) => row.id === wallet)) {
-    records.push({ id: wallet, subject: "User", status: "Active", usage: 0 });
-  }
   for (const profile of crm.profiles) {
     if (!records.some((row) => row.id === profile.wallet)) records.push({ id: profile.wallet, subject: "User", status: "Active", usage: 0 });
   }
-  return records.map((record: any, index: number) => {
+  return records.map((record: any) => {
     const profile = crm.profiles.find((row) => row.wallet === record.id);
-    const usageRows = (states.usage?.rows ?? []).filter((row: any) => index === 0 || row.keyId === record.id);
+    const usageRows = (states.usage?.rows ?? []).filter((row: any) => row.wallet === record.id);
     const balance = customerBalance(states, record.id);
     const flags = new Set(crm.flags.filter((row) => row.account === record.id).map((row) => row.flag));
     if (record.status === "Suspended") flags.add("suspended");
@@ -160,9 +175,9 @@ function customersFrom(states: Record<string, any>) {
     return {
       id: record.id,
       wallet: record.id,
-      name: profile?.name || (index === 0 && states.console?.name ? states.console.name : ""),
-      username: profile?.username || (index === 0 && states.console?.username ? states.console.username : ""),
-      joined: profile?.joined || Date.now() - (index + 4) * 86_400_000,
+      name: profile?.name ?? "",
+      username: profile?.username ?? "",
+      joined: profile?.joined ?? 0,
       balance,
       role: record.subject === "Org" ? "organization" : "owner",
       funded: balance > 0,
@@ -180,9 +195,9 @@ function customerDetail(id: string, states: Record<string, any>) {
   if (!customer) return null;
   const crm = crmOf(states);
   const profile = crm.profiles.find((row) => row.wallet === id);
-  const traces = (states.usage?.rows ?? []).map((row: any) => traceRow(row, id));
+  const traces = (states.usage?.rows ?? []).filter((row: any) => row.wallet === id).map((row: any) => traceRow(row, id));
   const tickets = supportRows(states.support).filter((row: any) => row.account === id);
-  const keys = (states["workspace-keys"]?.keys ?? []).map((key: any) => ({
+  const keys = (states["workspace-keys"]?.keys ?? []).filter((key: any) => key.wallet === id).map((key: any) => ({
     id: key.id,
     name: key.label,
     prefix: key.prefix,
@@ -264,7 +279,7 @@ function overview(states: Record<string, any>) {
     activeWallets: customersFrom(states).filter((row) => row.active).length,
     tickets: states.support?.tickets?.length ?? 0,
     activation: { joined: customersFrom(states).length, accepted: customersFrom(states).length, finishedSetup: customersFrom(states).length, startedFunding: deposits.length, funded: customersFrom(states).filter((row) => row.funded).length, active: customersFrom(states).filter((row) => row.active).length, capped: false },
-    creditRecovery: { held: held.map((row: any) => ({ id: row.id, wallet: row.keyId || row.keyName, model: row.model, created: row.time, cost: row.cost, status: lowerStatus(row.status), providerRequest: undefined })), recent: [] },
+    creditRecovery: { held: held.map((row: any) => ({ id: row.id, wallet: row.wallet, model: row.model, created: row.time, cost: row.cost, status: lowerStatus(row.status), providerRequest: undefined })), recent: [] },
     creditLiability: states["billing-ledger"]?.balance ?? 0,
     treasuryMicros: null,
     gateway: { state: "unavailable" },
@@ -332,7 +347,7 @@ async function crmRead(task: string) {
         return groups;
       }, {})).map(([, row]) => row).sort((a, b) => b.spend - a.spend).slice(0, 8),
       topCustomers: Object.entries(rows.reduce((groups, row) => {
-        const id = row.keyId || row.keyName || "";
+        const id = row.wallet || "";
         if (!id) return groups;
         const group = (groups[id] ??= { id, requests: 0, spend: 0 });
         group.requests += 1;
@@ -373,7 +388,7 @@ async function crmRead(task: string) {
     const search = String(params.get("search") ?? "").toLowerCase();
     const filter = params.get("filter") ?? "all";
     const since = Number(params.get("since") ?? 0);
-    const rows = (states.usage?.rows ?? []).map((row: any) => traceRow(row, customers[0]?.id ?? "")).filter((row) => row.started >= since && (filter === "all" || row.status === filter) && (!params.get("model") || row.model === params.get("model")) && (!params.get("provider") || row.provider === params.get("provider")) && (!search || row.id.toLowerCase().includes(search))).sort((a, b) => b.started - a.started);
+    const rows = (states.usage?.rows ?? []).map((row: any) => traceRow(row, row.wallet)).filter((row) => row.started >= since && (filter === "all" || row.status === filter) && (!params.get("model") || row.model === params.get("model")) && (!params.get("provider") || row.provider === params.get("provider")) && (!search || row.id.toLowerCase().includes(search))).sort((a, b) => b.started - a.started);
     return cursorPage(rows, params.get("cursor") ?? undefined);
   }
   const search = String(params.get("search") ?? "").replace(/^@/, "").toLowerCase();

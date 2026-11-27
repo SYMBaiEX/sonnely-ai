@@ -7,8 +7,6 @@ import {
   LifeBuoy,
   ListTree,
   ScrollText,
-  ServerCog,
-  Shield,
   UserCog,
   Users,
 } from "lucide-react";
@@ -16,10 +14,8 @@ import type { ReactNode } from "react";
 import type { AdminArea } from "./admin-areas.ts";
 import { AdminAnalytics } from "./admin-analytics.tsx";
 import { AdminCrm } from "./admin-crm.tsx";
-import { AdminGateway } from "./admin-gateway.tsx";
 import { AdminLogs } from "./admin-logs.tsx";
 import { AdminOperators } from "./admin-operators.tsx";
-import { AdminPrivacyRings } from "./admin-privacy-rings.tsx";
 import { AdminPayouts } from "../payouts.tsx";
 
 export type AdminTab = {
@@ -54,13 +50,6 @@ export const adminTabs: AdminTab[] = [
     render: (wallet) => <AdminCrm view="traces" key={wallet + ":traces"} />,
   },
   {
-    id: "gateway",
-    label: "Inference ops",
-    group: "Operations",
-    Icon: ServerCog,
-    render: (wallet) => <AdminGateway key={wallet} />,
-  },
-  {
     id: "operators",
     label: "Operators",
     group: "Operations",
@@ -73,13 +62,6 @@ export const adminTabs: AdminTab[] = [
     group: "Operations",
     Icon: Landmark,
     render: () => <AdminPayouts />,
-  },
-  {
-    id: "privacy-rings",
-    label: "Privacy Rings",
-    group: "Operations",
-    Icon: Shield,
-    render: (wallet) => <AdminPrivacyRings key={wallet} />,
   },
   {
     id: "analytics",

@@ -545,6 +545,36 @@ describe("row-level access", () => {
 
   // spec/app/admin/index.md, "Accounts are registered once": serving a wallet registers it, so an
   // operator can suspend and reinstate the account end to end
+  // spec/app/admin/index.md, "What the admin reads elsewhere": the join is the shell's
+  // operator-only read over the store itself — platform-wide rows, not the operator's own.
+  it("answers the admin overview with the platform-wide join for operators only", async () => {
+    const handler = makeApp();
+    const customer = await get(handler, "/api/admin/overview", tokenA);
+    const support = await get(handler, "/api/admin/overview", tokenOp);
+    const admin = await get(handler, "/api/admin/overview", tokenAdm);
+    const body = await admin.text();
+    const joined = JSON.parse(body);
+    expect({
+      customerStatus: customer.status,
+      supportStatus: support.status,
+      adminStatus: admin.status,
+      keysBothWallets: (joined.keys?.keys ?? []).map((row: { id: string }) => row.id).sort(),
+      ledgerCoversA: (joined.billing?.entries ?? []).some((row: { wallet: string }) => row.wallet === walletA),
+      ticketsJoined: (joined.support?.tickets ?? []).map((row: { id: string }) => row.id),
+      registryPresent: joined.registry != undefined && Array.isArray(joined.registry?.ops?.roster),
+      depositsJoined: (joined.deposits?.intents ?? []).some((row: { reference: string }) => row.reference === "ref-a"),
+    }).toEqual({
+      customerStatus: 403,
+      supportStatus: 200,
+      adminStatus: 200,
+      keysBothWallets: ["key-a", "key-b"],
+      ledgerCoversA: true,
+      ticketsJoined: ["ticket-a"],
+      registryPresent: true,
+      depositsJoined: true,
+    });
+  });
+
   it("registers a wallet the first time it is served and moderates it end to end", async () => {
     const handler = makeApp();
     await get(handler, "/api/machines/teams", tokenB);

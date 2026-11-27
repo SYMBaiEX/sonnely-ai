@@ -3,10 +3,8 @@ export const adminAreas = [
   "customers",
   "support",
   "traces",
-  "gateway",
   "operators",
   "payouts",
-  "privacy-rings",
   "analytics",
   "logs",
 ] as const;

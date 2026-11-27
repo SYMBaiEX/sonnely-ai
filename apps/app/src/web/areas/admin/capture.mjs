@@ -227,7 +227,7 @@ async function seed() {
   }
 }
 
-const areas = ["", "customers", "support", "traces", "gateway", "operators", "privacy-rings", "analytics", "logs"];
+const areas = ["", "customers", "support", "traces", "operators", "payouts", "analytics", "logs"];
 const failures = [];
 
 async function capture() {

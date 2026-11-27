@@ -179,7 +179,10 @@ effect function getStream(admin: Admin.Machine.Shape, m: SenderMachine) {
   })
 }
 
-/** The shared state the admin views join, held only for a listed operator. */
+/** The shared state the admin views join, held only for a listed operator. This is the read the
+ * spec's join means: the store itself, not the per-wallet machine endpoints — those project the
+ * requesting wallet's rows, so a view built from them would show the operator's own rows as the
+ * platform's. The registry the machine owns rides along under its own name. */
 effect function overview(admin: Admin.Machine.Shape) {
   const operator = try operatorRequired(admin)
   if (operator == "") {
@@ -194,6 +197,7 @@ effect function overview(admin: Admin.Machine.Shape) {
         ? null
         : (Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new BadJson({ raw: found }) }) catch () => null)
   }
+  states["registry"] = try admin.get()
   return try HttpServerResponse.json(states, { headers: noStore })
 }
 
