@@ -328,7 +328,7 @@
         "e3b0c44298fc"
       ],
       "Domain / The ledger is a balance over an append-only entry log": [
-        "99f024b6f8fc",
+        "152aba1e9a93",
         "993d890bca12"
       ],
       "## Story: Move credit": [
@@ -521,249 +521,6 @@
         "127eca84fb03"
       ]
     },
-    "spec/app/compute/index.md": {
-      "@document": [
-        "21c19b52b15d"
-      ]
-    },
-    "spec/app/compute/instances.md": {
-      "@document": [
-        "bf9ae132d1e0"
-      ],
-      "## Domain": [
-        "e3b0c44298fc"
-      ],
-      "Domain / A run moves queued, provisioning, running, teardown, settled — or settles early": [
-        "8dd4b0492548",
-        "ba997ea91231"
-      ],
-      "Domain / A settled run reports completed, failed, stopped or expired": [
-        "a16674a355f6",
-        "99ce63d88952"
-      ],
-      "Domain / A Blackbox's attestation is pending until verified or rejected": [
-        "b43351a690e4",
-        "9019e8d8e04e"
-      ],
-      "Domain / A workload is a pinned OCI image or a pinned GitHub commit": [
-        "a22ce44b7267",
-        "6534f33857b4",
-        "1d2ad200c2c6"
-      ],
-      "Domain / No runs exist at first": [
-        "e3b0c44298fc",
-        "4759cbe05b5c",
-        "eeb756699b08"
-      ],
-      "Domain / A Blackbox comes in three TDX sizes and three SSD sizes": [
-        "98ee1aad610c",
-        "56107580cdcc",
-        "eeb756699b08"
-      ],
-      "Domain / The fee is 25% of compute cost plus 10,000 micro-USD for a billed run": [
-        "20ef41093c07",
-        "de60c8ee0e12",
-        "59d8c7c78229"
-      ],
-      "Domain / A Blackbox rents for 15 to 120 minutes, a Dry Dock for 5 to 15": [
-        "6a140f9964db",
-        "34e927d82555",
-        "eeb756699b08"
-      ],
-      "Domain / A workload must name a digest-pinned image and port, or a repository and full SHA": [
-        "6e4c27d1ba8e",
-        "8204ddd789f7",
-        "6e276e51262c"
-      ],
-      "## Story: Rent a confidential machine": [
-        "c1a0d514c61f"
-      ],
-      "Story: Rent a confidential machine / A wallet opens a run for a supported window and a valid workload": [
-        "7897f945544d",
-        "f289229db3e2",
-        "309e6f4249a4"
-      ],
-      "Story: Rent a confidential machine / A wallet can run one compute job at a time": [
-        "bb1a820ccad5",
-        "173a8c96905d",
-        "b6e07bb56aa5"
-      ],
-      "Story: Rent a confidential machine / Run ids and a wallet's references are never reused": [
-        "3e44b859b778",
-        "f14608c18b58",
-        "30d5792c1123"
-      ],
-      "Story: Rent a confidential machine / The provider launches a queued run": [
-        "e3b0c44298fc",
-        "2bf46952a0a8",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A queued run that never launches settles for nothing": [
-        "fbca1cbeb04a",
-        "a8c938b08bde",
-        "b6e07bb56aa5"
-      ],
-      "Story: Rent a confidential machine / A provider that declines settles the run failed at no charge": [
-        "e9039b9d585e",
-        "d6ec8821e3c4",
-        "b6e07bb56aa5"
-      ],
-      "Story: Rent a confidential machine / A Blackbox only serves inference once its attestation is verified": [
-        "787694705d94",
-        "6fab949a5ef0",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A Blackbox that cannot be verified tears down failed": [
-        "08f882e1f205",
-        "5a08b049cd1e",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A Dry Dock runs once its build starts": [
-        "e3b0c44298fc",
-        "d4ac5dd62499",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A running or provisioning run can be asked to stop": [
-        "6ed4cbc158fa",
-        "bec014179627",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A provisioning or running run enters teardown with its outcome": [
-        "4fad0b4fe388",
-        "048e54b68588",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / Teardown settles the hold against metered time": [
-        "c2e9c4357ff2",
-        "2507079aa85e",
-        "b6e07bb56aa5"
-      ],
-      "Story: Rent a confidential machine / A run's phase only moves forward along the lifecycle edges": [
-        "e3b0c44298fc",
-        "2213b081aca1",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A settled run is never resurrected": [
-        "fb92016575a3",
-        "89fdfd0b59a6",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A run's result is set exactly when it heads to settlement": [
-        "e3b0c44298fc",
-        "e3d58b2f1cfb",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A run's kind is its workload's kind": [
-        "e3b0c44298fc",
-        "a5ed620b0b68",
-        "b6e07bb56aa5"
-      ],
-      "Story: Rent a confidential machine / A running Blackbox is always verified, and a Dry Dock never needs evidence": [
-        "e3b0c44298fc",
-        "cc89e6ca9476",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A run's reserve is the quote of its spec": [
-        "1b76f2844e7b",
-        "e3ee2cdf8f42",
-        "6e276e51262c"
-      ],
-      "Story: Rent a confidential machine / A charge never exceeds the hold, and the hold is charge plus what returned": [
-        "e3b0c44298fc",
-        "16abef82c0dd",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A Blackbox that never verified is never billed": [
-        "e3b0c44298fc",
-        "b07d386f0a03",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / Metered time beyond the window is never charged": [
-        "e3b0c44298fc",
-        "0b7989699f1d",
-        "b6e07bb56aa5"
-      ],
-      "Story: Rent a confidential machine / A run that counts nothing is billed nothing": [
-        "e3b0c44298fc",
-        "46d1ab33d97f",
-        "6e276e51262c"
-      ],
-      "Story: Rent a confidential machine / Every run settles in the end": [
-        "2226b0466d82",
-        "5952b608a4bf",
-        "eeb756699b08"
-      ],
-      "Story: Rent a confidential machine / A run can reach running, be verified, settle completed or stop early, and evidence can be rejected": [
-        "e3b0c44298fc",
-        "65f4822e0253",
-        "eeb756699b08"
-      ]
-    },
-    "spec/app/compute/market.md": {
-      "@document": [
-        "c9269458ca82"
-      ],
-      "## Domain": [
-        "e3b0c44298fc"
-      ],
-      "Domain / A provider offer names region, class, price and capacity": [
-        "a5ab8f82085b",
-        "17cc94d31c60"
-      ],
-      "Domain / The market opens with no offers": [
-        "e3b0c44298fc",
-        "590805a83405",
-        "ba0b0f893da4"
-      ],
-      "## Story: Allocate provider capacity": [
-        "da5b5266516f"
-      ],
-      "Story: Allocate provider capacity / An offer's key is its provider, region and class together": [
-        "e3b0c44298fc",
-        "8f990ecbbf6e",
-        "ba0b0f893da4"
-      ],
-      "Story: Allocate provider capacity / A provider lists an offer once per region and class": [
-        "e3b0c44298fc",
-        "652477d91007",
-        "91e2daca29ab"
-      ],
-      "Story: Allocate provider capacity / A claim allocates one unit of an offer's free capacity": [
-        "e3b0c44298fc",
-        "79509adc5b81",
-        "91e2daca29ab"
-      ],
-      "Story: Allocate provider capacity / A release restores one claimed unit": [
-        "e3b0c44298fc",
-        "88d4f1f95c2e",
-        "91e2daca29ab"
-      ],
-      "Story: Allocate provider capacity / Claimed capacity is always inside the offer's capacity": [
-        "3bf2c0253604",
-        "4474f2e992e6",
-        "ba0b0f893da4"
-      ],
-      "Story: Allocate provider capacity / Offers are listed once": [
-        "e3b0c44298fc",
-        "49cf1c79bcdf",
-        "91e2daca29ab"
-      ],
-      "Story: Allocate provider capacity / A step shifts an offer's allocation by at most one unit": [
-        "b72fe850d9a5",
-        "fdb2ef7127e1",
-        "91e2daca29ab"
-      ],
-      "Story: Allocate provider capacity / A claim followed by a release returns the offer to what it was": [
-        "e3b0c44298fc",
-        "d738aeb41ff2",
-        "fa04d171856d"
-      ],
-      "Story: Allocate provider capacity / Capacity can be claimed and an offer can fill": [
-        "e3b0c44298fc",
-        "22d03c5e59f3",
-        "ba0b0f893da4"
-      ]
-    },
     "spec/app/console/batch.md": {
       "@document": [
         "4a7618b21ef1"
@@ -919,8 +676,8 @@
         "8ec4f51d1c8c"
       ],
       "Story: Converse with a model / Sending takes one turn at a time": [
-        "70fb8e8688bd",
-        "494c4755e73a",
+        "e227cce309c4",
+        "f412d6d74a26",
         "8ec4f51d1c8c"
       ],
       "Story: Converse with a model / The responder answers or extends an answer in progress": [
@@ -956,7 +713,7 @@
       "Story: Converse with a model / A send leaves the other threads alone": [
         "e3b0c44298fc",
         "3d5bb31a4d47",
-        "016659eb5868"
+        "1baf79f7f12e"
       ],
       "Story: Converse with a model / A reply touches at most one thread": [
         "e3b0c44298fc",
@@ -970,13 +727,13 @@
       ],
       "Story: Converse with a model / The history can hold more than one conversation": [
         "e3b0c44298fc",
-        "dcc31d91ce49",
+        "e7545b5f1cd8",
         "8ec4f51d1c8c"
       ]
     },
     "spec/app/console/index.md": {
       "@document": [
-        "f12819561954"
+        "2bf074e33362"
       ],
       "## Domain": [
         "e3b0c44298fc"
@@ -1035,66 +792,66 @@
         "e3b0c44298fc"
       ],
       "Domain / A request row records what ran, how it ended and what it cost": [
-        "4c05b2106701",
-        "c3fe197e42ef"
+        "42cb8739b975",
+        "18a9363b885c"
       ],
       "Domain / The page filters by age, provider, status and exact model or key": [
         "ab6fe97e6dff",
         "cc59bd73983b",
-        "614fd2fa615e"
+        "ef143ce39647"
       ],
       "Domain / The workspace opens with a sample history": [
         "e3b0c44298fc",
-        "3fe90d11449d",
-        "46ddec91c8c3"
+        "b583076f0363",
+        "f9f8c7a7e118"
       ],
       "Domain / What the page shows is the history the filters pass": [
         "e3b0c44298fc",
         "05886edddec8",
-        "46ddec91c8c3"
+        "f9f8c7a7e118"
       ],
       "## Story: Review request activity": [
         "e2013d0466b9"
       ],
       "Story: Review request activity / Served requests are recorded newest first": [
         "3a85a1db3382",
-        "94c928b133cc",
-        "46ddec91c8c3"
+        "2788fe978149",
+        "f9f8c7a7e118"
       ],
       "Story: Review request activity / Each filter can be set on its own": [
         "e3b0c44298fc",
         "d3e6717e4253",
-        "46ddec91c8c3"
+        "f9f8c7a7e118"
       ],
       "Story: Review request activity / The filters can be reset together": [
         "e3b0c44298fc",
         "8499448a7014",
-        "46ddec91c8c3"
+        "f9f8c7a7e118"
       ],
       "Story: Review request activity / Request ids are never repeated": [
         "e3b0c44298fc",
         "a3f427d40f88",
-        "46ddec91c8c3"
+        "f9f8c7a7e118"
       ],
       "Story: Review request activity / History never loses a recorded row": [
         "e3b0c44298fc",
         "00647148e97e",
-        "46ddec91c8c3"
+        "f9f8c7a7e118"
       ],
       "Story: Review request activity / The filtered list only ever shows rows that pass every filter": [
         "e3b0c44298fc",
         "4ecf6424836d",
-        "e76c6bca2214"
+        "99d8d89f1060"
       ],
       "Story: Review request activity / A row can be recorded": [
         "e3b0c44298fc",
         "1e0618f05e91",
-        "46ddec91c8c3"
+        "f9f8c7a7e118"
       ],
       "Story: Review request activity / A filter can rule everything out": [
         "e3b0c44298fc",
-        "7d11ec664da9",
-        "e76c6bca2214"
+        "bc5cdaf31945",
+        "99d8d89f1060"
       ]
     },
     "spec/app/docs/index.md": {
@@ -1109,14 +866,14 @@
         "7fe7b31df164"
       ],
       "Domain / The catalog lists every guide in sidebar order": [
-        "d5fc8b50213f",
-        "cefa6c1b0759",
+        "af50b211fbc3",
+        "c49444ef935e",
         "b2644373e008"
       ],
       "Domain / The docs a slug names are found in the catalog": [
         "f6657d389203",
-        "d33b559b91da",
-        "cabdbc216043"
+        "6414ed7141e9",
+        "715e8ce5dab9"
       ],
       "## Story: Read the documentation": [
         "857732ca033e"
@@ -1124,27 +881,27 @@
       "Story: Read the documentation / Every guide is listed once": [
         "1deed32c5101",
         "07cdc09c1c1a",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ],
       "Story: Read the documentation / The sidebar leads with the overview": [
         "e3b0c44298fc",
         "641d2b553d05",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ],
       "Story: Read the documentation / Every guide sits in a named section": [
         "0baaf63e6497",
         "068e26040bf6",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ],
       "Story: Read the documentation / Each section lists its guides": [
         "bd9579bf4101",
         "2164593c4d2c",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ],
       "Story: Read the documentation / A guide is found by its slug": [
         "e3b0c44298fc",
         "1fc12c476627",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ],
       "## Story: Move between guides": [
         "7e59cb118b33"
@@ -1152,35 +909,35 @@
       "Story: Move between guides / Previous and next follow the catalog order": [
         "dd17af011d87",
         "70aa77234e30",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ],
       "Story: Move between guides / The ends of the catalog have no neighbour": [
         "e3b0c44298fc",
         "9f64180365d3",
-        "cabdbc216043"
+        "715e8ce5dab9"
       ],
       "Story: Move between guides / A guide's neighbours are guides": [
         "e3b0c44298fc",
         "db17aa7f1252",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ],
       "## Story: Serve the documentation as markdown": [
         "ecd86e492de8"
       ],
       "Story: Serve the documentation as markdown / The catalog holds the guides the product ships": [
-        "14f7b80cbcf6",
-        "6ada5d8c56fd",
-        "cabdbc216043"
+        "8533fbbc85bc",
+        "76873d6b2826",
+        "715e8ce5dab9"
       ],
       "Story: Serve the documentation as markdown / Every doc a feed serves is readable": [
         "9b5bc8b27cbd",
         "75575e7bfa1c",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ],
       "Story: Serve the documentation as markdown / Every endpoint the reference lists is documented": [
         "9315137d3e66",
         "da9dc41d0c1b",
-        "7b64654c7b9b"
+        "29d57acddb64"
       ]
     },
     "spec/app/gateway/batch.md": {
@@ -1280,7 +1037,7 @@
     },
     "spec/app/gateway/index.md": {
       "@document": [
-        "147eac551356"
+        "bcc932c134ee"
       ]
     },
     "spec/app/gateway/keyring.md": {
@@ -1376,12 +1133,12 @@
       ],
       "Domain / The endpoints and the model registry": [
         "d23b72dec690",
-        "d400a819c209"
+        "907e762dc3b8"
       ],
       "Domain / A served request": [
         "25ab86368ffe",
         "dff7b62722e9",
-        "a5ead755efaa"
+        "b47d92de8268"
       ],
       "Domain / Values the checks sample": [
         "e3b0c44298fc",
@@ -1394,82 +1151,168 @@
       "Story: Serve a metered completion / A request opens only for a serving key and a registered model": [
         "a95c4f3776dc",
         "7fc819a12596",
-        "823f245c8529"
+        "eb823c29c919"
       ],
       "Story: Serve a metered completion / A streamed request emits tokens while it is open": [
         "d96cfd273fa1",
         "d688c2fae567",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / Finishing records the request's spend exactly once": [
         "7cd2a709a2bb",
         "0e48ef24b941",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / A request that cannot be served fails without a charge": [
         "e3b0c44298fc",
         "157b8dc7510b",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / Every request reference is unique": [
         "57729515808e",
         "1a44c54c22aa",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / Unauthorized keys never serve": [
         "516d43fcd5b5",
         "2b15e06455f9",
-        "823f245c8529"
+        "eb823c29c919"
       ],
       "Story: Serve a metered completion / Every request names a registered model": [
         "e3b0c44298fc",
         "e4a9093f9fb5",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / Charge is recorded exactly on completion": [
         "4f728734005b",
         "ac446a7cc143",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / Emitted tokens never go back": [
         "e3b0c44298fc",
         "e3956d3b7f91",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / A recorded charge never changes": [
         "7d31fd3a3eb8",
         "10595b4256b0",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / A closed request never reopens": [
         "e2acc54fefa2",
         "3ea8d70dff70",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / A settled request cannot emit, settle or fail again": [
         "e3b0c44298fc",
         "7d714a20bc31",
-        "c6bf3c829e7e"
+        "99bb81b14ae4"
       ],
       "Story: Serve a metered completion / A request can complete": [
         "e3b0c44298fc",
         "b5a903f25bbd",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / A request can fail": [
         "e3b0c44298fc",
         "582739e0b3e8",
-        "443944274f7b"
+        "7a558bde3740"
       ],
       "Story: Serve a metered completion / A stream can emit tokens and terminate": [
         "e3b0c44298fc",
         "5c78ee32020f",
-        "443944274f7b"
+        "7a558bde3740"
+      ]
+    },
+    "spec/app/gateway/realtime.md": {
+      "@document": [
+        "0d101f706140"
+      ],
+      "## Domain": [
+        "e3b0c44298fc"
+      ],
+      "Domain / One realtime session": [
+        "4de0213c00b3",
+        "56eb4eb38832",
+        "e3f350bc04a1"
+      ],
+      "Domain / Values the checks sample": [
+        "e3b0c44298fc",
+        "2787d02dd78f",
+        "e3f350bc04a1"
+      ],
+      "## Story: Run a metered realtime transcription": [
+        "adc45e264f26"
+      ],
+      "Story: Run a metered realtime transcription / A session opens only for a serving key and the realtime model": [
+        "845968327e69",
+        "e80f35eae97f",
+        "d44a00adcb36"
+      ],
+      "Story: Run a metered realtime transcription / Audio is bounded PCM and cannot be appended after commit": [
+        "e3b0c44298fc",
+        "72f0754a372e",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / Transcription deltas arrive only after the audio is committed": [
+        "e3b0c44298fc",
+        "f9c8335da390",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / A committed session closes through exactly one proportional settlement": [
+        "e31f0ebf2a27",
+        "3f56f38fcf23",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / An uncommitted session is abandoned without a charge": [
+        "e3b0c44298fc",
+        "fb301f21daf9",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / Open sessions are authorized for the realtime model": [
+        "e3b0c44298fc",
+        "4295b84c4251",
+        "d44a00adcb36"
+      ],
+      "Story: Run a metered realtime transcription / Session measurements stay inside the audio envelope": [
+        "e3b0c44298fc",
+        "c7fed921717e",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / Charges exist only in closed sessions and match the audio duration": [
+        "e3b0c44298fc",
+        "aff03ce48e1a",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / Session measurements never go back": [
+        "e3b0c44298fc",
+        "f760e915b71a",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / A closed session never reopens": [
+        "e3b0c44298fc",
+        "5816ef3714ec",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / A session can go live": [
+        "e3b0c44298fc",
+        "79c815893a73",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / A session can settle a proportional charge": [
+        "e3b0c44298fc",
+        "69c98d95202b",
+        "acfc956c34aa"
+      ],
+      "Story: Run a metered realtime transcription / An uncommitted session can end without a charge": [
+        "e3b0c44298fc",
+        "e4b11899b793",
+        "acfc956c34aa"
       ]
     },
     "spec/app/index.md": {
       "@document": [
-        "b63f0d4e1022"
+        "bb6875a7e5f8"
       ]
     },
     "spec/app/keys.md": {
@@ -1657,13 +1500,13 @@
       ],
       "Domain / Pages and console sections": [
         "2055e32e7565",
-        "84fc3f599a15",
+        "ff6b34a73211",
         "c2829debbd38"
       ],
       "Domain / Navigation starts on the home page with nowhere to go back to": [
         "e3b0c44298fc",
         "f92ea617d1ba",
-        "334b11114fa2"
+        "f15f30f1cec8"
       ],
       "## Story: Move around": [
         "7f6064769965"
@@ -1671,27 +1514,27 @@
       "Story: Move around / Any page can be opened": [
         "5d64f362f658",
         "18a2e54b8831",
-        "334b11114fa2"
+        "f15f30f1cec8"
       ],
       "Story: Move around / Going back is possible only after opening a page": [
         "e3b0c44298fc",
         "2e10b4a349ac",
-        "9d1238280a2d"
+        "ea13561cec25"
       ],
       "Story: Move around / Opening a page leaves it showing": [
         "e3b0c44298fc",
         "747bc12f386b",
-        "334b11114fa2"
+        "f15f30f1cec8"
       ],
       "Story: Move around / Opening then going back returns where it started": [
         "e3b0c44298fc",
         "16d63d0e33c7",
-        "dee565299c19"
+        "ac9ae192d486"
       ],
       "Story: Move around / Going back twice needs two pages opened": [
         "e3b0c44298fc",
         "8da3ffea64e8",
-        "334b11114fa2"
+        "f15f30f1cec8"
       ]
     },
     "spec/app/session.md": {
@@ -2062,8 +1905,8 @@
         "5e7738f06a91"
       ],
       "Story: Meter a request / A pending request can fail or go under review": [
-        "e3b0c44298fc",
-        "1e2239125891",
+        "a63f55faab84",
+        "a06f2f9c53f0",
         "5e7738f06a91"
       ],
       "Story: Meter a request / Every usage row belongs to the wallet that metered it": [
