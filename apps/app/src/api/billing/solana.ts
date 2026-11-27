@@ -515,6 +515,9 @@ function verifyTransfer(result: z.infer<typeof transaction>, wallet: string, ord
     throw new PaymentRejected("The finalized USDC transfer does not match the requested amount.");
 }
 
+/** A verified payment: its signature and the chain time of its finalized block, in unix seconds. */
+export type VerifiedPayment = { signature: string; blockTime: number };
+
 export async function verifyPayment(
   rpc: string,
   signature: string,
@@ -523,7 +526,7 @@ export async function verifyPayment(
   cluster: string,
   commitment: "confirmed" | "finalized" = "finalized",
   verifyNetwork = true,
-) {
+): Promise<VerifiedPayment> {
   if (!isSignature(signature)) throw new PaymentRejected("This payment signature is invalid.");
   if (verifyNetwork) await verifyCluster(rpc, cluster);
   const result = await readRpc(
@@ -537,6 +540,7 @@ export async function verifyPayment(
   if (!tx.success || tx.data.meta.err !== null || tx.data.transaction.signatures[0] !== signature)
     throw new PaymentRejected("No successful payment was found at the required confirmation level.");
   verifyTransfer(tx.data, wallet, order);
+  return { signature, blockTime: Number(tx.data.blockTime) };
 }
 
 export type PaymentInspection = "pending" | "failed" | "mismatch" | "verified";
@@ -581,7 +585,7 @@ export async function findPaymentSignatures(rpc: string, reference: string, comm
   return parsed.data.filter((entry) => entry.err === null).map((entry) => entry.signature);
 }
 
-/** The finalized signature paying `order`, or null when none was found yet. */
+/** The finalized payment for `order`, with its chain time, or null when none was found yet. */
 export async function findPayment(
   rpc: string,
   wallet: string,
@@ -589,10 +593,9 @@ export async function findPayment(
   cluster: string,
   commitment: "confirmed" | "finalized",
   signature?: string,
-): Promise<string | null> {
+): Promise<VerifiedPayment | null> {
   if (signature) {
-    await verifyPayment(rpc, signature, wallet, order, cluster, commitment);
-    return signature;
+    return verifyPayment(rpc, signature, wallet, order, cluster, commitment);
   }
   await verifyCluster(rpc, cluster);
   for (const candidate of await findPaymentSignatures(rpc, order.reference, commitment)) {
@@ -607,7 +610,7 @@ export async function findPayment(
       const tx = transaction.safeParse(result);
       if (tx.success && tx.data.meta.err === null && tx.data.transaction.signatures[0] === candidate) {
         verifyTransfer(tx.data, wallet, order);
-        return candidate;
+        return { signature: candidate, blockTime: Number(tx.data.blockTime) };
       }
     } catch (error) {
       if (error instanceof RpcUnavailable) throw error;
@@ -616,14 +619,14 @@ export async function findPayment(
   return null;
 }
 
-/** The finalized signature paying `order`, or null when none was found yet. */
+/** The finalized payment for `order`, with its chain time, or null when none was found yet. */
 export async function findFinalizedPayment(
   rpc: string,
   wallet: string,
   order: PaymentOrder,
   cluster: string,
   signature?: string,
-): Promise<string | null> {
+): Promise<VerifiedPayment | null> {
   return findPayment(rpc, wallet, order, cluster, "finalized", signature);
 }
 

@@ -31,11 +31,16 @@ export interface BillingConfig {
   mint: string
 }
 
+export interface FinalizedPayment {
+  signature: string
+  blockTime: number
+}
+
 /** The on-chain verification the confirm endpoint trusts. */
 export service PaymentVerifier {
   static readonly key = "@repo/app/billing/PaymentVerifier"
-  /** The signature of the transfer that finalized `order` from `wallet`, or null while none did. */
-  findFinalized(order: PaymentOrder, wallet: string, signature?: string): (string | null)!(PaymentMismatch | VerificationUnavailable)
+  /** The transfer that finalized `order` from `wallet` and its chain time in unix seconds, or null while none did. */
+  findFinalized(order: PaymentOrder, wallet: string, signature?: string): (FinalizedPayment | null)!(PaymentMismatch | VerificationUnavailable)
 }
 
 const usdcWindow = 24 * 60 * 60_000
@@ -261,16 +266,6 @@ effect function confirmDeposit() {
     try dropDraft(reference)
     return try reply({ ok: true, signature: intent.status.signature })
   }
-  if (intent.status.tag == "Expired") {
-    try dropDraft(reference)
-    return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
-  }
-  const now = try Clock.currentTimeMillis
-  if (intent.expiresAt <= now) {
-    deposits.send({ type: "expire", reference, now }) catch () => undefined
-    try dropDraft(reference)
-    return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
-  }
   const config = billingConfig() catch (e) => e
   if (config instanceof CheckoutUnavailable) return try reply({ ok: false, error: config.reason }, 503)
   const order: PaymentOrder = {
@@ -280,29 +275,49 @@ effect function confirmDeposit() {
     asset: intent.asset,
     atomic: intent.atomic,
   }
+  // spec/app/billing/deposits.md, "An expired intent is closed to new payments, not to timely ones":
+  // the chain is asked before expiry is ever concluded — a transfer whose chain time beat the
+  // deadline finalizes the intent however late it is discovered.
   const verifier = try PaymentVerifier
   const verified = verifier.findFinalized(order, intent.wallet, signature) catch (e) => e
   if (verified instanceof PaymentMismatch) return try reply({ ok: false, error: verified.reason }, 400)
   if (verified instanceof VerificationUnavailable) return try reply({ ok: false, error: verified.reason }, 503)
-  const paid = verified as string | null
-  if (paid == null) return try reply({ ok: false, pending: true })
+  const paid = verified as FinalizedPayment | null
+  const now = try Clock.currentTimeMillis
+  if (paid == null) {
+    if (intent.status.tag == "Expired") {
+      try dropDraft(reference)
+      return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
+    }
+    if (intent.expiresAt <= now) {
+      deposits.send({ type: "expire", reference, now }) catch () => undefined
+      try dropDraft(reference)
+      return try reply({ ok: false, error: "This payment request expired.", expired: true }, 410)
+    }
+    return try reply({ ok: false, pending: true })
+  }
   const event: Deposits.Event = {
     type: "finalize",
     reference,
-    signature: paid as string,
+    signature: paid.signature,
     wallet: intent.wallet,
     asset: intent.asset,
     amount: intent.amount,
     atomic: intent.atomic,
-    now,
+    paidAt: paid.blockTime * 1000,
   }
   const finalized = deposits.send(event) catch (e) => e
   if (finalized instanceof Deposits.Rejected) {
+    if (paid.blockTime * 1000 > intent.expiresAt) {
+      deposits.send({ type: "expire", reference, now }) catch () => undefined
+      try dropDraft(reference)
+      return try reply({ ok: false, error: "This transfer reached the chain after the payment request expired.", expired: true }, 410)
+    }
     return try reply({ ok: false, error: "This payment request is no longer open." }, 409)
   }
   try creditDeposit(intent.wallet, reference, intent.amount)
   try dropDraft(reference)
-  return try reply({ ok: true, signature: paid })
+  return try reply({ ok: true, signature: paid.signature })
 }
 
 
@@ -345,7 +360,8 @@ effect function quoteIntent() {
 // history for the same bound transfer, so a payment whose client never returned is still credited once.
 effect function recoverOne(config: BillingConfig, intent: Deposits.Intent, now: number, nextChecks: Map<string, number>) {
   const age = now - intent.createdAt
-  const spacing = age < 600_000 ? 15_000 : age < 3_600_000 ? 120_000 : 3_600_000
+  const pastDeadline = now > intent.expiresAt
+  const spacing = pastDeadline ? 120_000 : age < 600_000 ? 15_000 : age < 3_600_000 ? 120_000 : 3_600_000
   const nextCheckAt = now + spacing
   const order: PaymentOrder = {
     reference: intent.reference,
@@ -360,22 +376,26 @@ effect function recoverOne(config: BillingConfig, intent: Deposits.Intent, now: 
   }) catch (e) => e
   nextChecks.set(intent.reference, nextCheckAt)
   if (paid instanceof Error || paid == null) return false
+  const found = paid as solana.VerifiedPayment
   const deposits = try Deposits.Machine
   const finalized = deposits.send({
     type: "finalize",
     reference: intent.reference,
-    signature: paid as string,
+    signature: found.signature,
     wallet: intent.wallet,
     asset: intent.asset,
     amount: intent.amount,
     atomic: intent.atomic,
-    now,
+    paidAt: found.blockTime * 1000,
   }) catch (e) => e
   if (finalized instanceof Deposits.Rejected) return false
   try creditDeposit(intent.wallet, intent.reference, intent.amount)
   try dropDraft(intent.reference)
   return true
 }
+
+/** A transfer the chain timed at or before an intent's deadline is visible in finalized history within minutes; scanning continues this long past the deadline before the intent lapses. */
+const depositScanGraceMs = 15 * 60 * 1000
 
 effect function sweepDeposits(nextChecks: Map<string, number>) {
   const config = billingConfig() catch (e) => e
@@ -394,10 +414,11 @@ effect function sweepDeposits(nextChecks: Map<string, number>) {
       try dropDraft(intent.reference)
       continue
     }
-    if (intent.expiresAt <= now) {
-      // The machine finalizes only while the deadline has not passed, so a transfer discovered
-      // now can never be credited: checking the chain before expiring would cost an RPC call
-      // and change nothing. Catching those payments has to happen before the deadline below.
+    if (intent.expiresAt + depositScanGraceMs <= now) {
+      // spec/app/billing/deposits.md, "An expired intent is closed to new payments, not to timely
+      // ones": scanning ends a grace period after the deadline — a transfer the chain timed at or
+      // before it is visible in finalized history within minutes, and one that somehow surfaces
+      // later still finalizes through the confirm endpoint, which asks the chain first.
       deposits.send({ type: "expire", reference: intent.reference, now }) catch () => undefined
       try dropDraft(intent.reference)
       continue
@@ -406,7 +427,8 @@ effect function sweepDeposits(nextChecks: Map<string, number>) {
     // Backoff spacing grows to an hour for old intents, but an intent whose next scheduled check
     // falls past its deadline is in its final window: skip the backoff so a transfer finalizing
     // just before the deadline is still found while the machine accepts the finalize.
-    if (candidates.length < 48 && (nextCheckAt <= now || nextCheckAt >= intent.expiresAt)) candidates.push(intent)
+    const inFinalWindow = now <= intent.expiresAt && nextCheckAt >= intent.expiresAt
+    if (candidates.length < 48 && (nextCheckAt <= now || inFinalWindow)) candidates.push(intent)
   }
   if (candidates.length == 0) return { checked: 0, credited: 0 }
   const network = tryPromise({ try: () => solana.verifyCluster(config.rpc, "mainnet"), catch: (e) => e }) catch (e) => e
