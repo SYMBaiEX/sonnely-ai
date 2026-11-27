@@ -654,13 +654,17 @@ export effect function inferSpecialized(path: string, endpoint: Requests.Endpoin
   const upstream = tryPromise(() => callSpecialized(path, selected, form ?? fields)) catch () => undefined
   const providerMs = try Clock.currentTimeMillis - providerAt
   if (upstream == undefined) {
-    try failMeter(meter, true)
-    return try inferenceFailure("The provider did not respond. The reservation is pending reconciliation.", 502, servingRef)
+    // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge": the
+    // transport failed before any response, so nothing was served and the reservation releases.
+    try failMeter(meter, false)
+    return try inferenceFailure("The provider did not respond. Nothing was served, so nothing was charged.", 502, servingRef)
   }
   const response = upstream.response
   if (!response.ok) {
-    try failMeter(meter, response.status >= 500)
-    return try inferenceFailure("The provider could not complete this request.", 502, servingRef)
+    // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge": the
+    // provider refused or failed the request before serving anything, so the reservation releases.
+    try failMeter(meter, false)
+    return try inferenceFailure("The provider could not complete this request. Nothing was served, so nothing was charged.", 502, servingRef)
   }
   if (path == "audio/speech") {
     const bytesResult = tryPromise(async () => new Uint8Array(await response.arrayBuffer())) catch () => undefined

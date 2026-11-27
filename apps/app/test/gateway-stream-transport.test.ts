@@ -482,4 +482,85 @@ describe("gateway stream transport", () => {
     expect(settleUsageCost(responsesRoute, 100, "responses", { usage: { input_tokens: 10, output_tokens: 5 } })).toEqual({ kind: "measured", input: 10, output: 5, cost: 5 });
     expect(settleUsageCost(imagesRoute, 13_200, "images/generations", {})).toEqual({ kind: "measured", input: 0, output: 0, cost: 13_200 });
   });
+
+  const embeddingsHarness = (upstream: (url: string) => Promise<Response>, keyId: string, ref: string) => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "https://cloud-api.near.ai/v1/embeddings") return upstream(url);
+      return realFetch(input, init);
+    });
+    return Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: keyId, label: "Inference", prefix: "sonnely_live_" + keyId, hash: keyId + "-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: keyId + "-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const app = inferSpecialized("embeddings", "Embeddings", "Qwen/Qwen3-Embedding-0.6B", { model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }, key, "", ref);
+      const scope = yield* Scope.Scope;
+      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+      const server = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => handler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const address = server.address();
+      if (typeof address !== "object" || address === null) throw new Error("missing server address");
+      const response = yield* Effect.promise(() => globalThis.fetch(`http://127.0.0.1:${address.port}/`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ model: "Qwen/Qwen3-Embedding-0.6B", input: "x".repeat(4_000) }),
+      }));
+      yield* Effect.promise(() => response.text());
+      const usage = yield* Usage.Machine;
+      const requests = yield* Requests.Machine;
+      return { status: response.status, usage, requests, keys, ledger };
+    }));
+  };
+
+  const meterState = (result: { usage: Usage.Machine.Shape; requests: Requests.Machine.Shape; keys: WorkspaceKeys.Machine.Shape; ledger: Ledger.Machine.Shape }) =>
+    Effect.runPromise(Effect.gen(function* () {
+      return {
+        rows: (yield* result.usage.get()).rows,
+        requests: (yield* result.requests.get()).requests,
+        key: (yield* result.keys.get()).keys[0],
+        ledgerRows: (yield* result.ledger.get()).entries,
+      };
+    }));
+
+  // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge": a transport failure before any response is definite non-service.
+  it("releases the whole reservation when the provider transport fails before any response", async () => {
+    const program = embeddingsHarness(() => Promise.reject(new Error("connection reset")), "transport-fail-key", "transport-fail-ref");
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await meterState(result);
+    expect(result.status).toBe(502);
+    expect(state.rows[0]?.status).toBe("Failed");
+    expect(state.key?.spent).toBe(0);
+    expect(state.requests[0]?.status).toBe("Failed");
+    expect(state.ledgerRows.some((entry) => entry.kind === "Charge")).toBe(false);
+    expect(state.ledgerRows.some((entry) => entry.kind === "Release" && entry.amount === 11)).toBe(true);
+  });
+
+  // spec/app/gateway/requests.md, "A request that cannot be served fails without a charge": a 5xx before serving is definite non-service, not an ambiguity.
+  it("releases the whole reservation when the provider fails the request with a 5xx", async () => {
+    const program = embeddingsHarness(() => Promise.resolve(new Response("upstream broken", { status: 500 })), "fivexx-key", "fivexx-ref");
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await meterState(result);
+    expect(result.status).toBe(502);
+    expect(state.rows[0]?.status).toBe("Failed");
+    expect(state.key?.spent).toBe(0);
+    expect(state.ledgerRows.some((entry) => entry.kind === "Charge")).toBe(false);
+  });
+
+  // spec/app/usage.md, "A pending request can fail or go under review": a 200 whose body cannot be read is genuinely ambiguous and stays under review.
+  it("keeps an unparseable 200 body under review at the reserve", async () => {
+    const program = embeddingsHarness(() => Promise.resolve(new Response("not json at all", { status: 200, headers: { "content-type": "application/json" } })), "badjson-key", "badjson-ref");
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await meterState(result);
+    expect(result.status).toBe(502);
+    expect(state.rows[0]?.status).toBe("Unreported");
+    expect(state.rows[0]?.cost).toBe(11);
+    expect(state.key?.spent).toBe(11);
+  });
 });
