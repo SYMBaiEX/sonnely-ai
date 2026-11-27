@@ -1,8 +1,8 @@
-// spec/app/console/index.md, "Story: Set up the workspace profile" and "Story: Choose how this device shows the
-// console"; spec/app/session.md, "Story: Sign in with a wallet": workspace identity, preferences and sessions.
+// spec/app/console/index.md, "Story: Set up the workspace profile"; spec/app/console/index.md, "Story: Choose how this device shows the console"; spec/app/console/chat.md, "Story: Erase what the workspace keeps"; spec/app/session.md, "Story: Sign in with a wallet"
 import { useState, type FormEvent } from "react";
-import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield } from "lucide-react";
+import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield, Trash2 } from "lucide-react";
 import type { Console, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
+import type { Chat } from "../../../../gen/app__console__chat.ts";
 import { useRemote, type Remote } from "../../remote.ts";
 import type { Theme as BrowserTheme } from "../site/chrome.tsx";
 import { MotionSwitch } from "../site/motion.tsx";
@@ -66,6 +66,71 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
           <span />
         </button>
       </div>
+    </section>
+  );
+}
+
+function ClearHistoryPanel() {
+  const chat = useRemote<Chat>("console__chat");
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const threads = chat.state?.threads.length ?? 0;
+
+  async function clear() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const cleared = await chat.send({ type: "clearAll" });
+      setMessage(cleared ? "Chat history cleared from the server." : "The workspace refused to clear the history.");
+      if (cleared) setConfirming(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="panel stack-panel settings-panel">
+      <div className="between">
+        <h2>Chat history</h2>
+        <Trash2 size={20} />
+      </div>
+      <div className="settings-row">
+        <div>
+          <strong>Clear chat history</strong>
+          <p>
+            Erase every playground conversation the server keeps for this wallet
+            {threads ? ` — currently ${threads}` : ""}. Export any transcript you want to keep first; clearing
+            cannot be undone.
+          </p>
+        </div>
+        {!confirming && (
+          <button className="button quiet" type="button" disabled={busy || !threads} onClick={() => setConfirming(true)}>
+            Clear history
+          </button>
+        )}
+      </div>
+      {confirming && (
+        <div className="settings-row">
+          <div>
+            <strong>Erase {threads === 1 ? "this conversation" : `all ${threads} conversations`}?</strong>
+            <p>The server forgets every prompt and answer it keeps for this wallet.</p>
+          </div>
+          <div className="batch-actions">
+            <button className="button quiet" type="button" disabled={busy} onClick={() => setConfirming(false)}>
+              Keep history
+            </button>
+            <button className="button accent" type="button" disabled={busy} onClick={() => void clear()}>
+              Clear everything
+            </button>
+          </div>
+        </div>
+      )}
+      {message && (
+        <p className="caption" role="status">
+          {message}
+        </p>
+      )}
     </section>
   );
 }
@@ -178,6 +243,7 @@ function SettingsContent() {
         )}
       </section>
       <PreferencesPanel settings={settings} state={state} />
+      {wallet && <ClearHistoryPanel />}
       <SessionsPanel session={session} />
       <div className="actions">
         <a className="button quiet" href="/docs/attestation#data-handling">

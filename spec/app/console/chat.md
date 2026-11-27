@@ -1,11 +1,16 @@
 # Chat
 
 The playground: conversations of user prompts and assistant answers on a
-chosen model. The console keeps the thread history; what answers a prompt
-belongs to the responder behind the shell — on staging a deterministic
-local responder, in production the inference gateway. An assistant reply
-arrives in pieces: each `reply` event carries the answer so far, so an
-answer in progress is replaced, not appended.
+chosen model. The console keeps the thread history server-side, one machine
+per wallet: prompts and answers persist in the workspace's machine state
+until the wallet removes a thread or clears the whole history, so a
+conversation reopened on any device is the same one. A workspace that turns
+chat history off keeps nothing here — the browser holds the session and
+writes nothing to this machine. What answers a prompt belongs to the
+responder behind the shell — on staging a deterministic local responder, in
+production the inference gateway. An assistant reply arrives in pieces:
+each `reply` event carries the answer so far, so an answer in progress is
+replaced, not appended.
 
 ## Domain
 
@@ -238,4 +243,26 @@ pure val modelValues = Set("deepseek-ai/DeepSeek-V4.1-Flash-1017", "z-ai/glm-5.3
 pure val textValues = Set("What is a TEE?", "Summarize this note in one sentence.", "Tell me more", "")
 
 pure val indexValues = Set(0, 1, 2)
+```
+
+## Story: Erase what the workspace keeps
+
+> As a user, I want to clear my whole chat history at once, so that prompts
+> and answers I no longer want kept stop persisting server-side.
+
+### Clearing drops every thread and unopens the open one
+
+The clear is total: it answers the empty history the same as a full one, so
+a wallet can always converge to nothing kept, however often it is repeated.
+The chosen model survives — it is a preference, not history.
+
+```quint
+pure def clearAll(c: Chat): Chat = { threads: List(), active: "", model: c.model }
+```
+
+### Clearing keeps nothing
+
+```quint
+pure def lawClearAllKeepsNothing(c: Chat): bool =
+  clearAll(c).threads.length() == 0 and clearAll(c).active == ""
 ```

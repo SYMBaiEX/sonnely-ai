@@ -25,7 +25,7 @@ function makeApp() {
   }));
   const scheduler = Layer.succeed(Scheduler.Scheduler, new Scheduler.MixedScheduler("sync"));
   const apis = Layer.mergeAll(
-    fleetMachineApi("console__chat", { events: ["newChat", "pickModel", "send", "reply", "edit", "open", "remove"] }),
+    fleetMachineApi("console__chat", { events: ["newChat", "pickModel", "send", "reply", "edit", "open", "remove", "clearAll"] }),
   );
   const state = Layer.provideMerge(
     Layer.mergeAll(Session.stored("session"), fleetLive),
@@ -51,7 +51,7 @@ function post(handler: (request: Request) => Promise<Response>, body: unknown) {
 function readState(handler: (request: Request) => Promise<Response>) {
   return handler(new Request("http://localhost/api/machines/console__chat", {
     headers: { cookie: "sonnely_session=" + tokenA },
-  })).then((response) => response.json() as Promise<{ threads: { id: string; messages: { role: string; content: string }[] }[] }>);
+  })).then((response) => response.json() as Promise<{ active: string; threads: { id: string; messages: { role: string; content: string }[] }[] }>);
 }
 
 afterEach(async () => {
@@ -112,6 +112,28 @@ describe("console chat turns", () => {
       retried: 200,
       answered: 200,
       messages: [["User", "hello"], ["Assistant", "hi there"], ["User", "how are you"], ["Assistant", "well"]],
+    });
+  });
+
+  // spec/app/console/chat.md, "Story: Erase what the workspace keeps"
+  it("erases the whole server-side history on clearAll, and again on an empty one", async () => {
+    const handler = makeApp();
+    await post(handler, { type: "send", id: "thread-x", model: "m", text: "hello" });
+    await post(handler, { type: "reply", id: "thread-x", model: "m", text: "hi there" });
+    await post(handler, { type: "send", id: "thread-y", model: "m", text: "second conversation" });
+    const cleared = await post(handler, { type: "clearAll" });
+    const state = await readState(handler);
+    const again = await post(handler, { type: "clearAll" });
+    expect({
+      cleared: cleared.status,
+      threads: state.threads.length,
+      active: state.active,
+      again: again.status,
+    }).toEqual({
+      cleared: 200,
+      threads: 0,
+      active: "",
+      again: 200,
     });
   });
 });
