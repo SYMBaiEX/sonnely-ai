@@ -22,7 +22,7 @@ type Section =
 
 type Page =
   | Home
-  | Inference | Observability
+  | Inference
   | Models | Pricing | Model({ provider: str, model: str })
   | Status | Journal | Post({ slug: str }) | Privacy | Terms | Verify | Contact
   | ContactOne | ContactTwo | ContactThree | ContactFour

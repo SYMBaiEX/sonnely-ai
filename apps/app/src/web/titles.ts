@@ -30,8 +30,6 @@ export function titleOf(page: Page): string {
       return home;
     case "Inference":
       return titled(pages.inference[0]);
-    case "Observability":
-      return titled(pages.observability[0]);
     case "Models":
       return titled(pages.models[0]);
     case "Pricing":

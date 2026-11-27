@@ -2,8 +2,8 @@
 import { Machine, stored } from "../../gen/app__nav.effect.vibe"
 import type { Page } from "../../gen/app__nav.ts"
 
-/** The navigator, kept under "nav". */
-export const nav = stored("nav")
+/** The navigator, kept under "nav2": the page model changed when observability merged into inference, and a state written against it is not a state now. */
+export const nav = stored("nav2")
 
 /** A page opened from a link in the page. */
 export effect function open(page: Page) {

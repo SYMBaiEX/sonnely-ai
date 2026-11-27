@@ -14,7 +14,6 @@ const routes = [
   ["models", "/models"],
   ["model-detail", "/models/near-ai/black-forest-labs/FLUX.2-klein-4B"],
   ["inference", "/inference"],
-  ["observability", "/observability"],
   ["status", "/status"],
   ["verify", "/verify"],
   ["contact", "/contact"],

@@ -17,7 +17,7 @@ const receive = (_key: string, input: unknown) =>
 
 /** The navigator as stored; the initial page and empty back stack read as "nothing kept". */
 const observe = () =>
-  Effect.map(KeyValueStore.KeyValueStore.use((store) => store.get("nav")), (found) => {
+  Effect.map(KeyValueStore.KeyValueStore.use((store) => store.get("nav2")), (found) => {
     const n = found === undefined ? null : (JSON.parse(found) as Nav);
     return n === null || (n.back.length === 0 && n.page.tag === "Home") ? null : n;
   });

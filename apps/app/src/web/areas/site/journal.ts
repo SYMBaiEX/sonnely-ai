@@ -55,7 +55,7 @@ export const articles: Article[] = [
         ],
       },
     ],
-    related: ["/observability", "Explore inference observability"],
+    related: ["/inference#traces", "Explore inference observability"],
   },
   {
     slug: "request-path",

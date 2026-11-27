@@ -5,7 +5,7 @@ import type { Machine } from "../../gen/app__nav.effect.vibe";
 import { useMachine } from "../../gen/app__nav.react.ts";
 import type { Page } from "../../gen/app__nav.ts";
 import { back, open } from "./nav.vibe";
-import { pageOf, pathOf } from "./routes.ts";
+import { pageOf, pathOf, redirectOf } from "./routes.ts";
 import { titleOf } from "./titles.ts";
 
 export interface AreaModule {
@@ -31,6 +31,10 @@ export function App({ runtime, path }: AppProps) {
   const { state } = useMachine(runtime);
 
   useEffect(() => {
+    const redirect = redirectOf(path);
+    if (redirect !== null) {
+      history.replaceState(null, "", redirect + location.hash);
+    }
     void runtime.runPromiseExit(open(pageOf(path)));
   }, [runtime, path]);
 

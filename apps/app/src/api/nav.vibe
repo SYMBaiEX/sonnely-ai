@@ -8,5 +8,5 @@ export const navApi = Layer.unwrap(effect {
 })
 
 export function navState(dir: string) {
-  return Layer.provide(stored("nav"), stateStore(dir))
+  return Layer.provide(stored("nav2"), stateStore(dir))
 }

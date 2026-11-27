@@ -867,13 +867,13 @@
       ],
       "Domain / The catalog lists every guide in sidebar order": [
         "af50b211fbc3",
-        "c49444ef935e",
+        "b11397cf52d0",
         "b2644373e008"
       ],
       "Domain / The docs a slug names are found in the catalog": [
         "f6657d389203",
         "6414ed7141e9",
-        "715e8ce5dab9"
+        "23ead50fc833"
       ],
       "## Story: Read the documentation": [
         "857732ca033e"
@@ -881,27 +881,27 @@
       "Story: Read the documentation / Every guide is listed once": [
         "1deed32c5101",
         "07cdc09c1c1a",
-        "29d57acddb64"
+        "e180ed3510a6"
       ],
       "Story: Read the documentation / The sidebar leads with the overview": [
         "e3b0c44298fc",
         "641d2b553d05",
-        "29d57acddb64"
+        "e180ed3510a6"
       ],
       "Story: Read the documentation / Every guide sits in a named section": [
         "0baaf63e6497",
         "068e26040bf6",
-        "29d57acddb64"
+        "e180ed3510a6"
       ],
       "Story: Read the documentation / Each section lists its guides": [
         "bd9579bf4101",
         "2164593c4d2c",
-        "29d57acddb64"
+        "e180ed3510a6"
       ],
       "Story: Read the documentation / A guide is found by its slug": [
         "e3b0c44298fc",
         "1fc12c476627",
-        "29d57acddb64"
+        "e180ed3510a6"
       ],
       "## Story: Move between guides": [
         "7e59cb118b33"
@@ -909,17 +909,17 @@
       "Story: Move between guides / Previous and next follow the catalog order": [
         "dd17af011d87",
         "70aa77234e30",
-        "29d57acddb64"
+        "e180ed3510a6"
       ],
       "Story: Move between guides / The ends of the catalog have no neighbour": [
         "e3b0c44298fc",
         "9f64180365d3",
-        "715e8ce5dab9"
+        "23ead50fc833"
       ],
       "Story: Move between guides / A guide's neighbours are guides": [
         "e3b0c44298fc",
         "db17aa7f1252",
-        "29d57acddb64"
+        "e180ed3510a6"
       ],
       "## Story: Serve the documentation as markdown": [
         "ecd86e492de8"
@@ -927,17 +927,17 @@
       "Story: Serve the documentation as markdown / The catalog holds the guides the product ships": [
         "8533fbbc85bc",
         "76873d6b2826",
-        "715e8ce5dab9"
+        "23ead50fc833"
       ],
       "Story: Serve the documentation as markdown / Every doc a feed serves is readable": [
         "9b5bc8b27cbd",
         "75575e7bfa1c",
-        "29d57acddb64"
+        "e180ed3510a6"
       ],
       "Story: Serve the documentation as markdown / Every endpoint the reference lists is documented": [
         "9315137d3e66",
         "da9dc41d0c1b",
-        "29d57acddb64"
+        "e180ed3510a6"
       ]
     },
     "spec/app/gateway/batch.md": {
@@ -1500,13 +1500,13 @@
       ],
       "Domain / Pages and console sections": [
         "2055e32e7565",
-        "ff6b34a73211",
+        "a754605649d1",
         "c2829debbd38"
       ],
       "Domain / Navigation starts on the home page with nowhere to go back to": [
         "e3b0c44298fc",
         "f92ea617d1ba",
-        "f15f30f1cec8"
+        "1eed297d516d"
       ],
       "## Story: Move around": [
         "7f6064769965"
@@ -1514,27 +1514,27 @@
       "Story: Move around / Any page can be opened": [
         "5d64f362f658",
         "18a2e54b8831",
-        "f15f30f1cec8"
+        "1eed297d516d"
       ],
       "Story: Move around / Going back is possible only after opening a page": [
         "e3b0c44298fc",
         "2e10b4a349ac",
-        "ea13561cec25"
+        "a693b8391c8a"
       ],
       "Story: Move around / Opening a page leaves it showing": [
         "e3b0c44298fc",
         "747bc12f386b",
-        "f15f30f1cec8"
+        "1eed297d516d"
       ],
       "Story: Move around / Opening then going back returns where it started": [
         "e3b0c44298fc",
         "16d63d0e33c7",
-        "ac9ae192d486"
+        "2d87a7233e3a"
       ],
       "Story: Move around / Going back twice needs two pages opened": [
         "e3b0c44298fc",
         "8da3ffea64e8",
-        "f15f30f1cec8"
+        "1eed297d516d"
       ]
     },
     "spec/app/session.md": {

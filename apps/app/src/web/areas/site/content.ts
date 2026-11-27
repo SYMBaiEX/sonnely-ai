@@ -2,17 +2,8 @@
 import type { Endpoint, ProviderId } from "../../../../gen/app__models.ts";
 import { apiBasePath, apiOrigin, endpointPaths, providerSlugs } from "./data.ts";
 
-export const productsMenu = [
-  {
-    href: "/inference",
-    label: "Confidential inference",
-    detail: "Models and routing",
-    icon: "Fingerprint",
-  },
-  { href: "/observability", label: "Observability", detail: "Traces and UsageMax", icon: "Radio" },
-] as const;
-
 export const headerLinks = [
+  ["/inference", "Inference"],
   ["/models", "Models"],
   ["/pricing", "Pricing"],
   ["/docs", "Docs"],
@@ -23,11 +14,7 @@ export const headerLinks = [
 export const pages = {
   inference: [
     "Confidential inference",
-    "Send a request, stream the response, and meter every call through one OpenAI-compatible API.",
-  ],
-  observability: [
-    "Inference observability",
-    "Trace inference through the gateway, compare usage and latency, and reconcile compute costs with UsageMax.",
+    "Send a request, stream the response, and trace every call through one OpenAI-compatible API.",
   ],
   models: [
     "Model catalog",
@@ -37,8 +24,6 @@ export const pages = {
 } as const;
 
 export type SitePageId = keyof typeof pages;
-export const productPageIds = ["inference", "observability"] as const;
-export type ProductPageId = (typeof productPageIds)[number];
 
 export const entryActions = {
   inference: {
@@ -46,12 +31,6 @@ export const entryActions = {
     label: "Explore confidential routing",
     next: "/docs/quickstart",
     action: "Try the API quickstart",
-  },
-  observability: {
-    section: "#traces",
-    label: "Explore a sample trace",
-    next: "/docs/observability",
-    action: "Read the guide",
   },
   models: {
     section: "#available-models",
@@ -71,14 +50,8 @@ export const platformLinks = [
   {
     href: "/inference",
     label: "Confidential inference",
-    description: "Send a request, stream a completion, and verify its receipt.",
+    description: "Send a request, stream a completion, and follow its trace from routing to settlement.",
     icon: "Cpu",
-  },
-  {
-    href: "/observability",
-    label: "Inference observability",
-    description: "Follow gateway traces, compare latency and costs, and surface operational alerts.",
-    icon: "Activity",
   },
 ] as const;
 
@@ -170,7 +143,6 @@ const allFooterGroups = [
     title: "Platform",
     links: [
       ["/inference", "Confidential inference"],
-      ["/observability", "Observability"],
       ["/models", "Model catalog"],
       ["/pricing", "Pricing"],
       ["/console/chat", "Playground"],

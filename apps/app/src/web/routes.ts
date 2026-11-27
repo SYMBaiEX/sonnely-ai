@@ -22,7 +22,6 @@ export function pathOf(page: Page): string {
   switch (page.tag) {
     case "Home": return "/";
     case "Inference": return "/inference";
-    case "Observability": return "/observability";
     case "Models": return "/models";
     case "Pricing": return "/pricing";
     case "Model": return `/models/${page.provider}/${page.model}`;
@@ -44,13 +43,20 @@ export function pathOf(page: Page): string {
   }
 }
 
+/** Where an old address moved, if it did: /observability merged into /inference. */
+export function redirectOf(path: string): string | null {
+  const clean = path.replace(/\/+$/, "") || "/";
+  if (clean === "/observability") return "/inference";
+  return null;
+}
+
 export function pageOf(path: string): Page {
   const clean = path.replace(/\/+$/, "") || "/";
   if (clean === "/") return { tag: "Home" };
   const parts = clean.slice(1).split("/");
   switch (parts[0]) {
     case "inference": return { tag: "Inference" };
-    case "observability": return { tag: "Observability" };
+    case "observability": return { tag: "Inference" };
     case "models":
       return parts.length > 2
         ? { tag: "Model", provider: decodeURIComponent(parts[1]), model: parts.slice(2).map(decodeURIComponent).join("/") }

@@ -5,7 +5,7 @@ import { pathOf } from "../../routes.ts";
 import { SiteLead, ThemeSurface } from "./chrome.tsx";
 import { ProductIcon } from "./icons.tsx";
 import { Home } from "./home.tsx";
-import { PlatformLinks, ProductPage } from "./products.tsx";
+import { InferencePage, PlatformLinks } from "./products.tsx";
 import { ModelsPage } from "./models.tsx";
 import { PricingPage } from "./pricing.tsx";
 import { ModelPage } from "./model.tsx";
@@ -71,10 +71,7 @@ export function render(page: Page): React.ReactNode {
       body = <Home />;
       break;
     case "Inference":
-      body = <ProductPage page="inference" />;
-      break;
-    case "Observability":
-      body = <ProductPage page="observability" />;
+      body = <InferencePage />;
       break;
     case "Models":
       body = <ModelsPage />;

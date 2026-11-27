@@ -1056,7 +1056,7 @@ pure val bodies: List[List[str]] = List(
         "- [Open Usage](/console/usage)",
         "- [Open Request logs](/console/logs)",
         "- [Review a stream interruption](/docs/streaming#handle-interruptions)",
-        "- [Explore observability](/observability)",
+        "- [Explore inference](/inference#traces)",
         "",
         "",
         "@end"

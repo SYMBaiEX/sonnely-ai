@@ -4,43 +4,27 @@ import { useState, type ReactNode } from "react";
 import { HighlightedCode } from "../../syntax.tsx";
 import { SiteLead, type SiteBrief } from "./chrome.tsx";
 import { apiBasePath } from "./data.ts";
-import { entryActions, pages, platformLinks, traceStages, type ProductPageId } from "./content.ts";
+import { entryActions, pages, platformLinks, traceStages } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
 import { buttonAccent, caption, textLink, wrap } from "./ui.ts";
 
 export function PlatformLinks({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
-  if (compact) {
-    return (
-      <section className={"product-related " + className} aria-labelledby="platform-links-heading">
-        <div className="product-indexIntro" data-reveal="rise">
-          <h2 id="platform-links-heading">Explore the platform</h2>
-        </div>
-        <ul className="directory-modules compact" role="list">
-          {platformLinks.map(({ href, label, description, icon }) => (
-            <li key={href}>
-              <a href={href}>
-                <span className="directory-module-head">
-                  <span className="directory-path">
-                    <ProductIcon name={icon} size={14} /> ~{href}
-                  </span>
-                  <ArrowUpRight size={16} aria-hidden="true" />
-                </span>
-                <strong>{label}</strong>
-                <small>{description}</small>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    );
-  }
   return (
-    <section className={"section product-index " + className} aria-labelledby="platform-links-heading">
+    <section
+      className={(compact ? "product-related " : "section product-index ") + className}
+      aria-labelledby="platform-links-heading"
+    >
       <div className="product-indexIntro" data-reveal="rise">
-        <h2 id="platform-links-heading">Inference, from API to operations.</h2>
-        <p>Choose a model route and understand each request.</p>
+        {compact ? (
+          <h2 id="platform-links-heading">Explore the platform</h2>
+        ) : (
+          <>
+            <h2 id="platform-links-heading">Inference, from API to operations.</h2>
+            <p>Choose a model route and understand each request.</p>
+          </>
+        )}
       </div>
-      <ul className="directory-modules" role="list">
+      <ul className={compact ? "directory-modules compact" : "directory-modules"} role="list">
         {platformLinks.map(({ href, label, description, icon }) => {
           const brief = directoryBriefs[href];
           return (
@@ -208,102 +192,6 @@ export function TracePreview() {
   );
 }
 
-function Observability() {
-  return (
-    <>
-      <Module id="traces" index="01" path="~/observability/traces" icon="Radio" title="Follow the whole request.">
-        <div className="module-copy wide">
-          <p>
-            See where a request spent time, from reserving credits and executing the request to
-            evidence verification and settlement. A pending billing hold stays visible while it is
-            investigated.
-          </p>
-        </div>
-        <TracePreview />
-        <div className="module-copy wide">
-          <p className="module-note">
-            Trace data contains timing, route, and billing metadata. Prompts and responses stay out
-            of UsageMax receipts. Workspace users can see their own tokens and charges in Usage.
-            Gateway traces and compute costs are restricted to authorized operators.
-          </p>
-        </div>
-      </Module>
-      <Module id="analytics" index="02" path="~/observability/analytics" icon="Activity" title="Compare models and days.">
-        <div className="module-copy">
-          <p>
-            Group the private report by model or UTC day. Compare attempts, errors, input and output
-            tokens, p50, p95 and p99 latency, first-token time, and known compute cost. Cost coverage
-            shows how many requests have evidence. Margin covers only requests with both charges and
-            known costs.
-          </p>
-          <NextLink href="/docs/observability#export-to-usagemax">Export your workspace usage</NextLink>
-        </div>
-        <div className="module-artifact">
-          <ModuleFacts
-            rows={[
-              ["group by", "model · utc day"],
-              ["window", "up to 30 days"],
-              ["coverage", "up to 2,000 receipts"],
-            ]}
-          />
-        </div>
-      </Module>
-      <Module id="reconciliation" index="03" path="~/observability/reconciliation" icon="ReceiptText" title="Reconcile a statement.">
-        <div className="module-copy">
-          <p>
-            Operators preview finalized invoice lines against Sonnely’s billing references. Matches,
-            cost variances, duplicate references, and unmatched lines have separate outcomes.
-            Recording the statement publishes eligible invoice-confirmed cost revisions to UsageMax
-            and keeps an audit history in Sonnely.
-          </p>
-          <p className="module-note">
-            Customer charges, credit balances, and treasury payout amounts follow the Sonnely
-            ledger.
-          </p>
-        </div>
-        <div className="module-artifact">
-          <ModuleCode
-            label="normalized invoice line · example"
-            source={"reference,cost_usd\nprovider-request-id,0.000042"}
-            language="csv"
-          />
-        </div>
-      </Module>
-      <Module id="alerts" index="04" path="~/observability/alerts" icon="Activity" title="Surface problems early.">
-        <div className="module-copy">
-          <p>
-            Scheduled alerts flag request errors, high latency, and pending billing recovery. Admin
-            shows open and resolved incidents alongside the current state of receipt delivery.
-          </p>
-          <p className={caption + " module-caption"}>
-            Alerts use at least five attempts in the previous hour.
-          </p>
-        </div>
-        <div className="module-artifact">
-          <ModuleFacts
-            rows={[
-              ["evaluation interval", "5 minutes"],
-              ["error rate", "20%"],
-              ["p95 latency", "5 seconds"],
-            ]}
-          />
-        </div>
-      </Module>
-      <Module id="evaluations" index="05" path="~/observability/evaluations" icon="Code2" title="Evaluate before you roll out.">
-        <div className="module-copy">
-          <p>
-            UsageMax includes a versioned gateway eval runner. Use synthetic fixtures for CI
-            regression checks, or run explicit live measurements against Sonnely with a request
-            budget and a reviewed baseline. Results include pass status, token counts, charge, and
-            latency.
-          </p>
-          <NextLink href="/blog/choose-a-model">Plan a small evaluation</NextLink>
-        </div>
-      </Module>
-    </>
-  );
-}
-
 function Inference() {
   return (
     <>
@@ -382,79 +270,145 @@ function Inference() {
           />
         </div>
       </Module>
+      <Module id="traces" index="04" path="~/inference/traces" icon="Radio" title="Follow the whole request.">
+        <div className="module-copy wide">
+          <p>
+            See where a request spent time, from reserving credits and executing the request to
+            evidence verification and settlement. A pending billing hold stays visible while it is
+            investigated.
+          </p>
+        </div>
+        <TracePreview />
+        <div className="module-copy wide">
+          <p className="module-note">
+            Trace data contains timing, route, and billing metadata. Prompts and responses stay out
+            of UsageMax receipts. Workspace users can see their own tokens and charges in Usage.
+            Gateway traces and compute costs are restricted to authorized operators.
+          </p>
+        </div>
+      </Module>
+      <Module id="analytics" index="05" path="~/inference/analytics" icon="Activity" title="Compare models and days.">
+        <div className="module-copy">
+          <p>
+            Group the private report by model or UTC day. Compare attempts, errors, input and output
+            tokens, p50, p95 and p99 latency, first-token time, and known compute cost. Cost coverage
+            shows how many requests have evidence. Margin covers only requests with both charges and
+            known costs.
+          </p>
+          <NextLink href="/docs/observability#export-to-usagemax">Export your workspace usage</NextLink>
+        </div>
+        <div className="module-artifact">
+          <ModuleFacts
+            rows={[
+              ["group by", "model · utc day"],
+              ["window", "up to 30 days"],
+              ["coverage", "up to 2,000 receipts"],
+            ]}
+          />
+        </div>
+      </Module>
+      <Module id="reconciliation" index="06" path="~/inference/reconciliation" icon="ReceiptText" title="Reconcile a statement.">
+        <div className="module-copy">
+          <p>
+            Operators preview finalized invoice lines against Sonnely’s billing references. Matches,
+            cost variances, duplicate references, and unmatched lines have separate outcomes.
+            Recording the statement publishes eligible invoice-confirmed cost revisions to UsageMax
+            and keeps an audit history in Sonnely.
+          </p>
+          <p className="module-note">
+            Customer charges, credit balances, and treasury payout amounts follow the Sonnely
+            ledger.
+          </p>
+        </div>
+        <div className="module-artifact">
+          <ModuleCode
+            label="normalized invoice line · example"
+            source={"reference,cost_usd\nprovider-request-id,0.000042"}
+            language="csv"
+          />
+        </div>
+      </Module>
+      <Module id="alerts" index="07" path="~/inference/alerts" icon="Activity" title="Surface problems early.">
+        <div className="module-copy">
+          <p>
+            Scheduled alerts flag request errors, high latency, and pending billing recovery. Admin
+            shows open and resolved incidents alongside the current state of receipt delivery.
+          </p>
+          <p className={caption + " module-caption"}>
+            Alerts use at least five attempts in the previous hour.
+          </p>
+        </div>
+        <div className="module-artifact">
+          <ModuleFacts
+            rows={[
+              ["evaluation interval", "5 minutes"],
+              ["error rate", "20%"],
+              ["p95 latency", "5 seconds"],
+            ]}
+          />
+        </div>
+      </Module>
+      <Module id="evaluations" index="08" path="~/inference/evaluations" icon="Code2" title="Evaluate before you roll out.">
+        <div className="module-copy">
+          <p>
+            UsageMax includes a versioned gateway eval runner. Use synthetic fixtures for CI
+            regression checks, or run explicit live measurements against Sonnely with a request
+            budget and a reviewed baseline. Results include pass status, token counts, charge, and
+            latency.
+          </p>
+          <NextLink href="/blog/choose-a-model">Plan a small evaluation</NextLink>
+        </div>
+      </Module>
     </>
   );
 }
 
-const pageContent: Record<ProductPageId, () => ReactNode> = {
-  inference: Inference,
-  observability: Observability,
-};
+const sections = [
+  ["routing", "routing"],
+  ["streaming", "streaming"],
+  ["evidence", "privacy boundary"],
+  ["traces", "traces"],
+  ["analytics", "analytics"],
+  ["reconciliation", "reconciliation"],
+  ["alerts", "alerts"],
+  ["evaluations", "evaluations"],
+] as const;
 
-const pageSections: Record<ProductPageId, readonly (readonly [string, string])[]> = {
-  inference: [
-    ["routing", "routing"],
-    ["streaming", "streaming"],
-    ["evidence", "privacy boundary"],
+const inferenceBrief: SiteBrief = {
+  title: "Inference API",
+  rows: [
+    ["Interface", "Chat Completions"],
+    ["Routing", "Automatic"],
+    ["Response", "Completion or stream"],
+    ["Trace", "Every request"],
   ],
-  observability: [
-    ["traces", "traces"],
-    ["analytics", "analytics"],
-    ["reconciliation", "reconciliation"],
-    ["alerts", "alerts"],
-    ["evaluations", "evaluations"],
-  ],
-};
-
-const pageBriefs: Record<ProductPageId, SiteBrief> = {
-  inference: {
-    title: "Inference API",
-    rows: [
-      ["Interface", "Chat Completions"],
-      ["Routing", "Automatic"],
-      ["Response", "Completion or stream"],
-    ],
-  },
-  observability: {
-    title: "Request lifecycle",
-    rows: [
-      ["Track", "Provider attempts"],
-      ["Measure", "Latency, tokens, cost"],
-      ["Reconcile", "UsageMax receipts"],
-    ],
-  },
 };
 
 const directoryBriefs = {
-  "/inference": pageBriefs.inference,
-  "/observability": pageBriefs.observability,
+  "/inference": inferenceBrief,
 } as const;
 
-export function ProductPage({ page }: { page: ProductPageId }) {
-  const [title, description] = pages[page];
-  const entry = entryActions[page];
-  const sections = pageSections[page];
-  const Content = pageContent[page];
+export function InferencePage() {
+  const [title, description] = pages.inference;
+  const entry = entryActions.inference;
   return (
     <div className={wrap + " inner-page market-page"}>
       <SiteLead
         title={title}
         description={description}
-        brief={pageBriefs[page]}
+        brief={inferenceBrief}
       >
-        {entry && (
-          <div className="product-entry-actions">
-            <a href={entry.section} className={buttonAccent}>
-              {entry.label} <ArrowDown size={15} aria-hidden="true" />
-            </a>
-            <a href={entry.next} className={textLink}>
-              {entry.action} <ArrowRight size={15} aria-hidden="true" />
-            </a>
-          </div>
-        )}
+        <div className="product-entry-actions">
+          <a href={entry.section} className={buttonAccent}>
+            {entry.label} <ArrowDown size={15} aria-hidden="true" />
+          </a>
+          <a href={entry.next} className={textLink}>
+            {entry.action} <ArrowRight size={15} aria-hidden="true" />
+          </a>
+        </div>
       </SiteLead>
       <nav className="module-index" aria-label="On this page">
-        <span className="module-index-path">~/{page}</span>
+        <span className="module-index-path">~/inference</span>
         {sections.map(([id, label], position) => (
           <a key={id} href={"#" + id}>
             <span aria-hidden="true">{String(position + 1).padStart(2, "0")}</span> {label}
@@ -462,9 +416,8 @@ export function ProductPage({ page }: { page: ProductPageId }) {
         ))}
       </nav>
       <div className="module-directory">
-        <Content />
+        <Inference />
       </div>
-      <PlatformLinks compact />
     </div>
   );
 }

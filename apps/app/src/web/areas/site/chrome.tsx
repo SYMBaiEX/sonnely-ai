@@ -3,13 +3,12 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Check,
-  ChevronDown,
   Copy,
   Moon,
   Sun,
 } from "lucide-react";
-import { useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
-import { footerGroups, headerLinks, productsMenu } from "./content.ts";
+import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
 import { Scene } from "./scene.tsx";
@@ -165,7 +164,6 @@ export function SiteHeader({ current }: { current: string }) {
 function SiteNavigation({ current }: { current: string }) {
   const [openPath, setOpenPath] = useState<string | null>(null);
   const mobileOpen = openPath !== null;
-  const menu = useRef<HTMLDetailsElement>(null);
   const consoleAction = (
     <a href="/console/chat" className="button accent">
       Open console <ArrowUpRight size={15} aria-hidden="true" />
@@ -180,44 +178,6 @@ function SiteNavigation({ current }: { current: string }) {
         <button type="button" className="nav-dismiss" aria-label="Close navigation" onClick={closeMobile} />
       )}
       <nav aria-label="Main navigation" data-mobile-open={mobileOpen || undefined}>
-        <details
-          ref={menu}
-          className="nav-products"
-          onKeyDown={(event) => {
-            if (event.key !== "Escape" || !menu.current?.open) return;
-            event.stopPropagation();
-            menu.current.open = false;
-          }}
-          onBlur={(event) => {
-            if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
-              event.currentTarget.open = false;
-            }
-          }}
-        >
-          <summary className="nav-toggle">
-            Platform <ChevronDown size={13} aria-hidden="true" />
-          </summary>
-          <ul className="nav-panel" aria-label="Platform pages">
-            {productsMenu.map(({ href, label, detail, icon }) => (
-              <li key={href}>
-                <a
-                  href={href}
-                  aria-current={current === href ? "page" : undefined}
-                  onClick={closeMobile}
-                >
-                  <span className="nav-icon">
-                    <ProductIcon name={icon} size={17} />
-                  </span>
-                  <span>
-                    <strong>{label}</strong>
-                    <small>{detail}</small>
-                  </span>
-                  <ArrowUpRight size={14} className="nav-arrow" aria-hidden="true" />
-                </a>
-              </li>
-            ))}
-          </ul>
-        </details>
         {headerLinks.map(([href, label]) => (
           <a
             key={href}
