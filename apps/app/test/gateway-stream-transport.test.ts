@@ -233,6 +233,126 @@ describe("gateway stream transport", () => {
     }
   });
 
+  // spec/app/billing/ledger.md, "A failed reservation releases its whole hold": a continuously generating
+  // stream dies at the total deadline, far below the reconciliation sweep's orphan threshold of 15 minutes.
+  it("kills a continuously generating stream at the total deadline", async () => {
+    expect(upstreamTimeouts.streamTotalMs).toBeLessThan(15 * 60 * 1000);
+    vi.useFakeTimers();
+    try {
+      const encoder = new TextEncoder();
+      let interval: ReturnType<typeof setInterval> | undefined;
+      let upstreamCancels = 0;
+      const upstream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          interval = setInterval(() => {
+            try {
+              controller.enqueue(encoder.encode('data: {"id":"endless-stream","object":"chat.completion.chunk","created":1,"choices":[{"index":0,"delta":{"content":"tick"},"finish_reason":null}]}\n\n'));
+            } catch {
+              if (interval) clearInterval(interval);
+            }
+          }, 1_000);
+          interval.unref?.();
+        },
+        cancel() {
+          upstreamCancels += 1;
+          if (interval) clearInterval(interval);
+        },
+      });
+      const settlements: Array<StreamFinal | undefined> = [];
+      const streamed = chatSseResponse({
+        upstream,
+        model: "requested/model",
+        includeUsage: true,
+        rememberId: () => undefined,
+        settle: (usage) => {
+          settlements.push(usage);
+          return Promise.resolve(undefined);
+        },
+      });
+      const reading = streamed.response.text();
+      await vi.advanceTimersByTimeAsync(upstreamTimeouts.streamTotalMs + 2_000);
+      const text = await reading;
+      await streamed.finished;
+      expect(text).toContain('"type":"sonnely_error"');
+      expect(text).toContain("total stream deadline");
+      expect(upstreamCancels).toBeGreaterThan(0);
+      expect(settlements).toEqual([undefined]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // spec/app/billing/ledger.md, "A failed reservation releases its whole hold": when the money step is
+  // refused because the sweep already settled the hold, the stream saga closes nothing — the rows stay
+  // Pending and Serving for the sweep instead of recording a charge the ledger never captured.
+  it("leaves the metering rows open when the final settleHold is rejected", async () => {
+    process.env.NEAR_AI_API_KEY = "test-provider-key";
+    const encoder = new TextEncoder();
+    let releaseTerminal!: () => void;
+    const terminal = new Promise<void>((resolve) => {
+      releaseTerminal = resolve;
+    });
+    const upstream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        controller.enqueue(encoder.encode('data: {"id":"rejected-settle","object":"chat.completion.chunk","created":1,"choices":[{"index":0,"delta":{"content":"partial"},"finish_reason":null}]}\n\n'));
+        await terminal;
+        controller.enqueue(encoder.encode('data: {"id":"rejected-settle","object":"chat.completion.chunk","created":1,"choices":[],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}\n\n'));
+        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.close();
+      },
+    });
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url === "https://cloud-api.near.ai/v1/chat/completions") {
+        return Promise.resolve(new Response(upstream, { status: 200, headers: { "content-type": "text/event-stream" } }));
+      }
+      return realFetch(input, init);
+    });
+    const program = Effect.scoped(Effect.gen(function* () {
+      const keys = yield* WorkspaceKeys.Machine;
+      yield* keys.send({ type: "create", id: "rejected-key", label: "Inference", prefix: "sonnely_live_rejected", hash: "rejected-hash", project: "", scopes: ["inference"], cap: 0, dailyCap: 0, expiresAt: 0, now: 1 }, wallet);
+      const ledger = yield* Ledger.Machine;
+      yield* ledger.send({ type: "credit", wallet, detail: "rejected-deposit", amount: 100_000 });
+      const key = (yield* keys.get()).keys[0];
+      if (!key) throw new Error("missing key");
+      const app = inferChat({ model: "deepseek-ai/DeepSeek-V4.1-Flash-1017", messages: [{ role: "user", content: "hello" }], stream: true }, key, wallet, "rejected-ref");
+      const scope = yield* Scope.Scope;
+      const handler = yield* NodeHttpServer.makeHandler(app, { scope });
+      const server = yield* Effect.acquireRelease(
+        Effect.promise(() => listen((request, response) => handler(request, response))),
+        (open) => Effect.promise(() => close(open)),
+      );
+      const address = server.address();
+      if (typeof address !== "object" || address === null) throw new Error("missing server address");
+      const responsePromise = globalThis.fetch(`http://127.0.0.1:${address.port}/`, { headers: { accept: "text/event-stream" } });
+      for (let attempt = 0; attempt < 200; attempt += 1) {
+        const entries = (yield* ledger.get()).entries;
+        if (entries.some((entry) => entry.kind === "Reserve" && entry.detail === "rejected-ref")) break;
+        if (attempt === 199) throw new Error("the meter never reserved");
+        yield* Effect.sleep("10 millis");
+      }
+      yield* ledger.send({ type: "settleHold", wallet, detail: "rejected-ref", amount: 0 });
+      releaseTerminal();
+      const response = yield* Effect.promise(() => responsePromise);
+      yield* Effect.promise(() => response.text());
+      const usage = yield* Usage.Machine;
+      const requests = yield* Requests.Machine;
+      return { usage, requests, ledger };
+    }));
+    const result = await Effect.runPromise(program.pipe(Effect.provide(stateLayer())));
+    const state = await Effect.runPromise(Effect.gen(function* () {
+      return {
+        rows: (yield* result.usage.get()).rows,
+        requests: (yield* result.requests.get()).requests,
+        entries: (yield* result.ledger.get()).entries,
+      };
+    }));
+    expect(state.rows[0]?.status).toBe("Pending");
+    expect(state.requests[0]?.status).toBe("Serving");
+    expect(state.entries.some((entry) => entry.kind === "Charge" && entry.detail === "rejected-ref" && entry.amount > 0)).toBe(false);
+  });
+
   // spec/app/gateway/requests.md, "Every request reference is unique": a repeat answers 409 without reserving again.
   it("deduplicates specialized endpoint retries by Idempotency-Key", async () => {
     process.env.NEAR_AI_API_KEY = "test-provider-key";
