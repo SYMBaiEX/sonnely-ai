@@ -1,6 +1,5 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import {
-  ArrowLeft,
   ArrowUpRight,
   Check,
   Copy,
@@ -12,7 +11,6 @@ import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } fr
 import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
-import { Scene } from "./scene.tsx";
 import { ProductIcon } from "./icons.tsx";
 
 export const themeKey = "sonnely.theme";
@@ -303,69 +301,6 @@ export function ThemeSurface({ current, children }: { current: string; children:
 export interface SiteBrief {
   title: string;
   rows: readonly (readonly [label: string, value: string])[];
-}
-
-export function ReaderNavigation({
-  sections,
-}: {
-  sections: readonly (readonly [id: string, label: string])[];
-}) {
-  return (
-    <nav className="reader-toc" aria-label="On this page">
-      <strong>On this page</strong>
-      {sections.map(([id, label]) => (
-        <a key={id} href={"#" + id}>
-          {label}
-        </a>
-      ))}
-    </nav>
-  );
-}
-
-export function SiteLead({
-  title,
-  description,
-  status,
-  brief,
-  back = ["/", "Sonnely"],
-  children,
-}: {
-  title: string;
-  description: string;
-  status?: string;
-  brief?: SiteBrief;
-  back?: readonly [href: string, label: string];
-  children?: ReactNode;
-}) {
-  return (
-    <header className="page-lead market-lead" data-brief={brief ? "" : undefined}>
-      <Scene />
-      <div className="market-lead-copy">
-        <div className="market-lead-nav">
-          <a href={back[0]} className="market-back">
-            <ArrowLeft size={14} aria-hidden="true" /> {back[1]}
-          </a>
-          {status && <span className="market-status">{status}</span>}
-        </div>
-        <h1>{title}</h1>
-        <p>{description}</p>
-        {children}
-      </div>
-      {brief && (
-        <figure className="market-brief">
-          <figcaption>{brief.title}</figcaption>
-          <dl>
-            {brief.rows.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </figure>
-      )}
-    </header>
-  );
 }
 
 export function CorrespondenceHero({
