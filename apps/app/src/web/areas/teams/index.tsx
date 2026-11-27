@@ -7,9 +7,9 @@ import { useSession } from "../../session.ts";
 import type { Project, Role, Team, Teams } from "../../../../gen/app__teams.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
-import { useRemote } from "../../remote.ts";
+import { reconnectMachine, useRemote } from "../../remote.ts";
 import { ConsoleFrame } from "../console/frame.tsx";
-import { CopyButton, Empty, WorkspaceHeading, creditBalance, creditDecimal, date, dateTime, parseCreditAmount, shorten } from "../console/bits.tsx";
+import { CopyButton, Empty, WorkspaceHeading, creditBalance, creditDecimal, date, dateTime, day, parseCreditAmount, shorten } from "../console/bits.tsx";
 import "./teams.css";
 
 const roles: Record<Role, string> = { Owner: "Owner", Admin: "Admin", Member: "Member" };
@@ -212,6 +212,7 @@ function ProjectWorkspace({
   run: RunAction;
 }) {
   const [newKey, setNewKey] = useState<string>();
+  const [now] = useState(() => Date.now());
   const canManage = role !== "Member" && !project.archived;
   const projectKeys = keys.filter((key) => key.project === project.id && key.status === "Active");
   const requests = entries.filter((entry) => entry.project === project.id).slice(0, 30);
@@ -240,7 +241,7 @@ function ProjectWorkspace({
         scopes: ["inference"],
         cap,
         dailyCap,
-        expiresAt: expiresOn ? Date.parse(expiresOn + "T00:00:00Z") : 0,
+        expiresAt: expiresOn ? Date.parse(expiresOn + "T23:59:59Z") : 0,
         now: Date.now(),
       },
       () => setNewKey(full),
@@ -339,8 +340,8 @@ function ProjectWorkspace({
                   <MoneyInput label="Lifetime key cap in USD" name="cap" />
                   <MoneyInput label="Daily key cap in USD" name="dailyCap" />
                   <label>
-                    Expires at midnight UTC
-                    <input name="expiresOn" type="date" />
+                    Expires at end of day UTC
+                    <input name="expiresOn" type="date" min={day(now)} />
                   </label>
                 </FieldForm>
               </div>
@@ -412,6 +413,7 @@ function ProjectWorkspace({
         </Section>
       )}
       <Section title="Recent project requests">
+        <p className="caption">Requests run with keys you created appear here; teammates see their own.</p>
         {requests.length === 0 ? (
           <Empty title="No requests yet" icon={<Activity size={22} />}>
             <p>Requests will appear here.</p>
@@ -485,7 +487,7 @@ function TeamWorkspace({
     <>
       <div className="teams-columns">
         <Section title="Projects">
-          <p className="caption">Project requests spend owner credits.</p>
+          <p className="caption">Project requests spend the credits of the wallet that created the key.</p>
           {projects.length > 0 && (
             <label>
               Project
@@ -856,7 +858,7 @@ function TeamsSession() {
         description="Manage wallet access, project budgets, and scoped API keys."
       />
       {wallet ? (
-        <SignedInTeams key={wallet + ":" + revision} wallet={wallet} retry={() => setRevision((current) => current + 1)} />
+        <SignedInTeams key={wallet + ":" + revision} wallet={wallet} retry={() => { reconnectMachine("teams"); setRevision((current) => current + 1); }} />
       ) : (
         <Section title="Wallet required">
           <p>Connect your Solana wallet to create a team or accept an invitation.</p>
