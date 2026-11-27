@@ -139,8 +139,8 @@
         "165d58aa8bc1"
       ],
       "Domain / What the admin reads elsewhere": [
-        "77d580de4555",
-        "d2e356179dc3"
+        "2d5de7a32078",
+        "fce9f6cdd157"
       ],
       "## Story: Grant and revoke access": [
         "aecf7a50af58"
@@ -164,8 +164,8 @@
         "03412128c5bd"
       ],
       "Story: Moderate accounts / Accounts are registered once": [
-        "ef2f24af73be",
-        "fbf580cb859d",
+        "f1e9995091e4",
+        "c6d474b94fbe",
         "3569ac309440"
       ],
       "Story: Moderate accounts / Only an active account can be suspended": [
@@ -648,7 +648,7 @@
     },
     "spec/app/console/chat.md": {
       "@document": [
-        "27d2a7f54ae3"
+        "941fb7a696e9"
       ],
       "## Domain": [
         "e3b0c44298fc"
@@ -729,6 +729,19 @@
         "e3b0c44298fc",
         "e7545b5f1cd8",
         "8ec4f51d1c8c"
+      ],
+      "## Story: Erase what the workspace keeps": [
+        "cf0552327a84"
+      ],
+      "Story: Erase what the workspace keeps / Clearing drops every thread and unopens the open one": [
+        "d0819aa16de4",
+        "fcbc5c726c7e",
+        "8ec4f51d1c8c"
+      ],
+      "Story: Erase what the workspace keeps / Clearing keeps nothing": [
+        "e3b0c44298fc",
+        "7abb7bac2528",
+        "276a6a9e035e"
       ]
     },
     "spec/app/console/index.md": {
@@ -738,14 +751,14 @@
       "## Domain": [
         "e3b0c44298fc"
       ],
-      "Domain / Console settings are a profile and a set of device choices": [
-        "cb15151f5067",
-        "b9e8485cd9be"
+      "Domain / Console settings are a profile and a set of workspace choices": [
+        "b6413b890a2e",
+        "62f349faf365"
       ],
       "Domain / The console starts unnamed with factory defaults": [
-        "e3b0c44298fc",
-        "58c3a4e074e3",
-        "68409c98d996"
+        "b03a8671a10b",
+        "1f0b2b701858",
+        "a631abc0e882"
       ],
       "## Story: Set up the workspace profile": [
         "c2f93b23f435"
@@ -753,17 +766,17 @@
       "Story: Set up the workspace profile / Saving a profile only happens when something changed": [
         "9e6f7639917d",
         "8a5a82e6d769",
-        "68409c98d996"
+        "a631abc0e882"
       ],
       "Story: Set up the workspace profile / A saved profile keeps the device choices": [
         "e3b0c44298fc",
-        "e42207903793",
-        "ba79f7726483"
+        "21d6e9c71352",
+        "82bd8373c936"
       ],
       "Story: Set up the workspace profile / A profile can be personalized": [
         "e3b0c44298fc",
         "0915392a07c1",
-        "68409c98d996"
+        "a631abc0e882"
       ],
       "## Story: Choose how this device shows the console": [
         "b606ed8f4bf2"
@@ -771,17 +784,30 @@
       "Story: Choose how this device shows the console / Choosing a theme changes the theme": [
         "20d1ec1eb39d",
         "f2152a9fb864",
-        "68409c98d996"
+        "a631abc0e882"
       ],
-      "Story: Choose how this device shows the console / The plain-writing and device-history choices toggle independently": [
-        "0842795a9c56",
-        "f26ff273ec30",
-        "68409c98d996"
+      "Story: Choose how this device shows the console / The plain-writing choice toggles": [
+        "5a988cba4207",
+        "6e6b9b64ad45",
+        "a631abc0e882"
       ],
-      "Story: Choose how this device shows the console / The device can be asked to keep chat history": [
+      "Story: Choose how this device shows the console / Plain writing can be turned off": [
         "e3b0c44298fc",
-        "15770ac5c6cd",
-        "68409c98d996"
+        "9d1d61795889",
+        "a631abc0e882"
+      ],
+      "## Story: Choose whether the workspace keeps chat history": [
+        "d150e3486fd5"
+      ],
+      "Story: Choose whether the workspace keeps chat history / The chat-history choice toggles": [
+        "7070059173a1",
+        "392f15a963ef",
+        "a631abc0e882"
+      ],
+      "Story: Choose whether the workspace keeps chat history / Chat history can be turned off": [
+        "e3b0c44298fc",
+        "0c4c8e7fbced",
+        "a631abc0e882"
       ]
     },
     "spec/app/console/logs.md": {
@@ -867,13 +893,13 @@
       ],
       "Domain / The catalog lists every guide in sidebar order": [
         "af50b211fbc3",
-        "b11397cf52d0",
+        "764ee62aa350",
         "b2644373e008"
       ],
       "Domain / The docs a slug names are found in the catalog": [
         "f6657d389203",
         "6414ed7141e9",
-        "23ead50fc833"
+        "feabff72b1aa"
       ],
       "## Story: Read the documentation": [
         "857732ca033e"
@@ -881,27 +907,27 @@
       "Story: Read the documentation / Every guide is listed once": [
         "1deed32c5101",
         "07cdc09c1c1a",
-        "e180ed3510a6"
+        "a3371b901239"
       ],
       "Story: Read the documentation / The sidebar leads with the overview": [
         "e3b0c44298fc",
         "641d2b553d05",
-        "e180ed3510a6"
+        "a3371b901239"
       ],
       "Story: Read the documentation / Every guide sits in a named section": [
         "0baaf63e6497",
         "068e26040bf6",
-        "e180ed3510a6"
+        "a3371b901239"
       ],
       "Story: Read the documentation / Each section lists its guides": [
         "bd9579bf4101",
         "2164593c4d2c",
-        "e180ed3510a6"
+        "a3371b901239"
       ],
       "Story: Read the documentation / A guide is found by its slug": [
         "e3b0c44298fc",
         "1fc12c476627",
-        "e180ed3510a6"
+        "a3371b901239"
       ],
       "## Story: Move between guides": [
         "7e59cb118b33"
@@ -909,17 +935,17 @@
       "Story: Move between guides / Previous and next follow the catalog order": [
         "dd17af011d87",
         "70aa77234e30",
-        "e180ed3510a6"
+        "a3371b901239"
       ],
       "Story: Move between guides / The ends of the catalog have no neighbour": [
         "e3b0c44298fc",
         "9f64180365d3",
-        "23ead50fc833"
+        "feabff72b1aa"
       ],
       "Story: Move between guides / A guide's neighbours are guides": [
         "e3b0c44298fc",
         "db17aa7f1252",
-        "e180ed3510a6"
+        "a3371b901239"
       ],
       "## Story: Serve the documentation as markdown": [
         "ecd86e492de8"
@@ -927,17 +953,17 @@
       "Story: Serve the documentation as markdown / The catalog holds the guides the product ships": [
         "8533fbbc85bc",
         "76873d6b2826",
-        "23ead50fc833"
+        "feabff72b1aa"
       ],
       "Story: Serve the documentation as markdown / Every doc a feed serves is readable": [
         "9b5bc8b27cbd",
         "75575e7bfa1c",
-        "e180ed3510a6"
+        "a3371b901239"
       ],
       "Story: Serve the documentation as markdown / Every endpoint the reference lists is documented": [
         "9315137d3e66",
         "da9dc41d0c1b",
-        "e180ed3510a6"
+        "a3371b901239"
       ]
     },
     "spec/app/gateway/batch.md": {
@@ -1133,12 +1159,12 @@
       ],
       "Domain / The endpoints and the model registry": [
         "d23b72dec690",
-        "907e762dc3b8"
+        "e61d1f9fd8c7"
       ],
       "Domain / A served request": [
-        "25ab86368ffe",
+        "17fbd6e0b817",
         "dff7b62722e9",
-        "b47d92de8268"
+        "cd4dc987b7d4"
       ],
       "Domain / Values the checks sample": [
         "e3b0c44298fc",
@@ -1151,77 +1177,77 @@
       "Story: Serve a metered completion / A request opens only for a serving key and a registered model": [
         "a95c4f3776dc",
         "7fc819a12596",
-        "eb823c29c919"
+        "bd26618ba361"
       ],
       "Story: Serve a metered completion / A streamed request emits tokens while it is open": [
         "d96cfd273fa1",
         "d688c2fae567",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / Finishing records the request's spend exactly once": [
         "7cd2a709a2bb",
         "0e48ef24b941",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / A request that cannot be served fails without a charge": [
         "e3b0c44298fc",
         "157b8dc7510b",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / Every request reference is unique": [
         "57729515808e",
         "1a44c54c22aa",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / Unauthorized keys never serve": [
         "516d43fcd5b5",
         "2b15e06455f9",
-        "eb823c29c919"
+        "bd26618ba361"
       ],
       "Story: Serve a metered completion / Every request names a registered model": [
         "e3b0c44298fc",
         "e4a9093f9fb5",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / Charge is recorded exactly on completion": [
         "4f728734005b",
         "ac446a7cc143",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / Emitted tokens never go back": [
         "e3b0c44298fc",
         "e3956d3b7f91",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / A recorded charge never changes": [
         "7d31fd3a3eb8",
         "10595b4256b0",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / A closed request never reopens": [
         "e2acc54fefa2",
         "3ea8d70dff70",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / A settled request cannot emit, settle or fail again": [
         "e3b0c44298fc",
         "7d714a20bc31",
-        "99bb81b14ae4"
+        "32212119bcf3"
       ],
       "Story: Serve a metered completion / A request can complete": [
         "e3b0c44298fc",
         "b5a903f25bbd",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / A request can fail": [
         "e3b0c44298fc",
         "582739e0b3e8",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ],
       "Story: Serve a metered completion / A stream can emit tokens and terminate": [
         "e3b0c44298fc",
         "5c78ee32020f",
-        "7a558bde3740"
+        "fa15dfc3cd9d"
       ]
     },
     "spec/app/gateway/realtime.md": {
@@ -1247,7 +1273,7 @@
       "Story: Run a metered realtime transcription / A session opens only for a serving key and the realtime model": [
         "845968327e69",
         "e80f35eae97f",
-        "d44a00adcb36"
+        "62ad04c7a09f"
       ],
       "Story: Run a metered realtime transcription / Audio is bounded PCM and cannot be appended after commit": [
         "e3b0c44298fc",
@@ -1272,7 +1298,7 @@
       "Story: Run a metered realtime transcription / Open sessions are authorized for the realtime model": [
         "e3b0c44298fc",
         "4295b84c4251",
-        "d44a00adcb36"
+        "62ad04c7a09f"
       ],
       "Story: Run a metered realtime transcription / Session measurements stay inside the audio envelope": [
         "e3b0c44298fc",
@@ -1317,103 +1343,103 @@
     },
     "spec/app/keys.md": {
       "@document": [
-        "a8db098289bb"
+        "c159febeaeea"
       ],
       "## Domain": [
         "e3b0c44298fc"
       ],
       "Domain / A key record and its lifetime": [
         "e3b0c44298fc",
-        "2394763dbcf7"
+        "ee55a6747c43"
       ],
       "Domain / The registry starts empty": [
         "e3b0c44298fc",
-        "4151482e51d2",
-        "40cbf688bae4"
+        "de924ed14d24",
+        "ecb45f973a1e"
       ],
       "## Story: Issue a key": [
         "4dda0fb85d2c"
       ],
       "Story: Issue a key / A new key needs a name, unique credentials and valid limits": [
         "1b8069b04567",
-        "4e75941f2f56",
-        "f8dfa6528b2b"
+        "d4eda433bb7b",
+        "4b6868802766"
       ],
       "Story: Issue a key / A workspace key can be renamed and have its limits updated": [
         "26b6ed72eaa0",
-        "5f994bb2baa0",
-        "f8dfa6528b2b"
+        "e10c22b0779b",
+        "4b6868802766"
       ],
       "Story: Issue a key / Every key belongs to the wallet that created it": [
         "ce4ce277693a",
         "8b6a06b8a261",
-        "f8dfa6528b2b"
+        "4b6868802766"
       ],
       "Story: Issue a key / Every registered key is well formed": [
         "e3b0c44298fc",
         "0a14010db01e",
-        "f8dfa6528b2b"
+        "4b6868802766"
       ],
       "Story: Issue a key / Ids, prefixes and hashes are unique across the registry": [
         "e3b0c44298fc",
         "8135c08541c5",
-        "40cbf688bae4"
+        "ecb45f973a1e"
       ],
       "Story: Issue a key / A workspace can hold a capped and an uncapped key": [
         "e3b0c44298fc",
         "034ec1cf53e9",
-        "40cbf688bae4"
+        "ecb45f973a1e"
       ],
       "## Story: Spend through a key": [
         "0f0a09360c21"
       ],
       "Story: Spend through a key / Only an active key within its limits can be metered": [
         "5133fbdeb54f",
-        "afe2c3693e49",
-        "f8dfa6528b2b"
+        "f139963dfc66",
+        "4b6868802766"
       ],
       "Story: Spend through a key / Releasing a hold returns what was not charged": [
-        "6e1be523365a",
-        "206d6a0f5b29",
-        "f8dfa6528b2b"
+        "1848dccfd2ec",
+        "738bb1f66b34",
+        "4b6868802766"
       ],
       "Story: Spend through a key / Spend moves only with metering or a returned hold": [
         "c648364b3d7c",
         "1d629b20b18a",
-        "f8dfa6528b2b"
+        "4b6868802766"
       ],
       "Story: Spend through a key / Only metering or a returned hold touches last used and the day's tally": [
         "e3b0c44298fc",
         "cb68338e1618",
-        "f8dfa6528b2b"
+        "4b6868802766"
       ],
       "Story: Spend through a key / A key can be metered": [
         "e3b0c44298fc",
         "1083065bbfe7",
-        "40cbf688bae4"
+        "ecb45f973a1e"
       ],
       "## Story: Revoke a key": [
         "2eed66851ba4"
       ],
       "Story: Revoke a key / Only an active key can be revoked": [
         "e3b0c44298fc",
-        "857081cbc3b9",
-        "f8dfa6528b2b"
+        "d2c1344f3c89",
+        "4b6868802766"
       ],
       "Story: Revoke a key / Revoked is final": [
         "e3b0c44298fc",
         "f84efe43d246",
-        "f8dfa6528b2b"
+        "4b6868802766"
       ],
       "Story: Revoke a key / A revoked key can be shown": [
         "e3b0c44298fc",
         "e843bfd2d60e",
-        "40cbf688bae4"
+        "ecb45f973a1e"
       ],
       "Story: Revoke a key / A revoked key takes no update and no metering": [
         "e3b0c44298fc",
         "35fa244efd06",
-        "d7a2b902bb5b"
+        "668cd9344bfa"
       ]
     },
     "spec/app/models.md": {
@@ -1499,14 +1525,14 @@
         "e3b0c44298fc"
       ],
       "Domain / Pages and console sections": [
-        "2055e32e7565",
-        "a754605649d1",
+        "6c13ab8e1c50",
+        "660d48e5ef99",
         "c2829debbd38"
       ],
       "Domain / Navigation starts on the home page with nowhere to go back to": [
         "e3b0c44298fc",
-        "f92ea617d1ba",
-        "1eed297d516d"
+        "5e01fdd420ee",
+        "6fc9513e4fa0"
       ],
       "## Story: Move around": [
         "7f6064769965"
@@ -1514,27 +1540,27 @@
       "Story: Move around / Any page can be opened": [
         "5d64f362f658",
         "18a2e54b8831",
-        "1eed297d516d"
+        "6fc9513e4fa0"
       ],
       "Story: Move around / Going back is possible only after opening a page": [
         "e3b0c44298fc",
         "2e10b4a349ac",
-        "a693b8391c8a"
+        "04222cfae80c"
       ],
       "Story: Move around / Opening a page leaves it showing": [
         "e3b0c44298fc",
         "747bc12f386b",
-        "1eed297d516d"
+        "6fc9513e4fa0"
       ],
       "Story: Move around / Opening then going back returns where it started": [
         "e3b0c44298fc",
         "16d63d0e33c7",
-        "2d87a7233e3a"
+        "9924ad9e98fb"
       ],
       "Story: Move around / Going back twice needs two pages opened": [
         "e3b0c44298fc",
         "8da3ffea64e8",
-        "1eed297d516d"
+        "6fc9513e4fa0"
       ]
     },
     "spec/app/session.md": {
@@ -1649,7 +1675,7 @@
     },
     "spec/app/support.md": {
       "@document": [
-        "76e22267d815"
+        "f5392ae41f3b"
       ],
       "## Domain": [
         "e3b0c44298fc"
@@ -1667,8 +1693,8 @@
         "522889c36e71"
       ],
       "Story: Open a request / A request needs valid fields and a fresh id": [
-        "46b3823a4d76",
-        "247fe12d57cb",
+        "db7fc8799224",
+        "744e55c7b3d0",
         "a5ee13f9e297"
       ],
       "Story: Open a request / Every ticket stays well formed and uniquely identified": [
@@ -1740,7 +1766,7 @@
       "Story: Move a request through its states / The lifecycle as the customer and the team run it": [
         "e3b0c44298fc",
         "0f95462e20c4",
-        "477ee31b4f62"
+        "3f686486ea82"
       ],
       "## Story: Assign ownership": [
         "ab31f2d2902c"
@@ -1765,114 +1791,114 @@
       ],
       "Domain / A team, its members, invites and projects": [
         "2077b5228406",
-        "8734f170416a"
+        "85ad60857b1c"
       ],
       "Domain / The directory starts empty": [
         "e3b0c44298fc",
-        "9a7d22f7a7aa",
-        "7b3a7ad24118"
+        "37f3fce64e9e",
+        "31cef4cf39d3"
       ],
       "## Story: Form a team": [
         "dd6aa8ba7fca"
       ],
       "Story: Form a team / A team starts with its creator as the sole owner": [
         "73ec36113df2",
-        "374ef55b5410",
-        "c513e94f3a13"
+        "d0972b599e22",
+        "d26024d36fdf"
       ],
       "Story: Form a team / Every team keeps an owner and a finite role set": [
         "e3b0c44298fc",
         "91e1aa6c7097",
-        "c513e94f3a13"
+        "d26024d36fdf"
       ],
       "## Story: Invite and join": [
         "a60969c792ae"
       ],
       "Story: Invite and join / An owner or admin can invite; only an owner may offer admin": [
         "fafc4c24170d",
-        "8cbc59202531",
-        "c513e94f3a13"
+        "d0ec1702b97a",
+        "d26024d36fdf"
       ],
       "Story: Invite and join / An invite is answered once — accept joins, decline voids": [
         "b24809a34104",
-        "a2b06dcbacfb",
-        "c513e94f3a13"
+        "f019b428c3cc",
+        "d26024d36fdf"
       ],
       "Story: Invite and join / A pending invite can be cancelled": [
         "dd14ada3879e",
-        "1307302ddaaa",
-        "c513e94f3a13"
+        "0601ee82d671",
+        "d26024d36fdf"
       ],
       "Story: Invite and join / An answered invite is gone": [
         "e3b0c44298fc",
         "923093468dce",
-        "c513e94f3a13"
+        "d26024d36fdf"
       ],
       "Story: Invite and join / An invitation can be accepted": [
         "e3b0c44298fc",
         "b76597df342a",
-        "7b3a7ad24118"
+        "31cef4cf39d3"
       ],
       "Story: Invite and join / An invite can be used only once": [
         "e3b0c44298fc",
         "e1e146669069",
-        "767ffdeb9df2"
+        "0781220a8189"
       ],
       "Story: Invite and join / A member cannot invite": [
         "e3b0c44298fc",
         "67b3cf03a135",
-        "767ffdeb9df2"
+        "0781220a8189"
       ],
       "## Story: Manage members": [
         "09c1f3a94aa9"
       ],
       "Story: Manage members / Only an owner can grant a role below owner": [
         "4c718b5d1b52",
-        "17072320a7d3",
-        "c513e94f3a13"
+        "99aaef6bcfbd",
+        "d26024d36fdf"
       ],
       "Story: Manage members / Members can leave; an owner can remove anyone but an owner": [
         "9c99f70644ae",
-        "75892a6301a2",
-        "c513e94f3a13"
+        "efb47d1b8632",
+        "d26024d36fdf"
       ],
       "Story: Manage members / A team's owner survives every transition": [
         "e3b0c44298fc",
         "702aa1a15766",
-        "c513e94f3a13"
+        "d26024d36fdf"
       ],
       "Story: Manage members / The sole owner cannot be removed or demoted": [
         "e3b0c44298fc",
         "e971855cb5fc",
-        "9c42b06c3f42"
+        "358e105b0556"
       ],
       "## Story: Budget a project": [
         "9873fa2a71d0"
       ],
       "Story: Budget a project / A manager can create a project with a valid budget": [
         "5defb86b9c5c",
-        "da89e5362b58",
-        "c513e94f3a13"
+        "9f40065f4284",
+        "d26024d36fdf"
       ],
       "Story: Budget a project / A manager can update or archive a live project": [
         "e3b0c44298fc",
-        "be11302f0856",
-        "c513e94f3a13"
+        "b255f0c14273",
+        "d26024d36fdf"
       ],
       "Story: Budget a project / A live project holds each reservation inside its budget": [
         "ba6cacc50c75",
-        "384ca15edecd",
-        "c513e94f3a13"
+        "b79e3bdd4b0a",
+        "d26024d36fdf"
       ],
       "Story: Budget a project / Settling or releasing a reservation returns what it did not spend": [
-        "e116c80e7601",
-        "f6cd56fff092",
-        "c513e94f3a13"
+        "e489d25a9810",
+        "df88debfbee5",
+        "d26024d36fdf"
       ],
       "Story: Budget a project / A project can be created and archived": [
         "e3b0c44298fc",
         "7e2ce1fca524",
-        "7b3a7ad24118"
+        "31cef4cf39d3"
       ]
     },
     "spec/app/usage.md": {
