@@ -147,7 +147,8 @@ function sessionBound<A>(frames: Stream.Stream<A>, sessions: Session.Machine.Sha
   )
 }
 
-effect function sessionBoundFrames<A>(frames: Stream.Stream<A>, wallet: string, digest: string) {
+/** Frames revalidated against the session they were opened with, for every wallet-scoped stream endpoint. */
+export effect function sessionBoundFrames<A>(frames: Stream.Stream<A>, wallet: string, digest: string) {
   if (wallet == "") return frames
   const sessions = try Session.Machine
   return sessionBound(frames, sessions, digest)
