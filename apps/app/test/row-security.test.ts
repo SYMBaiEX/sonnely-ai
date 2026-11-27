@@ -19,6 +19,7 @@ import { adminApi } from "../src/api/admin.vibe";
 import { billingApi } from "../src/api/billing.vibe";
 import { keysApi } from "../src/api/keys.vibe";
 import { teamsApi } from "../src/api/teams.vibe";
+import { usageApi } from "../src/api/usage.vibe";
 import { supportApi } from "../src/api/support.vibe";
 import { gatewayApi } from "../src/api/gateway.vibe";
 import { sessionApi } from "../src/api/session.vibe";
@@ -59,6 +60,25 @@ function apiKey(id: string, token: string, wallet: string) {
     spent: 0,
     dayKey: "",
     daySpent: 0,
+  };
+}
+
+function usageRow(id: string, wallet: string, project: string): Usage.Row {
+  return {
+    id,
+    time: 1,
+    keyName: "project key",
+    keyId: "key-project",
+    project,
+    wallet,
+    model: "model-a",
+    provider: "NearAI",
+    input: 10,
+    output: 5,
+    cached: 0,
+    cost: 100,
+    providerMs: 20,
+    status: "Complete",
   };
 }
 
@@ -131,11 +151,12 @@ function seed(dir: string, finalizedDeposit = false) {
   }));
 }
 
-function makeAppWithDir(finalizedDeposit = false, aExpiresIn?: number) {
+function makeAppWithDir(finalizedDeposit = false, usageRows: Usage.Row[] = [], aExpiresIn?: number) {
   const dir = mkdtempSync(join(process.cwd(), ".tmp-row-security-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   writeSessions(dir, aExpiresIn);
   seed(dir, finalizedDeposit);
+  writeFileSync(join(dir, "usage"), JSON.stringify({ rows: usageRows }));
   if (finalizedDeposit) {
     writeFileSync(join(dir, "admin-referrals"), JSON.stringify({
       codes: [{ code: "code-a", owner: walletB }],
@@ -148,6 +169,7 @@ function makeAppWithDir(finalizedDeposit = false, aExpiresIn?: number) {
     billingApi,
     keysApi,
     teamsApi,
+    usageApi,
     supportApi,
     gatewayApi,
     sessionApi,
@@ -251,6 +273,42 @@ describe("row-level access", () => {
     const a = await (await get(handler, "/api/machines/teams", tokenA)).json() as { teams: unknown[] };
     const b = await (await get(handler, "/api/machines/teams", tokenB)).json() as { teams: unknown[] };
     expect({ a: a.teams.length, b: b.teams.length }).toEqual({ a: 1, b: 0 });
+  });
+
+  // spec/app/usage.md, "Every usage row belongs to the wallet that metered it": teammates read
+  // project rows together, while workspace rows stay with the wallet that metered them
+  it("shows project usage to teammates without exposing workspace usage", async () => {
+    const { handler } = makeAppWithDir(false, [
+      usageRow("request-project", walletB, "proj-a"),
+      usageRow("request-workspace", walletB, ""),
+    ]);
+    const inviteFirstAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin", expiresAt: 1000, now: 1 }, tokenA);
+    const acceptFirstAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletB, accept: true, now: 2 }, tokenB);
+    const inviteSecondAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletFin, role: "Admin", expiresAt: 1000, now: 3 }, tokenA);
+    const acceptSecondAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletFin, accept: true, now: 4 }, tokenFin);
+    const inviteMember = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletOp, role: "Member", expiresAt: 1000, now: 5 }, tokenA);
+    const acceptMember = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletOp, accept: true, now: 6 }, tokenOp);
+    const ids = (rows: { id: string }[]) => rows.map((row) => row.id);
+    const owner = await (await get(handler, "/api/machines/usage", tokenA)).json() as { rows: { id: string }[] };
+    const firstAdmin = await (await get(handler, "/api/machines/usage", tokenB)).json() as { rows: { id: string }[] };
+    const secondAdmin = await (await get(handler, "/api/machines/usage", tokenFin)).json() as { rows: { id: string }[] };
+    const member = await (await get(handler, "/api/machines/usage", tokenOp)).json() as { rows: { id: string }[] };
+    const outsider = await (await get(handler, "/api/machines/usage", tokenAdm)).json() as { rows: { id: string }[] };
+    expect({
+      setup: [inviteFirstAdmin.status, acceptFirstAdmin.status, inviteSecondAdmin.status, acceptSecondAdmin.status, inviteMember.status, acceptMember.status],
+      owner: ids(owner.rows),
+      firstAdmin: ids(firstAdmin.rows),
+      secondAdmin: ids(secondAdmin.rows),
+      member: ids(member.rows),
+      outsider: ids(outsider.rows),
+    }).toEqual({
+      setup: [200, 200, 200, 200, 200, 200],
+      owner: ["request-project"],
+      firstAdmin: ["request-project", "request-workspace"],
+      secondAdmin: ["request-project"],
+      member: ["request-project"],
+      outsider: [],
+    });
   });
 
   // spec/app/support.md, "A ticket and its replies"
@@ -535,6 +593,81 @@ describe("row-level access", () => {
     }).toEqual({ hostileStatus: 403, ownStatus: 200, replies: 3 });
   });
 
+  // spec/app/keys.md, "Story: Issue a key": project keys are project resources, so an ordinary
+  // member cannot create one while an admin and the owner can
+  it("lets only team owners and admins create project keys", async () => {
+    const handler = makeApp();
+    const inviteAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin", expiresAt: 1000, now: 1 }, tokenA);
+    const acceptAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletB, accept: true, now: 2 }, tokenB);
+    const inviteMember = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletFin, role: "Member", expiresAt: 1000, now: 3 }, tokenA);
+    const acceptMember = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletFin, accept: true, now: 4 }, tokenFin);
+    const member = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-member", prefix: "sonnely_live_member", hash: "member-hash", project: "proj-a" }), tokenFin);
+    const admin = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-admin", prefix: "sonnely_live_admin", hash: "admin-hash", project: "proj-a" }), tokenB);
+    const owner = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-owner", prefix: "sonnely_live_owner", hash: "owner-hash", project: "proj-a" }), tokenA);
+    expect({
+      setup: [inviteAdmin.status, acceptAdmin.status, inviteMember.status, acceptMember.status],
+      member: member.status,
+      admin: admin.status,
+      owner: owner.status,
+    }).toEqual({ setup: [200, 200, 200, 200], member: 403, admin: 200, owner: 200 });
+  });
+
+  // spec/app/keys.md, "Story: Revoke a key": the key owner can revoke it, and owners and admins
+  // of the project team can revoke project keys as project resources
+  it("lets key owners and project team managers revoke project keys", async () => {
+    const handler = makeApp();
+    const inviteAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin", expiresAt: 1000, now: 1 }, tokenA);
+    const acceptAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletB, accept: true, now: 2 }, tokenB);
+    const selfKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-self", prefix: "sonnely_live_self", hash: "self-hash", project: "proj-a" }), tokenB);
+    const adminKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-admin-controlled", prefix: "sonnely_live_adminctl", hash: "admin-controlled-hash", project: "proj-a" }), tokenB);
+    const ownerKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-owner-controlled", prefix: "sonnely_live_ownerctl", hash: "owner-controlled-hash", project: "proj-a" }), tokenA);
+    const foreign = await postMachine(handler, "workspace-keys", { type: "revoke", id: "key-admin-controlled" }, tokenFin);
+    const byOwner = await postMachine(handler, "workspace-keys", { type: "revoke", id: "key-admin-controlled" }, tokenA);
+    const byAdmin = await postMachine(handler, "workspace-keys", { type: "revoke", id: "key-owner-controlled" }, tokenB);
+    const bySelf = await postMachine(handler, "workspace-keys", { type: "revoke", id: "key-self" }, tokenB);
+    const visible = await (await get(handler, "/api/machines/workspace-keys", tokenB)).json() as { keys: { id: string; status: string; project: string }[] };
+    expect({
+      setup: [inviteAdmin.status, acceptAdmin.status, selfKey.status, adminKey.status, ownerKey.status],
+      revocation: [foreign.status, byOwner.status, byAdmin.status, bySelf.status],
+      visible: visible.keys.map((key) => ({ id: key.id, status: key.status, project: key.project })),
+    }).toEqual({
+      setup: [200, 200, 200, 200, 200],
+      revocation: [403, 200, 200, 200],
+      visible: [
+        { id: "key-b", status: "Active", project: "" },
+        { id: "key-self", status: "Revoked", project: "proj-a" },
+        { id: "key-admin-controlled", status: "Revoked", project: "proj-a" },
+        { id: "key-owner-controlled", status: "Revoked", project: "proj-a" },
+      ],
+    });
+  });
+
+  // spec/app/teams.md, "Members can leave; an owner can remove anyone but an owner": removal and
+  // demotion revoke only the target wallet's keys scoped to that team's projects
+  it("revokes project keys when their creator is demoted or removed", async () => {
+    const handler = makeApp();
+    const inviteAdmin = await postMachine(handler, "teams", { type: "invite", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin", expiresAt: 1000, now: 1 }, tokenA);
+    const acceptAdmin = await postMachine(handler, "teams", { type: "respond", teamId: "team-a", actor: walletB, accept: true, now: 2 }, tokenB);
+    const workspaceKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-workspace", prefix: "sonnely_live_workspace", hash: "workspace-hash", project: "" }), tokenB);
+    const demotedKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-demoted", prefix: "sonnely_live_demoted", hash: "demoted-hash", project: "proj-a" }), tokenB);
+    const demote = await postMachine(handler, "teams", { type: "changeRole", teamId: "team-a", actor: walletA, wallet: walletB, role: "Member" }, tokenA);
+    const afterDemotion = await (await get(handler, "/api/machines/workspace-keys", tokenB)).json() as { keys: { id: string; status: string }[] };
+    const promote = await postMachine(handler, "teams", { type: "changeRole", teamId: "team-a", actor: walletA, wallet: walletB, role: "Admin" }, tokenA);
+    const removedKey = await postMachine(handler, "workspace-keys", keyEvent({ id: "key-removed", prefix: "sonnely_live_removed", hash: "removed-hash", project: "proj-a" }), tokenB);
+    const remove = await postMachine(handler, "teams", { type: "removeMember", teamId: "team-a", actor: walletA, wallet: walletB }, tokenA);
+    const afterRemoval = await (await get(handler, "/api/machines/workspace-keys", tokenB)).json() as { keys: { id: string; status: string }[] };
+    const statuses = (rows: { id: string; status: string }[]) => Object.fromEntries(rows.map((row) => [row.id, row.status]));
+    expect({
+      setup: [inviteAdmin.status, acceptAdmin.status, workspaceKey.status, demotedKey.status, demote.status, promote.status, removedKey.status, remove.status],
+      afterDemotion: statuses(afterDemotion.keys),
+      afterRemoval: statuses(afterRemoval.keys),
+    }).toEqual({
+      setup: [200, 200, 200, 200, 200, 200, 200, 200],
+      afterDemotion: { "key-b": "Active", "key-workspace": "Active", "key-demoted": "Revoked" },
+      afterRemoval: { "key-b": "Active", "key-workspace": "Active", "key-demoted": "Revoked", "key-removed": "Revoked" },
+    });
+  });
+
   // spec/app/keys.md, "Story: Issue a key": a project-scoped key names only a project of a team
   // the wallet belongs to
   it("refuses a key scoped to another workspace's project", async () => {
@@ -633,7 +766,7 @@ describe("row-level access", () => {
   // spec/app/session.md, "Expiry closes open challenges and active sessions": a session that
   // expires mid-stream ends delivery — another wallet's writes never reach the expired stream
   it("ends delivery on a stream whose session expires while open", async () => {
-    const { handler } = makeAppWithDir(false, 900);
+    const { handler } = makeAppWithDir(false, [], 900);
     const stream = await get(handler, "/api/machines/stream", tokenA);
     expect(stream.status).toBe(200);
     const reader = stream.body!.getReader();

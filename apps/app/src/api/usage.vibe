@@ -1,9 +1,10 @@
 // spec/app/usage.md, "Story: Meter a request": the usage meter behind the verified-session
-// boundary. Reads project only the requesting wallet's rows, and every write's trusted sender is
-// that wallet — never a wallet or sender supplied by the client.
+// boundary. Reads project the requesting wallet's rows plus project rows of teams it belongs to,
+// and every write's trusted sender is that wallet — never a wallet or sender supplied by the client.
 import * as Usage from "../../gen/app__usage.effect.vibe"
 import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
+import { memberProjectsFor } from "./teams.vibe"
 
 const noStore = { "cache-control": "no-store" }
 
@@ -11,29 +12,32 @@ effect function reply(value: unknown, status: number = 200) {
   return try HttpServerResponse.json(value, { status, headers: noStore })
 }
 
-function project(state: Usage.Usage, wallet: string): Usage.Usage {
-  return { rows: state.rows.filter((row) => row.wallet == wallet) }
+effect function projectState(state: Usage.Usage, wallet: string) {
+  return { rows: Usage.visibleRows(state, wallet, try memberProjectsFor(wallet)) }
 }
 
 effect function getState(usage: Usage.Machine.Shape) {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
-  return try reply(project(try usage.get(), wallet))
+  return try reply(try projectState(try usage.get(), wallet))
 }
 
 effect function getStream(usage: Usage.Machine.Shape) {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
-  const pushes = Stream.map(usage.changes, (state) => `data: ${JSON.stringify(project(state, wallet))}\n\n`)
+  const pushes = Stream.mapEffect(usage.changes, (state) => effect {
+    const visible = try projectState(state, wallet)
+    return `data: ${JSON.stringify(visible)}\n\n`
+  })
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
     headers: noStore,
   })
 }
 
-// The UsageMax export is a download of the wallet's own settled rows — the usage the console
-// already shows, as a JSON file. Rows settle complete; the export covers the requested number
-// of days and at most the 100 most recent of them.
+// The UsageMax export is a download of the settled rows the console already shows the wallet,
+// including team project rows, as a JSON file. Rows settle complete; the export covers the
+// requested number of days and at most the 100 most recent of them.
 function exportDays(raw: unknown) {
   const days = typeof raw == "string" ? Number(raw) : typeof raw == "number" ? raw : 30
   if (!Number.isSafeInteger(days) || days < 1) return 30
@@ -45,7 +49,7 @@ effect function exportDownload(usage: Usage.Machine.Shape, days: number) {
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
   const now = try Clock.currentTimeMillis
   const since = now - days * 86_400_000
-  const rows = project(try usage.get(), wallet).rows.filter((row) => row.status == "Complete" && row.time >= since).slice(-100)
+  const rows = (try projectState(try usage.get(), wallet)).rows.filter((row) => row.status == "Complete" && row.time >= since).slice(-100)
   const filename = "sonnely-usage-max-" + new Date(now).toISOString().slice(0, 10) + ".json"
   return try HttpServerResponse.json({ rows }, {
     headers: { ...noStore, "content-disposition": "attachment; filename=\"" + filename + "\"" },

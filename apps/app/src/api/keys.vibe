@@ -1,12 +1,14 @@
 // spec/app/keys.md, "Story: Issue a key": the workspace-key registry behind the verified-session
-// boundary. Reads project only the requesting wallet's keys, and every write's trusted sender is
-// that wallet — never a wallet or sender supplied by the client. A key scoped to a team project
-// names only a project of a team the wallet belongs to: any other id is another workspace's.
+// boundary. Reads project the requesting wallet's keys plus project keys of teams it manages, and
+// every write's trusted sender is derived inside the shell — never a wallet or sender supplied by
+// the client. A key scoped to a team project names only a project whose owning team the wallet owns
+// or administers: any other id is another workspace's.
 import * as Keys from "../../gen/app__keys.effect.vibe"
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Teams from "../../gen/app__teams.effect.vibe"
 import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
+import { managedProjectsFor } from "./teams.vibe"
 
 const noStore = { "cache-control": "no-store" }
 
@@ -14,14 +16,26 @@ effect function reply(value: unknown, status: number = 200) {
   return try HttpServerResponse.json(value, { status, headers: noStore })
 }
 
-function project(state: Keys.Keys, wallet: string) {
-  return { keys: state.keys.filter((key) => key.wallet == wallet) }
+function project(state: Keys.Keys, wallet: string, projectIds: readonly string[]) {
+  const managed = new Set(projectIds)
+  return { keys: state.keys.filter((key) => key.wallet == wallet || (key.project != "" && managed.has(key.project))) }
+}
+
+effect function projectState(state: Keys.Keys, wallet: string) {
+  return project(state, wallet, try managedProjectsFor(wallet))
+}
+
+effect function managesProject(projectId: string, wallet: string) {
+  const service = try Effect.serviceOption(Teams.Machine)
+  if (!Option.isSome(service)) return false
+  const directory = try service.value.get()
+  return Teams.teamOfProject(directory, projectId).some((team) => Teams.manages(team, wallet))
 }
 
 effect function getState(keys: Keys.Machine.Shape) {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
-  return try reply(project(try keys.get(), wallet))
+  return try reply(try projectState(try keys.get(), wallet))
 }
 
 effect function postEvent(keys: Keys.Machine.Shape) {
@@ -31,30 +45,39 @@ effect function postEvent(keys: Keys.Machine.Shape) {
   }
   const wallet = try authenticatedWallet()
   if (wallet == "") return try reply({ ok: false, error: "sign in required" }, 401)
-  const input = (request.json catch () => undefined) as { type?: unknown; project?: unknown } | undefined
+  const input = (request.json catch () => undefined) as { type?: unknown; project?: unknown; id?: unknown } | undefined
   if (input == undefined || typeof input.type != "string" || !["create", "update", "revoke"].includes(input.type as string)) {
     return try reply({ ok: false, error: "This event is not yours to send." }, 403)
   }
-  if (input.type == "create" && typeof input.project == "string" && input.project != "") {
-    const teams = try Teams.Machine
-    const directory = (try teams.get()) as Teams.Teams
-    const owning = Teams.teamOfProject(directory, input.project as string)
-    const member = owning.some((team) => team.members.some((m) => m.wallet == wallet))
-    if (!member) return try reply({ ok: false, error: "This project is not yours to scope a key to." }, 403)
+  if (input.type == "create" && typeof input.project == "string" && input.project != "" && !(try managesProject(input.project, wallet))) {
+    return try reply({ ok: false, error: "This project is not yours to scope a key to." }, 403)
   }
-  const sent = keys.receive(input, wallet) catch (error) => error
+  let sender = wallet
+  if (input.type == "revoke" && typeof input.id == "string") {
+    const key = (try keys.get()).keys.find((entry) => entry.id == input.id)
+    if (key != undefined && key.wallet != wallet) {
+      if (key.project == "" || !(try managesProject(key.project, wallet))) {
+        return try reply({ ok: false, error: "This key is not yours to revoke." }, 403)
+      }
+      sender = key.wallet
+    }
+  }
+  const sent = keys.receive(input, sender) catch (error) => error
   const rejected = sent as { _tag?: string }
   if (rejected && typeof rejected == "object" && "_tag" in rejected) {
     const status = rejected._tag == "NotAnEvent" ? 400 : rejected._tag == "Rejected" ? 409 : 500
     return try reply({ ok: false, error: rejected._tag }, status)
   }
-  return try reply({ ok: true, state: project(sent as Keys.Keys, wallet) })
+  return try reply({ ok: true, state: try projectState(sent as Keys.Keys, wallet) })
 }
 
 effect function getStream(keys: Keys.Machine.Shape) {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
-  const pushes = Stream.map(keys.changes, (state) => `data: ${JSON.stringify(project(state, wallet))}\n\n`)
+  const pushes = Stream.mapEffect(keys.changes, (state) => effect {
+    const visible = try projectState(state, wallet)
+    return `data: ${JSON.stringify(visible)}\n\n`
+  })
   return HttpServerResponse.stream(Stream.encodeText(pushes), {
     contentType: "text/event-stream",
     headers: noStore,
