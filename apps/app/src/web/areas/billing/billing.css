@@ -548,112 +548,6 @@
   overflow-wrap: anywhere;
 }
 
-.billing-area .intents-checkout {
-  --intents-padding: clamp(16px, 2.6vw, 24px);
-
-  grid-column: 1 / -1;
-  min-width: 0;
-  padding: 0;
-}
-
-.billing-area .intents-header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px 16px;
-  padding: var(--intents-padding);
-}
-
-.billing-area .intents-header h2 {
-  margin: 0 0 4px;
-}
-
-.billing-area .intents-notice {
-  margin: 0;
-  padding: 0 var(--intents-padding) var(--intents-padding);
-}
-
-.billing-area .intents-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
-  gap: 12px;
-}
-
-.billing-area .intents-guide {
-  display: grid;
-  gap: 12px;
-  padding-inline: var(--intents-padding);
-}
-
-.billing-area .intents-guide > p {
-  margin: 0 0 4px;
-}
-
-.billing-area .intents-guide a {
-  color: var(--primary);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
-}
-
-.billing-area .intents-recipient {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 3px);
-  background: color-mix(in srgb, var(--secondary) 52%, var(--card));
-}
-
-.billing-area .intents-recipient > div {
-  display: grid;
-  flex: 1 1 13rem;
-  min-width: 0;
-  gap: 5px;
-}
-
-.billing-area .intents-recipient h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.95rem;
-  margin: 0;
-}
-
-.billing-area .intents-recipient h3 svg {
-  color: var(--primary);
-}
-
-.billing-area .intents-recipient code {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: 0.8rem;
-}
-
-.billing-area .intents-recipient .button {
-  min-height: 44px;
-}
-
-.billing-area .intents-widget {
-  display: block;
-  width: calc(100% - (var(--intents-padding) * 2));
-  height: 54rem;
-  margin-inline: var(--intents-padding);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 4px);
-  background: var(--secondary);
-}
-
-.billing-area .intents-popout {
-  justify-self: end;
-  min-height: 44px;
-  margin: 0 var(--intents-padding) var(--intents-padding);
-}
-
 .billing-area .billing-balance .between > svg {
   color: var(--primary);
 }
@@ -674,23 +568,6 @@
 .billing-area .checkout h2:focus,
 .billing-area .checkout h3:focus {
   outline: none;
-}
-
-@media (width >= 69rem) {
-  .billing-area .billing-grid:has(> .intents-checkout) {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.16fr);
-    grid-template-rows: min-content min-content 1fr;
-    align-items: start;
-  }
-
-  .billing-area .billing-grid:has(> .intents-checkout) > :is(.billing-balance, .buy-credits, .billing-history) {
-    grid-column: 1;
-  }
-
-  .billing-area .billing-grid > .intents-checkout {
-    grid-column: 2;
-    grid-row: 1 / 4;
-  }
 }
 
 @media (width <= 820px) {
@@ -805,9 +682,5 @@
   .billing-area .payment-qr-image {
     width: 158px;
     height: 158px;
-  }
-
-  .billing-area .intents-popout {
-    justify-self: start;
   }
 }

@@ -423,10 +423,72 @@ effect function sweepDeposits(nextChecks: Map<string, number>) {
 /** A reserve whose metering row has been pending this long is orphaned: the serving process is gone. */
 const orphanAfterMs = 15 * 60 * 1000
 
+type CompensationStep = "key" | "project"
+
+function compensationKey(id: string, step: CompensationStep) {
+  return "billing-orphan-compensation:" + id + ":" + step
+}
+
+effect function compensationConfirmed(id: string, step: CompensationStep) {
+  const kv = try KeyValueStore.KeyValueStore
+  const stored = kv.get(compensationKey(id, step)) catch () => null
+  if (stored === null) return undefined
+  return stored !== undefined
+}
+
+effect function markCompensation(id: string, step: CompensationStep) {
+  const kv = try KeyValueStore.KeyValueStore
+  const failed = kv.set(compensationKey(id, step), "1") catch () => false
+  return failed !== false
+}
+
+effect function keyRefundComplete(row: Usage.Row, refund: number, day: string) {
+  if (row.keyId == "" || refund == 0) return true
+  const keys = try WorkspaceKeys.Machine
+  const key = (try keys.get()).keys.find((candidate) => candidate.id == row.keyId && candidate.wallet == row.wallet)
+  const confirmed = try compensationConfirmed(row.id, "key")
+  if (confirmed != false) return confirmed == true
+  if (key == undefined) return false
+  const refunded = keys.send({ type: "refundUse", id: row.keyId, amount: refund, day }, row.wallet) catch (e) => e
+  if (refunded instanceof WorkspaceKeys.Rejected) return false
+  return try markCompensation(row.id, "key")
+}
+
+effect function projectRefundComplete(row: Usage.Row, refund: number) {
+  if (row.project == "" || refund == 0) return true
+  const teams = try Teams.Machine
+  const project = (try teams.get()).teams.flatMap((team) => team.projects).find((candidate) => candidate.id == row.project)
+  const confirmed = try compensationConfirmed(row.id, "project")
+  if (confirmed != false) return confirmed == true
+  if (project == undefined) return false
+  const released = teams.send({ type: "releaseProject", projectId: row.project, amount: refund }) catch (e) => e
+  if (released instanceof Teams.Rejected) return false
+  return try markCompensation(row.id, "project")
+}
+
+function closedRequestMatches(request: Requests.Served | undefined, charge: number) {
+  if (request == undefined) return true
+  if (request.status == "Complete") return request.charged == charge
+  if (request.status == "Failed") return charge == 0
+  return false
+}
+
+effect function requestCloseComplete(row: Usage.Row, charge: number) {
+  const requests = try Requests.Machine
+  const current = (try requests.get()).requests.find((request) => request.ref == row.id)
+  if (closedRequestMatches(current, charge)) return true
+  if (current == undefined || current.status != "Serving") return false
+  const closing = charge == 0
+    ? requests.send({ type: "fault", ref: row.id }) catch (e) => e
+    : requests.send({ type: "finish", ref: row.id, cost: charge }) catch (e) => e
+  if (!(closing instanceof Requests.Rejected)) return true
+  const after = (try requests.get()).requests.find((request) => request.ref == row.id)
+  return closedRequestMatches(after, charge)
+}
+
 // spec/app/billing/ledger.md, "A failed reservation releases its whole hold": a reservation whose
-// request died unsettled — the process was redeployed or crashed mid-stream — is the failure the
-// settlement path never reached, so the sweep finishes its unwind exactly as the dead request would
-// have: the hold releases, key and project budgets refund, the metering rows close faulted.
+// request died unsettled stays Pending until every compensation is durably confirmed, then closes
+// at the charge the ledger already reached.
 export effect function sweepOrphanedReservations() {
   const usage = try Usage.Machine
   const rows = (try usage.get()).rows
@@ -437,25 +499,30 @@ export effect function sweepOrphanedReservations() {
     const wallet = row.wallet
     if (wallet == "") continue
     const ledger = try Ledger.Machine
-    const held = Ledger.heldOf(try ledger.get(), wallet, row.id)
-    if (held <= 0) {
-      usage.send({ type: "release", id: row.id }, wallet) catch () => undefined
+    let ledgerState = try ledger.get()
+    let charge = Ledger.entrySum(ledgerState, wallet, row.id, "Charge")
+    if (charge == 0 && Ledger.heldOf(ledgerState, wallet, row.id) > 0) {
+      const settled = ledger.send({ type: "settleHold", wallet, detail: row.id, amount: 0 }) catch (e) => e
+      ledgerState = settled instanceof Ledger.Rejected ? try ledger.get() : settled
+      charge = Ledger.entrySum(ledgerState, wallet, row.id, "Charge")
+    }
+    const held = Ledger.heldOf(ledgerState, wallet, row.id)
+    const reserve = Ledger.entrySum(ledgerState, wallet, row.id, "Reserve")
+    const releasedAmount = Ledger.entrySum(ledgerState, wallet, row.id, "Release")
+    const ledgerComplete = held == 0 && (charge > 0 || releasedAmount > 0 || reserve == 0)
+    if (!ledgerComplete || charge > row.cost) continue
+    const refund = row.cost - charge
+    const day = new Date(row.time).toISOString().slice(0, 10)
+    if (!(try keyRefundComplete(row, refund, day))) continue
+    if (!(try projectRefundComplete(row, refund))) continue
+    if (!(try requestCloseComplete(row, charge))) continue
+    const closed = usage.send({ type: "charge", id: row.id, input: 0, output: 0, cached: -1, cost: charge, providerMs: -1 }, wallet) catch (e) => e
+    if (!(closed instanceof Usage.Rejected)) {
+      released += 1
       continue
     }
-    const day = new Date(row.time).toISOString().slice(0, 10)
-    if (row.keyId != "") {
-      const keys = try WorkspaceKeys.Machine
-      keys.send({ type: "refundUse", id: row.keyId, amount: row.cost, day }, wallet) catch () => undefined
-    }
-    if (row.project != "") {
-      const teams = try Teams.Machine
-      teams.send({ type: "releaseProject", projectId: row.project, amount: row.cost }) catch () => undefined
-    }
-    ledger.send({ type: "release", wallet, detail: row.id }) catch () => undefined
-    usage.send({ type: "release", id: row.id }, wallet) catch () => undefined
-    const requests = try Requests.Machine
-    requests.send({ type: "fault", ref: row.id }) catch () => undefined
-    released += 1
+    const after = (try usage.get()).rows.find((candidate) => candidate.id == row.id)
+    if (after != undefined && after.status != "Pending") released += 1
   }
   return { orphans: orphans.length, released }
 }
@@ -481,8 +548,7 @@ effect function recoveryLoop() {
 }
 
 export const depositRecoveryWorker = Layer.effectDiscard(effect {
-  const active = Config.withDefault(Config.String("SONNELY_DEPOSIT_RECOVERY"), "false") catch () => "false"
-  if (active == "true") fork.detached recoveryLoop()
+  fork.detached recoveryLoop()
 })
 
 /** What the console needs to build payment links: the treasury and cluster, or nothing when checkout is off. */
