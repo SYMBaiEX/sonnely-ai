@@ -167,7 +167,6 @@ function UsageConsole() {
       )
     : source;
   const loading = signedIn && !state && !error;
-  const capped = source.length >= 1000;
   const activityStatus = !signedIn ? "Connect a wallet to see request activity." : loading ? "Loading activity…" : state ? (filtered ? "No requests match these filters." : "No activity in this period.") : "Activity is unavailable.";
 
   const modelIds = [...new Set(source.map((row) => row.model))].sort((a, b) => usageModelName(a).localeCompare(usageModelName(b)) || a.localeCompare(b));
@@ -205,12 +204,9 @@ function UsageConsole() {
   })).sort((a, b) => (order === "name" ? 0 : b[order] - a[order]) || a.label.localeCompare(b.label));
 
   const daily = Map.groupBy(rows, (row) => day(row.time));
-  const firstSampleAt = capped && source.length ? source[source.length - 1].time : undefined;
-  const firstSampleDay = firstSampleAt === undefined ? undefined : day(firstSampleAt);
   const series = Array.from({ length: range }, (_, index) => {
     const time = now - (range - index - 1) * 86_400_000;
-    const dateKey = day(time);
-    const value = firstSampleDay && dateKey < firstSampleDay ? undefined : usageMetricValue(summarize(daily.get(dateKey) ?? []), metric);
+    const value = usageMetricValue(summarize(daily.get(day(time)) ?? []), metric);
     return { time, value };
   });
   const high = Math.max(1, ...series.map((point) => point.value ?? 0));
@@ -253,7 +249,7 @@ function UsageConsole() {
             </div>
             {state && (
               <div className="usage-sample">
-                <p className="caption" role="status">{usageCount.format(rows.length)} of {usageCount.format(source.length)} requests shown.{capped && " Analytics and CSV cover the 1,000 most recent requests in this date range."}</p>
+                <p className="caption" role="status">{usageCount.format(rows.length)} of {usageCount.format(source.length)} requests shown.</p>
                 {filtered && <button type="button" className="button quiet small" onClick={() => { setFilters(noUsageFilters); providerFilterRef.current?.focus(); }}>Clear filters</button>}
               </div>
             )}
@@ -265,7 +261,6 @@ function UsageConsole() {
       </div>
       <section className="panel chart-panel" aria-labelledby="usage-chart-heading">
         <div className="between controls"><h2 id="usage-chart-heading">{metric} by day</h2><div className="actions"><label className="control-label">Chart metric<select value={metric} onChange={(event) => setMetric(event.target.value as UsageMetric)}>{usageChartMetrics.map((value) => <option key={value}>{value}</option>)}</select></label><div className="segmented" aria-label="Chart view">{(["Chart", "Table"] as const).map((value) => <button type="button" key={value} aria-pressed={value === view} onClick={() => setView(value)}>{value}</button>)}</div></div></div>
-        {firstSampleAt !== undefined && <p className="caption">Days before {date(firstSampleAt)} fall outside this sample.</p>}
         {!rows.length || !hasMetric ? <div className="chart-empty"><BarChart3 size={23} aria-hidden="true" /><p role="status">{!rows.length ? activityStatus : "No cached input measurements in this view."}</p></div> : view === "Chart" ? <><div className="bars" role="img" aria-label={metric + " by day over the last " + range + " days"}>{series.map(({ time, value }) => <span key={time} title={shortDate(time) + " · " + metricValue(value)} data-empty={!value || undefined} style={{ height: value ? Math.max(1, (value / high) * 100) + "%" : "1px" }} />)}</div><div className="between caption"><span>{shortDate(series[0].time)}</span><span>{shortDate(series[range - 1].time)}</span></div></> : <div className="table-wrap compact-table"><table><thead><tr><th scope="col">Date (UTC)</th><th scope="col">{metric}</th></tr></thead><tbody>{series.map(({ time, value }) => <tr key={time}><th scope="row">{date(time)}</th><td>{metricValue(value)}</td></tr>)}</tbody></table></div>}
       </section>
       <section className="panel breakdown">
