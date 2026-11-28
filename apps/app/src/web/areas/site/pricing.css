@@ -1,0 +1,234 @@
+/* spec/app/models.md, "Story: Filter the catalog" — the pricing page's scoped
+   layout in the terminal register shared with the home page and docs. */
+.site .pricing-page {
+  --pricing-section-gap: clamp(64px, 8vw, 112px);
+
+  padding-block: clamp(30px, 4.4vw, 64px) clamp(72px, 8.5vw, 118px);
+}
+
+.site .pricing-page .section {
+  padding: 0;
+  margin-top: var(--pricing-section-gap);
+}
+
+.site .pricing-page .section-head {
+  flex-wrap: wrap;
+  gap: 12px 30px;
+  margin-bottom: clamp(24px, 3.4vw, 44px);
+}
+
+.site .pricing-page .section-head h2,
+.site .pricing-page .home-section-intro h2 {
+  font-size: var(--home-title);
+  font-weight: 660;
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.site .pricing-page .section-head > .text-link {
+  min-height: 36px;
+  align-self: end;
+  color: var(--accent);
+}
+
+/* ---- hero: display copy beside the account summary data panel ---- */
+.site .pricing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 390px);
+  align-items: end;
+  gap: 26px clamp(24px, 4.5vw, 70px);
+}
+
+.site .pricing-hero-copy {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+}
+
+.site .pricing-hero .eyebrow {
+  margin-bottom: 14px;
+  color: var(--accent);
+}
+
+.site .pricing-hero h1 {
+  max-width: 12ch;
+  font-size: clamp(46px, 6.2vw, 88px);
+  font-weight: 660;
+  line-height: 0.96;
+  letter-spacing: -0.06em;
+  text-wrap: balance;
+}
+
+.site .pricing-hero h1 span {
+  color: var(--accent);
+}
+
+.site .pricing-hero-description {
+  max-width: 44ch;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: clamp(15px, 1.35vw, 18px);
+  line-height: 1.55;
+}
+
+.site .pricing-hero .actions {
+  margin-top: 22px;
+}
+
+.site .pricing-hero .button {
+  min-height: 46px;
+}
+
+.site .pricing-hero-facts {
+  align-self: end;
+}
+
+/* the workspace preview splits .preview-body into two columns for its
+   number-plus-facts composition; the summary here is one column of facts */
+.site .pricing-hero-facts .preview-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ---- terms tiles reuse the gateway tile; without a sample row the link
+   settles at the foot of the card ---- */
+.site .pricing-terms-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--home-collection-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site .pricing-terms-grid .gateway-tile {
+  grid-template-rows: auto 1fr;
+}
+
+.site .pricing-terms-grid .gateway-tile .text-link {
+  align-self: end;
+}
+
+/* ---- estimate: one terminal window, inputs beside the charge readout ---- */
+.site .pricing-estimate-note {
+  margin-inline-start: auto;
+  color: var(--muted);
+}
+
+.site .pricing-estimate-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(290px, 0.95fr);
+  gap: clamp(18px, 2.6vw, 34px);
+  padding: clamp(16px, 2.2vw, 26px) var(--home-inset);
+}
+
+.site .pricing-estimate-inputs {
+  display: grid;
+  gap: 15px;
+  align-content: start;
+}
+
+.site .pricing-estimate-inputs label {
+  display: grid;
+  gap: 7px;
+}
+
+.site .pricing-estimate-inputs label > span {
+  color: var(--muted);
+  font: 550 11px var(--mono);
+  letter-spacing: 0.05em;
+}
+
+.site .pricing-estimate-inputs :is(input, select) {
+  width: 100%;
+  min-height: 42px;
+  padding-inline: 12px;
+  border: 1px solid var(--home-divider);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface) 62%, var(--home-panel));
+  color: var(--ink);
+  font-size: 14px;
+  box-shadow: inset 0 1px 0 var(--rim);
+}
+
+.site .pricing-estimate-inputs input[type="number"] {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.site .pricing-estimate-inputs select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+      calc(100% - 17px) 55%,
+      calc(100% - 12px) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-inline-end: 34px;
+}
+
+.site .pricing-estimate-inputs :is(input, select):focus-visible {
+  outline: none;
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-glow);
+}
+
+.site .pricing-estimate-inputs input[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+.site .pricing-invoice {
+  align-self: start;
+}
+
+.site .pricing-invoice output {
+  font: inherit;
+}
+
+.site .pricing-invoice-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ---- rates: the catalog list already carries the terminal register ---- */
+.site .pricing-rates-copy {
+  max-width: 62ch;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+/* ---- questions reuse the home faq composition ---- */
+.site .pricing-faq {
+  margin-bottom: 0;
+}
+
+@media (width <= 900px) {
+  .site .pricing-terms-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .site .pricing-estimate-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (width <= 780px) {
+  .site .pricing-hero {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
+  }
+
+  .site .pricing-hero h1 {
+    font-size: clamp(40px, 11.5vw, 64px);
+  }
+
+  .site .pricing-hero-facts {
+    width: 100%;
+  }
+}
