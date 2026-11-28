@@ -2,18 +2,23 @@
 // @vitest-environment happy-dom
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act } from "react";
+import { act, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import type { Remote } from "../src/web/remote.ts";
 import type { SessionSnapshot, WorkspaceSession } from "../src/web/session.ts";
 
 const walletA = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 const walletB = "DjVE6JNiYq52M37YLBjLvDSMaVG9eRQFRkPRCPwdJnn";
+const cleanups: Array<() => void> = [];
 
 class FakeEventSource {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSED = 2;
   static instances: FakeEventSource[] = [];
   readonly url: string;
   closed = false;
+  readyState = FakeEventSource.CONNECTING;
   onmessage: ((message: { data: string }) => void) | null = null;
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
@@ -23,6 +28,7 @@ class FakeEventSource {
   }
   close() {
     this.closed = true;
+    this.readyState = FakeEventSource.CLOSED;
   }
   emit(data: unknown) {
     this.onmessage?.({ data: JSON.stringify(data) });
@@ -72,6 +78,10 @@ async function renderProbe(machine: "teams" | "admin-referrals" | "console" | "c
   const el = document.createElement("div");
   document.body.appendChild(el);
   const root = createRoot(el);
+  cleanups.push(() => {
+    act(() => root.unmount());
+    el.remove();
+  });
   act(() => {
     root.render(<Probe />);
   });
@@ -84,13 +94,14 @@ async function renderProbe(machine: "teams" | "admin-referrals" | "console" | "c
   };
 }
 
+afterEach(() => {
+  for (const cleanup of cleanups.splice(0).reverse()) cleanup();
+  vi.unstubAllGlobals();
+  document.body.innerHTML = "";
+});
+
 describe("session-bound streams (spec/app/session.md, \"Only an active session can sign out\")", () => {
   let sessionState: WorkspaceSession = signedIn(walletA);
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    document.body.innerHTML = "";
-  });
 
   function stubTransport(
     initial: WorkspaceSession = signedIn(walletA),
@@ -259,5 +270,82 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
       machineState: probe.machine().state,
       oldMultiplexedClosed: multiplexed.closed,
     }).toEqual({ sessionTag: "SignedOut", machineState: undefined, oldMultiplexedClosed: true });
+  });
+});
+
+function sessionSnapshot(state: WorkspaceSession): SessionSnapshot {
+  return {
+    state,
+    error: undefined,
+    send: () => Promise.resolve(false),
+    refresh: () => Promise.resolve(state),
+  };
+}
+
+async function renderChat(state: WorkspaceSession) {
+  vi.resetModules();
+  FakeEventSource.instances = [];
+  vi.stubGlobal("EventSource", FakeEventSource);
+  const [{ ChatSection }, { SessionContext }, remote] = await Promise.all([
+    import("../src/web/areas/console/chat.tsx"),
+    import("../src/web/areas/console/frame.tsx"),
+    import("../src/web/remote.ts"),
+  ]);
+  remote.bindSessionWallet(state.tag === "SignedIn" ? state.wallet : undefined);
+  const el = document.createElement("div");
+  document.body.appendChild(el);
+  const root = createRoot(el);
+  cleanups.push(() => {
+    act(() => root.unmount());
+    el.remove();
+  });
+  act(() => {
+    root.render(
+      <StrictMode>
+        <SessionContext value={sessionSnapshot(state)}>
+          <ChatSection />
+        </SessionContext>
+      </StrictMode>,
+    );
+  });
+  await settle();
+  return el;
+}
+
+function chatMachineStream() {
+  const streams = machineSources("/api/machines/console__chat/stream");
+  const stream = streams.filter((instance) => !instance.closed).at(-1) ?? streams.at(-1);
+  if (!stream) throw new Error("the chat machine did not open its scoped stream");
+  return stream;
+}
+
+describe("chat machine stream failure", () => {
+  // spec/app/console/chat.md, "Story: Converse with a model"
+  it("explains a signed-in composer's disabled machine state when the stream disconnects", async () => {
+    const el = await renderChat(signedIn(walletA));
+    expect(el.querySelector("[role=alert]")).toBeNull();
+
+    act(() => {
+      chatMachineStream().onerror?.();
+    });
+
+    expect(el.querySelector("[role=alert]")?.textContent).toContain("stream disconnected");
+  });
+
+  // spec/app/console/chat.md, "Story: Converse with a model"
+  it("keeps machine loading free of stream failure chrome", async () => {
+    const el = await renderChat(signedIn(walletA));
+
+    expect(chatMachineStream()).toBeDefined();
+    expect(el.querySelector("[role=alert]")).toBeNull();
+  });
+
+  // spec/app/session.md, "Story: Sign in with a wallet"
+  it("keeps signed-out onboarding free of machine stream failure chrome", async () => {
+    const el = await renderChat({ tag: "SignedOut" });
+
+    expect(machineSources("/api/machines/console__chat/stream").length).toBe(0);
+    expect(el.querySelector("[role=alert]")).toBeNull();
+    expect(el.textContent).toContain("Connect a wallet to run live inference.");
   });
 });
