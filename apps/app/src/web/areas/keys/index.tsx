@@ -1,7 +1,7 @@
 // spec/app/keys.md, "Story: Issue a key"
 import { ArrowUpRight, KeyRound, Plus } from "lucide-react";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Button, Input } from "@repo/ui";
+import { Button, Input, cn } from "@repo/ui";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import { reconnectMachine, useRemote } from "../../remote.ts";
@@ -251,7 +251,7 @@ function KeysConsole() {
           </div>
         </div>
       )}
-      <div className={`${panelClass} p-0 max-md:border-0 max-md:bg-transparent`}>
+      <div className={cn(panelClass, "p-0 max-md:border-0 max-md:bg-transparent")}>
         {signedIn && data?.length ? (
           <DataTable
             rows={data}
@@ -259,7 +259,7 @@ function KeysConsole() {
             ariaLabel="Workspace API keys"
             columns={[
               { label: "Name", header: true, value: (item) => item.label },
-              { label: "Key", value: (item) => <code className="font-mono text-meta">{item.prefix}…</code> },
+              { label: "Key", value: (item) => <code className="font-mono text-meta max-md:block max-md:max-w-full max-md:truncate">{item.prefix}…</code> },
               {
                 label: "Status",
                 value: (item) => {

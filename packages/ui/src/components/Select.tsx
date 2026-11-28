@@ -19,7 +19,7 @@ export function Select({ invalid = false, wrapperClassName, className, children,
         aria-invalid={invalid || undefined}
         className={cn(
           fieldFocus,
-          "h-9 w-full appearance-none rounded-md border border-input bg-background pr-9 pl-3 text-ui text-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive",
+          "h-9 w-full min-w-40 appearance-none rounded-md border border-input bg-background pr-9 pl-3 text-ui text-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive",
           className,
         )}
         {...props}
