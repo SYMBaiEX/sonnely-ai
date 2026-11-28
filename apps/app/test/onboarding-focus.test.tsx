@@ -1,9 +1,23 @@
 // @vitest-environment happy-dom
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-import { expect, it } from "vitest";
+import { afterEach, expect, it } from "vitest";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { Onboarding } from "../src/web/areas/console/onboarding.tsx";
+
+const cleanups: Array<() => void> = [];
+
+afterEach(() => {
+  for (const cleanup of cleanups.splice(0).reverse()) cleanup();
+  document.body.innerHTML = "";
+});
+
+function mount(el: HTMLDivElement, root: ReturnType<typeof createRoot>) {
+  cleanups.push(() => {
+    act(() => root.unmount());
+    el.remove();
+  });
+}
 
 function renderOnboarding() {
   const el = document.createElement("div");
@@ -26,6 +40,7 @@ function renderOnboarding() {
       />,
     );
   });
+  mount(el, root);
   return el;
 }
 
@@ -80,6 +95,7 @@ function renderOnboardingWithFinish(onFinish: () => Promise<boolean>, close: () 
       />,
     );
   });
+  mount(el, root);
   return el;
 }
 
@@ -102,7 +118,7 @@ it("stays open and surfaces the failure when finishing the setup fails", async (
     await Promise.resolve();
     await Promise.resolve();
   });
-  expect({ closed, errorShown: document.body.querySelector("[data-slot=alert]")?.textContent ?? "" }).toEqual({
+  expect({ closed, errorShown: document.body.querySelector("[role=alert]")?.textContent ?? "" }).toEqual({
     closed: false,
     errorShown: "Could not save your setup choice. Check your connection and try again.",
   });

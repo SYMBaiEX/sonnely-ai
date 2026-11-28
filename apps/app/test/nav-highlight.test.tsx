@@ -1,7 +1,7 @@
 // spec/app/nav.md, "Story: Move around"
 // @vitest-environment happy-dom
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { Layer, ManagedRuntime } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import { act } from "react";
@@ -14,6 +14,14 @@ function makeRuntime(): ManagedRuntime.ManagedRuntime<Machine, unknown> {
   return ManagedRuntime.make(Layer.provide(nav, KeyValueStore.layerMemory));
 }
 
+const cleanups: Array<() => void> = [];
+
+afterEach(() => {
+  for (const cleanup of cleanups.splice(0).reverse()) cleanup();
+  document.body.innerHTML = "";
+  history.replaceState(null, "", "/");
+});
+
 function renderApp() {
   const runtime = makeRuntime();
   history.replaceState(null, "", "/");
@@ -22,6 +30,10 @@ function renderApp() {
   const root = createRoot(el);
   act(() => {
     root.render(<App runtime={runtime} path="/" />);
+  });
+  cleanups.push(() => {
+    act(() => root.unmount());
+    el.remove();
   });
   return { el, runtime };
 }
@@ -216,7 +228,7 @@ it("jumps between pricing sections without leaving the page", async () => {
   });
   const historyLength = history.length;
   act(() => {
-    el.querySelector<HTMLAnchorElement>('.pricing-hero a[href="#estimate"]')?.click();
+    el.querySelector<HTMLAnchorElement>('a[href="#estimate"]')?.click();
   });
   expect([location.pathname, location.hash, document.activeElement?.id, history.length]).toEqual([
     "/pricing", "#estimate", "estimate", historyLength,
