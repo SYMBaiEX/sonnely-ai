@@ -215,7 +215,7 @@ function SettingsContent() {
       <WorkspaceHeading
         icon={Settings}
         title="Settings"
-        description="Edit your profile and choose how this device displays the console."
+        description="Manage your profile and console preferences."
       />
       <Failure message={error || settings.error || session.error || ""} />
       <p role="status" className={notice ? "status" : "visually-hidden"}>

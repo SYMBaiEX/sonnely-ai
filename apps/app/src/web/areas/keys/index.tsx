@@ -284,7 +284,7 @@ function KeysConsole() {
             </table>
           </div>
         ) : (
-          <Empty title={signedIn && error ? "API keys unavailable" : signedIn && !data ? "Loading keys…" : "No API keys to show"} icon={<KeyRound size={23} />}>
+          <Empty title={signedIn && error ? "API keys unavailable" : signedIn && !data ? "Loading keys…" : "No API keys yet"} icon={<KeyRound size={23} />}>
             <p>{!signedIn ? "Connect a Solana wallet to open your workspace." : error ? "Try reloading the list." : data ? "Create a key to call the API from your own client." : "Getting your workspace keys."}</p>
             {signedIn && error ? <button className="button quiet small" type="button" onClick={() => reconnectMachine("workspace-keys")}>Reload keys</button> : <a className="text-link" href="/docs/quickstart">Read the quickstart <ArrowUpRight size={15} /></a>}
           </Empty>

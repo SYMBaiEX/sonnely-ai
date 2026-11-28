@@ -16,6 +16,7 @@ import type { Deposits, Intent } from "../../../../gen/app__billing__deposits.ts
 import { balanceOf, type Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { useRemote } from "../../remote.ts";
+import { WorkspaceHeading } from "../console/bits.tsx";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
 import { solanaWalletClients } from "../console/solana-wallet.ts";
 import {
@@ -196,22 +197,6 @@ async function quoteFunding(
   };
 }
 
-function WorkspaceHeading({ title, description }: { title: string; description: string }) {
-  return (
-    <header className="console-title">
-      <div className="console-title-identity">
-        <span className="console-title-icon">
-          <Wallet size={21} aria-hidden="true" />
-        </span>
-        <div>
-          <h1>{title}</h1>
-          <p>{description}</p>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 function BillingConsole() {
   const config = use(billingConfig());
   const session = useWorkspaceSession();
@@ -322,7 +307,7 @@ function BillingConsole() {
 
   return (
     <div className="billing-area">
-      <WorkspaceHeading title="Billing" description="Add compute credits, check your balance, and track wallet payments." />
+      <WorkspaceHeading icon={Wallet} title="Billing" description="Fund credits and track wallet payments." />
       <Failure message={failure && !["deposit", "pay", "confirm"].includes(failure.action) ? failure.message : historyError} />
       <p role="status" className={status ? "status" : "visually-hidden"}>
         {status}
@@ -794,7 +779,7 @@ function BillingConsole() {
                 : historyError
                   ? "Payment history is unavailable."
                   : deposits.state
-                    ? "No payments to show."
+                    ? "No payments yet."
                     : "Loading payment history…"}
             </p>
           )}
@@ -807,7 +792,7 @@ function BillingConsole() {
 function BillingFallback() {
   return (
     <div className="billing-area">
-      <WorkspaceHeading title="Billing" description="Add compute credits, check your balance, and track wallet payments." />
+      <WorkspaceHeading icon={Wallet} title="Billing" description="Fund credits and track wallet payments." />
       <div className="billing-grid">
         <section className="panel stack-panel billing-balance">
           <div className="between">

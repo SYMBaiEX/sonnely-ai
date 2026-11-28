@@ -404,7 +404,7 @@ export function BatchSection() {
   if (!wallet) {
     return (
       <div className="telemetry-legacy batch-legacy">
-        <WorkspaceHeading icon={Files} title="Batch" description="Run a JSONL file through private inference and save the results on this device.">
+        <WorkspaceHeading icon={Files} title="Batch" description="Run JSONL workloads; results stay on this device.">
           <a className="button quiet" href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a>
         </WorkspaceHeading>
         <section className="panel batch-panel-section"><p>Sign in with a Solana wallet to open Batch.</p></section>
@@ -653,7 +653,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
 
   return (
     <div className="telemetry-legacy batch-legacy">
-      <WorkspaceHeading icon={Files} title="Batch" description="Run a JSONL file through private inference and save the results on this device.">
+      <WorkspaceHeading icon={Files} title="Batch" description="Run JSONL workloads; results stay on this device.">
         <a className="button quiet" href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a>
       </WorkspaceHeading>
       <p aria-live="polite" className="batch-message">{message}</p>

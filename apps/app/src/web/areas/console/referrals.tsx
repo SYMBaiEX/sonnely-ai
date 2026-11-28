@@ -36,13 +36,10 @@ export function Referrals() {
 
   return (
     <>
-      <WorkspaceHeading icon={Users} title="Referrals" description="Track invitations from wallet sign-up through funding and first paid request." />
+      <WorkspaceHeading icon={Users} title="Referrals" description="Share your link and track funded, active sign-ups." />
       {error && <p className="error">{error}</p>}
-      <section className="panel callout referral-invite">
+      <section className="panel referral-invite">
         <div>
-          <span className="empty-icon">
-            <Users size={22} />
-          </span>
           <h2>Your invite link</h2>
           {wallet && code ? (
             <>

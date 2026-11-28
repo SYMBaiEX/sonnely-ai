@@ -540,7 +540,7 @@ export function LogsSection() {
       <WorkspaceHeading
         icon={List}
         title="Request logs"
-        description="Find inference requests and review routing, timing, token usage, and charges."
+        description="Inspect routing, timing, tokens, and charges."
       >
         <a href="/console/usage" className="button quiet">
           <Activity size={16} aria-hidden="true" /> View usage

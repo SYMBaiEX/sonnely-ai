@@ -196,7 +196,7 @@ export function CatalogSection() {
 
   return (
     <div className="flex flex-col gap-3">
-      <WorkspaceHeading icon={Cpu} title="Models" description="Browse the providers' models, their routes and their Sonnely rates." />
+      <WorkspaceHeading icon={Cpu} title="Models" description="Compare routes, context, and rates." />
       <div className="flex flex-wrap items-center gap-2" aria-label="Catalog inventory">
         <button
           type="button"
