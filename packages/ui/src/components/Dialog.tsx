@@ -6,6 +6,8 @@ export type DialogProps = ComponentProps<typeof DialogPrimitive.Root>;
 export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
   /** The accessible name of the close button. */
   closeLabel?: string;
+  /** Hide the default close button when the dialog supplies its own. */
+  hideClose?: boolean;
 };
 export type DialogTitleProps = ComponentProps<typeof DialogPrimitive.Title>;
 
@@ -21,7 +23,7 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
 /** The panel over a dimmed page. Needs a `DialogTitle`; Escape and the close button dismiss it. */
-export function DialogContent({ closeLabel = "Close", className, children, ...props }: DialogContentProps) {
+export function DialogContent({ closeLabel = "Close", hideClose = false, className, children, ...props }: DialogContentProps) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 bg-foreground/50" />
@@ -31,11 +33,13 @@ export function DialogContent({ closeLabel = "Close", className, children, ...pr
         {...props}
       >
         {children}
-        <DialogPrimitive.Close aria-label={closeLabel} className={cn(focusRing, "absolute top-4 right-4 rounded-sm text-muted-foreground hover:text-foreground")}>
+        {!hideClose && (
+          <DialogPrimitive.Close aria-label={closeLabel} className={cn(focusRing, "absolute top-4 right-4 rounded-sm text-muted-foreground hover:text-foreground")}>
           <svg aria-hidden viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-4">
             <path d="m3 3 10 10M13 3 3 13" />
           </svg>
-        </DialogPrimitive.Close>
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

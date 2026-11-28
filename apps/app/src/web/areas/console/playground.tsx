@@ -1,6 +1,7 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes, @eslint-react/naming-convention-ref-name, @eslint-react/naming-convention-context-name -- playground migration preserves the original form markup, class names and screen structure */
+/* eslint-disable @eslint-react/naming-convention-ref-name, @eslint-react/naming-convention-context-name -- the endpoint picker ref and controls context use the playground's established names */
 import { createContext, useRef, useState, type ReactNode } from "react";
 import { Terminal } from "lucide-react";
+import { Select } from "@repo/ui";
 import { PlaygroundInference, workloadOptions, type Workload } from "./playground-inference.tsx";
 
 const groups = {
@@ -36,12 +37,12 @@ export function Playground({ children, signedIn }: { children: ReactNode; signed
   const route = endpoint === "chat" ? "POST /chat/completions" : endpoint === "realtime" ? "WS /realtime" : "POST /" + endpoint;
 
   return (
-    <div className="playground-canvas">
-      <div className="playground-request-toolbar">
-        <label className="playground-endpoint-picker">
+    <div data-playground-canvas>
+      <div data-playground-request-toolbar>
+        <label data-playground-endpoint-picker>
           <Terminal size={17} aria-hidden="true" />
-          <span className="visually-hidden">Endpoint</span>
-          <select
+          <span className="sr-only">Endpoint</span>
+          <Select
             ref={endpointPicker}
             value={endpoint}
             disabled={running}
@@ -59,10 +60,10 @@ export function Playground({ children, signedIn }: { children: ReactNode; signed
                 ))}
               </optgroup>
             ))}
-          </select>
+          </Select>
         </label>
-        <div className="playground-toolbar-controls" ref={setControls} />
-        <code className="playground-route-path">{route}</code>
+        <div data-playground-toolbar-controls ref={setControls} />
+        <code data-playground-route-path>{route}</code>
       </div>
       <PlaygroundControls.Provider
         value={{
@@ -74,18 +75,13 @@ export function Playground({ children, signedIn }: { children: ReactNode; signed
           },
         }}
       >
-        <div className="playground-stage">
-          <div className="playground-mode" hidden={endpoint !== "chat"}>
+        <div data-playground-stage>
+          <div data-playground-mode hidden={endpoint !== "chat"}>
             {children}
           </div>
           {visited.map((id) => (
-            <div className="playground-mode" key={id} hidden={endpoint !== id}>
-              <PlaygroundInference
-                endpoint={id}
-                signedIn={signedIn}
-                onRunningChange={setRunning}
-                controls={endpoint === id ? controls : null}
-              />
+            <div data-playground-mode key={id} hidden={endpoint !== id}>
+              <PlaygroundInference endpoint={id} signedIn={signedIn} onRunningChange={setRunning} controls={endpoint === id ? controls : null} />
             </div>
           ))}
         </div>

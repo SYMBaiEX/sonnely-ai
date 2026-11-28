@@ -1,8 +1,9 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax, max-lines-per-function, @eslint-react/naming-convention-ref-name, @eslint-react/naming-convention-id-name -- playground migration preserves the original form markup, class names and screen structure */
+/* eslint-disable max-lines-per-function, @eslint-react/naming-convention-ref-name, @eslint-react/naming-convention-id-name -- the workload runner keeps its endpoint matrix and established ref names together */
 import { createPortal } from "react-dom";
 import { ArrowRight, FileUp, History } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
+import { Alert, Button, Input, Select, Textarea } from "@repo/ui";
 import { providerIds, providerNames, specializedRoutes } from "./playground-data.ts";
 import { PlaygroundCopyButton } from "./playground-copy.tsx";
 import { PlaygroundResultContent } from "./playground-result-content.tsx";
@@ -312,67 +313,68 @@ export function PlaygroundInference({
   }
 
   return (
-    <div className="playground-editor">
-      <div className="playground-editor-title playground-run-title">
+    <div data-playground-editor>
+      <div data-playground-editor-title data-playground-run-title>
         <h2>{workload.label}</h2>
         {runs.length > 0 && (
-          <details ref={runHistory} className="playground-run-history">
-            <summary className="button quiet small">
+          <details ref={runHistory} data-playground-run-history>
+            <summary className="inline-flex h-8 items-center gap-2 rounded-md border border-input bg-background px-3 text-ui font-medium">
               <History size={16} aria-hidden="true" /> Recent runs
             </summary>
-            <div className="playground-run-list">
+            <div data-playground-run-list>
               <p>Available in this session</p>
               {runs.map((run) => (
-                <button type="button" key={run.id} disabled={busy} aria-pressed={selectedRun?.id === run.id} onClick={() => openRun(run)}>
+                <Button type="button" variant="ghost" key={run.id} disabled={busy} aria-pressed={selectedRun?.id === run.id} onClick={() => openRun(run)} className="h-auto w-full flex-col items-start gap-0.5 px-2 py-1.5 text-left">
                   <strong>{run.title}</strong>
                   <time dateTime={new Date(run.at).toISOString()}>{new Date(run.at).toLocaleTimeString()}</time>
-                </button>
+                </Button>
               ))}
             </div>
           </details>
         )}
       </div>
-      <section className="playground-pane" aria-label="Request">
+      <section data-playground-pane aria-label="Request">
         {controls &&
           createPortal(
-            <div className="playground-model-select">
+            <div data-playground-model-select>
               <label>
-                <span className="visually-hidden">Model</span>
-                <select name="model" form={formId} value={model} disabled={busy} onChange={(event) => setSelectedModel(event.currentTarget.value)}>
+                <span className="sr-only">Model</span>
+                <Select name="model" form={formId} value={model} disabled={busy} onChange={(event) => setSelectedModel(event.currentTarget.value)}>
                   {modelIds.map((id) => (
                     <option key={id}>{id}</option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>,
             controls,
           )}
-        <form id={formId} className="playground-request playground-entry" onSubmit={(event) => void run(event)}>
+        <form id={formId} data-playground-request data-playground-entry onSubmit={(event) => void run(event)}>
           {"field" in workload && (
             <label>
               {workload.field === "query" ? "Search query" : workload.field === "state" ? "State" : workload.field === "prompt" ? "Image prompt" : "Input text"}
-              <textarea name={workload.field} rows={endpoint === "rerank" || endpoint === "systemone" ? 2 : 6} required disabled={busy} defaultValue={workload.example} />
+              <Textarea name={workload.field} rows={endpoint === "rerank" || endpoint === "systemone" ? 2 : 6} required disabled={busy} defaultValue={workload.example} />
             </label>
           )}
           {endpoint === "rerank" && (
             <label>
               Documents, one per line
-              <textarea name="documents" rows={4} required disabled={busy} defaultValue={"A guide to transaction fees\nHow to resize an image"} />
+              <Textarea name="documents" rows={4} required disabled={busy} defaultValue={"A guide to transaction fees\nHow to resize an image"} />
             </label>
           )}
           {endpoint === "systemone" && (
             <label>
               Decision question
-              <textarea name="question" rows={3} required disabled={busy} defaultValue="Does this request concern billing?" />
+              <Textarea name="question" rows={3} required disabled={busy} defaultValue="Does this request concern billing?" />
             </label>
           )}
           {"upload" in workload && (
-            <div className="playground-file">
+            <div data-playground-file>
               <label>
                 <span>
                   <FileUp size={18} aria-hidden="true" /> Upload file
                 </span>
-                <input
+                <Input
+                  className="sr-only"
                   type="file"
                   name={workload.upload}
                   accept={workload.accept}
@@ -383,11 +385,11 @@ export function PlaygroundInference({
                 />
               </label>
               <p id={fileHintId}>{"hint" in workload ? workload.hint : "Maximum file size 2 MB."}</p>
-              {fileName && <p className="playground-file-name">{fileName}</p>}
+              {fileName && <p data-playground-file-name>{fileName}</p>}
             </div>
           )}
-          <div className="playground-run-actions">
-            <div className="playground-route-summary">
+          <div data-playground-run-actions>
+            <div data-playground-route-summary>
               <strong>{provider}</strong>
               <span>
                 {requestPrice === null ? (
@@ -397,25 +399,25 @@ export function PlaygroundInference({
                 )}
               </span>
             </div>
-            <button ref={runButton} className="button accent" type="submit" disabled={Boolean(blocked)} aria-disabled={busy}>
+            <Button ref={runButton} type="submit" disabled={Boolean(blocked)} aria-disabled={busy}>
               {busy ? "Running…" : "Run request"} <ArrowRight size={17} aria-hidden="true" />
-            </button>
+            </Button>
             {busy && (
-              <button type="button" className="button quiet" onClick={() => pending.current?.abort()}>
+              <Button type="button" variant="outline" onClick={() => pending.current?.abort()}>
                 Stop waiting
-              </button>
+              </Button>
             )}
             {blocked && <p>{blocked}</p>}
           </div>
         </form>
       </section>
-      <section className="playground-output" aria-label="Result" data-idle={(!busy && !result && !error && !notice) || undefined}>
+      <section data-playground-output aria-label="Result" data-idle={(!busy && !result && !error && !notice) || undefined}>
         {(busy || result || error || notice) && (
-          <header className="playground-pane-header">
+          <header data-playground-pane-header>
             <div>
               <h2>Result</h2>
               {selectedRun && (
-                <p className="playground-result-meta">
+                <p data-playground-result-meta>
                   {selectedRun.provider} · {selectedRun.model}
                 </p>
               )}
@@ -423,14 +425,14 @@ export function PlaygroundInference({
             {result?.text && <PlaygroundCopyButton value={result.text} label="Copy result" />}
           </header>
         )}
-        <div className="playground-result">
-          <p className={result ? "visually-hidden" : "playground-result-status"} role="status">
+        <div data-playground-result>
+          <p className={result ? "sr-only" : undefined} data-playground-result-status={result ? undefined : ""} role="status">
             {busy ? "Running request…" : result ? "Request completed." : notice}
           </p>
           {error && (
-            <p className="playground-request-error error" role="alert">
+            <Alert variant="destructive" data-playground-request-error>
               {error}
-            </p>
+            </Alert>
           )}
           {partial && (
             <pre tabIndex={0} aria-label="Partial transcript">
@@ -440,7 +442,7 @@ export function PlaygroundInference({
           {result && <PlaygroundResultContent endpoint={endpoint} {...result} imageUrl={imageUrl} audioUrl={result.audioUrl} />}
         </div>
         {result?.requestId && (
-          <footer className="playground-result-footer">
+          <footer data-playground-result-footer>
             <div>
               <span>Request reference</span>
               <code>{result.requestId}</code>

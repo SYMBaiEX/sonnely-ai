@@ -1,5 +1,5 @@
 /* stylelint-disable no-descending-specificity, no-duplicate-selectors, declaration-property-value-keyword-no-deprecated -- the playground stylesheet preserves the source cascade and media overrides */
-.console-playground {
+.theme-root[data-area="console"] [data-console-playground] {
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-sans);
@@ -7,77 +7,77 @@
   line-height: 1.5;
 }
 
-.console-playground .console {
+.theme-root[data-area="console"] [data-console-playground] .console {
     display: contents;
   }
 
-.console-playground h1,
-  .console-playground h2,
-  .console-playground h3,
-  .console-playground p,
-  .console-playground dl,
-  .console-playground dd,
-  .console-playground pre {
+.theme-root[data-area="console"] [data-console-playground] h1,
+  .theme-root[data-area="console"] [data-console-playground] h2,
+  .theme-root[data-area="console"] [data-console-playground] h3,
+  .theme-root[data-area="console"] [data-console-playground] p,
+  .theme-root[data-area="console"] [data-console-playground] dl,
+  .theme-root[data-area="console"] [data-console-playground] dd,
+  .theme-root[data-area="console"] [data-console-playground] pre {
     margin: 0;
   }
 
-.console-playground h1,
-  .console-playground h2,
-  .console-playground h3 {
+.theme-root[data-area="console"] [data-console-playground] h1,
+  .theme-root[data-area="console"] [data-console-playground] h2,
+  .theme-root[data-area="console"] [data-console-playground] h3 {
     line-height: 1.12;
     font-weight: 570;
     letter-spacing: -0.035em;
   }
 
-.console-playground a {
+.theme-root[data-area="console"] [data-console-playground] a {
     color: inherit;
     text-decoration: none;
   }
 
-.console-playground p {
+.theme-root[data-area="console"] [data-console-playground] p {
     line-height: 1.55;
   }
 
-.console-playground button,
-  .console-playground input,
-  .console-playground textarea,
-  .console-playground select {
+.theme-root[data-area="console"] [data-console-playground] button,
+  .theme-root[data-area="console"] [data-console-playground] input,
+  .theme-root[data-area="console"] [data-console-playground] textarea,
+  .theme-root[data-area="console"] [data-console-playground] select {
     font: inherit;
     color: inherit;
   }
 
-.console-playground button {
+.theme-root[data-area="console"] [data-console-playground] button {
     cursor: pointer;
   }
 
-.console-playground button:disabled {
+.theme-root[data-area="console"] [data-console-playground] button:disabled {
     opacity: 0.48;
     cursor: not-allowed;
   }
 
-.console-playground svg {
+.theme-root[data-area="console"] [data-console-playground] svg {
     flex-shrink: 0;
     vertical-align: middle;
   }
 
-.console-playground :focus-visible {
+.theme-root[data-area="console"] [data-console-playground] :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 4px;
   }
 
-.console-playground code,
-  .console-playground pre,
-  .console-playground .mono {
+.theme-root[data-area="console"] [data-console-playground] code,
+  .theme-root[data-area="console"] [data-console-playground] pre,
+  .theme-root[data-area="console"] [data-console-playground] .mono {
     font-family: var(--font-mono);
   }
 
-.console-playground img {
+.theme-root[data-area="console"] [data-console-playground] img {
     max-width: 100%;
   }
 
-.console-playground input:not([type="checkbox"], [type="radio"]),
-  .console-playground textarea,
-  .console-playground select {
+.theme-root[data-area="console"] [data-console-playground] input:not([type="checkbox"], [type="radio"]),
+  .theme-root[data-area="console"] [data-console-playground] textarea,
+  .theme-root[data-area="console"] [data-console-playground] select {
     width: 100%;
     border: 1px solid var(--input);
     background: var(--card);
@@ -86,23 +86,23 @@
     min-height: 42px;
   }
 
-.console-playground textarea {
+.theme-root[data-area="console"] [data-console-playground] textarea {
     resize: vertical;
   }
 
-.console-playground ::placeholder {
+.theme-root[data-area="console"] [data-console-playground] ::placeholder {
     color: var(--muted-foreground);
     opacity: 1;
   }
 
-.console-playground form label {
+.theme-root[data-area="console"] [data-console-playground] form label {
     display: grid;
     gap: 6px;
     min-width: 0;
     font-size: 13px;
   }
 
-.console-playground select {
+.theme-root[data-area="console"] [data-console-playground] select {
     appearance: none;
     padding-inline-end: 34px;
     background-image:
@@ -115,7 +115,7 @@
     background-repeat: no-repeat;
   }
 
-.console-playground .visually-hidden {
+.theme-root[data-area="console"] [data-console-playground] .visually-hidden {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -125,7 +125,7 @@
     white-space: nowrap;
   }
 
-.console-playground .button {
+.theme-root[data-area="console"] [data-console-playground] .button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -144,11 +144,11 @@
       transform 0.18s;
   }
 
-.console-playground .button:not(:disabled):active {
+.theme-root[data-area="console"] [data-console-playground] .button:not(:disabled):active {
     transform: translateY(1px);
   }
 
-.console-playground .button.accent {
+.theme-root[data-area="console"] [data-console-playground] .button.accent {
     background: var(--primary);
     color: var(--primary-foreground);
     border-color: transparent;
@@ -157,26 +157,26 @@
       0 6px 15px var(--effect-shadow);
   }
 
-.console-playground .button.accent:not(:disabled):hover {
+.theme-root[data-area="console"] [data-console-playground] .button.accent:not(:disabled):hover {
     background: color-mix(in oklch, var(--primary) 85%, var(--foreground));
   }
 
-.console-playground .button.quiet {
+.theme-root[data-area="console"] [data-console-playground] .button.quiet {
     background: var(--card);
     border-color: var(--border);
   }
 
-.console-playground .button.quiet:hover {
+.theme-root[data-area="console"] [data-console-playground] .button.quiet:hover {
     background: var(--secondary);
   }
 
-.console-playground .button.small {
+.theme-root[data-area="console"] [data-console-playground] .button.small {
     padding: 6px 9px;
     min-height: 33px;
     font-size: 12px;
   }
 
-.console-playground .icon-button {
+.theme-root[data-area="console"] [data-console-playground] .icon-button {
     display: grid;
     place-items: center;
     width: 34px;
@@ -186,11 +186,11 @@
     border-radius: 8px;
   }
 
-.console-playground .icon-button:hover {
+.theme-root[data-area="console"] [data-console-playground] .icon-button:hover {
     background: var(--secondary);
   }
 
-.console-playground .text-link {
+.theme-root[data-area="console"] [data-console-playground] .text-link {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -198,60 +198,74 @@
     font-size: 13px;
   }
 
-.console-playground .panel {
+.theme-root[data-area="console"] [data-console-playground] .panel {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
 
-.console-playground .caption {
+.theme-root[data-area="console"] [data-console-playground] .caption {
     color: var(--muted-foreground);
     font-size: 13px;
   }
 
-.console-playground .caption a {
+.theme-root[data-area="console"] [data-console-playground] .caption a {
     text-decoration: underline;
     text-underline-offset: 3px;
   }
 
-.console-playground .chat-layout {
+.theme-root[data-area="console"] [data-console-playground] [data-chat-layout] {
     display: grid;
     grid-template-columns: 232px minmax(0, 1fr);
     min-height: calc(100dvh - 109px);
   }
 
-.console-playground .sessions {
+.theme-root[data-area="console"] [data-console-playground] [data-sessions] {
     padding: 19px 13px;
     border-right: 1px solid var(--border);
     background: transparent;
   }
 
-.console-playground .sessions strong {
+.theme-root[data-area="console"] [data-console-playground] [data-sessions] strong {
     font-size: 13px;
   }
 
-.console-playground .sessions input {
+.theme-root[data-area="console"] [data-console-playground] [data-sessions] input {
     margin: 16px 0 10px;
     font-size: 13px;
   }
 
-.console-playground .sessions .caption {
+.theme-root[data-area="console"] [data-console-playground] [data-search-field] input {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+.theme-root[data-area="console"] [data-console-playground] [data-search-field] input:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
+.theme-root[data-area="console"] [data-console-playground] [data-sessions] .caption {
     font-size: 12px;
     margin-top: 8px;
   }
 
-.console-playground .sessions .text-link {
+.theme-root[data-area="console"] [data-console-playground] [data-sessions] .text-link {
     margin-top: 28px;
   }
 
-.console-playground .thread-item {
+.theme-root[data-area="console"] [data-console-playground] [data-thread-item] {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 28px;
     gap: 4px;
     margin: 5px 0;
   }
 
-.console-playground .thread-item button:not(.icon-button) {
+.theme-root[data-area="console"] [data-console-playground] [data-thread-item] button:not(.icon-button) {
     border: 0;
     background: transparent;
     text-overflow: ellipsis;
@@ -263,16 +277,16 @@
     border-radius: 5px;
   }
 
-.console-playground .thread-item button.selected {
+.theme-root[data-area="console"] [data-console-playground] [data-thread-item] button[aria-current="true"] {
     background: var(--secondary);
   }
 
-.console-playground .thread-item .icon-button {
+.theme-root[data-area="console"] [data-console-playground] [data-thread-item] button[aria-label^="Delete"] {
     width: 28px;
     height: 28px;
   }
 
-.console-playground .chat-main {
+.theme-root[data-area="console"] [data-console-playground] [data-chat-main] {
     width: min(860px, 100%);
     margin: auto;
     padding: 24px 34px 28px;
@@ -281,13 +295,13 @@
     flex-direction: column;
   }
 
-.console-playground .chat-tools {
+.theme-root[data-area="console"] [data-console-playground] [data-chat-tools] {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
   }
 
-.console-playground .prompts {
+.theme-root[data-area="console"] [data-console-playground] [data-prompts] {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -296,25 +310,25 @@
     margin-top: 21px;
   }
 
-.console-playground .prompt {
+.theme-root[data-area="console"] [data-console-playground] [data-prompt] {
     border: 1px solid var(--border);
     background: var(--card);
     min-height: 37px;
     padding-block: 6px;
   }
 
-.console-playground .prompt:hover {
+.theme-root[data-area="console"] [data-console-playground] [data-prompt]:hover {
     background: var(--secondary);
   }
 
-.console-playground .composer {
+.theme-root[data-area="console"] [data-console-playground] [data-composer] {
     margin: 0;
     padding: 0;
   }
 
 /* the composer textarea is borderless chrome inside the bordered playground-entry:
    the container carries the boundary and the focus state, never the field itself */
-.console-playground .composer textarea {
+.theme-root[data-area="console"] [data-console-playground] [data-composer] textarea {
     display: block;
     background: transparent;
     border: 0;
@@ -325,17 +339,17 @@
     font-size: 1rem;
   }
 
-.theme-root.site .console-playground .composer textarea:focus-visible {
+.theme-root[data-area="console"] [data-console-playground] [data-composer] textarea:focus-visible {
     outline: none;
     box-shadow: none;
   }
 
-.console-playground .playground-entry:has(.composer):focus-within {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-entry]:has([data-composer]):focus-within {
     border-color: var(--field-focus-edge);
     box-shadow: 0 0 0 3px var(--field-focus-glow);
   }
 
-.console-playground .chat-note {
+.theme-root[data-area="console"] [data-console-playground] [data-chat-note] {
     margin-top: 13px;
     text-align: center;
     display: flex;
@@ -346,14 +360,14 @@
     color: var(--muted-foreground);
   }
 
-.console-playground .messages {
+.theme-root[data-area="console"] [data-console-playground] [data-messages] {
     margin: 20px 0;
     padding: 12px 0;
     display: grid;
     gap: 12px;
   }
 
-.console-playground .message {
+.theme-root[data-area="console"] [data-console-playground] [data-message] {
     padding: 14px 18px;
     border: 1px solid var(--border);
     border-radius: 14px;
@@ -362,24 +376,24 @@
     white-space: pre-wrap;
   }
 
-.console-playground .message.user {
+.theme-root[data-area="console"] [data-console-playground] [data-message][data-message-role="user"] {
     justify-self: end;
     background: var(--secondary);
     min-width: min(250px, 100%);
   }
 
-.console-playground .message.assistant {
+.theme-root[data-area="console"] [data-console-playground] [data-message][data-message-role="assistant"] {
     background: var(--card);
     justify-self: start;
   }
 
-.console-playground .message .mono {
+.theme-root[data-area="console"] [data-console-playground] [data-message] .mono {
     font-size: 11px;
     color: var(--muted-foreground);
     margin-bottom: 7px;
   }
 
-.console-playground .error {
+.theme-root[data-area="console"] [data-console-playground] .error {
     border: 1px solid light-dark(#d694a2, #7e3b4d);
     padding: 11px 14px;
     border-radius: 8px;
@@ -388,23 +402,23 @@
     background: light-dark(#fff0f2, #391e28);
   }
 
-.console-playground .console .chat-main {
+.theme-root[data-area="console"] [data-console-playground] .console [data-chat-main] {
     width: min(900px, 100%);
     margin: 0 auto;
     padding: 14px clamp(12px, 2.4vw, 30px) 20px;
   }
 
-.console-playground .playground-title {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-title] {
     gap: 9px;
   }
 
-.console-playground .console .chat-welcome {
+.theme-root[data-area="console"] [data-console-playground] .console [data-chat-welcome] {
     margin: clamp(20px, 6svh, 64px) 0 14px;
     padding: 0;
     text-align: start;
   }
 
-.console-playground .chat-welcome h2 {
+.theme-root[data-area="console"] [data-console-playground] [data-chat-welcome] h2 {
     margin-bottom: 5px;
     font-size: clamp(23px, 3.4vw, 34px);
     font-weight: 620;
@@ -412,18 +426,18 @@
     line-height: 1.1;
   }
 
-.console-playground .playground-entry {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-entry] {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 17px;
     box-shadow: 0 8px 20px color-mix(in srgb, var(--effect-shadow) 20%, transparent);
   }
 
-.console-playground .messages ~ .playground-entry {
+.theme-root[data-area="console"] [data-console-playground] [data-messages] ~ [data-playground-entry] {
     margin-top: auto;
   }
 
-.console-playground .composer-controls {
+.theme-root[data-area="console"] [data-console-playground] [data-composer-controls] {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -434,7 +448,7 @@
     border-radius: 0 0 17px 17px;
   }
 
-.console-playground .playground-route-trigger {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-trigger] {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
@@ -450,22 +464,22 @@
     cursor: pointer;
   }
 
-.console-playground .playground-route-trigger:hover:not(:disabled) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-trigger]:hover:not(:disabled) {
     background: var(--secondary);
     border-color: var(--border);
   }
 
-.console-playground .playground-route-trigger:disabled {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-trigger]:disabled {
     opacity: 0.7;
     cursor: default;
   }
 
-.console-playground .playground-route-trigger > svg {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-trigger] > svg {
     color: var(--muted-foreground);
     margin-inline-start: 4px;
   }
 
-.console-playground .playground-model-mark {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-model-mark] {
     display: grid;
     place-items: center;
     width: 28px;
@@ -476,48 +490,48 @@
     font: 660 0.83rem var(--font-mono);
   }
 
-.console-playground .playground-route-label {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-label] {
     display: grid;
     min-width: 0;
     gap: 2px;
   }
 
-.console-playground .playground-route-label strong {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-label] strong {
     font-size: 0.86rem;
     line-height: 1.24;
     overflow-wrap: anywhere;
   }
 
-.console-playground .playground-route-label small {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-label] small {
     color: var(--muted-foreground);
     font-size: 0.73rem;
     line-height: 1.25;
   }
 
-.console-playground .playground-send {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-send] {
     flex: none;
     min-height: 40px;
     padding-inline: 12px;
   }
 
   @media (width <= 720px) {
-    .console-playground .playground-send {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-send] {
       min-height: 44px;
     }
   }
 
-.console-playground .console .chat-note {
+.theme-root[data-area="console"] [data-console-playground] .console [data-chat-note] {
     justify-content: flex-start;
     flex-wrap: wrap;
     margin: 9px 3px 0;
     text-align: start;
   }
 
-.console-playground .chat-note svg {
+.theme-root[data-area="console"] [data-console-playground] [data-chat-note] svg {
     flex: none;
   }
 
-.console-playground .playground-history-save {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-history-save] {
     padding: 0 3px;
     border: 0;
     min-height: 26px;
@@ -527,11 +541,11 @@
     text-underline-offset: 3px;
   }
 
-.console-playground .playground-history-save:not(:disabled) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-history-save]:not(:disabled) {
     cursor: pointer;
   }
 
-.console-playground .playground-editing {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editing] {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -543,7 +557,7 @@
     font-size: 0.78rem;
   }
 
-.console-playground .console .message-footer {
+.theme-root[data-area="console"] [data-console-playground] .console [data-message-footer] {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -551,42 +565,42 @@
     margin-top: 10px;
   }
 
-.console-playground .message-stamp {
+.theme-root[data-area="console"] [data-console-playground] [data-message-stamp] {
     color: var(--muted-foreground);
     font-size: 0.72rem;
   }
 
-.console-playground .message-stamp:empty {
+.theme-root[data-area="console"] [data-console-playground] [data-message-stamp]:empty {
     display: none;
   }
 
-.console-playground .message-actions {
+.theme-root[data-area="console"] [data-console-playground] [data-message-actions] {
     display: flex;
     align-items: center;
     gap: 4px;
     margin-inline-start: auto;
   }
 
-.console-playground .playground-starters {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-starters] {
     display: grid;
     gap: 8px;
     margin-top: 16px;
   }
 
-.console-playground .playground-starters h2,
-  .console-playground .playground-sample-note {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-starters] h2,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-sample-note] {
     color: var(--muted-foreground);
     font-size: 0.78rem;
     font-weight: 590;
   }
 
-.console-playground .playground-starters .prompts {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-starters] [data-prompts] {
     width: 100%;
     margin: 0;
     gap: 8px;
   }
 
-.console-playground .playground-starters .prompt {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-starters] [data-prompt] {
     min-height: 40px;
     gap: 8px;
     padding: 7px 9px;
@@ -594,20 +608,20 @@
   }
 
   @media (width <= 720px) {
-    .console-playground .playground-starters .prompt {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-starters] [data-prompt] {
       min-height: 44px;
     }
   }
 
-.console-playground .playground-starters .prompt:hover {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-starters] [data-prompt]:hover {
     background: var(--secondary);
   }
 
-.console-playground .playground-sample-note {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-sample-note] {
     margin-bottom: 10px;
   }
 
-.console-playground .playground-route-dialog {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] {
     margin: auto;
     width: min(740px, calc(100% - 24px));
     max-height: calc(100dvh - 24px);
@@ -616,38 +630,38 @@
     overflow: hidden;
   }
 
-.console-playground .playground-route-dialog[open] {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog][open] {
     display: flex;
     flex-direction: column;
   }
 
-.console-playground .playground-route-dialog::backdrop {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog]::backdrop {
     background: light-dark(rgb(26 33 55 / 40%), rgb(9 6 12 / 66%));
   }
 
-.console-playground .playground-route-dialog > :is(header, footer) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] > :is(header, footer) {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 10px 16px;
   }
 
-.console-playground .playground-route-dialog header {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] header {
     justify-content: space-between;
     border-bottom: 1px solid var(--border);
   }
 
-.console-playground .playground-route-dialog header h2 {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] header h2 {
     font-size: 1rem;
     font-weight: 640;
   }
 
-.console-playground .playground-route-dialog header .icon-button {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] header .icon-button {
     width: 40px;
     height: 40px;
   }
 
-.console-playground .playground-route-body {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-body] {
     display: grid;
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     align-items: start;
@@ -658,14 +672,14 @@
     overscroll-behavior: contain;
   }
 
-.console-playground .playground-route-dialog fieldset {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] fieldset {
     min-width: 0;
     margin: 0;
     border: 0;
     padding: 0;
   }
 
-.console-playground .playground-route-dialog legend {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] legend {
     padding: 0;
     margin-bottom: 7px;
     color: var(--muted-foreground);
@@ -673,23 +687,23 @@
     font-weight: 620;
   }
 
-.console-playground .playground-route-dialog .search-field {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] .search-field {
     margin-block-end: 6px;
   }
 
-.console-playground .playground-model-results {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-model-results] {
     display: grid;
     max-block-size: min(45dvh, 25rem);
     gap: 3px;
     overflow-y: auto;
   }
 
-.console-playground .playground-route-dialog label {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] label {
     position: relative;
     cursor: pointer;
   }
 
-.console-playground .playground-route-dialog input[type="radio"] {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] input[type="radio"] {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -698,7 +712,7 @@
     padding: 0;
   }
 
-.console-playground .playground-route-dialog .playground-model-results label {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] [data-playground-model-results] label {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 9px;
@@ -708,38 +722,38 @@
     border-radius: 8px;
   }
 
-.console-playground .playground-route-dialog label:hover {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] label:hover {
     background: var(--secondary);
   }
 
-.console-playground .playground-route-dialog label:has(input:checked) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] label:has(input:checked) {
     background: var(--accent);
   }
 
-.console-playground .playground-route-dialog label:has(input:focus-visible) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] label:has(input:focus-visible) {
     outline: 2px solid var(--muted-foreground);
     outline-offset: -2px;
   }
 
-.console-playground .playground-route-check {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-check] {
     visibility: hidden;
     color: var(--ring);
   }
 
-.console-playground .playground-route-dialog input:checked ~ .playground-route-check {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] input:checked ~ [data-playground-route-check] {
     visibility: visible;
   }
 
-.console-playground .playground-providers .caption {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-providers] .caption {
     margin-block: 0 6px;
   }
 
-.console-playground .playground-providers > div {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-providers] > div {
     display: grid;
     gap: 6px;
   }
 
-.console-playground .playground-route-dialog .playground-providers label {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] [data-playground-providers] label {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
@@ -750,25 +764,25 @@
     border-radius: 8px;
   }
 
-.console-playground .playground-route-dialog footer {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] footer {
     justify-content: flex-end;
     border-top: 1px solid var(--border);
   }
 
 @media (width <= 720px) {
-    .console-playground .playground-history-save {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-history-save] {
       min-height: 44px;
     }
 
-    .console-playground .console .chat-main {
+    .theme-root[data-area="console"] [data-console-playground] .console [data-chat-main] {
       padding: 12px 10px 22px;
     }
 
-    .console-playground .console .chat-welcome {
+    .theme-root[data-area="console"] [data-console-playground] .console [data-chat-welcome] {
       margin: clamp(26px, 6svh, 50px) 0 15px;
     }
 
-    .console-playground .playground-route-dialog {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] {
       margin: auto 0 0;
       width: 100%;
       max-width: none;
@@ -776,26 +790,26 @@
       border-radius: 18px 18px 0 0;
     }
 
-    .console-playground .playground-route-dialog footer {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] footer {
       padding-bottom: max(12px, env(safe-area-inset-bottom));
     }
 
-    .console-playground .playground-route-body {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-route-body] {
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .console-playground .playground-model-results {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-model-results] {
       max-block-size: min(20dvh, 12rem);
     }
 
-    .console-playground .playground-model-results label,
-    .console-playground .playground-route-dialog footer .button {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-model-results] label,
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] footer button {
       min-height: 44px;
     }
   }
 
-.console-playground .playground-pane-header,
-  .console-playground .playground-result-footer {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-pane-header],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-result-footer] {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -803,18 +817,18 @@
     gap: .75rem;
   }
 
-.console-playground .playground-result-status,
-  .console-playground .playground-route-summary,
-  .console-playground .playground-file p,
-  .console-playground .playground-run-actions p {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-status],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-route-summary],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-file] p,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-run-actions] p {
     color: var(--muted-foreground);
   }
 
-.console-playground .playground-canvas {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] {
     min-inline-size: 0;
   }
 
-.console-playground .playground-request-toolbar {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -823,7 +837,7 @@
     border-block-end: 1px solid var(--border);
   }
 
-.console-playground .playground-request-toolbar label {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] label {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -833,44 +847,44 @@
     max-inline-size: 100%;
   }
 
-.console-playground .playground-request-toolbar select {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] select {
     inline-size: clamp(15rem, 24vw, 20rem);
     max-inline-size: 100%;
     min-block-size: 2.75rem;
     font: inherit;
   }
 
-.console-playground .playground-route-path,
-  .console-playground .playground-result-footer code {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-path],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-result-footer] code {
     color: var(--muted-foreground);
     font-size: .75rem;
     overflow-wrap: anywhere;
   }
 
-.console-playground .playground-route-path {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-path] {
     margin-inline-start: auto;
   }
 
-.console-playground .playground-pane {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-pane] {
     min-inline-size: 0;
     display: flex;
     flex-direction: column;
     min-block-size: 26rem;
   }
 
-.console-playground .playground-pane-header {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-pane-header] {
     min-block-size: 3.25rem;
     padding: .75rem clamp(.875rem, 2vw, 1.375rem);
     border-block-end: 1px solid var(--border);
   }
 
-.console-playground .playground-pane-header h2 {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-pane-header] h2 {
     font-size: 1.125rem;
     letter-spacing: -.025em;
   }
 
-.console-playground .playground-request,
-  .console-playground .playground-result {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-request],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-result] {
     display: grid;
     align-content: start;
     gap: 1rem;
@@ -878,15 +892,15 @@
     min-inline-size: 0;
   }
 
-.console-playground .playground-pane label {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-pane] label {
     display: grid;
     gap: .375rem;
     font-weight: 550;
   }
 
-.console-playground .playground-pane select,
-  .console-playground .playground-pane textarea,
-  .console-playground .playground-pane input {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-pane] select,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-pane] textarea,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-pane] input {
     inline-size: 100%;
     min-inline-size: 0;
     min-block-size: 2.75rem;
@@ -894,29 +908,29 @@
     font-weight: 400;
   }
 
-.console-playground .playground-pane textarea {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-pane] textarea {
     resize: vertical;
   }
 
-.console-playground .playground-route-summary,
-  .console-playground .playground-result-footer {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-summary],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-result-footer] {
     font-size: .8125rem;
   }
 
-.console-playground .playground-route-summary {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-summary] {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
     gap: .25rem .75rem;
   }
 
-.console-playground .playground-result-footer a,
-  .console-playground .playground-route-summary a {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-footer] a,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-route-summary] a {
     text-decoration: underline;
     text-underline-offset: .18em;
   }
 
-.console-playground .playground-file {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-file] {
     display: grid;
     gap: .5rem;
     padding: .875rem;
@@ -924,18 +938,18 @@
     border-radius: .75rem;
   }
 
-.console-playground .playground-file label span {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-file] label span {
     display: flex;
     align-items: center;
     gap: .5rem;
   }
 
-.console-playground .playground-file p {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-file] p {
     font-size: .875rem;
     overflow-wrap: anywhere;
   }
 
-.console-playground .playground-run-actions {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-actions] {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -943,24 +957,24 @@
     gap: .5rem;
   }
 
-.console-playground .playground-run-actions p {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-actions] p {
     flex-basis: 100%;
     text-align: end;
   }
 
-.console-playground .playground-run-actions .button {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-actions] .button {
     min-block-size: 2.75rem;
   }
 
-.console-playground .playground-result {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result] {
     flex: 1;
   }
 
-.console-playground .playground-result-status:empty {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-status]:empty {
     margin-block-end: -1rem;
   }
 
-.console-playground .playground-result pre {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result] pre {
     margin: 0;
     padding: .875rem;
     max-block-size: 26rem;
@@ -973,93 +987,93 @@
     font-size: .875rem;
   }
 
-.console-playground .playground-result img,
-  .console-playground .playground-result audio {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result] img,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-result] audio {
     display: block;
     max-inline-size: 100%;
   }
 
-.console-playground .playground-result img {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result] img {
     border-radius: .625rem;
   }
 
-.console-playground .playground-result-footer {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-footer] {
     padding: .75rem 1rem;
     border-block-start: 1px solid var(--border);
   }
 
-.console-playground .playground-result-footer > div {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-footer] > div {
     display: grid;
     min-inline-size: 0;
   }
 
-.console-playground .playground-canvas .composer-controls {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-composer-controls] {
     justify-content: flex-end;
   }
 
-.console-playground .playground-canvas .chat-layout {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-layout] {
     margin: 0;
     border: 0;
     background: transparent;
     min-block-size: max(34rem, calc(100dvh - 15rem));
   }
 
-.console-playground .playground-canvas .chat-main {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-main] {
     min-block-size: 0;
   }
 
-.console-playground .playground-canvas .chat-welcome {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-welcome] {
     margin-block-start: clamp(2rem, 7vh, 5rem);
   }
 
 @media (width <= 680px) {
-    .console-playground .playground-request-toolbar label,
-    .console-playground .playground-request-toolbar select {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] label,
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] select {
       inline-size: 100%;
     }
 
-    .console-playground .playground-canvas .chat-welcome {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-welcome] {
       margin-block-start: 2rem;
     }
 
-    .console-playground .playground-route-path {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-route-path] {
       margin-inline-start: 0;
     }
 
-    .console-playground .playground-pane {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-pane] {
       min-block-size: 0;
     }
 
-    .console-playground .playground-canvas .chat-layout {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-layout] {
       min-block-size: 31rem;
     }
   }
 
-.console-playground .playground-request-toolbar {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] {
     gap: .625rem;
     padding: .625rem clamp(.75rem, 2vw, 1.25rem);
   }
 
-.console-playground .playground-endpoint-picker {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-endpoint-picker] {
     position: relative;
     flex: 0 1 auto;
     min-inline-size: 0;
   }
 
-.console-playground .playground-endpoint-picker svg {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-endpoint-picker] svg {
     position: absolute;
     inset-inline-start: .75rem;
     color: var(--ring);
     pointer-events: none;
   }
 
-.console-playground .playground-request-toolbar .playground-endpoint-picker select {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] [data-playground-endpoint-picker] select {
     inline-size: min(19.5rem, 100%);
     padding-inline-start: 2.25rem;
   }
 
-.console-playground .playground-toolbar-controls,
-  .console-playground .playground-chat-controls {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-toolbar-controls],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] {
     display: flex;
     flex: 1;
     align-items: center;
@@ -1068,32 +1082,32 @@
     min-inline-size: 0;
   }
 
-.console-playground .playground-chat-controls .chat-tools {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] [data-chat-tools] {
     margin-inline-start: auto;
     flex-wrap: wrap;
     gap: .375rem;
   }
 
-.console-playground .playground-chat-controls .button,
-  .console-playground .playground-chat-controls .playground-route-trigger {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] button:not([data-playground-route-trigger]),
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] [data-playground-route-trigger] {
     min-block-size: 2.75rem;
   }
 
-.console-playground .playground-request-toolbar .playground-model-select select {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] [data-playground-model-select] select {
     inline-size: min(16rem, 100%);
   }
 
-.console-playground .playground-canvas .chat-layout {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-layout] {
     position: relative;
     grid-template-columns: minmax(0, 1fr);
     min-block-size: clamp(30rem, calc(100dvh - 9rem), 49rem);
   }
 
-.console-playground .playground-canvas .chat-layout .sessions {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-layout] [data-sessions] {
     display: none;
   }
 
-.console-playground .playground-canvas .chat-layout.show-sessions .sessions {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-layout][data-show-sessions] [data-sessions] {
     display: block;
     position: absolute;
     z-index: 4;
@@ -1108,104 +1122,104 @@
     box-shadow: 0 12px 35px var(--effect-shadow);
   }
 
-.console-playground .playground-canvas .chat-main {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-main] {
     width: min(53rem, 100%);
     padding: clamp(1.25rem, 4vw, 3rem) clamp(1rem, 4vw, 2rem) 1.5rem;
   }
 
-.console-playground .playground-canvas .chat-welcome {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-welcome] {
     margin: clamp(1rem, 9vh, 5rem) 0 1.25rem;
   }
 
-.console-playground .playground-canvas .chat-welcome h2 {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-welcome] h2 {
     font-weight: 560;
     font-size: clamp(1.75rem, 4vw, 3rem);
     letter-spacing: -.045em;
   }
 
-.console-playground .playground-entry {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-entry] {
     border-radius: 1.25rem;
   }
 
-.console-playground .playground-canvas .composer-controls {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-composer-controls] {
     border-block-start: 0;
     background: transparent;
   }
 
-.console-playground .playground-markdown {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-markdown] {
     font-size: 1rem;
     line-height: 1.65;
     overflow-wrap: anywhere;
   }
 
-.console-playground .playground-markdown :is(pre, table) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-markdown] :is(pre, table) {
     max-inline-size: 100%;
     overflow: auto;
   }
 
-.console-playground .playground-markdown [data-streamdown="code-block"] {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-markdown] [data-streamdown="code-block"] {
     max-width: 100%;
     border-color: var(--border);
     background: var(--card);
   }
 
-.console-playground .playground-markdown [data-streamdown="code-block-header"] {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-markdown] [data-streamdown="code-block-header"] {
     border-bottom: 1px solid var(--border);
     padding-inline: 10px;
     color: var(--muted-foreground);
   }
 
-.console-playground .playground-markdown [data-streamdown="code-block-body"] {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-markdown] [data-streamdown="code-block-body"] {
     border-color: var(--border);
     background: var(--background);
     scrollbar-width: thin;
   }
 
-.console-playground .playground-markdown [data-streamdown="code-block-body"] pre {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-markdown] [data-streamdown="code-block-body"] pre {
     background: transparent;
   }
 
 @media (width <= 700px) {
-    .console-playground .playground-toolbar-controls {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-toolbar-controls] {
       flex-basis: 100%;
     }
 
-    .console-playground .playground-request-toolbar .playground-endpoint-picker select {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-request-toolbar] [data-playground-endpoint-picker] select {
       inline-size: 100%;
     }
 
-    .console-playground .playground-chat-controls .chat-tools {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] [data-chat-tools] {
       margin-inline-start: 0;
     }
 
-    .console-playground .playground-canvas .chat-welcome {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-welcome] {
       margin-block-start: 1rem;
     }
   }
 
-.console-playground .playground-workload-shortcuts {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-workload-shortcuts] {
     display: flex;
     flex-wrap: wrap;
     gap: .5rem;
     margin-block: 1.125rem 0;
   }
 
-.console-playground .playground-workload-shortcuts .button {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-workload-shortcuts] .button {
     min-block-size: 2.75rem;
     padding-inline: .875rem;
     border-radius: 999px;
   }
 
-.console-playground .playground-workload-shortcuts svg {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-workload-shortcuts] svg {
     color: var(--ring);
   }
 
-.console-playground .playground-stage {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-stage] {
     min-block-size: clamp(30rem, calc(100dvh - 9rem), 49rem);
     min-inline-size: 0;
   }
 
-.console-playground .playground-mode:not([hidden]) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-mode]:not([hidden]) {
     animation: playground-content-in 160ms ease-out both;
   }
 
@@ -1222,38 +1236,38 @@
   }
 
 @media (prefers-reduced-motion: reduce) {
-    .console-playground .playground-mode:not([hidden]) {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-mode]:not([hidden]) {
       animation: none;
     }
   }
 
-.console-playground .playground-canvas .chat-layout {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-layout] {
     min-block-size: 0;
   }
 
-.console-playground .playground-canvas .chat-main,
-  .console-playground .playground-editor {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-main],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-editor] {
     width: min(53rem, 100%);
     margin-inline: auto;
     padding: clamp(2.25rem, 6vh, 4rem) clamp(1rem, 4vw, 2rem) 1.5rem;
   }
 
-.console-playground .playground-editor-title {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor-title] {
     margin: 0 0 1.25rem;
   }
 
-.console-playground .playground-editor-title h2 {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor-title] h2 {
     font-size: clamp(1.5rem, 3vw, 2.375rem);
     font-weight: 560;
     line-height: 1.12;
     letter-spacing: -.04em;
   }
 
-.console-playground .playground-editor .playground-pane {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-pane] {
     min-block-size: 0;
   }
 
-.console-playground .playground-editor .playground-request {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-request] {
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -1261,58 +1275,58 @@
     box-shadow: none;
   }
 
-.console-playground .playground-editor .playground-request:has(textarea:focus-visible) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-request]:has(textarea:focus-visible) {
     outline: none;
   }
 
-.console-playground .playground-editor .playground-request textarea {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-request] textarea {
     border-radius: .625rem;
   }
 
 
-.console-playground .playground-editor .playground-request textarea {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-request] textarea {
     min-block-size: 6rem;
   }
 
-.console-playground .playground-editor .playground-run-actions {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-run-actions] {
     align-items: center;
     padding-block-start: .75rem;
     border-block-start: 1px solid var(--border);
   }
 
-.console-playground .playground-editor .playground-route-summary {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-route-summary] {
     flex: 1 1 12rem;
     justify-content: flex-start;
     align-items: center;
   }
 
-.console-playground .playground-editor .playground-output:not([data-idle]) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-output]:not([data-idle]) {
     margin-block-start: 1.125rem;
     border-block-start: 1px solid var(--border);
   }
 
-.console-playground .playground-editor .playground-output[data-idle] .playground-result {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-output][data-idle] [data-playground-result] {
     padding: 0;
   }
 
-.console-playground .playground-editor .playground-result,
-  .console-playground .playground-editor .playground-pane-header,
-  .console-playground .playground-editor .playground-result-footer {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-result],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-pane-header],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-editor] [data-playground-result-footer] {
     padding-inline: 0;
   }
 
 @media (width <= 700px) {
-    .console-playground .playground-canvas .chat-main,
-    .console-playground .playground-editor {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-chat-main],
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-editor] {
       padding-block-start: 1.625rem;
     }
   }
 
-.console-playground .playground-toolbar-controls {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-toolbar-controls] {
     min-block-size: 3rem;
   }
 
-.console-playground .playground-history-actions {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-history-actions] {
     display: flex;
     flex-wrap: wrap;
     gap: .375rem;
@@ -1320,41 +1334,41 @@
   }
 
 @media (width <= 700px) {
-    .console-playground .playground-chat-controls {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
     }
 
-    .console-playground .playground-chat-controls .chat-tools {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] [data-chat-tools] {
       flex-wrap: nowrap;
     }
 
-    .console-playground .playground-chat-controls .chat-tools .button {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] [data-chat-tools] button {
       inline-size: 2.75rem;
       padding-inline: 0;
     }
 
-    .console-playground .playground-chat-controls .chat-tools .button span {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] [data-chat-tools] button span {
       display: none;
     }
 
-    .console-playground .playground-chat-controls .playground-route-trigger {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] [data-playground-route-trigger] {
       block-size: 3rem;
       grid-template-columns: auto minmax(0, 1fr) auto;
     }
 
-    .console-playground .playground-chat-controls .playground-route-label strong {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-chat-controls] [data-playground-route-label] strong {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
   }
 
-.console-playground .console-stage:has(> .console-chat) {
+.theme-root[data-area="console"] [data-console-playground] .console-stage:has(> .console-chat) {
     background: var(--background);
   }
 
-.console-playground .playground-run-title {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-title] {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -1362,30 +1376,30 @@
     gap: .625rem;
   }
 
-.console-playground .playground-run-history summary {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-history] summary {
     cursor: pointer;
     list-style: none;
   }
 
-.console-playground .playground-run-history summary::-webkit-details-marker {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-history] summary::-webkit-details-marker {
     display: none;
   }
 
-.console-playground .playground-run-list {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-list] {
     display: grid;
     gap: .375rem;
     margin-block-start: .5rem;
   }
 
-.console-playground .playground-run-list p,
-  .console-playground .playground-result-meta,
-  .console-playground .playground-artifact figcaption,
-  .console-playground .playground-stream-state {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-list] p,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-result-meta],
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-artifact] figcaption,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-stream-state] {
     color: var(--muted-foreground);
     font-size: .8125rem;
   }
 
-.console-playground .playground-run-list button {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-list] button {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
@@ -1400,45 +1414,45 @@
     text-align: start;
   }
 
-.console-playground .playground-run-list button[aria-pressed="true"] {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-list] button[aria-pressed="true"] {
     border-color: var(--ring);
     background: var(--accent);
   }
 
-.console-playground .playground-result-meta {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-meta] {
     margin-block-start: .25rem;
     overflow-wrap: anywhere;
   }
 
-.console-playground .playground-artifact {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-artifact] {
     display: grid;
     gap: .75rem;
     justify-items: start;
     margin: 0;
   }
 
-.console-playground .playground-artifact img {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-artifact] img {
     inline-size: auto;
     max-block-size: min(28rem, 58vh);
     object-fit: contain;
   }
 
-.console-playground .playground-artifact figcaption,
-  .console-playground .playground-audio-output {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-artifact] figcaption,
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-audio-output] {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: .75rem;
   }
 
-.console-playground .playground-result-list {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-list] {
     display: grid;
     gap: .5rem;
     margin: 0;
     padding-inline-start: 0;
   }
 
-.console-playground .playground-result-list :is(li, div) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-list] :is(li, div) {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -1449,61 +1463,61 @@
     overflow-wrap: anywhere;
   }
 
-.console-playground ol.playground-result-list {
+.theme-root[data-area="console"] [data-console-playground] ol[data-playground-result-list] {
     counter-reset: rank;
   }
 
-.console-playground ol.playground-result-list li::before {
+.theme-root[data-area="console"] [data-console-playground] ol[data-playground-result-list] li::before {
     counter-increment: rank;
     content: counter(rank);
     color: var(--muted-foreground);
   }
 
-.console-playground .playground-result-list li > span {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-list] li > span {
     flex: 1;
   }
 
-.console-playground .playground-result-list :is(strong, dd) {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-result-list] :is(strong, dd) {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 
-.console-playground .playground-raw-result summary {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-raw-result] summary {
     cursor: pointer;
     margin-block: .375rem;
   }
 
-.console-playground .playground-plain-result {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-plain-result] {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
-.console-playground .playground-stream-state {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-stream-state] {
     display: flex;
     align-items: center;
     gap: .5rem;
   }
 
-.console-playground .playground-stream-state span {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-stream-state] span {
     inline-size: .5rem;
     block-size: .5rem;
     border-radius: 50%;
     background: var(--ring);
   }
 
-.console-playground .playground-canvas .thread-item button:first-child time {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-canvas] [data-thread-item] button:first-child time {
     display: block;
     margin-block-start: .15rem;
     color: var(--muted-foreground);
     font-size: .75rem;
   }
 
-.console-playground .playground-run-history {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-history] {
     position: relative;
     align-self: center;
   }
 
-.console-playground .playground-run-list {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-run-list] {
     position: absolute;
     z-index: 3;
     inset-inline-end: 0;
@@ -1517,20 +1531,20 @@
   }
 
 @media (width <= 480px) {
-    .console-playground .playground-run-title {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-run-title] {
       align-items: start;
     }
 
-    .console-playground .playground-run-history {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-run-history] {
       position: static;
     }
 
-    .console-playground .playground-run-title:has(.playground-run-history) {
+    .theme-root[data-area="console"] [data-console-playground] [data-playground-run-title]:has([data-playground-run-history]) {
       position: relative;
     }
   }
 
-.console-playground .playground-route-dialog .playground-fallback-pickers {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] [data-playground-fallback-pickers] {
     display: grid;
     gap: 9px;
     margin-block-start: 10px;
@@ -1538,13 +1552,13 @@
     border-top: 1px solid var(--border);
   }
 
-.console-playground .playground-route-dialog .playground-fallback-field {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] [data-playground-fallback-field] {
     display: grid;
     min-width: 0;
     gap: 4px;
   }
 
-.console-playground .playground-route-dialog .playground-fallback-field label {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] [data-playground-fallback-field] label {
     display: block;
     border: 0;
     padding: 0;
@@ -1553,12 +1567,12 @@
     font-size: 0.8rem;
   }
 
-.console-playground .playground-route-dialog .playground-fallback-field select {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-route-dialog] [data-playground-fallback-field] select {
     min-height: 44px;
     max-width: 100%;
   }
 
-.console-playground .playground-receipt-opt-in {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-receipt-opt-in] {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1568,7 +1582,7 @@
     width: fit-content;
   }
 
-.console-playground .playground-receipt-opt-in input {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-receipt-opt-in] input {
     flex: none;
     min-height: 0;
     width: 16px;
@@ -1577,13 +1591,13 @@
     accent-color: var(--ring);
   }
 
-.console-playground .playground-starters .prompts {
+.theme-root[data-area="console"] [data-console-playground] [data-playground-starters] [data-prompts] {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (width <= 700px) {
-  .console-playground .playground-starters .prompts {
+  .theme-root[data-area="console"] [data-console-playground] [data-playground-starters] [data-prompts] {
     grid-template-columns: minmax(0, 1fr);
   }
 }
