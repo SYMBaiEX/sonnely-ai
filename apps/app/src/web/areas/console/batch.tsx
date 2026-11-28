@@ -678,7 +678,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
             </div>
             <Button variant="ghost" size="sm" type="button" onClick={() => downloadFile("sonnely-batch-example.jsonl", JSON.stringify(example) + "\n")}><Download size={16} aria-hidden="true" /> Download example</Button>
           </div>
-          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-input bg-background px-4 py-6 text-ui transition-colors hover:border-ring hover:bg-secondary/40">
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-input bg-background px-4 py-6 text-ui transition-colors hover:border-ring hover:bg-secondary/40 has-focus-visible:border-ring has-focus-visible:ring-2 has-focus-visible:ring-ring/30">
             <Upload size={18} aria-hidden="true" />
             <span className="grid gap-1"><strong>Choose JSONL file</strong><span className="text-meta text-muted-foreground">Each line needs a custom ID, endpoint, and request body.</span></span>
             <Input ref={noteUploader} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready || !machine.state} onChange={(event) => void importBatch(event)} className="sr-only" />
