@@ -97,16 +97,41 @@ async function renderProbe(machine: "teams" | "admin-referrals" | "console" | "c
 afterEach(() => {
   for (const cleanup of cleanups.splice(0).reverse()) cleanup();
   vi.unstubAllGlobals();
+  document.cookie = "sonnely_referral=; max-age=0; path=/";
+  history.replaceState(null, "", "/");
   document.body.innerHTML = "";
 });
 
 describe("session-bound streams (spec/app/session.md, \"Only an active session can sign out\")", () => {
   let sessionState: WorkspaceSession = signedIn(walletA);
 
+  // spec/app/admin/referrals.md, "Story: Invite a wallet"; spec/app/session.md, "Story: Sign in with a wallet"
+  it("parks an invite parameter for the session boundary and strips it from the address", async () => {
+    history.replaceState(null, "", "/console?ref=parked-invite&keep=1#top");
+    const posts: Array<{ url: string; body: unknown }> = [];
+    vi.stubGlobal("fetch", (input: unknown, init?: RequestInit) => {
+      posts.push({ url: String(input), body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined });
+      return Promise.resolve(Response.json({ ok: true }));
+    });
+    vi.resetModules();
+    const sessionModule = await import("../src/web/session.ts");
+    sessionModule.captureReferralInvite();
+    expect({
+      address: window.location.pathname + window.location.search + window.location.hash,
+      cookie: document.cookie,
+      posts,
+    }).toEqual({
+      address: "/console?keep=1#top",
+      cookie: "sonnely_referral=parked-invite",
+      posts: [{ url: "/api/session/referral", body: { code: "parked-invite" } }],
+    });
+  });
+
   function stubTransport(
     initial: WorkspaceSession = signedIn(walletA),
     transport: { readSession?: () => Promise<Response>; writeMachine?: () => Promise<Response> } = {},
   ) {
+
     sessionState = initial;
     vi.stubGlobal("EventSource", FakeEventSource);
     vi.stubGlobal("fetch", (input: unknown, init?: RequestInit) => {

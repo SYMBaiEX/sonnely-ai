@@ -2,6 +2,7 @@
 // machine. The shell creates the exact message, verifies the wallet signature, and only then sends
 // the establishing event. Session cookies bear a random token; the machine stores only its digest.
 import * as Crm from "../../gen/app__admin__crm.effect.vibe"
+import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
 import * as Session from "../../gen/app__session.effect.vibe"
 import { sseResponse } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
@@ -10,6 +11,7 @@ import * as signin from "./session/signin.ts"
 const noStore = { "cache-control": "no-store" }
 const challengeMs = 300_000
 const sessionMs = 7 * 24 * 60 * 60_000
+const referralCookie = "sonnely_referral"
 const statement = "Sign in to Sonnely. This message does not move any funds."
 
 error VerifyUnavailable {}
@@ -131,6 +133,34 @@ effect function postChallenge() {
   return HttpServerResponse.setCookieUnsafe(response, "sonnely_challenge", nonce, cookieOptions(where.secure, challengeMs))
 }
 
+// spec/app/admin/referrals.md, "A wallet cannot refer itself"
+effect function creditReferral(code: string, wallet: string, now: number) {
+  if (code == "" || wallet == "") return
+  const referrals = try Referrals.Machine
+  referrals.send({ type: "signup", code, wallet, joined: now }) catch () => undefined
+}
+
+// spec/app/session.md, "Story: Sign in with a wallet"
+effect function postReferral() {
+  const request = try HttpServerRequest.HttpServerRequest
+  const where = site(request)
+  if (!sameSite(request, where.uri)) return try reply({ ok: false, error: "The referral origin does not match this site." }, 403)
+  if (!request.headers["content-type"]?.startsWith("application/json")) return try reply({ error: "send application/json" }, 415)
+  const raw = request.json catch () => undefined
+  const input = raw as { code?: unknown } | undefined
+  const code = typeof input?.code == "string" ? input.code : ""
+  if (code == "") return try reply({ ok: false, error: "An invite code is required." }, 400)
+  const wallet = try authenticatedWallet()
+  if (wallet == "") return HttpServerResponse.empty({ status: 204, headers: noStore })
+  const now = try Clock.currentTimeMillis
+  try creditReferral(code, wallet, now)
+  return HttpServerResponse.expireCookieUnsafe(
+    HttpServerResponse.empty({ status: 204, headers: noStore }),
+    referralCookie,
+    cookieOptions(where.secure),
+  )
+}
+
 /** Verify the exact signed message, consume its challenge once, and issue the session cookie. */
 effect function postVerify() {
   const request = try HttpServerRequest.HttpServerRequest
@@ -140,6 +170,7 @@ effect function postVerify() {
   const raw = request.json catch () => undefined
   const input = raw as { wallet?: unknown; signature?: unknown; signedMessage?: unknown; signedMessageFormat?: unknown } | undefined
   const wallet = typeof input?.wallet == "string" ? input.wallet : ""
+  const referral = request.cookies[referralCookie] ?? ""
   if (!signin.validWallet(wallet)) return try reply({ ok: false, error: "A Solana wallet is required." }, 400)
   const sessions = try Session.Machine
   const now = try Clock.currentTimeMillis
@@ -182,12 +213,12 @@ effect function postVerify() {
   if (!profiles.some((p) => p.wallet == challenge.wallet)) {
     crm.send({ type: "saveProfile", wallet: challenge.wallet, name: "", username: "", joined: now, onboarding: "pending", termsVersion: "", termsAcceptedAt: 0, inviter: "", now }) catch () => undefined
   }
-  const response = try reply({ ok: true, wallet })
-  return HttpServerResponse.expireCookieUnsafe(
-    HttpServerResponse.setCookieUnsafe(response, "sonnely_session", token, cookieOptions(where.secure, sessionMs)),
-    "sonnely_challenge",
-    cookieOptions(where.secure),
-  )
+  try creditReferral(referral, challenge.wallet, now)
+  let response = try reply({ ok: true, wallet })
+  response = HttpServerResponse.setCookieUnsafe(response, "sonnely_session", token, cookieOptions(where.secure, sessionMs))
+  response = HttpServerResponse.expireCookieUnsafe(response, "sonnely_challenge", cookieOptions(where.secure))
+  if (referral != "") response = HttpServerResponse.expireCookieUnsafe(response, referralCookie, cookieOptions(where.secure))
+  return response
 }
 
 /** End the active session named by this request's cookie. */
@@ -210,6 +241,7 @@ export const sessionApi = Layer.unwrap(effect {
     HttpRouter.add("GET", "/api/session/stream", getSessionStream()),
     HttpRouter.add("POST", "/api/session/challenge", provideService(postChallenge(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
     HttpRouter.add("POST", "/api/session/verify", provideService(postVerify(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(32))),
+    HttpRouter.add("POST", "/api/session/referral", provideService(postReferral(), HttpServerRequest.MaxBodySize, ByteSize.kibibytes(16))),
     HttpRouter.add("POST", "/api/session/signout", postSignOut()),
   )
 })
