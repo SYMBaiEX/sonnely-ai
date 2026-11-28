@@ -1,7 +1,6 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes -- these controls intentionally use the migrated billing class names */
 // spec/app/billing/deposits.md, "Story: Open a payment intent"
-import { Check, Copy } from "lucide-react";
-import { useState } from "react";
+import { CopyButton as UiCopyButton } from "@repo/ui";
 import { z } from "zod";
 import type { Intent } from "../../../../gen/app__billing__deposits.ts";
 
@@ -134,19 +133,5 @@ export function Failure({ message }: { message: string | undefined }) {
 }
 
 export function CopyButton({ value, label = "Copy", text = label }: { value: string; label?: string; text?: string }) {
-  const [status, setStatus] = useState("");
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setStatus("Copied");
-    } catch {
-      setStatus("Copy failed");
-    }
-  }
-  return (
-    <button type="button" className="button quiet small" onClick={() => void copy()} aria-label={status || label}>
-      {status === "Copied" ? <Check size={15} /> : <Copy size={15} />}
-      <span>{status || text}</span>
-    </button>
-  );
+  return <UiCopyButton value={value} label={label} text={text} className="button quiet small" />;
 }

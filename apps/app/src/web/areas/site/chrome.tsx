@@ -1,13 +1,12 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import {
   ArrowUpRight,
-  Check,
-  Copy,
   MonitorSmartphone,
   Moon,
   Sun,
 } from "lucide-react";
 import { useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { CopyButton as UiCopyButton } from "@repo/ui";
 import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
@@ -335,26 +334,5 @@ export function CopyButton({
   label?: string;
   text?: string;
 }) {
-  const [status, setStatus] = useState("");
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setStatus("Copied");
-    } catch {
-      setStatus("Copy failed");
-    }
-  }
-  return (
-    <button
-      type="button"
-      className="button quiet small"
-      onClick={() => void copy()}
-      onBlur={() => setStatus("")}
-      onPointerLeave={() => setStatus("")}
-      aria-label={status || label}
-    >
-      {status === "Copied" ? <Check size={15} /> : <Copy size={15} />}
-      <span>{status || text}</span>
-    </button>
-  );
+  return <UiCopyButton value={value} label={label} text={text} className="button quiet small" />;
 }

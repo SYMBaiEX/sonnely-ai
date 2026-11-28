@@ -1,5 +1,6 @@
 // @ts-nocheck — legacy Convex return types are reconstructed by the admin migration adapter.
-import { Loader2, SearchX } from "lucide-react";
+import { Badge, EmptyState as UiEmptyState, Skeleton as UiSkeleton, Spinner as UiSpinner } from "@repo/ui";
+import { SearchX } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 
 export function Pill({
@@ -9,7 +10,7 @@ export function Pill({
   tone?: "ok" | "warn" | "error" | "info" | "muted";
   children: ReactNode;
 }) {
-  return <span className={"pill" + (tone === "muted" ? "" : " pill-" + tone)}>{children}</span>;
+  return <Badge variant={tone === "error" ? "destructive" : tone} className={"pill" + (tone === "muted" ? "" : " pill-" + tone)}>{children}</Badge>;
 }
 
 export function EmptyState({
@@ -22,12 +23,9 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="empty-state">
-      <SearchX size={20} aria-hidden="true" />
-      <p className="empty-title">{title}</p>
-      {hint && <p className="caption">{hint}</p>}
+    <UiEmptyState title={title} description={hint} icon={<SearchX size={20} aria-hidden="true" />} className="empty-state">
       {action}
-    </div>
+    </UiEmptyState>
   );
 }
 
@@ -35,7 +33,7 @@ export function Skeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="skeleton-stack" aria-hidden="true">
       {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="skeleton-row" />
+        <UiSkeleton key={index} className="skeleton-row" />
       ))}
     </div>
   );
@@ -43,8 +41,8 @@ export function Skeleton({ rows = 4 }: { rows?: number }) {
 
 export function Spinner({ label = "Loading…" }: { label?: string }) {
   return (
-    <p className="loading-row" role="status">
-      <Loader2 size={15} className="spin" aria-hidden="true" /> {label}
+    <p className="loading-row">
+      <UiSpinner size="sm" label={label} className="spin" /> <span aria-hidden="true">{label}</span>
     </p>
   );
 }
