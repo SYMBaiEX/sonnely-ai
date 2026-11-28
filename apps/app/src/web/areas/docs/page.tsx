@@ -278,6 +278,7 @@ function SearchDocs() {
         onFocus={() => setOpen(true)}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
+            event.preventDefault();
             setOpen(false);
             setActive(-1);
             return;
@@ -286,15 +287,15 @@ function SearchDocs() {
             if (results.length === 0) return;
             event.preventDefault();
             setOpen(true);
-            setActive((current) => {
-              if (event.key === "ArrowDown") return current < 0 ? 0 : (current + 1) % results.length;
-              return current < 0 ? results.length - 1 : (current - 1 + results.length) % results.length;
-            });
+            const forward = event.key === "ArrowDown";
+            const next = active < 0 ? (forward ? 0 : results.length - 1) : (active + (forward ? 1 : -1) + results.length) % results.length;
+            setActive(next);
+            document.getElementById(`docs-search-option-${next}`)?.scrollIntoView({ block: "nearest" });
             return;
           }
           if (event.key === "Enter" && active >= 0 && active < results.length) {
             event.preventDefault();
-            window.location.assign(results[active].url);
+            document.getElementById(`docs-search-option-${active}`)?.click();
           }
         }}
         placeholder="Search guides"
