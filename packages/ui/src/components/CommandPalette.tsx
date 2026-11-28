@@ -37,10 +37,12 @@ export type CommandPaletteProps = {
   placeholder?: string;
   /** What a search with no matching command says. */
   emptyMessage?: string;
+  /** The control that opened the palette, refocused when it closes. */
+  returnFocusRef?: { readonly current: HTMLElement | null };
 };
 
 /** A keyboard-first command menu with dialog, search and listbox behavior owned by the primitive. */
-export function CommandPalette({ open, onOpenChange, commands, label = "Command palette", placeholder = "Find a page or action…", emptyMessage = "No matching pages or actions." }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, commands, label = "Command palette", placeholder = "Find a page or action…", emptyMessage = "No matching pages or actions.", returnFocusRef }: CommandPaletteProps) {
   const groups = new Map<string, CommandPaletteCommand[]>();
   for (const command of commands) {
     const group = command.group ?? "";
@@ -52,7 +54,16 @@ export function CommandPalette({ open, onOpenChange, commands, label = "Command 
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg gap-0 overflow-hidden p-0" closeLabel="Close command palette">
+      <DialogContent
+        className="max-w-lg gap-0 overflow-hidden p-0"
+        closeLabel="Close command palette"
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef?.current;
+          if (!target) return;
+          event.preventDefault();
+          target.focus();
+        }}
+      >
         <DialogTitle className="sr-only">{label}</DialogTitle>
         <Command label={label}>
           <div className="flex items-center gap-2 border-b border-border px-3">

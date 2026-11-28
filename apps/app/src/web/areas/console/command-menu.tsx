@@ -28,12 +28,14 @@ export function CommandMenu({
   pages,
   onToggleTheme,
   inviteUrl,
+  returnFocusRef,
 }: {
   open: boolean;
   onClose: () => void;
   pages: readonly { title: string; path: string; Icon: LucideIcon }[];
   onToggleTheme?: () => void;
   inviteUrl?: string;
+  returnFocusRef?: { readonly current: HTMLElement | null };
 }) {
   const [recents, setRecents] = useState<Recent[]>(readRecents);
   const destinations = [...pages, { title: "Documentation", path: "/docs", Icon: BookOpen }];
@@ -121,6 +123,7 @@ export function CommandMenu({
       label="Quick navigation"
       placeholder="Go to page…"
       emptyMessage="No matching pages or actions."
+      returnFocusRef={returnFocusRef}
     />
   );
 }

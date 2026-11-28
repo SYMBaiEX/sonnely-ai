@@ -163,6 +163,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   const [setupOpen, setSetupOpen] = useState(false);
   const [dismissedWallet, setDismissedWallet] = useState<string>();
   const navToggle = useRef<HTMLButtonElement>(null);
+  const paletteTriggerRef = useRef<HTMLButtonElement>(null);
   const navPanel = useRef<HTMLElement>(null);
   const selected = all.find((item) => item.section === section) ?? all[0];
   const signedIn = session.state?.tag === "SignedIn" ? session.state.wallet : "";
@@ -415,6 +416,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
               </a>
             )}
             <button
+              ref={paletteTriggerRef}
               type="button"
               className="button quiet small command-toggle"
               onClick={() => setPalette(true)}
@@ -452,6 +454,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
             void chooseTheme(cycle[(cycle.indexOf(theme) + 1) % cycle.length]);
           }}
           inviteUrl={inviteUrl}
+          returnFocusRef={paletteTriggerRef}
         />
         <main id="console-content" tabIndex={-1} className={selected.id === "chat" ? "console-chat" : "console-content"}>
           <ConsoleShellContext.Provider value={shell}>

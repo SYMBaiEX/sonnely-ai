@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
-import { Button, cn, Dialog, DialogContent, DialogTitle, Label, Select } from "@repo/ui";
+import { Button, cn, Dialog, DialogContent, DialogTitle, DialogTrigger, Label, Select } from "@repo/ui";
 import { SearchField } from "../../search.tsx";
 import {
   contextFormat,
@@ -60,7 +60,6 @@ export function PlaygroundRoute({
     setDraftProvider(provider);
     setDraftFallbacks(fallbacks.filter((id) => id !== provider));
     setSearch("");
-    setOpen(true);
   }
 
   function selectModel(choice: ChatModel) {
@@ -79,30 +78,31 @@ export function PlaygroundRoute({
     );
 
   return (
-    <>
-      <Button
-        type="button"
-        variant="ghost"
-        data-playground-route-trigger
-        aria-description="Choose model and provider."
-        aria-haspopup="dialog"
-        onClick={openPicker}
-        disabled={disabled}
-        className="h-auto max-w-full justify-start gap-2 rounded-lg px-2 py-1.5 text-left whitespace-normal"
-      >
-        <ModelMark>{current.mark}</ModelMark>
-        <span data-playground-route-label className="grid min-w-0 flex-1 gap-0.5">
-          <strong className="truncate text-ui font-strong">{current.name}</strong>
-          <small className="truncate text-micro text-muted-foreground">
-            {providerNames[provider]} · {current.type}
-            {fallbacks.length > 0 ? " · Failover enabled" : ""}
-            {available ? "" : " · unavailable"}
-          </small>
-        </span>
-        <ChevronDown size={15} aria-hidden="true" />
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent data-playground-route-dialog className="max-h-[calc(100dvh-2rem)] max-w-3xl gap-0 overflow-hidden p-0">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          data-playground-route-trigger
+          aria-description="Choose model and provider."
+          aria-haspopup="dialog"
+          onClick={openPicker}
+          disabled={disabled}
+          className="h-auto max-w-full justify-start gap-2 rounded-lg px-2 py-1.5 text-left whitespace-normal"
+        >
+          <ModelMark>{current.mark}</ModelMark>
+          <span data-playground-route-label className="grid min-w-0 flex-1 gap-0.5">
+            <strong className="truncate text-ui font-strong">{current.name}</strong>
+            <small className="truncate text-micro text-muted-foreground">
+              {providerNames[provider]} · {current.type}
+              {fallbacks.length > 0 ? " · Failover enabled" : ""}
+              {available ? "" : " · unavailable"}
+            </small>
+          </span>
+          <ChevronDown size={15} aria-hidden="true" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent data-playground-route-dialog className="max-h-[calc(100dvh-2rem)] max-w-3xl gap-0 overflow-hidden p-0">
           <div className="border-b border-border px-5 py-4">
             <DialogTitle>Choose a model</DialogTitle>
           </div>
@@ -241,8 +241,7 @@ export function PlaygroundRoute({
               Use model
             </Button>
           </footer>
-        </DialogContent>
-      </Dialog>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
