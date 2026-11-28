@@ -1,7 +1,8 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes -- shared console controls intentionally use the migrated console class names */
 import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Check, ChevronDown, Copy, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { CopyButton as UiCopyButton, EmptyState } from "@repo/ui";
 import "./data-rows.css";
 
 export const shorten = (wallet: string) => wallet.slice(0, 4) + "…" + wallet.slice(-4);
@@ -68,39 +69,11 @@ export function WorkspaceHeading({
 }
 
 export function CopyButton({ value, label = "Copy", quiet = true, className = "" }: { value: string; label?: string; quiet?: boolean; className?: string }) {
-  const [status, setStatus] = useState("");
-  const reset = () => setStatus("");
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setStatus("Copied");
-    } catch {
-      setStatus("Copy failed");
-    }
-  }
-  return (
-    <button
-      type="button"
-      className={`button ${quiet ? "quiet" : ""} small ${className}`}
-      aria-label={status || label}
-      onBlur={reset}
-      onPointerLeave={reset}
-      onClick={() => void copy()}
-    >
-      {status === "Copied" ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />}
-      {status || label}
-    </button>
-  );
+  return <UiCopyButton value={value} label={label} text={label} className={`button ${quiet ? "quiet" : ""} small ${className}`} />;
 }
 
 export function Empty({ title, children, icon }: { title: string; children: ReactNode; icon: ReactNode }) {
-  return (
-    <div className="empty">
-      <span className="empty-icon">{icon}</span>
-      <h2>{title}</h2>
-      <div>{children}</div>
-    </div>
-  );
+  return <EmptyState title={title} icon={icon} className="empty">{children}</EmptyState>;
 }
 
 export function Failure({ message }: { message: string }) {
