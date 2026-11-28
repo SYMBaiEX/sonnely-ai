@@ -1,30 +1,22 @@
-// spec/app/admin/index.md
+// spec/app/admin/index.md, "The admin machine"
 import "../site/site.css";
-import "./admin.css";
 import type { Page } from "../../../../gen/app__nav.ts";
+import { Button } from "@repo/ui";
 import { useAdmin, useSession } from "./data.ts";
-import { adminAreas, type AdminArea } from "./legacy/admin-areas.ts";
+import { adminArea, type AdminArea } from "./areas.ts";
 import { AdminWorkspace } from "./shell.tsx";
 import { ConsoleFrame } from "../console/frame.tsx";
+import { Panel } from "./ui.tsx";
 
-/**
- * `/console/admin/referrals` was an orphan duplicate of the personal referrals page.
- * The personal page at `/console/referrals` is the canonical surface; this sends
- * operators there with a declarative refresh and a visible fallback link.
- */
 function ReferralRedirect() {
   return (
     <ConsoleFrame section="Admin">
       <meta httpEquiv="refresh" content="0;url=/console/referrals" />
-      <section className="panel stack-panel">
-        <h2>Referrals moved</h2>
-        <p className="caption">
-          Referral tracking is a personal workspace surface, not an admin operations page.
-        </p>
-        <a className="button quiet" href="/console/referrals">
-          Open referrals
-        </a>
-      </section>
+      <Panel className="px-6 py-10 text-center">
+        <h2 className="text-heading font-medium tracking-heading">Referrals moved</h2>
+        <p className="mt-2 text-ui text-muted-foreground">Referral tracking is a personal workspace surface.</p>
+        <Button asChild className="mt-4"><a href="/console/referrals">Open referrals</a></Button>
+      </Panel>
     </ConsoleFrame>
   );
 }
@@ -33,13 +25,11 @@ export function AdminPage({ area }: { area: string }) {
   const session = useSession();
   const admin = useAdmin();
   if (area === "referrals") return <ReferralRedirect />;
-  const section: AdminArea = (adminAreas as readonly string[]).includes(area) ? (area as AdminArea) : "overview";
+  const section: AdminArea = adminArea(area);
   const signedIn = session.state?.tag === "SignedIn" ? session.state : undefined;
   const wallet = signedIn?.wallet ?? "";
   const roster = admin.state?.ops.roster;
   const operator = roster?.find((row) => row.wallet === wallet);
-  // Only a roster read back as empty opens the bootstrap: an unreadable admin state
-  // (still loading, or refused) never turns a wallet into an administrator.
   const bootstrapOperator = Boolean(wallet && roster && roster.length === 0);
   const role = operator ? operator.role.toLowerCase() : bootstrapOperator ? "admin" : "member";
 
