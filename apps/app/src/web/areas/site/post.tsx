@@ -1,9 +1,8 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { NotFound } from "./notfound.tsx";
 import { ArrowLeft, ArrowUpRight, List } from "lucide-react";
-import { articles, categoryIcons, readingMinutes } from "./journal.ts";
-import { ProductIcon } from "./icons.tsx";
-import { JournalMeta } from "./journal-index.tsx";
+import { articles, readingMinutes } from "./journal.ts";
+import { JournalEntry } from "./journal-index.tsx";
 
 function sectionId(heading: string) {
   return heading
@@ -30,14 +29,11 @@ export function PostPage({ slug }: { slug: string }) {
         <a className="text-link" href="/blog"><ArrowLeft size={14} aria-hidden="true" /> Journal</a>
       </nav>
       <header className="jrn-post-hero">
-        <span className="jrn-meta">
-          <span className="jrn-chip" aria-hidden="true">
-            <ProductIcon name={categoryIcons[article.category] ?? "Box"} size={15} />
-          </span>
-          {article.category} · {readingMinutes(article)} min read
-        </span>
         <h1>{article.title}</h1>
         <p>{article.summary}</p>
+        <p className="jrn-post-meta">
+          {article.category} · {readingMinutes(article)} min read
+        </p>
       </header>
       <div className="jrn-post-layout">
         <div className="jrn-prose">
@@ -45,7 +41,6 @@ export function PostPage({ slug }: { slug: string }) {
             <details className="jrn-minitoc">
               <summary>
                 <List size={15} aria-hidden="true" /> On this page
-                <span className="jrn-minitoc-count">{sections.length} sections</span>
               </summary>
               <nav aria-label="On this page">
                 {sections.map(([id, heading]) => (
@@ -72,16 +67,12 @@ export function PostPage({ slug }: { slug: string }) {
             </a>
           )}
           <footer className="jrn-more">
-            <span className="jrn-more-label">More from the journal</span>
-            <div className="jrn-more-grid">
+            <h2>Read next</h2>
+            <ul className="jrn-list" role="list">
               {related.map((entry) => (
-                <a className="jrn-card" href={"/blog/" + entry.slug} key={entry.slug}>
-                  <JournalMeta article={entry} />
-                  <strong>{entry.title}</strong>
-                  <small>{entry.summary}</small>
-                </a>
+                <JournalEntry key={entry.slug} article={entry} />
               ))}
-            </div>
+            </ul>
           </footer>
         </div>
         {sections.length > 0 && (
