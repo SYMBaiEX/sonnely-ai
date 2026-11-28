@@ -7,6 +7,7 @@ import type { Tickets } from "../../../../gen/app__support.ts";
 import { useRemote } from "../../remote.ts";
 import { useSession } from "../../session.ts";
 import { useBillingCluster, WalletControl } from "../console/wallet.tsx";
+import styles from "./contact.module.css";
 
 export type ContactTopicId = "workspace" | "billing" | "partnership" | "feedback";
 
@@ -220,10 +221,10 @@ export function mailtoFor(destination: ContactDestination) {
   return `mailto:sonnely@symbaiex.com?subject=${encodeURIComponent(destination.topic)}`;
 }
 
-export function WalletGate({ request, compact = false }: { request: SupportRequestController; compact?: boolean }) {
+export function WalletGate({ request }: { request: SupportRequestController }) {
   const wallet = request.sessionState.kind === "ready" ? request.sessionState.wallet : undefined;
   return (
-    <div className={compact ? "cx-wallet cx-wallet-compact" : "cx-wallet"}>
+    <div className={styles.wallet}>
       <WalletControl
         wallet={wallet}
         cluster={request.cluster}
@@ -231,20 +232,20 @@ export function WalletGate({ request, compact = false }: { request: SupportReque
         onSignIn={request.signIn}
         onSignOut={request.signOut}
       />
-      <div className="cx-wallet-copy">
+      <div className={styles["wallet-copy"]}>
         <span>
           {request.sessionState.kind === "ready"
             ? "Workspace attached"
             : request.sessionState.kind === "checking"
               ? "Checking workspace"
-              : "Connect a wallet"}
+              : "Attach your workspace"}
         </span>
         <small>
           {request.sessionState.kind === "ready"
             ? "Your public key travels with the request"
             : request.sessionState.kind === "checking"
               ? "Restoring the current workspace session"
-              : "Attach your workspace, or use the email fallback"}
+              : "Sign in with your wallet. No funds move."}
         </small>
       </div>
     </div>
@@ -258,7 +259,7 @@ export function ContactFields({ request, messageRows = 6 }: { request: SupportRe
   const messageHelpId = `${id}-message-help`;
   return (
     <>
-      <label className="cx-field">
+      <label className={styles.field}>
         <span>Email</span>
         <Input
           name="email"
@@ -272,10 +273,10 @@ export function ContactFields({ request, messageRows = 6 }: { request: SupportRe
           onChange={(event) => request.updateEmail(event.currentTarget.value)}
         />
         {request.fieldErrors.email && (
-          <span role="alert" className="cx-field-error" id={emailErrorId}>{request.fieldErrors.email}</span>
+          <span role="alert" className={styles["field-error"]} id={emailErrorId}>{request.fieldErrors.email}</span>
         )}
       </label>
-      <label className="cx-field cx-message-field">
+      <label className={styles.field}>
         <span>Message</span>
         <Textarea
           name="message"
@@ -287,11 +288,11 @@ export function ContactFields({ request, messageRows = 6 }: { request: SupportRe
           aria-describedby={`${messageHelpId}${request.fieldErrors.message ? ` ${messageErrorId}` : ""}`}
           onChange={(event) => request.updateMessage(event.currentTarget.value)}
         />
-        <span className="cx-safety" id={messageHelpId}>
+        <span className={styles.safety} id={messageHelpId}>
           {request.destination.evidence}. Keep API keys, wallet recovery phrases and private prompt text out of the request.
         </span>
         {request.fieldErrors.message && (
-          <span role="alert" className="cx-field-error" id={messageErrorId}>{request.fieldErrors.message}</span>
+          <span role="alert" className={styles["field-error"]} id={messageErrorId}>{request.fieldErrors.message}</span>
         )}
       </label>
     </>
@@ -305,7 +306,7 @@ export function SubmitButton({ request, children = "Submit request" }: { request
       size="lg"
       loading={request.submission.kind === "sending"}
       disabled={request.sessionState.kind !== "ready"}
-      className="cx-submit"
+      className={styles.submit}
     >
       {request.submission.kind === "sending" ? "Sending…" : children}
     </Button>
@@ -315,28 +316,28 @@ export function SubmitButton({ request, children = "Submit request" }: { request
 export function SupportFeedback({ request }: { request: SupportRequestController }) {
   if (request.submission.kind === "failed") {
     return (
-      <div role="alert" className="cx-error">
+      <div role="alert" className={styles.error}>
         <p>{request.submission.message}</p>
         <small>Nothing was lost. The message above is still editable.</small>
-        <div className="cx-error-actions">
-          <button type="button" className="cx-error-action" onClick={() => void request.submit()}>Try again</button>
-          <a className="cx-error-action" href={mailtoFor(request.destination)}>Email instead</a>
+        <div className={styles["error-actions"]}>
+          <button type="button" className={styles["error-action"]} onClick={() => void request.submit()}>Try again</button>
+          <a className={styles["error-action"]} href={mailtoFor(request.destination)}>Email instead</a>
         </div>
       </div>
     );
   }
   if (request.submission.kind === "sent") {
     return (
-      <div role="status" className="cx-confirmation">
+      <div role="status" className={styles.confirmation}>
         <h3>Request received</h3>
         <p>Save this reference. The team can use it to find the thread when you write again.</p>
-        <code className="cx-reference">{request.submission.reference}</code>
+        <code className={styles.reference}>{request.submission.reference}</code>
       </div>
     );
   }
   if (request.remoteError) {
     return (
-      <div role="alert" className="cx-error">
+      <div role="alert" className={styles.error}>
         <p>{request.remoteError}</p>
         <small>Use the email fallback if the support channel stays unavailable.</small>
       </div>

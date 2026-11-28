@@ -15,7 +15,6 @@ import { PrivacyPage, TermsPage } from "./legal.tsx";
 import { VerifyPage } from "./verify.tsx";
 import { ContactPage } from "./contact.tsx";
 import "./site.css";
-import "./contactx.css";
 import "./correspondence.css";
 
 export function render(page: Page): React.ReactNode {
