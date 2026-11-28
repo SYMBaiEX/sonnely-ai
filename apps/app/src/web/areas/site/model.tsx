@@ -165,7 +165,7 @@ function EndpointCard({
                   <TableHead scope="row" colSpan={2} className="px-0 pb-1 pt-2 font-regular text-meta text-muted-foreground">API model ID</TableHead>
                 </TableRow>
                 <TableRow>
-                  <TableCell colSpan={2} className="break-all px-0 pb-2 pt-0 font-mono text-ui text-foreground">{modelId}</TableCell>
+                  <TableCell colSpan={2} className="break-all whitespace-normal px-0 pb-2 pt-0 font-mono text-ui text-foreground">{modelId}</TableCell>
                 </TableRow>
                 {rates.map((rate) => (
                   <TableRow key={rate.key} className="last:border-b-0">
