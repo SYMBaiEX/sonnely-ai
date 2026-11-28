@@ -1,6 +1,7 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { ArrowUpRight, CircleAlert, CircleCheck, Clock, RefreshCw, Activity } from "lucide-react";
 import { useState } from "react";
+import { Button, Card } from "@repo/ui";
 import { overall, routingUp } from "../../../../gen/app__site.effect.vibe";
 import type { Board, ProbeState, Report } from "../../../../gen/app__site.ts";
 import type { Registry } from "../../../../gen/app__admin.ts";
@@ -94,7 +95,7 @@ export function StatusPage() {
   const upCount = report ? services(report).filter(([, ok]) => ok).length : 0;
 
   return (
-    <div className="wrap cor-page cor-status-page">
+    <div className="mx-auto grid w-full max-w-[1320px] gap-8 px-4 pb-16 md:px-8 xl:px-12">
       <CorrespondenceHero
         eyebrow="Service status · Sonnely"
         title="Live checks, on the record."
@@ -118,22 +119,22 @@ export function StatusPage() {
         </a>
       </CorrespondenceHero>
 
-      <section className="cor-sheet cor-status-board" aria-labelledby="status-checks">
-        <header className="cor-sheet-head">
+      <Card asChild className="gap-5" aria-labelledby="status-checks"><section>
+        <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
-            <span>Workspace checks</span>
-            <h2 id="status-checks">What the board measures</h2>
+            <span className="font-mono text-micro uppercase tracking-micro text-primary">Workspace checks</span>
+            <h2 id="status-checks" className="mt-1 [font-family:var(--font-serif)] text-heading font-medium tracking-tight">What the board measures</h2>
           </div>
-          <span className="cor-stamp" aria-hidden="true"><Activity size={20} /></span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-full border border-primary/40 text-primary" aria-hidden="true"><Activity size={20} /></span>
         </header>
-        <dl className="status-checks">
+        <dl className="grid">
           {(report ? services(report) : []).map(([name, ok, ready, unavailable]) => (
-            <div key={name}>
-              <dt>
+            <div key={name} className="flex flex-wrap items-start justify-between gap-2 border-t border-border py-4 first:border-t-0">
+              <dt className="max-w-xl text-ui font-medium">
                 {name}
-                <small>{checkExplanations[name]}</small>
+                <small className="mt-1 block text-meta font-regular text-muted-foreground">{checkExplanations[name]}</small>
               </dt>
-              <dd>
+              <dd className="inline-flex items-center gap-1.5 text-ui">
                 {ok ? (
                   <CircleCheck size={17} aria-hidden="true" className="text-ok" />
                 ) : (
@@ -146,27 +147,27 @@ export function StatusPage() {
         </dl>
         {report && (
           <>
-            <h3 className="status-subhead">Provider connectivity</h3>
-            <ul className="status-probes" role="list" aria-label="Provider connectivity">
+            <h3 className="pt-2 text-ui font-medium">Provider connectivity</h3>
+            <ul className="flex flex-wrap gap-2" role="list" aria-label="Provider connectivity">
               {report.probes.map((probe) => (
-                <li key={probe.provider} data-state={probe.state} className="status-probe">
+                <li key={probe.provider} data-state={probe.state} className="inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 text-micro font-medium text-muted-foreground data-[state=Down]:border-warn/30 data-[state=Down]:bg-warn/10 data-[state=Down]:text-warn data-[state=Ok]:border-ok/30 data-[state=Ok]:bg-ok/10 data-[state=Ok]:text-ok">
                   {probe.label} · {probe.state === "Ok" ? "Reachable" : probe.state}
                 </li>
               ))}
             </ul>
-            <ul className="status-legend" role="list" aria-label="What the provider states mean">
+            <ul className="grid gap-3" role="list" aria-label="What the provider states mean">
               {(Object.keys(stateExplanations) as ProbeState[]).map((state) => (
-                <li key={state}>
-                  <span data-state={state} className="status-probe">
+                <li key={state} className="grid gap-2 sm:grid-cols-[max-content_minmax(0,1fr)] sm:items-center sm:gap-4">
+                  <span data-state={state} className="inline-flex min-h-7 items-center rounded-full border border-border bg-secondary px-2.5 text-micro font-medium text-muted-foreground data-[state=Down]:border-warn/30 data-[state=Down]:bg-warn/10 data-[state=Down]:text-warn data-[state=Ok]:border-ok/30 data-[state=Ok]:bg-ok/10 data-[state=Ok]:text-ok">
                     {stateExplanations[state][0]}
                   </span>
-                  <p>{stateExplanations[state][1]}</p>
+                  <p className="text-meta text-muted-foreground">{stateExplanations[state][1]}</p>
                 </li>
               ))}
             </ul>
           </>
         )}
-        <footer className="status-meta">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
           <p className={caption}>
             <Clock size={13} aria-hidden="true" />
             {receivedAt
@@ -176,15 +177,17 @@ export function StatusPage() {
               : "Waiting for the first report."}
           </p>
           {isOperator && (
-            <button
+            <Button
               type="button"
-              className="button quiet small"
+              variant="outline"
+              size="sm"
+              className="rounded-full"
               disabled={refreshing}
               onClick={() => void runCheck()}
             >
               <RefreshCw size={14} aria-hidden="true" />
               {refreshing ? "Checking…" : "Run a fresh check"}
-            </button>
+            </Button>
           )}
         </footer>
         <p className={caption}>
@@ -192,16 +195,16 @@ export function StatusPage() {
           send billable requests.
         </p>
         {(error || refreshError) && <p className={caption}>{error || refreshError}</p>}
-      </section>
+      </section></Card>
 
-      <section className="cor-terms" aria-labelledby="status-notes">
+      <section className="grid gap-6 border-t border-border pt-8" aria-labelledby="status-notes">
         <header>
-          <span>Reading this page</span>
-          <h2 id="status-notes">Notes on checks</h2>
+          <span className="font-mono text-micro uppercase tracking-micro text-primary">Reading this page</span>
+          <h2 id="status-notes" className="mt-1 [font-family:var(--font-serif)] text-heading font-medium tracking-tight">Notes on checks</h2>
         </header>
-        <div>
-          <article>
-            <h3>Incident history</h3>
+        <div className="grid gap-6 md:grid-cols-2">
+          <article className="grid gap-3 text-body text-muted-foreground">
+            <h3 className="text-ui font-medium text-foreground">Incident history</h3>
             <p>
               This board reports live checks only; it does not yet publish an incident timeline.
               Scheduled inference alerts flag request errors, high latency, and pending billing
@@ -216,8 +219,8 @@ export function StatusPage() {
               Report a problem <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           </article>
-          <article>
-            <h3>Configuration, not outage</h3>
+          <article className="grid gap-3 text-body text-muted-foreground">
+            <h3 className="text-ui font-medium text-foreground">Configuration, not outage</h3>
             <p>
               Workspace checks cover the account store, inference routing, payment configuration,
               and deposit recovery. A deployment can intentionally disable providers or payment

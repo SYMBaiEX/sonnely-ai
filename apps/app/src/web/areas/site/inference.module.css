@@ -1,8 +1,8 @@
-.site .inference-page {
+.inference-page {
   padding-bottom: clamp(30px, 4vw, 60px);
 }
 
-.site .inference-hero {
+.inference-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   align-items: end;
@@ -10,7 +10,7 @@
   padding-block: clamp(32px, 4.5vw, 56px) clamp(24px, 3.5vw, 40px);
 }
 
-.site .inference-hero h1 {
+.inference-hero h1 {
   font-size: clamp(44px, 6.4vw, 5rem);
   font-weight: 650;
   line-height: 0.97;
@@ -18,11 +18,11 @@
   text-wrap: balance;
 }
 
-.site .inference-hero :where(h1) span {
+.inference-hero :where(h1) span {
   color: var(--ring);
 }
 
-.site .inference-hero-description {
+.inference-hero-description {
   max-width: 47ch;
   margin-top: 14px;
   color: var(--muted-foreground);
@@ -31,14 +31,16 @@
   text-wrap: pretty;
 }
 
-.site .inference-hero .actions {
+.inference-hero .actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px 20px;
   margin-top: 14px;
 }
 
-.site .inference-section .inference-term,
-.site .inference-trace {
+.inference-section .inference-term,
+.inference-trace {
   min-width: 0;
   margin: 0;
   border: 1px solid var(--home-divider);
@@ -46,12 +48,12 @@
   background: var(--home-panel);
 }
 
-.site .inference-brief {
+.inference-brief {
   min-width: 0;
   margin: 0 0 8px;
 }
 
-.site .inference-brief > figcaption {
+.inference-brief > figcaption {
   display: grid;
   gap: 4px;
   margin-bottom: 12px;
@@ -59,7 +61,7 @@
   font-weight: 650;
 }
 
-.site .inference-section .inference-term > figcaption {
+.inference-section .inference-term > figcaption {
   padding: 12px 16px;
   border-bottom: 1px solid var(--home-divider);
   color: var(--foreground);
@@ -67,13 +69,13 @@
   font-weight: 600;
 }
 
-.site .inference-brief code {
+.inference-brief code {
   color: var(--muted-foreground);
   font: 500 0.8125rem / 1.5 var(--font-mono);
   overflow-wrap: anywhere;
 }
 
-.site .inference-brief ol {
+.inference-brief ol {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
@@ -81,7 +83,7 @@
   list-style: none;
 }
 
-.site .inference-brief li {
+.inference-brief li {
   display: grid;
   align-content: start;
   gap: 8px;
@@ -91,16 +93,16 @@
   font-size: 0.875rem;
 }
 
-.site .inference-brief li + li {
+.inference-brief li + li {
   padding-inline-start: 12px;
   border-inline-start: 1px solid var(--home-divider);
 }
 
-.site .inference-brief svg {
+.inference-brief svg {
   color: var(--ring);
 }
 
-.site .inference-page > div {
+.inference-page > div {
   display: grid;
   grid-template-columns: minmax(0, 164px) minmax(0, 1fr);
   align-items: start;
@@ -109,7 +111,7 @@
   border-top: 1px solid var(--home-divider);
 }
 
-.site .inference-nav {
+.inference-nav {
   position: sticky;
   top: calc(var(--site-header-height) + 16px);
   display: grid;
@@ -117,38 +119,38 @@
   font-size: 0.875rem;
 }
 
-.site .inference-nav p {
+.inference-nav p {
   margin: 0;
   padding-block: 10px;
   color: var(--foreground);
   font-weight: 650;
 }
 
-.site .inference-nav a {
+.inference-nav a {
   display: flex;
   align-items: center;
   min-height: 44px;
   color: var(--muted-foreground);
 }
 
-.site .inference-nav a:is(:hover, :focus-visible) {
+.inference-nav a:is(:hover, :focus-visible) {
   color: var(--ring);
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
 
-.site .inference-section {
+.inference-section {
   padding-block: 8px clamp(16px, 2.6vw, 32px);
   scroll-margin-block-start: 16px;
 }
 
-.site .inference-section + .inference-section {
+.inference-section + .inference-section {
   padding-top: clamp(20px, 3vw, 36px);
   border-top: 1px solid var(--home-divider);
 }
 
-.site .inference-section h2,
-.site .inference-closing h2 {
+.inference-section h2,
+.inference-closing h2 {
   margin: 0 0 8px;
   font-size: clamp(1.75rem, 2.7vw, 2.375rem);
   font-weight: 650;
@@ -157,29 +159,29 @@
   text-wrap: balance;
 }
 
-.site .inference-page .text-link {
+.inference-page .text-link {
   width: fit-content;
   min-height: 44px;
 }
 
-.site .inference-copy > .text-link {
+.inference-copy > .text-link {
   margin-top: 4px;
   color: var(--ring);
 }
 
-.site .inference-split {
+.inference-split {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: start;
   gap: clamp(16px, 3vw, 40px);
 }
 
-.site .inference-wide {
+.inference-wide {
   display: grid;
   gap: 16px;
 }
 
-.site :is(.inference-copy, .inference-closing) p {
+:is(.inference-copy, .inference-closing) p {
   max-width: 58ch;
   margin: 0;
   color: var(--muted-foreground);
@@ -188,13 +190,13 @@
   text-wrap: pretty;
 }
 
-.site .inference-copy > p code {
+.inference-copy > p code {
   color: var(--foreground);
   font-size: 0.86em;
   overflow-wrap: anywhere;
 }
 
-.site .inference-copy > dl {
+.inference-copy > dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px 24px;
@@ -202,24 +204,24 @@
   margin: 16px 0;
 }
 
-.site .inference-copy :where(dl) > div {
+.inference-copy :where(dl) > div {
   padding-top: 8px;
   border-top: 1px solid var(--home-divider);
 }
 
-.site .inference-copy dt {
+.inference-copy dt {
   color: var(--foreground);
   font-weight: 650;
 }
 
-.site .inference-copy dd {
+.inference-copy dd {
   margin: 4px 0 0;
   color: var(--muted-foreground);
   line-height: 1.55;
   text-wrap: pretty;
 }
 
-.site .inference-code {
+.inference-code {
   margin: 0;
   padding: 12px 16px;
   overflow-x: auto;
@@ -230,18 +232,18 @@
   white-space: pre-wrap;
 }
 
-.site .inference-trace {
+.inference-trace {
   display: grid;
   gap: 12px;
   padding: clamp(12px, 1.8vw, 20px);
 }
 
-.site .inference-trace-firsttoken {
+.inference-trace-firsttoken {
   margin-inline-start: auto;
   color: var(--muted-foreground);
 }
 
-.site .inference-trace-stages {
+.inference-trace-stages {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
@@ -250,7 +252,7 @@
   list-style: none;
 }
 
-.site .inference-trace-stages button {
+.inference-trace-stages button {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-content: center;
@@ -269,25 +271,25 @@
   cursor: pointer;
 }
 
-.site .inference-trace-stages button:is(:hover, :focus-visible, [aria-pressed="true"]) {
+.inference-trace-stages button:is(:hover, :focus-visible, [aria-pressed="true"]) {
   background: var(--accent);
 }
 
-.site .inference-trace-stages button[aria-pressed="true"] {
+.inference-trace-stages button[aria-pressed="true"] {
   border-color: var(--ring);
 }
 
-.site .inference-trace-stages svg {
+.inference-trace-stages svg {
   color: var(--ring);
 }
 
-.site .inference-trace-ms {
+.inference-trace-ms {
   grid-column: 2;
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
 
-.site .inference-trace-detail {
+.inference-trace-detail {
   display: grid;
   gap: 4px;
   padding-top: 12px;
@@ -295,21 +297,21 @@
   font-size: 0.875rem;
 }
 
-.site .inference-trace-detail span {
+.inference-trace-detail span {
   margin-inline-start: 4px;
   color: var(--muted-foreground);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
-.site .inference-trace-detail p {
+.inference-trace-detail p {
   max-width: 62ch;
   margin: 0;
   color: var(--muted-foreground);
   text-wrap: pretty;
 }
 
-.site .inference-closing {
+.inference-closing {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -320,19 +322,21 @@
   border-top: 1px solid var(--home-divider);
 }
 
-.site .inference-closing .actions {
+.inference-closing .actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px 20px;
   margin: 0;
 }
 
 @media (width <= 920px) {
-  .site .inference-page > div {
+  .inference-page > div {
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;
   }
 
-  .site .inference-nav {
+  .inference-nav {
     position: static;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0 8px;
@@ -341,22 +345,27 @@
 }
 
 @media (width <= 680px) {
-  .site .inference-hero,
-  .site .inference-copy > dl,
-  .site .inference-split {
+  .inference-hero,
+  .inference-copy > dl,
+  .inference-split {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .site .inference-hero {
+  .inference-hero {
     padding-block: 30px 24px;
   }
 
-  .site .inference-nav,
-  .site .inference-trace-stages {
+  .inference-hero .actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .inference-nav,
+  .inference-trace-stages {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .site .inference-trace-firsttoken {
+  .inference-trace-firsttoken {
     width: 100%;
     margin-inline-start: 0;
     order: 3;
