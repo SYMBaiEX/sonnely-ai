@@ -1,14 +1,13 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated key-management class names and keeps the dialog workflow together */
 // spec/app/keys.md, "Story: Issue a key"
 import { ArrowUpRight, KeyRound, Plus } from "lucide-react";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Button } from "@repo/ui";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import { reconnectMachine, useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
 import { CopyButton, Empty, Failure, WorkspaceHeading, creditBalance, date, day, parseCreditAmount } from "../console/bits.tsx";
-import "../console/logs.css";
-import "./keys.css";
+import { DataTable, FieldLabel, StatusPill, TextInput, actionRowClass, panelClass } from "../console/ops.tsx";
 
 const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
 function secret() {
@@ -46,18 +45,18 @@ function focusHeading(node: HTMLHeadingElement | null) {
 function CapFields({ editing, now }: { editing?: Key; now: number }) {
   return (
     <>
-      <label>
+      <FieldLabel>
         Daily cap (USD)
-        <input name="daily" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.dailyCap !== 0 ? editing.dailyCap / 1_000_000 : ""} />
-      </label>
-      <label>
+        <TextInput name="daily" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.dailyCap !== 0 ? editing.dailyCap / 1_000_000 : ""} />
+      </FieldLabel>
+      <FieldLabel>
         Lifetime cap (USD)
-        <input name="cap" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.cap !== 0 ? editing.cap / 1_000_000 : ""} />
-      </label>
-      <label>
+        <TextInput name="cap" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.cap !== 0 ? editing.cap / 1_000_000 : ""} />
+      </FieldLabel>
+      <FieldLabel>
         Expires (UTC)
-        <input name="expires" type="date" min={day(now)} defaultValue={editing && editing.expiresAt !== 0 ? day(editing.expiresAt) : ""} />
-      </label>
+        <TextInput name="expires" type="date" min={day(now)} defaultValue={editing && editing.expiresAt !== 0 ? day(editing.expiresAt) : ""} />
+      </FieldLabel>
     </>
   );
 }
@@ -175,11 +174,10 @@ function KeysConsole() {
   }
 
   return (
-    <div className="telemetry-legacy keys-legacy">
+    <div className="grid gap-4">
       <WorkspaceHeading icon={KeyRound} title="API keys" description="Issue keys, set spending limits, and revoke access.">
-        <button
+        <Button
           type="button"
-          className="button accent"
           ref={createButtonRef}
           disabled={!signedIn || busy}
           aria-expanded={open}
@@ -197,97 +195,112 @@ function KeysConsole() {
           }}
         >
           <Plus size={17} /> Create key
-        </button>
+        </Button>
       </WorkspaceHeading>
       <Failure message={failure || error || ""} />
-      {error && <button type="button" className="button quiet" onClick={() => reconnectMachine("workspace-keys")}>Reload keys</button>}
-      <div role="status" className="visually-hidden">{status}</div>
+      {error && <Button type="button" variant="ghost" size="sm" className="w-max" onClick={() => reconnectMachine("workspace-keys")}>Reload keys</Button>}
+      <div role="status" className="sr-only">{status}</div>
       {signedIn && !!key && (
-        <section className="panel callout" aria-label="New API key">
-          <div>
-            <h2 ref={focusHeading} tabIndex={-1}>Save your new key</h2>
-            <p>Store it securely. The full key is shown once.</p>
-            <code className="secret-code">{key}</code>
+        <section className={`${panelClass} flex flex-wrap items-center justify-between gap-4 border-primary/50 bg-primary/10`} aria-label="New API key">
+          <div className="grid min-w-0 gap-2">
+            <h2 ref={focusHeading} tabIndex={-1} className="text-heading leading-heading font-medium outline-none">Save your new key</h2>
+            <p className="text-ui text-muted-foreground">Store it securely. The full key is shown once.</p>
+            <code className="w-max max-w-full rounded-md border border-border bg-background px-2.5 py-2 font-mono text-meta wrap-anywhere">{key}</code>
           </div>
-          <div className="actions">
-            <CopyButton value={key} label="Copy key" />
-            <button type="button" className="button quiet" onClick={() => { setKey(""); createButtonRef.current?.focus(); }}>Done</button>
+          <div className={actionRowClass}>
+            <CopyButton value={key} label="Copy key" quiet={false} />
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setKey(""); createButtonRef.current?.focus(); }}>Done</Button>
           </div>
         </section>
       )}
       {signedIn && open && (
-        <form className="panel stack-panel" onSubmit={(event) => void create(event)}>
-          <h2 id="key-form-heading" ref={focusHeading} tabIndex={-1}>Create an API key</h2>
-          <div className="form-row">
-            <label>Name<input name="name" maxLength={60} placeholder="CI, notebook, or app" /></label>
+        <form className={`${panelClass} grid gap-4`} onSubmit={(event) => void create(event)}>
+          <h2 id="key-form-heading" ref={focusHeading} tabIndex={-1} className="text-heading leading-heading font-medium outline-none">Create an API key</h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <FieldLabel>Name<TextInput name="name" maxLength={60} placeholder="CI, notebook, or app" /></FieldLabel>
             <CapFields now={now} />
           </div>
-          <div className="actions">
-            <button type="submit" className="button accent" disabled={busy}>{busy ? "Creating…" : "Create key"}</button>
-            <button type="button" className="button quiet" onClick={() => { setOpen(false); createButtonRef.current?.focus(); }} disabled={busy}>Cancel</button>
+          <div className={actionRowClass}>
+            <Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create key"}</Button>
+            <Button type="button" variant="ghost" onClick={() => { setOpen(false); createButtonRef.current?.focus(); }} disabled={busy}>Cancel</Button>
           </div>
         </form>
       )}
       {signedIn && editing && (
-        <form className="panel stack-panel" onSubmit={(event) => void update(event)} key={editing.id}>
-          <h2 id="key-form-heading" ref={focusHeading} tabIndex={-1}>Edit {editing.label}</h2>
-          <div className="form-row">
-            <label>Name<input name="name" maxLength={60} defaultValue={editing.label} /></label>
+        <form className={`${panelClass} grid gap-4`} onSubmit={(event) => void update(event)} key={editing.id}>
+          <h2 id="key-form-heading" ref={focusHeading} tabIndex={-1} className="text-heading leading-heading font-medium outline-none">Edit {editing.label}</h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <FieldLabel>Name<TextInput name="name" maxLength={60} defaultValue={editing.label} /></FieldLabel>
             <CapFields editing={editing} now={now} />
           </div>
-          <div className="actions">
-            <button type="submit" className="button accent" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
-            <button type="button" className="button quiet" onClick={cancelRowAction} disabled={busy}>Cancel</button>
+          <div className={actionRowClass}>
+            <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save changes"}</Button>
+            <Button type="button" variant="ghost" onClick={cancelRowAction} disabled={busy}>Cancel</Button>
           </div>
         </form>
       )}
       {signedIn && revoke && (
-        <div className="panel callout">
-          <div>
-            <h2 ref={focusHeading} tabIndex={-1}>Revoke {revoke.label}?</h2>
-            <p>Clients using this key will lose API access immediately.</p>
+        <div className={`${panelClass} flex flex-wrap items-center justify-between gap-4 border-destructive/50 bg-destructive/10`}>
+          <div className="grid min-w-0 gap-2">
+            <h2 ref={focusHeading} tabIndex={-1} className="text-heading leading-heading font-medium outline-none">Revoke {revoke.label}?</h2>
+            <p className="text-ui text-muted-foreground">Clients using this key will lose API access immediately.</p>
           </div>
-          <div className="actions">
-            <button className="button danger" type="button" onClick={() => void disable()} disabled={busy}>Revoke key</button>
-            <button className="button quiet" type="button" onClick={cancelRowAction} disabled={busy}>Cancel</button>
+          <div className={actionRowClass}>
+            <Button variant="destructive" type="button" onClick={() => void disable()} disabled={busy}>Revoke key</Button>
+            <Button variant="ghost" type="button" onClick={cancelRowAction} disabled={busy}>Cancel</Button>
           </div>
         </div>
       )}
-      <div className="panel key-records">
+      <div className={`${panelClass} p-0`}>
         {signedIn && data?.length ? (
-          <div className="table-wrap">
-            <table role="table" aria-label="Workspace API keys">
-              <thead role="rowgroup"><tr role="row">{["Name", "Key", "Status", "Last used", "Created", "Daily / total", "Actions"].map((label) => <th role="columnheader" scope="col" key={label}>{label}</th>)}</tr></thead>
-              <tbody role="rowgroup">
-                {data.map((item) => {
+          <DataTable
+            rows={data}
+            rowKey={(item) => item.id}
+            ariaLabel="Workspace API keys"
+            columns={[
+              { label: "Name", header: true, value: (item) => item.label },
+              { label: "Key", value: (item) => <code className="font-mono text-meta">{item.prefix}…</code> },
+              {
+                label: "Status",
+                value: (item) => {
                   const expired = item.expiresAt !== 0 && item.expiresAt < now;
                   return (
-                    <tr role="row" key={item.id}>
-                      <th role="rowheader" scope="row">{item.label}</th>
-                      <td role="cell" className="key-record-prefix"><code>{item.prefix}…</code></td>
-                      <td role="cell"><span className="key-record-label" aria-hidden="true">Status</span><span className="pill">{item.status === "Revoked" ? "Revoked" : expired ? "Expired" : "Active"}</span>{item.expiresAt !== 0 && item.status === "Active" ? <small className="key-record-expiry">Expires {date(item.expiresAt)} UTC</small> : null}</td>
-                      <td role="cell"><span className="key-record-label" aria-hidden="true">Last used</span>{item.lastUsedAt !== 0 ? date(item.lastUsedAt) : "Never"}</td>
-                      <td role="cell"><span className="key-record-label" aria-hidden="true">Created</span>{date(item.createdAt)}</td>
-                      <td role="cell"><span className="key-record-label" aria-hidden="true">Daily / total cap</span>{item.dailyCap !== 0 ? creditBalance(item.dailyCap) : "—"} / {item.cap !== 0 ? creditBalance(item.cap) : "—"}<small className="key-record-expiry">Today {creditBalance(item.daySpent)}</small></td>
-                      <td role="cell" className="key-record-action">
-                        {item.status === "Active" && item.project === "" && (
-                          <>
-                            <button type="button" className="button quiet small" aria-label={`Edit ${item.label}`} disabled={busy} onClick={(event) => { rowActionRef.current = event.currentTarget; setOpen(false); setKey(""); setRevoke(null); setStatus(""); setEditing(item); setFailure(""); }}>Edit</button>
-                            <button type="button" className="button quiet small" aria-label={`Revoke ${item.label}`} disabled={busy} onClick={(event) => { rowActionRef.current = event.currentTarget; setOpen(false); setKey(""); setEditing(null); setStatus(""); setRevoke(item); }}>Revoke</button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
+                    <span className="grid w-max gap-1">
+                      <StatusPill tone={item.status === "Revoked" || expired ? "neutral" : "ok"}>{item.status === "Revoked" ? "Revoked" : expired ? "Expired" : "Active"}</StatusPill>
+                      {item.expiresAt !== 0 && item.status === "Active" ? <small className="text-meta text-muted-foreground">Expires {date(item.expiresAt)} UTC</small> : null}
+                    </span>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+              { label: "Last used", value: (item) => item.lastUsedAt !== 0 ? date(item.lastUsedAt) : "Never" },
+              { label: "Created", value: (item) => date(item.createdAt) },
+              {
+                label: "Daily / total",
+                value: (item) => (
+                  <span className="grid gap-1">
+                    {item.dailyCap !== 0 ? creditBalance(item.dailyCap) : "—"} / {item.cap !== 0 ? creditBalance(item.cap) : "—"}
+                    <small className="text-meta text-muted-foreground">Today {creditBalance(item.daySpent)}</small>
+                  </span>
+                ),
+              },
+              {
+                label: "Actions",
+                value: (item) => item.status === "Active" && item.project === "" ? (
+                  <span className="flex flex-wrap gap-2">
+                    <Button type="button" variant="ghost" size="sm" aria-label={`Edit ${item.label}`} disabled={busy} onClick={(event) => { rowActionRef.current = event.currentTarget; setOpen(false); setKey(""); setRevoke(null); setStatus(""); setEditing(item); setFailure(""); }}>Edit</Button>
+                    <Button type="button" variant="ghost" size="sm" aria-label={`Revoke ${item.label}`} disabled={busy} onClick={(event) => { rowActionRef.current = event.currentTarget; setOpen(false); setKey(""); setEditing(null); setStatus(""); setRevoke(item); }}>Revoke</Button>
+                  </span>
+                ) : null,
+              },
+            ]}
+          />
         ) : (
-          <Empty title={signedIn && error ? "API keys unavailable" : signedIn && !data ? "Loading keys…" : "No API keys yet"} icon={<KeyRound size={23} />}>
-            <p>{!signedIn ? "Connect a Solana wallet to open your workspace." : error ? "Try reloading the list." : data ? "Create a key to call the API from your own client." : "Getting your workspace keys."}</p>
-            {signedIn && error ? <button className="button quiet small" type="button" onClick={() => reconnectMachine("workspace-keys")}>Reload keys</button> : <a className="text-link" href="/docs/quickstart">Read the quickstart <ArrowUpRight size={15} /></a>}
-          </Empty>
+          <div className="p-4">
+            <Empty title={signedIn && error ? "API keys unavailable" : signedIn && !data ? "Loading keys…" : "No API keys yet"} icon={<KeyRound size={23} />}>
+              <p>{!signedIn ? "Connect a Solana wallet to open your workspace." : error ? "Try reloading the list." : data ? "Create a key to call the API from your own client." : "Getting your workspace keys."}</p>
+              {signedIn && error ? <Button variant="ghost" size="sm" type="button" onClick={() => reconnectMachine("workspace-keys")}>Reload keys</Button> : <a className="inline-flex items-center gap-1 text-ui text-primary hover:underline" href="/docs/quickstart">Read the quickstart <ArrowUpRight size={15} /></a>}
+            </Empty>
+          </div>
         )}
       </div>
     </div>

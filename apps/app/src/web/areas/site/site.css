@@ -3432,7 +3432,7 @@ html:has(.site-header) {
 .site { --field-focus-edge: Highlight }
 }
 .site table { border-collapse: collapse;width: 100%;font-size: var(--text-meta);text-align: left }
-.site th, .site td { padding: 13px 11px;white-space: nowrap;border-bottom: 1px solid var(--border) }
+.site th:not([data-ops-cell]), .site td:not([data-ops-cell]) { padding: 13px 11px;white-space: nowrap;border-bottom: 1px solid var(--border) }
 .site thead th { color: var(--muted-foreground);font: 540 var(--text-micro) var(--font-mono);text-transform: uppercase;letter-spacing: 0.07em }
 .site tbody tr:last-child > * { border-bottom: 0 }
 @media (max-width: 1120px) {

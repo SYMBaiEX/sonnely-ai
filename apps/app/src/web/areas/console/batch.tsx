@@ -1,7 +1,8 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated batch class names and keeps the checkpoint workflow together */
+/* eslint-disable max-lines-per-function -- the batch checkpoint workflow stays together so progress mirroring and cancellation remain in one state owner */
 // spec/app/console/batch.md, "Story: Prepare and run a batch"
 import { ArrowUpRight, Download, Files, KeyRound, Pause, Play, RefreshCw, Upload } from "lucide-react";
 import { Suspense, use, useCallback, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Button, Progress } from "@repo/ui";
 import { z } from "zod";
 import type { Batch } from "../../../../gen/app__console__batch.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
@@ -9,8 +10,7 @@ import { useRemote, type Remote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
 import { WorkspaceHeading, creditBalance } from "./bits.tsx";
 import { providerIds, providerNames } from "./logs-shared.tsx";
-import "./logs.css";
-import "./batch.css";
+import { DataTable, FieldLabel, NativeSelect, StatusPill, TextInput, actionRowClass, panelClass } from "./ops.tsx";
 
 const batchLimits = { rows: 200, bytes: 4 * 1024 * 1024, delayMs: 5000 } as const;
 const batchEndpoint = "/v1/chat/completions";
@@ -403,11 +403,11 @@ export function BatchSection() {
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   if (!wallet) {
     return (
-      <div className="telemetry-legacy batch-legacy">
+      <div className="grid gap-4">
         <WorkspaceHeading icon={Files} title="Batch" description="Run JSONL workloads; results stay on this device.">
-          <a className="button quiet" href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a>
+          <Button asChild variant="ghost" size="sm"><a href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a></Button>
         </WorkspaceHeading>
-        <section className="panel batch-panel-section"><p>Sign in with a Solana wallet to open Batch.</p></section>
+        <section className={panelClass}><p>Sign in with a Solana wallet to open Batch.</p></section>
       </div>
     );
   }
@@ -539,7 +539,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
     return true;
   }
 
-  function useKey(event: FormEvent<HTMLFormElement>) {
+  function applyKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const key = keyDraft.trim();
     if (!keyShape.test(key)) {
@@ -651,51 +651,59 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
     return [{ row, index }];
   });
 
+  const rowStatusTone = {
+    queued: "neutral",
+    sending: "info",
+    succeeded: "ok",
+    failed: "destructive",
+    blocked: "warn",
+    interrupted: "destructive",
+    review: "warn",
+  } as const;
+
   return (
-    <div className="telemetry-legacy batch-legacy">
+    <div className="grid gap-4">
       <WorkspaceHeading icon={Files} title="Batch" description="Run JSONL workloads; results stay on this device.">
-        <a className="button quiet" href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a>
+        <Button asChild variant="ghost" size="sm"><a href="/docs/batch">Batch guide <ArrowUpRight size={15} aria-hidden="true" /></a></Button>
       </WorkspaceHeading>
-      <p aria-live="polite" className="batch-message">{message}</p>
-      {error && <p role="alert" className="error">{error}</p>}
-      {machine.error && <p role="alert" className="error">The batch machine reported: {machine.error}</p>}
+      <p aria-live="polite" className="min-h-5 text-ui text-muted-foreground">{message}</p>
+      {error && <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive">{error}</p>}
+      {machine.error && <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive">The batch machine reported: {machine.error}</p>}
       {!saved ? (
-        <section className="panel batch-panel-section" aria-labelledby="batch-input-title">
-          <div className="batch-section-heading">
-            <div><h2 id="batch-input-title">Prepare a batch</h2><p className="caption">Upload up to 200 nonstreaming Chat Completions requests in one JSONL file, up to 4 MiB.</p></div>
-            <button className="button quiet" type="button" onClick={() => downloadFile("sonnely-batch-example.jsonl", JSON.stringify(example) + "\n")}><Download size={16} aria-hidden="true" /> Download example</button>
+        <section className={`${panelClass} grid gap-4`} aria-labelledby="batch-input-title">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="batch-input-title" className="text-heading leading-heading font-medium">Prepare a batch</h2>
+              <p className="mt-1 max-w-prose text-ui text-muted-foreground">Upload up to 200 nonstreaming Chat Completions requests in one JSONL file, up to 4 MiB.</p>
+            </div>
+            <Button variant="ghost" size="sm" type="button" onClick={() => downloadFile("sonnely-batch-example.jsonl", JSON.stringify(example) + "\n")}><Download size={16} aria-hidden="true" /> Download example</Button>
           </div>
-          <label className="batch-upload">
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-input bg-background px-4 py-6 text-ui transition-colors hover:border-ring hover:bg-secondary/40">
             <Upload size={18} aria-hidden="true" />
-            <span><strong>Choose JSONL file</strong><span className="caption">Each line needs a custom ID, endpoint, and request body.</span></span>
-            <input ref={noteUploader} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready || !machine.state} onChange={(event) => void importBatch(event)} />
+            <span className="grid gap-1"><strong>Choose JSONL file</strong><span className="text-meta text-muted-foreground">Each line needs a custom ID, endpoint, and request body.</span></span>
+            <TextInput ref={noteUploader} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready || !machine.state} onChange={(event) => void importBatch(event)} className="sr-only" />
           </label>
-          {issues && <div role="alert" className="error batch-issues"><strong>Found {issues.count} {issues.count === 1 ? "issue" : "issues"} in this file.</strong><ul>{issues.lines.map((issue) => <li key={issue.line}>{issue.line ? "Line " + issue.line + " · " : ""}{issue.detail}</li>)}</ul>{issues.count > issues.lines.length && <p>Showing the first {issues.lines.length} issues.</p>}</div>}
-          {!ready && !error && <p role="status" className="caption">Opening this device’s batch storage…</p>}
-          {!ready && error && <button className="button quiet" type="button" onClick={() => void reload()}>Retry local storage</button>}
+          {issues && <div role="alert" className="grid gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive"><strong>Found {issues.count} {issues.count === 1 ? "issue" : "issues"} in this file.</strong><ul className="grid gap-1">{issues.lines.map((issue) => <li key={issue.line}>{issue.line ? "Line " + issue.line + " · " : ""}{issue.detail}</li>)}</ul>{issues.count > issues.lines.length && <p>Showing the first {issues.lines.length} issues.</p>}</div>}
+          {!ready && !error && <p role="status" className="text-ui text-muted-foreground">Opening this device’s batch storage…</p>}
+          {!ready && error && <Button variant="ghost" size="sm" className="w-max" type="button" onClick={() => void reload()}>Retry local storage</Button>}
         </section>
       ) : (
         <>
-          <section className="panel batch-panel-section" aria-labelledby="batch-key-title">
-            <div className="batch-section-heading">
-              <div>
-                <h2 id="batch-key-title">Inference key</h2>
-                <p className="caption">
-                  Batch rows authenticate with one of your workspace inference keys. The key you paste stays in this tab’s memory only: it is never
-                  saved to this device or sent anywhere but the batch endpoint.
-                </p>
-              </div>
+          <section className={`${panelClass} grid gap-4`} aria-labelledby="batch-key-title">
+            <div>
+              <h2 id="batch-key-title" className="text-heading leading-heading font-medium">Inference key</h2>
+              <p className="mt-1 max-w-prose text-ui text-muted-foreground">Batch rows authenticate with one of your workspace inference keys. The key you paste stays in this tab’s memory only: it is never saved to this device or sent anywhere but the batch endpoint.</p>
             </div>
             {inferenceKey ? (
-              <div className="batch-key-ready">
-                <p role="status"><KeyRound size={15} aria-hidden="true" /> Key ready for this tab.</p>
-                <button className="button quiet small" type="button" disabled={busy} onClick={forgetKey}>Use a different key</button>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-ok/40 bg-ok/10 px-3 py-2.5">
+                <p role="status" className="inline-flex items-center gap-2 text-ui"><KeyRound size={15} aria-hidden="true" /> Key ready for this tab.</p>
+                <Button variant="ghost" size="sm" type="button" disabled={busy} onClick={forgetKey}>Use a different key</Button>
               </div>
             ) : (
-              <form className="batch-key-form" onSubmit={useKey}>
-                <label>
+              <form className="grid gap-3" onSubmit={applyKey}>
+                <FieldLabel>
                   Workspace inference key
-                  <input
+                  <TextInput
                     type="password"
                     name="inference-key"
                     autoComplete="off"
@@ -707,48 +715,78 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
                     value={keyDraft}
                     onChange={(event) => setKeyDraft(event.target.value)}
                   />
-                </label>
-                <div className="batch-actions">
-                  <button className="button accent" type="submit">Use this key</button>
-                  <a className="button quiet" href="/console/keys">Create a key <ArrowUpRight size={14} aria-hidden="true" /></a>
+                </FieldLabel>
+                <div className={actionRowClass}>
+                  <Button type="submit">Use this key</Button>
+                  <Button asChild variant="ghost"><a href="/console/keys">Create a key <ArrowUpRight size={14} aria-hidden="true" /></a></Button>
                 </div>
-                {keyError && <p role="alert" className="error">{keyError}</p>}
+                {keyError && <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive">{keyError}</p>}
               </form>
             )}
           </section>
-          <section className="panel batch-panel-section" aria-labelledby="batch-summary-title">
-            <div className="batch-section-heading">
-              <div><h2 id="batch-summary-title" ref={noteSummary} tabIndex={-1}>{saved.filename}</h2><p className="caption">This batch and its checkpoints are stored in this browser for your wallet.</p></div>
-              <div className="batch-actions">
-                {activity === "running" ? <button className="button quiet" type="button" disabled={pausing} onClick={() => { taskRef.current?.abort(); setPausing(true); }}><Pause size={16} aria-hidden="true" /> {pausing ? "Pausing…" : "Pause batch"}</button> : <button className="button accent" type="button" disabled={busy || !remaining || confirmClear || !inferenceKey} title={inferenceKey ? undefined : "Paste an inference key first"} onClick={() => void run(saved.id)}><Play size={16} aria-hidden="true" /> {rows.every((row) => row.status === "queued") ? "Run batch" : "Resume batch"}</button>}
-                <button className="button quiet" type="button" disabled={busy} onClick={() => void reload()}><RefreshCw size={16} aria-hidden="true" /> Refresh saved batch</button>
+          <section className={`${panelClass} grid gap-4`} aria-labelledby="batch-summary-title">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="batch-summary-title" ref={noteSummary} tabIndex={-1} className="text-heading leading-heading font-medium outline-none">{saved.filename}</h2>
+                <p className="mt-1 text-ui text-muted-foreground">This batch and its checkpoints are stored in this browser for your wallet.</p>
+              </div>
+              <div className={actionRowClass}>
+                {activity === "running" ? <Button variant="ghost" type="button" disabled={pausing} onClick={() => { taskRef.current?.abort(); setPausing(true); }}><Pause size={16} aria-hidden="true" /> {pausing ? "Pausing…" : "Pause batch"}</Button> : <Button type="button" disabled={busy || !remaining || confirmClear || !inferenceKey} title={inferenceKey ? undefined : "Paste an inference key first"} onClick={() => void run(saved.id)}><Play size={16} aria-hidden="true" /> {rows.every((row) => row.status === "queued") ? "Run batch" : "Resume batch"}</Button>}
+                <Button variant="ghost" type="button" disabled={busy} onClick={() => void reload()}><RefreshCw size={16} aria-hidden="true" /> Refresh saved batch</Button>
               </div>
             </div>
-            <dl className="batch-stats"><div><dt>Requests</dt><dd>{rows.length}</dd></div><div><dt>Completed</dt><dd>{completed}</dd></div><div><dt>Needs attention</dt><dd>{attention}</dd></div><div><dt>Estimated max reservation</dt><dd>{creditBalance(estimate)}</dd></div></dl>
-            <progress aria-label="Batch rows processed" max={rows.length} value={processed} className="batch-progress" />
-            <p className="caption">Requests run one at a time at standard inference rates. Pausing lets the current request finish. Resume dispatches queued and blocked rows. Retry an interrupted row individually to keep its original checkpoint key.</p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-md border border-border bg-background p-3"><dt className="text-meta text-muted-foreground">Requests</dt><dd className="text-heading font-strong">{rows.length}</dd></div>
+              <div className="rounded-md border border-border bg-background p-3"><dt className="text-meta text-muted-foreground">Completed</dt><dd className="text-heading font-strong">{completed}</dd></div>
+              <div className="rounded-md border border-border bg-background p-3"><dt className="text-meta text-muted-foreground">Needs attention</dt><dd className="text-heading font-strong">{attention}</dd></div>
+              <div className="rounded-md border border-border bg-background p-3"><dt className="text-meta text-muted-foreground">Estimated max reservation</dt><dd className="text-heading font-strong">{creditBalance(estimate)}</dd></div>
+            </div>
+            <Progress aria-label="Batch rows processed" max={rows.length} value={processed} />
+            <p className="text-ui text-muted-foreground">Requests run one at a time at standard inference rates. Pausing lets the current request finish. Resume dispatches queued and blocked rows. Retry an interrupted row individually to keep its original checkpoint key.</p>
           </section>
-          <section className="panel batch-panel-section" aria-labelledby="batch-rows-title">
-            <div className="batch-section-heading"><div><h2 id="batch-rows-title">Requests</h2><p className="caption">Filter by status or export the saved results and checkpoints.</p></div><label className="batch-filter">Show<select value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="all">All requests</option><option value="remaining">Queued and blocked</option><option value="attention">Needs attention</option><option value="completed">Completed</option></select></label></div>
-            <div className="batch-rows">
-              {filtered.map(({ row, index }) => (
-                <article className="batch-row" key={row.customId}>
-                  <div className="batch-request-name"><strong>{row.customId}</strong><span className="caption">{row.body.model} · {providerNames[row.body.provider.only[0]] ?? row.body.provider.only[0]}</span></div>
-                  <div><span className="batch-badge" data-status={row.status}>{row.status === "sending" && activity === "running" ? "In progress" : statusLabels[row.status]}</span>{row.detail && <p className="caption">{row.detail}</p>}</div>
-                  <div className="batch-actions">
-                    {row.reference && <a className="text-link" href={"/console/logs?request=" + encodeURIComponent(row.reference)}>Request details <ArrowUpRight size={14} aria-hidden="true" /></a>}
-                    {(row.status === "interrupted" || row.status === "sending") && activity !== "running" && <button className="button quiet small" type="button" disabled={busy || confirmClear || !inferenceKey} title={inferenceKey ? undefined : "Paste an inference key first"} onClick={() => void run(saved.id, index)}>Retry interrupted request<span className="visually-hidden"> {row.customId}</span></button>}
-                  </div>
-                </article>
-              ))}
-              {!filtered.length && <p className="caption">No requests match this status.</p>}
+          <section className={`${panelClass} grid gap-4`} aria-labelledby="batch-rows-title">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="batch-rows-title" className="text-heading leading-heading font-medium">Requests</h2>
+                <p className="mt-1 text-ui text-muted-foreground">Filter by status or export the saved results and checkpoints.</p>
+              </div>
+              <FieldLabel className="w-48">Show<NativeSelect value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="all">All requests</option><option value="remaining">Queued and blocked</option><option value="attention">Needs attention</option><option value="completed">Completed</option></NativeSelect></FieldLabel>
             </div>
-            <div className="batch-actions">
-              <button className="button quiet" type="button" disabled={!completed} onClick={() => downloadFile("sonnely-batch-results.jsonl", batchExport(saved, "results"))}><Download size={16} aria-hidden="true" /> Download results</button>
-              <button className="button quiet" type="button" disabled={completed === rows.length} onClick={() => downloadFile("sonnely-batch-checkpoints.jsonl", batchExport(saved, "needs-attention"))}><Download size={16} aria-hidden="true" /> Download errors and status</button>
-              {!confirmClear && <button className="button quiet" type="button" disabled={busy} onClick={() => setConfirmClear(true)}>Clear saved batch</button>}
+            {filtered.length ? (
+              <DataTable
+                rows={filtered}
+                rowKey={({ row }) => row.customId}
+                labelledBy="batch-rows-title"
+                columns={[
+                  {
+                    label: "Request", header: true, value: ({ row }) => (
+                      <span className="grid gap-1 whitespace-normal"><strong>{row.customId}</strong><span className="text-meta font-regular text-muted-foreground">{row.body.model} · {providerNames[row.body.provider.only[0]] ?? row.body.provider.only[0]}</span></span>
+                    ),
+                  },
+                  {
+                    label: "Status",
+                    value: ({ row }) => (
+                      <span className="grid w-max max-w-64 gap-1 whitespace-normal"><StatusPill tone={rowStatusTone[row.status]}>{row.status === "sending" && activity === "running" ? "In progress" : statusLabels[row.status]}</StatusPill>{row.detail && <span className="text-meta text-muted-foreground">{row.detail}</span>}</span>
+                    ),
+                  },
+                  {
+                    label: "Actions", span: true,
+                    value: ({ row, index }) => (
+                      <span className="flex flex-wrap gap-2">
+                        {row.reference && <a className="inline-flex items-center gap-1 text-ui text-primary hover:underline" href={"/console/logs?request=" + encodeURIComponent(row.reference)}>Request details <ArrowUpRight size={14} aria-hidden="true" /></a>}
+                        {(row.status === "interrupted" || row.status === "sending") && activity !== "running" && <Button variant="ghost" size="sm" type="button" disabled={busy || confirmClear || !inferenceKey} title={inferenceKey ? undefined : "Paste an inference key first"} onClick={() => void run(saved.id, index)}>Retry interrupted request<span className="sr-only"> {row.customId}</span></Button>}
+                      </span>
+                    ),
+                  },
+                ]}
+              />
+            ) : <p className="text-ui text-muted-foreground">No requests match this status.</p>}
+            <div className={actionRowClass}>
+              <Button variant="ghost" type="button" disabled={!completed} onClick={() => downloadFile("sonnely-batch-results.jsonl", batchExport(saved, "results"))}><Download size={16} aria-hidden="true" /> Download results</Button>
+              <Button variant="ghost" type="button" disabled={completed === rows.length} onClick={() => downloadFile("sonnely-batch-checkpoints.jsonl", batchExport(saved, "needs-attention"))}><Download size={16} aria-hidden="true" /> Download errors and status</Button>
+              {!confirmClear && <Button variant="ghost" type="button" disabled={busy} onClick={() => setConfirmClear(true)}>Clear saved batch</Button>}
             </div>
-            {confirmClear && <div className="batch-notice"><p>Clearing removes this device’s results and checkpoints. Export any files you want to keep first.</p><div className="batch-actions"><button className="button quiet" type="button" disabled={busy} onClick={() => setConfirmClear(false)}>Keep batch</button><button className="button accent" type="button" disabled={busy} onClick={() => void clearBatch(saved.id)}>Clear this batch</button></div></div>}
+            {confirmClear && <div className="grid gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3"><p>Clearing removes this device’s results and checkpoints. Export any files you want to keep first.</p><div className={actionRowClass}><Button variant="ghost" type="button" disabled={busy} onClick={() => setConfirmClear(false)}>Keep batch</Button><Button variant="destructive" type="button" disabled={busy} onClick={() => void clearBatch(saved.id)}>Clear this batch</Button></div></div>}
           </section>
         </>
       )}

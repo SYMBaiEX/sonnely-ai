@@ -1,7 +1,7 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes -- this area intentionally uses the migrated usage class names */
 // spec/app/usage.md, "Story: Roll usage up"
 import { ArrowUpRight, BarChart3, Download } from "lucide-react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
+import { Button } from "@repo/ui";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
@@ -20,8 +20,7 @@ import {
   shortDate,
 } from "../console/bits.tsx";
 import { providerIds, providerNames } from "../console/logs-shared.tsx";
-import "../console/logs.css";
-import "./usage.css";
+import { DataTable, FieldLabel, NativeSelect, SegmentedControl, Stat, panelClass } from "../console/ops.tsx";
 
 const usageCount = new Intl.NumberFormat("en-US");
 const usagePercent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
@@ -114,24 +113,24 @@ function usageCsv(rows: readonly Row[]) {
 
 function UsageMax({ days, hasUsage }: { days: number; hasUsage: boolean }) {
   return (
-    <section className="panel stack-panel usage-max" aria-labelledby="usagemax-heading">
-      <div className="between controls">
+    <section className={`${panelClass} grid gap-4`} aria-labelledby="usagemax-heading">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="usagemax-heading">Export to UsageMax</h2>
-          <p className="caption">Download up to 100 settled requests from the selected date range as a JSON file for import into UsageMax.</p>
+          <h2 id="usagemax-heading" className="text-heading leading-heading font-medium">Export to UsageMax</h2>
+          <p className="mt-1 max-w-prose text-ui text-muted-foreground">Download up to 100 settled requests from the selected date range as a JSON file for import into UsageMax.</p>
         </div>
-        <a href="https://usagemax.com/docs" target="_blank" rel="noreferrer" className="button quiet">
-          UsageMax docs <ArrowUpRight size={15} aria-hidden />
-        </a>
+        <Button asChild variant="ghost" size="sm">
+          <a href="https://usagemax.com/docs" target="_blank" rel="noreferrer">UsageMax docs <ArrowUpRight size={15} aria-hidden /></a>
+        </Button>
       </div>
       {hasUsage ? (
-        <div className="actions">
-          <a className="button secondary" href={"/api/sonnely/usage-max?days=" + days}>
-            <Download size={16} aria-hidden /> Download UsageMax JSON
-          </a>
+        <div>
+          <Button asChild variant="secondary">
+            <a href={"/api/sonnely/usage-max?days=" + days}><Download size={16} aria-hidden /> Download UsageMax JSON</a>
+          </Button>
         </div>
       ) : (
-        <p className="caption">Completed inference requests will appear here when they settle.</p>
+        <p className="text-ui text-muted-foreground">Completed inference requests will appear here when they settle.</p>
       )}
     </section>
   );
@@ -151,7 +150,7 @@ function UsageConsole() {
   const signedIn = session.state?.tag === "SignedIn";
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   const allRows = useMemo(() => state?.rows ?? [], [state]);
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
   const ranged = useMemo(() => {
     const start = now - range * 86_400_000;
     return allRows.filter((row) => row.time >= start);
@@ -223,57 +222,114 @@ function UsageConsole() {
   }
 
   return (
-    <div className="telemetry-legacy usage-legacy">
+    <div className="grid gap-4">
       <WorkspaceHeading icon={BarChart3} title="Usage" description="Charges, tokens, and request performance in UTC.">
-        <button type="button" className="button quiet" disabled={!rows.length} onClick={exportCsv}>
+        <Button type="button" variant="ghost" size="sm" disabled={!rows.length} onClick={exportCsv}>
           <Download size={15} aria-hidden="true" /> Export CSV
-        </button>
-        <label className="control-label">
+        </Button>
+        <FieldLabel className="w-36">
           Date range
-          <select value={range} onChange={(event) => setRange(Number(event.target.value))}>
+          <NativeSelect value={range} onChange={(event) => setRange(Number(event.target.value))}>
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
             <option value={90}>Last 90 days</option>
-          </select>
-        </label>
+          </NativeSelect>
+        </FieldLabel>
       </WorkspaceHeading>
-      {error && <div className="actions"><Failure message={error} /></div>}
+      {error && <Failure message={error} />}
       {signedIn && (
-        <section className="panel usage-filters" aria-label="Usage filters">
-          <FilterPanel label="Filter usage" active={Object.values(filters).filter(Boolean).length} className="usage-filter-panel">
-            <div className="usage-filter-grid">
-              <label className="control-label">Provider<select ref={providerFilterRef} value={filters.provider} onChange={(event) => updateFilter("provider", event.target.value)}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</select></label>
-              <label className="control-label">Model<select value={filters.model} onChange={(event) => updateFilter("model", event.target.value)}><option value="">All models</option>{filters.model && !modelIds.includes(filters.model) && <option value={filters.model}>{usageModelName(filters.model)}</option>}{modelIds.map((id) => <option key={id} value={id}>{usageModelName(id)}</option>)}</select></label>
-              <label className="control-label">API key<select value={filters.key} onChange={(event) => updateFilter("key", event.target.value)}><option value="">All keys</option>{filters.key && !keyLabels.has(filters.key) && <option value={filters.key}>Selected key</option>}{keyOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-              <label className="control-label">Status<select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}><option value="">All statuses</option>{Object.entries(statusValues).map(([value, status]) => <option key={value} value={value}>{usageStates[status]}</option>)}</select></label>
+        <section aria-label="Usage filters">
+          <FilterPanel label="Filter usage" active={Object.values(filters).filter(Boolean).length}>
+            <div className="grid w-full gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <FieldLabel>Provider<NativeSelect ref={providerFilterRef} value={filters.provider} onChange={(event) => updateFilter("provider", event.target.value)}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</NativeSelect></FieldLabel>
+              <FieldLabel>Model<NativeSelect value={filters.model} onChange={(event) => updateFilter("model", event.target.value)}><option value="">All models</option>{filters.model && !modelIds.includes(filters.model) && <option value={filters.model}>{usageModelName(filters.model)}</option>}{modelIds.map((id) => <option key={id} value={id}>{usageModelName(id)}</option>)}</NativeSelect></FieldLabel>
+              <FieldLabel>API key<NativeSelect value={filters.key} onChange={(event) => updateFilter("key", event.target.value)}><option value="">All keys</option>{filters.key && !keyLabels.has(filters.key) && <option value={filters.key}>Selected key</option>}{keyOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</NativeSelect></FieldLabel>
+              <FieldLabel>Status<NativeSelect value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}><option value="">All statuses</option>{Object.entries(statusValues).map(([value, status]) => <option key={value} value={value}>{usageStates[status]}</option>)}</NativeSelect></FieldLabel>
             </div>
             {state && (
-              <div className="usage-sample">
-                <p className="caption" role="status">{usageCount.format(rows.length)} of {usageCount.format(source.length)} requests shown.</p>
-                {filtered && <button type="button" className="button quiet small" onClick={() => { setFilters(noUsageFilters); providerFilterRef.current?.focus(); }}>Clear filters</button>}
+              <div className="flex w-full flex-wrap items-center justify-between gap-2 text-ui text-muted-foreground">
+                <p role="status">{usageCount.format(rows.length)} of {usageCount.format(source.length)} requests shown.</p>
+                {filtered && <Button type="button" variant="ghost" size="sm" onClick={() => { setFilters(noUsageFilters); providerFilterRef.current?.focus(); }}>Clear filters</Button>}
               </div>
             )}
           </FilterPanel>
         </section>
       )}
-      <section className="panel usage-summary-panel" aria-label="Usage summary">
-        <div className="usage-stats">
-          {stats.map(([label, value, description]) => <div className="stat" key={label}><span>{label}</span><strong>{value}</strong>{description && <small>{description}</small>}</div>)}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Usage summary">
+        {stats.map(([label, value, description]) => <Stat key={label} label={label} value={value} detail={description} />)}
+      </section>
+      <section className={`${panelClass} grid gap-4`} aria-labelledby="usage-chart-heading">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="usage-chart-heading" className="text-heading leading-heading font-medium">{metric} by day</h2>
+          <div className="flex flex-wrap items-end gap-3">
+            <FieldLabel>Chart metric<NativeSelect value={metric} onChange={(event) => setMetric(event.target.value as UsageMetric)}>{usageChartMetrics.map((value) => <option key={value}>{value}</option>)}</NativeSelect></FieldLabel>
+            <SegmentedControl label="Chart view" value={view} onChange={setView} options={["Chart", "Table"].map((value) => ({ value: value as "Chart" | "Table", label: value }))} />
+          </div>
         </div>
+        {!rows.length || !hasMetric ? (
+          <div className="grid place-items-center gap-2 py-12 text-center text-muted-foreground"><BarChart3 size={23} aria-hidden="true" /><p role="status">{!rows.length ? activityStatus : "No cached input measurements in this view."}</p></div>
+        ) : view === "Chart" ? (
+          <div className="grid gap-2">
+            <div className="flex h-36 items-end gap-px" role="img" aria-label={metric + " by day over the last " + range + " days"}>
+              {series.map(({ time, value }) => <span key={time} title={shortDate(time) + " · " + metricValue(value)} className={value ? "min-h-px flex-1 rounded-t-sm bg-primary" : "h-px flex-1 bg-border"} style={{ height: value ? Math.max(1, (value / high) * 100) + "%" : "1px" }} />)}
+            </div>
+            <div className="flex justify-between text-meta text-muted-foreground"><span>{shortDate(series[0].time)}</span><span>{shortDate(series[range - 1].time)}</span></div>
+          </div>
+        ) : (
+          <DataTable rows={series} rowKey={(point) => String(point.time)} ariaLabel={metric + " by day"} columns={[{ label: "Date (UTC)", header: true, value: (point) => date(point.time) }, { label: metric, value: (point) => metricValue(point.value) }]} />
+        )}
       </section>
-      <section className="panel chart-panel" aria-labelledby="usage-chart-heading">
-        <div className="between controls"><h2 id="usage-chart-heading">{metric} by day</h2><div className="actions"><label className="control-label">Chart metric<select value={metric} onChange={(event) => setMetric(event.target.value as UsageMetric)}>{usageChartMetrics.map((value) => <option key={value}>{value}</option>)}</select></label><div className="segmented" aria-label="Chart view">{(["Chart", "Table"] as const).map((value) => <button type="button" key={value} aria-pressed={value === view} onClick={() => setView(value)}>{value}</button>)}</div></div></div>
-        {!rows.length || !hasMetric ? <div className="chart-empty"><BarChart3 size={23} aria-hidden="true" /><p role="status">{!rows.length ? activityStatus : "No cached input measurements in this view."}</p></div> : view === "Chart" ? <><div className="bars" role="img" aria-label={metric + " by day over the last " + range + " days"}>{series.map(({ time, value }) => <span key={time} title={shortDate(time) + " · " + metricValue(value)} data-empty={!value || undefined} style={{ height: value ? Math.max(1, (value / high) * 100) + "%" : "1px" }} />)}</div><div className="between caption"><span>{shortDate(series[0].time)}</span><span>{shortDate(series[range - 1].time)}</span></div></> : <div className="table-wrap compact-table"><table><thead><tr><th scope="col">Date (UTC)</th><th scope="col">{metric}</th></tr></thead><tbody>{series.map(({ time, value }) => <tr key={time}><th scope="row">{date(time)}</th><td>{metricValue(value)}</td></tr>)}</tbody></table></div>}
-      </section>
-      <section className="panel breakdown">
-        <div className="between controls"><h2 id="request-breakdown">Request breakdown</h2><div className="actions"><div className="segmented" aria-label="Group usage">{usageGroups.map((value) => <button type="button" key={value} aria-pressed={value === group} onClick={() => setGroup(value)}>By {value.toLowerCase()}</button>)}</div><label className="control-label">Sort groups<select value={order} onChange={(event) => setOrder(event.target.value as typeof order)}>{Object.entries(breakdownOrders).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></div>
-        {breakdown.length ? <div className="table-wrap workspace-data-table data-rows" role="region" aria-labelledby="request-breakdown" tabIndex={0}><table><thead><tr>{[group, "Requests", "Failed", "Input", "Cached input", "Output", "Spend", "Held"].map((value) => <th scope="col" key={value}>{value}</th>)}</tr></thead><tbody>{breakdown.map((entry) => <tr key={entry.id}><th scope="row">{entry.label}</th><td data-label="Requests">{usageCount.format(entry.requests)}</td><td data-label="Failed">{usageCount.format(entry.failed)}</td><td data-label="Input">{usageCount.format(entry.input)}</td><td data-label="Cached input">{entry.cacheSamples ? usageCount.format(entry.cached) : "—"}</td><td data-label="Output">{usageCount.format(entry.output)}</td><td data-label="Spend">{creditBalance(entry.spend)}</td><td data-label="Held">{creditBalance(entry.held)}</td></tr>)}</tbody></table></div> : <p className="caption">{activityStatus}</p>}
+      <section className={`${panelClass} grid gap-4`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="request-breakdown" className="text-heading leading-heading font-medium">Request breakdown</h2>
+          <div className="flex flex-wrap items-end gap-3">
+            <SegmentedControl label="Group usage" value={group} onChange={setGroup} options={usageGroups.map((value) => ({ value, label: "By " + value.toLowerCase() }))} />
+            <FieldLabel>Sort groups<NativeSelect value={order} onChange={(event) => setOrder(event.target.value as typeof order)}>{Object.entries(breakdownOrders).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</NativeSelect></FieldLabel>
+          </div>
+        </div>
+        {breakdown.length ? (
+          <DataTable
+            rows={breakdown}
+            rowKey={(entry) => entry.id}
+            labelledBy="request-breakdown"
+            columns={[
+              { label: group, header: true, value: (entry) => entry.label },
+              { label: "Requests", value: (entry) => usageCount.format(entry.requests) },
+              { label: "Failed", value: (entry) => usageCount.format(entry.failed) },
+              { label: "Input", value: (entry) => usageCount.format(entry.input) },
+              { label: "Cached input", value: (entry) => entry.cacheSamples ? usageCount.format(entry.cached) : "—" },
+              { label: "Output", value: (entry) => usageCount.format(entry.output) },
+              { label: "Spend", value: (entry) => creditBalance(entry.spend) },
+              { label: "Held", value: (entry) => creditBalance(entry.held) },
+            ]}
+          />
+        ) : <p className="text-ui text-muted-foreground">{activityStatus}</p>}
       </section>
       {rows.length > 0 && (
-        <section className="panel breakdown">
-          <div className="between controls"><h2 id="recent-request-references">Recent requests</h2><a className="text-link" href="/console/logs">Open request logs <ArrowUpRight size={15} aria-hidden="true" /></a></div>
-          <div className="table-wrap workspace-data-table data-rows" role="region" aria-labelledby="recent-request-references" tabIndex={0}><table><thead><tr><th>Request</th><th>Tokens</th><th>Billing</th></tr></thead><tbody>{rows.slice(0, 25).map((row) => <tr key={row.id}><th scope="row">{usageModelName(row.model)}<div className="caption">{date(row.time)} · {providerNames[providerIdsByMachine[row.provider]]} · <CopyButton value={row.id} label="Copy request reference" /></div><a className="text-link" href={"/console/logs?request=" + encodeURIComponent(row.id)}>View request details</a></th><td data-label="Tokens">{(row.input + row.output).toLocaleString()}</td><td data-label="Billing">{row.status === "Complete" ? `Charged ${creditBalance(row.cost)}` : row.status === "Failed" ? "Released" : `${row.status === "Unreported" ? "Under review" : "Reserved"} · ${creditBalance(row.cost)}`}</td></tr>)}</tbody></table></div>
-          <a className="text-link" href="/contact">Get help with a charge <ArrowUpRight size={15} /></a>
+        <section className={`${panelClass} grid gap-4`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="recent-request-references" className="text-heading leading-heading font-medium">Recent requests</h2>
+            <a className="inline-flex items-center gap-1 text-ui text-primary hover:underline" href="/console/logs">Open request logs <ArrowUpRight size={15} aria-hidden="true" /></a>
+          </div>
+          <DataTable
+            rows={rows.slice(0, 25)}
+            rowKey={(row) => row.id}
+            labelledBy="recent-request-references"
+            columns={[
+              {
+                label: "Request", header: true, value: (row) => (
+                  <span className="grid gap-1 whitespace-normal">
+                    {usageModelName(row.model)}
+                    <span className="flex flex-wrap items-center gap-2 text-meta font-regular text-muted-foreground">{date(row.time)} · {providerNames[providerIdsByMachine[row.provider]]} · <CopyButton value={row.id} label="Copy request reference" /></span>
+                    <a className="inline-flex items-center gap-1 text-ui text-primary hover:underline" href={"/console/logs?request=" + encodeURIComponent(row.id)}>View request details</a>
+                  </span>
+                ),
+              },
+              { label: "Tokens", value: (row) => (row.input + row.output).toLocaleString() },
+              { label: "Billing", value: (row) => row.status === "Complete" ? `Charged ${creditBalance(row.cost)}` : row.status === "Failed" ? "Released" : `${row.status === "Unreported" ? "Under review" : "Reserved"} · ${creditBalance(row.cost)}` },
+            ]}
+          />
+          <a className="inline-flex w-max items-center gap-1 text-ui text-primary hover:underline" href="/contact">Get help with a charge <ArrowUpRight size={15} /></a>
         </section>
       )}
       {signedIn && displayState && <UsageMax days={range} hasUsage={source.some((row) => row.status === "Complete")} />}
