@@ -15,43 +15,24 @@ export function ContactPage() {
   const request = useSupportRequest();
 
   return (
-    <div className="wrap cx-page cx-correspondence cx-correspondence-canonical" data-topic={request.topicId}>
-      <header className="cx-co-intro">
-        <span>Sonnely support correspondence</span>
-        <h1>Write once. Reach the right desk.</h1>
-        <p className="cx-copy">
+    <div className="wrap cx-page">
+      <header className="cx-head">
+        <p className="cx-eyebrow">Sonnely support</p>
+        <h1>
+          Contact Sonnely<span aria-hidden="true">.</span>
+        </h1>
+        <p className="cx-lede">
           Choose the desk, attach your workspace and include the evidence that lets the first reply act.
         </p>
-        <a href={mailtoFor(request.destination)}>sonnely@symbaiex.com</a>
       </header>
 
-      <div className="cx-co-desk">
-        <aside className="cx-co-postcard" aria-label="Before writing">
-          <span>Before you write</span>
-          <ul>
-            <li><span>01</span><p>Addressed to <strong>{request.destination.topic}</strong>.</p></li>
-            <li><span>02</span><p>Bring <strong>{request.destination.evidence.toLowerCase()}</strong> when relevant.</p></li>
-            <li><span>03</span><p>A reference is issued on receipt; quote it when you write again.</p></li>
-            <li><span>04</span><p>Leave API keys, recovery phrases and private prompt text out of the note.</p></li>
-          </ul>
-          <nav aria-label="Related support resources">
-            <a href="/docs/troubleshooting">API troubleshooting <ArrowUpRight size={14} aria-hidden="true" /></a>
-            <a href="/console/billing">Billing history <ArrowUpRight size={14} aria-hidden="true" /></a>
-            <a href="/console/support">Track requests <ArrowUpRight size={14} aria-hidden="true" /></a>
-            <a href={mailtoFor(request.destination)}>Email without signing in <ArrowUpRight size={14} aria-hidden="true" /></a>
-          </nav>
-        </aside>
-
-        <form className="cx-form cx-co-letter" noValidate onSubmit={(event) => submitContactForm(event, request)} aria-labelledby="cx-co-title">
-          <div className="cx-co-letterhead">
-            <span>Sonnely support</span>
-            <span>{request.destination.topic}</span>
-          </div>
-          <div className="cx-co-body">
-            <fieldset className="cx-co-topics">
-              <legend>Send this note to</legend>
+      <div className="cx-layout">
+        <form className="cx-panel cx-form" noValidate onSubmit={(event) => submitContactForm(event, request)} aria-labelledby="cx-topics-title">
+          <fieldset className="cx-topics">
+            <legend id="cx-topics-title">Send this note to</legend>
+            <div className="cx-topic-grid">
               {contactDestinations.map((destination) => (
-                <label className="cx-co-topic" data-active={request.topicId === destination.id} key={destination.id}>
+                <label className="cx-topic" data-active={request.topicId === destination.id} key={destination.id}>
                   <input
                     type="radio"
                     name="correspondence-topic"
@@ -59,26 +40,48 @@ export function ContactPage() {
                     checked={request.topicId === destination.id}
                     onChange={() => request.chooseTopic(destination.id)}
                   />
-                  <span>{destination.shortName}</span>
-                  <small>{destination.summary}</small>
+                  <span className="cx-topic-icon" aria-hidden="true">
+                    <destination.Icon size={16} />
+                  </span>
+                  <span className="cx-topic-copy">
+                    <strong>{destination.shortName}</strong>
+                    <small>{destination.summary}</small>
+                  </span>
                 </label>
               ))}
-            </fieldset>
-
-            <div className="cx-co-writer">
-              <h2 id="cx-co-title">Dear Sonnely,</h2>
-              <WalletGate request={request} compact />
             </div>
+          </fieldset>
 
-            <ContactFields request={request} messageRows={7} />
+          <WalletGate request={request} compact />
 
-            <div className="cx-form-actions cx-co-actions">
-              <SubmitButton request={request}>Send the note</SubmitButton>
-              <a className="cx-email-link" href={mailtoFor(request.destination)}>Write by email</a>
-            </div>
-            <SupportFeedback request={request} />
+          <ContactFields request={request} messageRows={7} />
+
+          <div className="cx-form-actions">
+            <SubmitButton request={request}>Send the note</SubmitButton>
+            <a className="cx-email-link" href={mailtoFor(request.destination)}>
+              Write by email <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
           </div>
+          <SupportFeedback request={request} />
         </form>
+
+        <aside className="cx-aside" aria-label="Before writing">
+          <div className="cx-guide">
+            <span className="cx-aside-label">Before you write</span>
+            <ul>
+              <li><span className="cx-guide-index">01</span><p>Addressed to <strong>{request.destination.topic}</strong>.</p></li>
+              <li><span className="cx-guide-index">02</span><p>Bring <strong>{request.destination.evidence.toLowerCase()}</strong> when relevant.</p></li>
+              <li><span className="cx-guide-index">03</span><p>A reference is issued on receipt; quote it when you write again.</p></li>
+              <li><span className="cx-guide-index">04</span><p>Leave API keys, recovery phrases and private prompt text out of the note.</p></li>
+            </ul>
+            <nav className="cx-resources" aria-label="Related support resources">
+              <a href="/docs/troubleshooting">API troubleshooting <ArrowUpRight size={13} aria-hidden="true" /></a>
+              <a href="/console/billing">Billing history <ArrowUpRight size={13} aria-hidden="true" /></a>
+              <a href="/console/support">Track requests <ArrowUpRight size={13} aria-hidden="true" /></a>
+              <a href={mailtoFor(request.destination)}>sonnely@symbaiex.com <ArrowUpRight size={13} aria-hidden="true" /></a>
+            </nav>
+          </div>
+        </aside>
       </div>
     </div>
   );
