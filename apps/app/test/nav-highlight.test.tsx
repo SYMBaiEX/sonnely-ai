@@ -73,6 +73,20 @@ it("jumps to an Inference topic without adding a page to browser history", async
 });
 
 // spec/app/nav.md, "Story: Move around"
+it("keeps the page open when a same-page hash entry appears", async () => {
+  const { el, runtime } = renderApp();
+  await act(async () => {
+    await navigate(runtime, { tag: "Inference" });
+  });
+  history.pushState(null, "", "/inference#evidence");
+  act(() => {
+    window.dispatchEvent(new Event("popstate"));
+  });
+  const current = el.querySelector(".site-nav nav a[aria-current='page']");
+  expect([current?.getAttribute("href"), location.hash]).toEqual(["/inference", "#evidence"]);
+});
+
+// spec/app/nav.md, "Story: Move around"
 it("drops the hash when navigating without one", async () => {
   const { runtime } = renderApp();
   await act(async () => {
