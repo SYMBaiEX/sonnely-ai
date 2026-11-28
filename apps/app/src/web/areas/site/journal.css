@@ -1,40 +1,38 @@
 /* spec/app/site/index.md — the journal index and article pages, in the
-   landing page and docs visual language: Geist display type, mono micro
-   labels, panel cards and the docs reading measure. */
+   landing page and docs visual language. The index is a table of contents:
+   topic, title and summary, reading time, one ruled row per article. */
 
 .site .jrn-page {
-  padding: clamp(30px, 4.5vw, 62px) 0 clamp(64px, 8vw, 110px);
+  padding: clamp(40px, 6vw, 88px) 0 clamp(64px, 8vw, 110px);
 }
 
 .site .jrn-hero {
-  margin-bottom: clamp(30px, 4vw, 52px);
-}
-
-.site .jrn-hero .eyebrow {
-  margin-bottom: 14px;
-  color: var(--accent);
+  display: grid;
+  gap: 18px;
+  margin-bottom: clamp(36px, 5vw, 64px);
 }
 
 .site .jrn-hero h1 {
-  max-width: 16ch;
-  font-size: clamp(38px, 5vw, 62px);
+  max-width: 14ch;
+  font-size: clamp(42px, 6vw, 76px);
   font-weight: 660;
-  line-height: 1.04;
-  letter-spacing: -0.055em;
+  line-height: 1;
+  letter-spacing: -0.04em;
   text-wrap: balance;
 }
 
 .site .jrn-hero > p {
-  max-width: 58ch;
-  margin-top: 16px;
+  max-width: 46ch;
   color: var(--muted);
-  font-size: clamp(15px, 1.4vw, 18px);
-  line-height: 1.6;
+  font-size: clamp(16px, 1.5vw, 19px);
+  line-height: 1.55;
+  text-wrap: pretty;
 }
 
 .site .jrn-index {
   display: grid;
-  gap: clamp(18px, 2.4vw, 28px);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
 }
 
 .site .jrn-tools {
@@ -42,11 +40,46 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 12px 24px;
+}
+
+.site .jrn-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.site .jrn-topics button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 520;
+  white-space: nowrap;
+  transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+
+.site .jrn-topics button[aria-pressed="true"] {
+  border-color: var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.site .jrn-count {
+  color: var(--muted);
+  font: 500 12px var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .site .jrn-search {
-  flex: 0 1 320px;
+  flex: 0 1 300px;
   margin: 0;
 }
 
@@ -69,125 +102,114 @@
   color: var(--accent);
 }
 
-.site .jrn-number {
-  color: var(--muted);
-  font: 550 12px var(--mono);
-  letter-spacing: 0.06em;
-  font-variant-numeric: tabular-nums;
-}
-
-.site .jrn-feature {
-  display: grid;
-  gap: 13px;
-  padding: clamp(24px, 3.5vw, 42px);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--active-fill) 54%, transparent), var(--card) 52%);
-  box-shadow: inset 0 1px 0 var(--rim);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.site .jrn-feature-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.site .jrn-feature h2 {
-  max-width: 22ch;
-  font-size: clamp(26px, 3.4vw, 44px);
-  font-weight: 660;
-  line-height: 1.08;
-  letter-spacing: -0.045em;
-  text-wrap: balance;
-}
-
-.site .jrn-feature > p {
-  max-width: 62ch;
-  color: var(--muted);
-  font-size: clamp(14px, 1.3vw, 16px);
-  line-height: 1.6;
-}
-
-.site .jrn-read {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 24px;
-  margin-top: 4px;
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 560;
-}
-
-.site .jrn-read svg {
-  transition: translate 160ms var(--ease-out);
-}
-
 .site .jrn-list {
   display: grid;
   margin: 0;
   padding: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--ink);
   list-style: none;
 }
 
-.site .jrn-list li + li {
-  border-top: 1px solid var(--line);
+.site .jrn-entry {
+  border-bottom: 1px solid var(--line);
 }
 
-.site .jrn-list a {
+.site .jrn-entry a {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 10px clamp(12px, 2vw, 22px);
-  margin-inline: -12px;
-  padding: 19px 12px;
+  grid-template-columns: 168px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px clamp(16px, 3vw, 40px);
+  margin-inline: -14px;
+  padding: 22px 14px;
   border-radius: 12px;
   color: var(--ink);
   text-decoration: none;
+  transition: background 160ms var(--ease-out);
 }
 
-.site .jrn-list .jrn-number {
-  padding-top: 4px;
+.site .jrn-topic {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 520;
 }
 
-.site .jrn-row-main {
+.site .jrn-topic svg {
+  flex-shrink: 0;
+  translate: 0 2px;
+  color: var(--accent);
+}
+
+.site .jrn-entry-main {
   display: grid;
   gap: 6px;
   min-width: 0;
 }
 
-.site .jrn-row-main h3 {
-  font-size: clamp(18px, 2vw, 24px);
-  font-weight: 660;
+.site .jrn-entry-main h3 {
+  font-size: clamp(19px, 1.9vw, 23px);
+  font-weight: 640;
   line-height: 1.2;
-  letter-spacing: -0.032em;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+  transition: color 160ms var(--ease-out);
 }
 
-.site .jrn-row-main p {
-  max-width: 68ch;
+.site .jrn-entry-main p {
+  max-width: 64ch;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 15px;
   line-height: 1.55;
+  text-wrap: pretty;
 }
 
-.site .jrn-row-arrow {
-  align-self: center;
+.site .jrn-minutes {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: var(--muted);
-  transition: translate 160ms var(--ease-out);
+  font: 500 12px var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.site .jrn-minutes svg {
+  translate: 0 1px;
+  transition: translate 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+
+.site .jrn-lead a {
+  padding-block: clamp(28px, 4vw, 48px);
+}
+
+.site .jrn-lead .jrn-entry-main {
+  gap: 14px;
+}
+
+.site .jrn-lead h2 {
+  max-width: 20ch;
+  font-size: clamp(32px, 4.4vw, 56px);
+  font-weight: 660;
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+  transition: color 160ms var(--ease-out);
+}
+
+.site .jrn-lead p {
+  font-size: clamp(16px, 1.4vw, 18px);
 }
 
 .site .jrn-empty {
-  padding: 26px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  padding: 32px 0;
+  border-top: 1px solid var(--ink);
   color: var(--muted);
-  font-size: 14px;
-  text-align: center;
+  font-size: 15px;
 }
 
 /* ---- the article page ---- */
@@ -456,19 +478,43 @@
   }
 }
 
+@media (width <= 800px) {
+  .site .jrn-entry a {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 16px;
+  }
+
+  .site .jrn-entry-main {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
 @media (width <= 640px) {
   .site .jrn-tools {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .site .jrn-topics {
+    flex-wrap: nowrap;
+    margin-inline: -16px;
+    padding-inline: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
   .site .jrn-search {
     flex-basis: auto;
   }
 
-  .site .jrn-list a {
-    grid-template-columns: 26px minmax(0, 1fr) auto;
-    gap: 8px 12px;
+  .site .jrn-entry a {
+    margin-inline: -10px;
+    padding: 20px 10px;
+  }
+
+  .site .jrn-lead a {
+    padding-block: 26px 30px;
   }
 
   .site .jrn-more-grid {
@@ -483,33 +529,22 @@
   color: var(--accent);
 }
 
-.site .jrn-feature:is(:hover, :focus-visible) {
-  border-color: color-mix(in srgb, var(--accent) 46%, var(--line));
+.site .jrn-topics button[aria-pressed="false"]:hover {
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  color: var(--ink);
 }
 
-.site .jrn-feature:is(:hover, :focus-visible) h2 {
-  color: var(--accent);
-}
-
-.site .jrn-feature:is(:hover, :focus-visible) .jrn-read svg {
-  translate: 2px -2px;
-}
-
-.site .jrn-list a:is(:hover, :focus-visible) {
+.site .jrn-entry a:is(:hover, :focus-visible) {
   background: color-mix(in srgb, var(--active-fill) 55%, transparent);
 }
 
-.site .jrn-list a:is(:hover, :focus-visible) .jrn-number {
+.site .jrn-entry a:is(:hover, :focus-visible) :is(h2, h3) {
   color: var(--accent);
 }
 
-.site .jrn-list a:is(:hover, :focus-visible) h3 {
+.site .jrn-entry a:is(:hover, :focus-visible) .jrn-minutes svg {
   color: var(--accent);
-}
-
-.site .jrn-list a:is(:hover, :focus-visible) .jrn-row-arrow {
-  color: var(--accent);
-  translate: 2px -2px;
+  translate: 2px -1px;
 }
 
 .site .jrn-reflink:is(:hover, :focus-visible) {
