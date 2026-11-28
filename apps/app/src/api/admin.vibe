@@ -33,6 +33,27 @@ function projectCrm(state: { profiles?: { wallet: string }[] }, wallet: string) 
   }
 }
 
+const operatorEvidence: Partial<Record<string, { actor?: string; timed?: boolean }>> = {
+  addNote: { actor: "actor", timed: true },
+  createTask: { actor: "creator", timed: true },
+  completeTask: { timed: true },
+  setFlag: { actor: "admin", timed: true },
+  removeFlag: { actor: "admin", timed: true },
+  saveSegment: { actor: "admin", timed: true },
+  deleteSegment: { actor: "admin" },
+}
+
+function bindOperatorEvidence(input: unknown, operator: string, now: number) {
+  const bound = { ...((input ?? {}) as Record<string, unknown>) } as Record<string, unknown>
+  const type = bound["type"]
+  if (typeof type != "string") return bound
+  const evidence = operatorEvidence[type]
+  if (evidence == undefined) return bound
+  if (evidence.actor != undefined) bound[evidence.actor] = operator
+  if (evidence.timed == true) bound["now"] = now
+  return bound
+}
+
 effect function getScopedState(admin: Admin.Machine.Shape, m: SenderMachine, project: (state: any, wallet: string) => unknown) {
   const wallet = try authenticatedWallet()
   if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
@@ -115,7 +136,8 @@ effect function postSender(m: SenderMachine) {
   if (sender === undefined) {
     return try HttpServerResponse.json({ ok: false, error: "NotASender" }, { status: 400, headers: noStore })
   }
-  const sent = m.receive(input, sender) catch (error) => error
+  const bound = { ...(input as Record<string, unknown>), at: try Clock.currentTimeMillis }
+  const sent = m.receive(bound, sender) catch (error) => error
   const rejected = sent as { _tag?: string }
   if (rejected && typeof rejected === "object" && "_tag" in rejected) {
     const status = rejected._tag === "NotAnEvent" ? 400 : rejected._tag === "Rejected" ? 409 : 500
@@ -155,14 +177,18 @@ effect function postOperatorEvent(admin: Admin.Machine.Shape, m: SenderMachine, 
     return try HttpServerResponse.json(out.body, { status: out.status, headers: noStore })
   }
   if (input != undefined && input.type == "saveProfile") {
-    const own = { ...(input as Record<string, unknown>), wallet }
+    const own = { ...(input as Record<string, unknown>), wallet, now: try Clock.currentTimeMillis }
     const sentOwn = m.receive(own, operator != "" ? operator : wallet) catch (error) => error
     const out = answer(sentOwn)
     return try HttpServerResponse.json(out.body, { status: out.status, headers: noStore })
   }
   const adminOperator = try operatorWithRoles(admin, ["admin"])
   if (adminOperator == "") return try HttpServerResponse.json({ ok: false, error: "administrator access required" }, { status: 403, headers: noStore })
-  const sent = m.receive(input, adminOperator) catch (error) => error
+  if (input != undefined && input.type == "recordAdjustment") {
+    return try HttpServerResponse.json({ ok: false, error: "Use /api/admin/adjust for balance adjustments." }, { status: 403, headers: noStore })
+  }
+  const bound = bindOperatorEvidence(input, adminOperator, try Clock.currentTimeMillis)
+  const sent = m.receive(bound, adminOperator) catch (error) => error
   const out = answer(sent)
   return try HttpServerResponse.json(out.body, { status: out.status, headers: noStore })
 }
