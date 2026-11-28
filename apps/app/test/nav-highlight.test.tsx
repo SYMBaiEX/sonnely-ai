@@ -79,10 +79,10 @@ it('dismisses the mobile menu from the header theme control on Escape (spec/app/
 it('cycles the public header theme through system, light and dark (spec/app/nav.md, "Story: Move around")', () => {
   const { el } = renderApp();
   const theme = el.querySelector<HTMLButtonElement>(".site-actions button")!;
-  expect(theme.textContent).toBe("dark");
+  expect(theme.dataset.themePos).toBe("dark");
   for (const next of ["system", "light", "dark"]) {
     act(() => theme.click());
-    expect([theme.textContent, localStorage.getItem("sonnely.theme")]).toEqual([next, next]);
+    expect([theme.dataset.themePos, localStorage.getItem("sonnely.theme")]).toEqual([next, next]);
   }
 });
 

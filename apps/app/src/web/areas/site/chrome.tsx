@@ -137,12 +137,6 @@ export const accentTokenAliases = {
   "--focus-ring": "var(--ring)",
 } as CSSProperties;
 
-const shellRules = ".theme-root.site button:disabled{filter:saturate(.3)}";
-
-export function ShellRules() {
-  return <style>{shellRules}</style>;
-}
-
 export function Brand({ href = "/", onClick }: { href?: string; onClick?: () => void }) {
   return (
     <a href={href} className="brand" aria-label="Sonnely" onClick={onClick}>
@@ -214,29 +208,10 @@ function SiteNavigation({ current }: { current: string }) {
         </div>
       </nav>
       <div className="site-actions">
-        <HeaderThemeButton />
+        <ThemeSwitch />
         <ConsoleLink />
       </div>
     </div>
-  );
-}
-
-function HeaderThemeButton() {
-  const theme = useTheme();
-  const next = nextTheme[theme];
-  const Icon = theme === "dark" ? Moon : theme === "system" ? MonitorSmartphone : Sun;
-
-  return (
-    <button
-      type="button"
-      className="inline-flex h-11 w-[88px] items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 hover:border-ring"
-      aria-label={`Color theme: ${theme}. Activate for ${next}.`}
-      data-theme-pos={theme}
-      onClick={() => setTheme(next)}
-    >
-      <Icon size={16} aria-hidden="true" />
-      <span className="text-sm font-medium capitalize">{theme}</span>
-    </button>
   );
 }
 
@@ -255,7 +230,7 @@ export function SiteFooter() {
         <div className="footer-brand">
           <Brand />
           <p>Confidential AI inference on Solana.</p>
-          <a href="/docs/quickstart" className="inline-flex min-h-11 items-center gap-1.5 font-medium">
+          <a href="/docs/quickstart" className="text-link">
             API quickstart <ArrowUpRight size={13} aria-hidden="true" />
           </a>
         </div>
@@ -301,7 +276,6 @@ export function ThemeSurface({ current, children }: { current: string; children:
       data-motion={motion ? "on" : "off"}
       style={accentTokenAliases}
     >
-      <ShellRules />
       <a href="#content" className="skip">
         Skip to content
       </a>

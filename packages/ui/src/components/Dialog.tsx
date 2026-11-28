@@ -43,5 +43,5 @@ export function DialogContent({ closeLabel = "Close", className, children, ...pr
 
 /** The dialog's heading and accessible name. */
 export function DialogTitle({ className, ...props }: DialogTitleProps) {
-  return <DialogPrimitive.Title className={cn("text-base leading-none font-semibold", className)} {...props} />;
+  return <DialogPrimitive.Title className={cn("text-body leading-tight font-strong", className)} {...props} />;
 }
