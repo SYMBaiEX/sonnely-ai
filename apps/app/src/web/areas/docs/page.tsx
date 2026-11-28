@@ -12,6 +12,7 @@ import {
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { Button } from "@repo/ui";
 import { SearchField } from "../../search.tsx";
 import { docAt } from "../../../../gen/app__docs.ts";
@@ -65,11 +66,10 @@ export function DocsPage({ slug }: { slug: string }) {
   const theme = useTheme();
   const kind = slug === "index" ? "overview" : slug === "api" ? "api" : "guide";
   const [collapsed, setCollapsed] = useSidebarCollapsed();
-  const reopen = (focusId?: string) => {
-    setCollapsed(false);
-    if (focusId !== undefined) {
-      window.setTimeout(() => document.getElementById(focusId)?.focus(), 200);
-    }
+  const reopen = (focusId: string) => {
+    // eslint-disable-next-line @eslint-react/dom-no-flush-sync -- focus can only land in the sidebar once its expanded state is committed, and activation is synchronous
+    flushSync(() => setCollapsed(false));
+    document.getElementById(focusId)?.focus();
   };
 
   return (
