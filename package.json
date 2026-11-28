@@ -8,7 +8,7 @@
   "packageManager": "pnpm@10.24.0",
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build --filter=!vibestack",
+    "build": "node packages/vibestack/src/spec.ts tasks --filter=!vibestack build",
     "start": "pnpm -C apps/app start",
     "studio": "node packages/vibestack/src/spec.ts studio",
     "check": "node packages/vibestack/src/spec.ts check",
