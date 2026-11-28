@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowRight, FileUp, History } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
-import { Alert, Button, Input, Textarea } from "@repo/ui";
+import { Alert, Button, Input, Select, Textarea } from "@repo/ui";
 import { providerIds, providerNames, specializedRoutes } from "./playground-data.ts";
 import { PlaygroundCopyButton } from "./playground-copy.tsx";
 import { PlaygroundResultContent } from "./playground-result-content.tsx";
@@ -339,11 +339,11 @@ export function PlaygroundInference({
             <div data-playground-model-select>
               <label>
                 <span className="sr-only">Model</span>
-                <select name="model" form={formId} value={model} disabled={busy} onChange={(event) => setSelectedModel(event.currentTarget.value)}>
+                <Select name="model" form={formId} value={model} disabled={busy} onChange={(event) => setSelectedModel(event.currentTarget.value)}>
                   {modelIds.map((id) => (
                     <option key={id}>{id}</option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>,
             controls,

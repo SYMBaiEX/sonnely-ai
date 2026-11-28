@@ -9,6 +9,7 @@ export type SearchFieldProps = Omit<InputProps, "type"> & {
 export function SearchField({ className, ...inputProps }: SearchFieldProps) {
   return (
     <label
+      data-search-field
       className={cn(
         "flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-muted-foreground transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30",
         className,

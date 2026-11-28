@@ -1,6 +1,7 @@
 /* eslint-disable @eslint-react/naming-convention-ref-name, @eslint-react/naming-convention-context-name -- the endpoint picker ref and controls context use the playground's established names */
 import { createContext, useRef, useState, type ReactNode } from "react";
 import { Terminal } from "lucide-react";
+import { Select } from "@repo/ui";
 import { PlaygroundInference, workloadOptions, type Workload } from "./playground-inference.tsx";
 
 const groups = {
@@ -41,7 +42,7 @@ export function Playground({ children, signedIn }: { children: ReactNode; signed
         <label data-playground-endpoint-picker>
           <Terminal size={17} aria-hidden="true" />
           <span className="sr-only">Endpoint</span>
-          <select
+          <Select
             ref={endpointPicker}
             value={endpoint}
             disabled={running}
@@ -59,7 +60,7 @@ export function Playground({ children, signedIn }: { children: ReactNode; signed
                 ))}
               </optgroup>
             ))}
-          </select>
+          </Select>
         </label>
         <div data-playground-toolbar-controls ref={setControls} />
         <code data-playground-route-path>{route}</code>

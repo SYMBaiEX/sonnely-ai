@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
-import { Button, cn, Dialog, DialogContent, DialogTitle, Label } from "@repo/ui";
+import { Button, cn, Dialog, DialogContent, DialogTitle, Label, Select } from "@repo/ui";
 import { SearchField } from "../../search.tsx";
 import {
   contextFormat,
@@ -24,8 +24,6 @@ function ModelMark({ children }: { children: string }) {
     </span>
   );
 }
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-ui text-foreground";
 
 export function PlaygroundRoute({
   model,
@@ -183,9 +181,8 @@ export function PlaygroundRoute({
                 <div className="grid gap-3 pt-2">
                   <div className="grid gap-1.5">
                     <Label htmlFor="playground-first-fallback">First fallback</Label>
-                    <select
+                    <Select
                       id="playground-first-fallback"
-                      className={selectClass}
                       value={draftFallbacks[0] ?? ""}
                       onChange={(event) => {
                         const selected = fallbackOptions.find((id) => id === event.target.value);
@@ -198,14 +195,13 @@ export function PlaygroundRoute({
                           {providerNames[id]}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                   {draftFallbacks[0] && fallbackOptions.length > 1 && (
                     <div className="grid gap-1.5">
                       <Label htmlFor="playground-second-fallback">Second fallback</Label>
-                      <select
+                      <Select
                         id="playground-second-fallback"
-                        className={selectClass}
                         value={draftFallbacks[1] ?? ""}
                         onChange={(event) => {
                           const first = draftFallbacks[0];
@@ -221,7 +217,7 @@ export function PlaygroundRoute({
                               {providerNames[id]}
                             </option>
                           ))}
-                      </select>
+                      </Select>
                     </div>
                   )}
                   <p className="text-meta text-muted-foreground">Fallbacks are tried in order when a route is at capacity or explicitly rate-limits the request.</p>
