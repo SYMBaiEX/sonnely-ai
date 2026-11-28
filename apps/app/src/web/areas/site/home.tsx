@@ -50,7 +50,6 @@ import {
   buttonAccent,
   buttonQuiet,
   cardLinkArrow,
-  eyebrow,
   markColors,
   modelMark,
   sectionHead,
@@ -539,10 +538,7 @@ function HomeCapabilities() {
   return (
     <section className="section home-capabilities" aria-labelledby="capabilities-heading">
       <header className={sectionHead}>
-        <div>
-          <p className={eyebrow}>The gateway</p>
-          <h2 id="capabilities-heading">From request to receipt.</h2>
-        </div>
+        <h2 id="capabilities-heading">From request to receipt.</h2>
         <p>Send a request, set a limit, and see what you were charged.</p>
       </header>
       <GatewayTrace />
@@ -1003,29 +999,28 @@ function HomeResources() {
 export function Home() {
   return (
     <>
-      <section className="hero" aria-labelledby="home-hero-heading">
-        <div className="wrap hero-intro">
+      <section className="wrap hero" aria-labelledby="home-hero-heading">
+        <div className="hero-intro">
           <h1 id="home-hero-heading">
-            Private AI<span>.</span>
+            Private AI.<br />
+            <span>Prove it.</span>
           </h1>
-          <div className="hero-content">
-            <p className="hero-description">
-              Confidential inference for your apps through one OpenAI-compatible API.
-            </p>
-            <div className="actions">
-              <a href="/console/chat" className={buttonAccent}>
-                Open console <ArrowUpRight size={17} aria-hidden="true" />
-              </a>
-              <a href="#quickstart" className={buttonQuiet}>
-                API quickstart <ArrowDown size={16} aria-hidden="true" />
-              </a>
-            </div>
+          <p className="hero-description">
+            Run AI models in hardware-isolated environments through one OpenAI-compatible API.
+            Verify the evidence for each request.
+          </p>
+          <div className="actions">
+            <a href="/console/chat" className={buttonAccent}>
+              Open console <ArrowUpRight size={17} aria-hidden="true" />
+            </a>
+            <a href="#quickstart" className={buttonQuiet}>
+              API quickstart <ArrowDown size={16} aria-hidden="true" />
+            </a>
           </div>
         </div>
         <RequestPath />
       </section>
       <div className="wrap home">
-        <HomeDemo />
         <nav className="home-platform" data-reveal="fade" aria-label="Platform integrations">
           <a href="/docs/billing">
             <span className="home-platform-icon">
@@ -1058,6 +1053,7 @@ export function Home() {
             <ArrowUpRight size={14} aria-hidden="true" className={cardLinkArrow} />
           </a>
         </nav>
+        <HomeDemo />
         <HomeCapabilities />
         <HomeModelList />
         <HomeWorkloads />
