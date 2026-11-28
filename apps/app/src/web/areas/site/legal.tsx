@@ -1,7 +1,6 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import type { ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { CorrespondenceHero } from "./chrome.tsx";
 import { termsVersion } from "./data.ts";
 
 function LegalPage({
@@ -22,35 +21,51 @@ function LegalPage({
   children: ReactNode;
 }) {
   return (
-    <div className="wrap cor-page cor-legal-page">
-      <CorrespondenceHero
-        eyebrow={eyebrow}
-        title={title}
-        description={description}
-        brief={{ title: "Document", rows }}
-        actionsLabel="Legal documents"
-        asideLabel="Document"
-      >
-        <a href={other[0]}>
-          {other[1]} <ArrowUpRight size={15} aria-hidden="true" />
-        </a>
-      </CorrespondenceHero>
-      <div className="cor-post-layout">
-        <aside className="cor-contents" aria-label="Contents">
-          <span>Contents</span>
-          <ol>
-            {sections.map(([id, heading]) => (
-              <li key={id}><a href={"#" + id}>{heading}</a></li>
+    <div className="mx-auto w-full max-w-[1080px] px-4 py-8 text-foreground md:px-8 md:py-12">
+      <header className="mb-10 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid justify-items-start gap-4">
+          <p className="font-mono text-micro font-medium uppercase tracking-micro text-primary">{eyebrow}</p>
+          <h1 className="max-w-[13ch] [font-family:var(--font-serif)] text-title font-regular leading-title tracking-title text-balance">{title}</h1>
+          <p className="max-w-[620px] text-lead leading-lead text-muted-foreground text-pretty">{description}</p>
+          <nav aria-label="Legal documents">
+            <a href={other[0]} className="inline-flex min-h-11 items-center gap-1.5 text-ui font-strong text-primary no-underline hover:underline hover:underline-offset-4 focus-visible:underline focus-visible:outline-none">
+              {other[1]} <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+          </nav>
+        </div>
+        <aside aria-label="Document" className="rounded-lg border border-border bg-card p-4 shadow-md">
+          <h2 className="font-mono text-micro font-medium uppercase tracking-micro text-primary">Document</h2>
+          <dl className="mt-3 grid gap-3">
+            {rows.map(([label, value]) => (
+              <div key={label} className="grid gap-1 border-t border-border pt-3 first:border-t-0 first:pt-0">
+                <dt className="text-meta text-muted-foreground">{label}</dt>
+                <dd className="text-ui font-medium text-foreground">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </aside>
+      </header>
+      <div className="grid items-start justify-center gap-8 lg:grid-cols-[210px_minmax(0,740px)]">
+        <aside className="grid gap-3 rounded-lg border border-dashed border-border bg-card/90 p-4 max-lg:order-2 lg:sticky lg:top-[calc(var(--site-header-height)+1.75rem)] lg:-rotate-1" aria-label="Contents">
+          <span className="font-mono text-micro font-medium uppercase tracking-micro text-primary">Contents</span>
+          <ol className="grid gap-2.5">
+            {sections.map(([id, heading], index) => (
+              <li key={id} className="grid grid-cols-[1.375rem_minmax(0,1fr)] gap-1.5">
+                <span className="[font-family:var(--font-serif)] text-body leading-heading text-primary">{String(index + 1).padStart(2, "0")}</span>
+                <a href={"#" + id} className="text-micro leading-micro text-muted-foreground no-underline hover:text-primary focus-visible:text-primary focus-visible:outline-none">{heading}</a>
+              </li>
             ))}
           </ol>
         </aside>
-        <div className="cor-letter cor-post-letter">
-          <div className="cor-letter-head">
+        <article className="overflow-hidden rounded-lg border border-border bg-card shadow-lg max-lg:order-1">
+          <div className="flex justify-between gap-3.5 border-b border-border bg-accent/40 px-5 py-3.5 font-mono text-micro font-medium uppercase tracking-micro text-primary md:px-8">
             <span>Sonnely legal</span>
             <span>{"Version " + termsVersion}</span>
           </div>
-          <div className="cor-letter-body">{children}</div>
-        </div>
+          <div className="p-6 md:p-10 [&_a]:text-primary [&_a]:underline-offset-4 [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:[font-family:var(--font-serif)] [&_h2]:text-heading [&_h2]:font-regular [&_h2]:leading-heading [&_h2]:tracking-heading [&_h2]:text-balance [&_p]:my-4 [&_p]:text-body [&_p]:leading-body [&_p]:text-foreground/85 [&_p]:text-pretty [&_section+section]:mt-8">
+            {children}
+          </div>
+        </article>
       </div>
     </div>
   );

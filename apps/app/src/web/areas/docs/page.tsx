@@ -12,6 +12,7 @@ import {
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Button } from "@repo/ui";
 import { SearchField } from "../../search.tsx";
 import { docAt } from "../../../../gen/app__docs.ts";
 import {
@@ -77,12 +78,12 @@ export function DocsPage({ slug }: { slug: string }) {
       </a>
       <SiteHeader current={slug === "index" ? "/docs" : `/docs/${slug}`} />
       <div className="docs-sidebar-pill" role="group" aria-label="Sidebar actions">
-        <button type="button" aria-label="Open sidebar" onClick={() => reopen("docs-sidebar-collapse")}>
+        <Button type="button" variant="ghost" size="icon" aria-label="Open sidebar" onClick={() => reopen("docs-sidebar-collapse")}>
           <PanelLeftOpen size={15} aria-hidden="true" />
-        </button>
-        <button type="button" aria-label="Search documentation" onClick={() => reopen("docs-search-input")}>
+        </Button>
+        <Button type="button" variant="ghost" size="icon" aria-label="Search documentation" onClick={() => reopen("docs-search-input")}>
           <Search size={15} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
       <div className="docs-layout" data-toc={hasDesktopToc ? "" : undefined}>
         <Sidebar slug={slug} onCollapse={() => setCollapsed(true)} />
@@ -169,21 +170,22 @@ function Sidebar({ slug, onCollapse }: { slug: string; onCollapse: () => void })
           <a href="/docs" className="docs-sidebar-brand">
             <BookOpen size={18} /> Documentation
           </a>
-          <button type="button" className="docs-sidebar-collapse" id="docs-sidebar-collapse" aria-label="Collapse sidebar" onClick={onCollapse}>
+          <Button type="button" variant="ghost" size="icon" className="docs-sidebar-collapse" id="docs-sidebar-collapse" aria-label="Collapse sidebar" onClick={onCollapse}>
             <PanelLeftClose size={15} aria-hidden="true" />
-          </button>
+          </Button>
         </div>
         <SearchDocs />
-        <button
+        <Button
           type="button"
-          className="docs-nav-toggle"
+          variant="ghost"
+          className="docs-nav-toggle h-auto whitespace-normal"
           aria-expanded={open}
           aria-controls="docs-sidebar-nav"
           onClick={() => setOpen(!open)}
         >
           <span>Browse guides</span>
           <ChevronDown size={16} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
       <nav className="docs-sidebar-nav" id="docs-sidebar-nav" aria-label="Documentation">
         <a href="/docs" className="docs-sidebar-link" aria-current={slug === "index" ? "page" : undefined} onClick={close}>
@@ -233,22 +235,27 @@ function CopyMarkdown({ slug }: { slug: string }) {
     setCopied(true);
   };
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="sm"
       className="docs-page-action"
       onClick={() => void copy()}
       onBlur={() => setCopied(false)}
       onPointerLeave={() => setCopied(false)}
     >
       <Copy size={15} aria-hidden="true" /> <span aria-live="polite">{copied ? "Copied" : "Copy Markdown"}</span>
-    </button>
+    </Button>
   );
 }
 
 function SearchDocs() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
   const results = useMemo(() => searchDocs(query).results.slice(0, 8), [query]);
+  const expanded = open && query.trim() !== "";
+  const activeId = expanded && active >= 0 && active < results.length ? `docs-search-option-${active}` : undefined;
   return (
     <div
       className="docs-search"
@@ -260,34 +267,65 @@ function SearchDocs() {
     >
       <SearchField
         id="docs-search-input"
+        role="combobox"
+        aria-autocomplete="list"
         value={query}
         onChange={(event) => {
           setQuery(event.target.value);
           setOpen(true);
+          setActive(-1);
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={(event) => {
-          if (event.key !== "ArrowDown" || results.length === 0) return;
-          event.preventDefault();
-          event.currentTarget.closest(".docs-search")?.querySelector("a")?.focus();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setOpen(false);
+            setActive(-1);
+            return;
+          }
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            if (results.length === 0) return;
+            event.preventDefault();
+            setOpen(true);
+            const forward = event.key === "ArrowDown";
+            const next = active < 0 ? (forward ? 0 : results.length - 1) : (active + (forward ? 1 : -1) + results.length) % results.length;
+            setActive(next);
+            document.getElementById(`docs-search-option-${next}`)?.scrollIntoView({ block: "nearest" });
+            return;
+          }
+          if (event.key === "Enter" && active >= 0 && active < results.length) {
+            event.preventDefault();
+            document.getElementById(`docs-search-option-${active}`)?.click();
+          }
         }}
         placeholder="Search guides"
         aria-label="Search documentation"
         aria-controls="docs-search-results"
-        aria-expanded={open && query.trim() !== ""}
+        aria-expanded={expanded}
+        aria-activedescendant={activeId}
       />
       {query !== "" && (
-        <button type="button" className="docs-search-clear" aria-label="Clear search" onClick={() => setQuery("")}>
+        <Button type="button" variant="ghost" size="icon" className="docs-search-clear" aria-label="Clear search" onClick={() => { setQuery(""); setActive(-1); }}>
           ×
-        </button>
+        </Button>
       )}
-      {open && query.trim() !== "" && (
+      {expanded && (
         <div className="docs-search-results" id="docs-search-results" role="listbox" aria-label="Documentation search results">
           {results.length === 0 && <p className="docs-search-empty" role="status">No results for “{query}”. Try a guide title or a shorter term.</p>}
-          {results.map((r) => {
+          {results.map((r, index) => {
             const doc = searchResultDoc(r.url);
             return (
-              <a key={r.id} href={r.url} role="option" aria-selected="false" onClick={() => setOpen(false)}>
+              <a
+                key={r.id}
+                id={`docs-search-option-${index}`}
+                href={r.url}
+                role="option"
+                aria-selected={index === active}
+                tabIndex={-1}
+                data-active={index === active ? "" : undefined}
+                onMouseEnter={() => setActive(index)}
+                onClick={() => setOpen(false)}
+              >
                 <strong>{doc?.title ?? r.url}</strong>
                 <span>{r.type === "page" ? (doc?.description ?? r.content) : r.content}</span>
               </a>

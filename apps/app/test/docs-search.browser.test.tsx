@@ -12,7 +12,7 @@ it('makes the search result clickable across its width (spec/app/docs/index.md, 
   const root = createRoot(container);
   try {
     root.render(<DocsPage slug="index" />);
-    const search = page.getByRole("searchbox", { name: "Search documentation" });
+    const search = page.getByRole("combobox", { name: "Search documentation" });
     await search.fill("nonexistent-guide-123");
     await expect.element(page.getByRole("status")).toMatchTextContent(/Try a guide title or a shorter term\./);
     await search.fill("Teams and projects");
@@ -21,6 +21,11 @@ it('makes the search result clickable across its width (spec/app/docs/index.md, 
     const link = result.element();
     const bounds = link.getBoundingClientRect();
     expect(link.contains(document.elementFromPoint(bounds.right - 6, bounds.top + bounds.height / 2))).toBe(true);
+    const input = search.element();
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }));
+    await expect.element(search).toHaveAttribute("aria-activedescendant", "docs-search-option-0");
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    await expect.element(search).toHaveValue("Teams and projects");
   } finally {
     root.unmount();
     container.remove();

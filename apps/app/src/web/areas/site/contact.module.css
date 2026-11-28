@@ -11,10 +11,10 @@
 .page .head h1 {
   margin: 0;
   color: var(--foreground);
-  font-size: clamp(2.5rem, 4.8vw, 3.75rem);
-  font-weight: 650;
-  letter-spacing: -0.04em;
-  line-height: 1;
+  font-size: clamp(var(--text-heading), 4.8vw, var(--text-title));
+  font-weight: var(--font-weight-strong);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--leading-title);
   text-wrap: balance;
 }
 
@@ -22,8 +22,8 @@
   max-width: 57ch;
   margin: 0.65rem 0 0;
   color: var(--foreground);
-  font-size: 1rem;
-  line-height: 1.55;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
   text-wrap: pretty;
 }
 
@@ -51,8 +51,8 @@
   margin: 0;
   padding: 0;
   color: var(--foreground);
-  font-size: 1.25rem;
-  font-weight: 650;
+  font-size: var(--text-lead);
+  font-weight: var(--font-weight-strong);
   line-height: 1.25;
 }
 
@@ -80,10 +80,10 @@
   border-radius: calc(var(--radius) / 2);
   color: var(--foreground);
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--text-ui);
+  font-weight: var(--font-weight-medium);
   overflow-wrap: anywhere;
-  transition: background-color var(--duration-base) var(--ease-standard), border-color var(--duration-base) var(--ease-standard);
+  transition: background-color var(--transition-duration-base) var(--ease-standard), border-color var(--transition-duration-base) var(--ease-standard);
 }
 
 .page .form label.topic:hover {
@@ -121,8 +121,8 @@
 .page :is(.topic-summary, .email-fallback) {
   margin: 0;
   color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.45;
+  font-size: var(--text-ui);
+  line-height: var(--leading-meta);
 }
 
 .page .email-link {
@@ -131,7 +131,7 @@
   gap: 0.25rem;
   min-height: 2.75rem;
   color: var(--foreground);
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   text-decoration: underline;
   text-decoration-color: var(--input);
   text-underline-offset: 0.23em;
@@ -163,16 +163,16 @@
 
 .page :is(.wallet-copy, .safety) {
   color: var(--muted-foreground);
-  font-size: 0.8125rem;
-  line-height: 1.45;
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
 }
 
 .page .form label.field {
   display: grid;
   gap: 0.375rem;
   color: var(--foreground);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--text-ui);
+  font-weight: var(--font-weight-medium);
 }
 
 .page .field :is(input, textarea) {
@@ -184,14 +184,14 @@
   box-shadow: none;
   caret-color: var(--foreground);
   color: var(--foreground);
-  font-size: 1rem;
-  font-weight: 400;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-regular);
 }
 
 .page .field textarea {
   min-height: 5.25rem;
   padding-block: 0.625rem;
-  line-height: 1.5;
+  line-height: var(--leading-lead);
   resize: vertical;
 }
 
@@ -210,12 +210,12 @@
 }
 
 .page :is(.safety, .field-error) {
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
 }
 
 .page .field-error {
   color: var(--destructive);
-  font-size: 0.8125rem;
+  font-size: var(--text-meta);
 }
 
 .page .submit {
@@ -244,8 +244,8 @@
   padding-block: 0.5rem;
   border-block-start: 1px solid var(--border);
   color: var(--foreground);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--text-ui);
+  font-weight: var(--font-weight-medium);
   overflow-wrap: anywhere;
   text-decoration: none;
 }
@@ -266,13 +266,13 @@
   border: 1px solid color-mix(in oklch, var(--destructive) 34%, transparent);
   border-radius: 11px;
   padding: 12px 14px;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--text-meta);
+  line-height: var(--leading-lead);
   overflow-wrap: anywhere;
 }
 
 .page .error p {
-  font-weight: 650;
+  font-weight: var(--font-weight-strong);
 }
 
 .page .error small {
@@ -296,8 +296,8 @@
   border-radius: 8px;
   background: var(--card);
   color: var(--foreground);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-strong);
   text-decoration: none;
   cursor: pointer;
 }
@@ -318,15 +318,15 @@
 
 .page .confirmation h3 {
   color: var(--ok);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: var(--text-ui);
+  font-weight: var(--font-weight-strong);
   letter-spacing: -0.01em;
 }
 
 .page .confirmation p {
   color: var(--muted-foreground);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: var(--text-meta);
+  line-height: var(--leading-lead);
 }
 
 .page .reference {
@@ -339,7 +339,7 @@
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-micro);
   overflow-wrap: anywhere;
 }
 

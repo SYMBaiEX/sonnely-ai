@@ -16,6 +16,7 @@ import {
   Terminal,
 } from "lucide-react";
 import { useId, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { Button, Input, Textarea } from "@repo/ui";
 import { defaultComponents, type Components } from "streamdown";
 import { apiEndpoints, type Endpoint } from "../../../../gen/app__docs.ts";
 import { apiBasePath, apiOrigin, slugify, type Block } from "../../../docs.ts";
@@ -154,19 +155,32 @@ function Tabs({ block }: { block: Block & { kind: "tabs" } }) {
     <div className="docs-tabs">
       <div className="docs-tabs-list" role="tablist">
         {tabs.map((t, i) => (
-          <button
+          <Button
             key={t.label}
             type="button"
+            variant="ghost"
+            size="sm"
             role="tab"
             id={tabId(i)}
             aria-selected={i === active}
             aria-controls={panelId(i)}
-            className={i === active ? "docs-tab-active" : undefined}
+            className={i === active ? "docs-tab-active h-auto whitespace-normal" : "h-auto whitespace-normal"}
+            tabIndex={i === active ? 0 : -1}
             ref={(element) => {
               if (element) tabRef.current[i] = element;
             }}
             onClick={() => setActive(i)}
             onKeyDown={(event) => {
+              if (event.key === "Home") {
+                event.preventDefault();
+                activate(0);
+                return;
+              }
+              if (event.key === "End") {
+                event.preventDefault();
+                activate(tabs.length - 1);
+                return;
+              }
               const offset = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
               if (offset === 0) return;
               event.preventDefault();
@@ -174,7 +188,7 @@ function Tabs({ block }: { block: Block & { kind: "tabs" } }) {
             }}
           >
             {t.label}
-          </button>
+          </Button>
         ))}
       </div>
       {tab && (
@@ -256,9 +270,10 @@ function ApiReference() {
           const expanded = open === endpoint.path;
           return (
             <div className="docs-endpoint" key={endpoint.path} data-open={expanded ? "" : undefined} role="listitem">
-              <button
+              <Button
                 type="button"
-                className="docs-endpoint-row"
+                variant="ghost"
+                className="docs-endpoint-row h-auto whitespace-normal"
                 aria-expanded={expanded}
                 aria-controls={`tryit-${endpoint.path.replaceAll("/", "-")}`}
                 onClick={() => setOpen(expanded ? "" : endpoint.path)}
@@ -271,7 +286,7 @@ function ApiReference() {
                   <small>{endpoint.description}</small>
                 </span>
                 <ChevronDown size={16} aria-hidden="true" />
-              </button>
+              </Button>
               {expanded && (
                 <TryPanel endpoint={endpoint} apiKey={apiKey} onKeyChange={setApiKey} baseUrl={baseUrl} />
               )}
@@ -359,7 +374,7 @@ function TryPanel({
       {!isPublic && testable && (
         <label className="docs-tryit-key">
           <span>API key</span>
-          <input
+          <Input
             type="password"
             value={apiKey}
             onChange={(event) => onKeyChange(event.target.value)}
@@ -372,15 +387,15 @@ function TryPanel({
       {example !== undefined && (
         <label className="docs-tryit-body">
           <span>JSON body</span>
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={Math.min(12, body.split("\n").length + 1)} spellCheck={false} />
+          <Textarea value={body} onChange={(event) => setBody(event.target.value)} rows={Math.min(12, body.split("\n").length + 1)} spellCheck={false} />
         </label>
       )}
       {bodyError !== "" && <p className="docs-tryit-error">{bodyError}</p>}
       {testable ? (
         <div className="docs-tryit-actions">
-          <button type="button" className="docs-tryit-send" disabled={sending} onClick={() => void send()}>
+          <Button type="button" className="docs-tryit-send h-auto whitespace-normal" size="sm" loading={sending} onClick={() => void send()}>
             <Play size={13} aria-hidden="true" /> {sending ? "Sending…" : `Send ${endpoint.method}`}
-          </button>
+          </Button>
           {endpoint.method !== "GET" && apiKey.trim() === "" && <small>Without a key the gateway answers 401 — itself a live response.</small>}
         </div>
       ) : (
@@ -404,8 +419,10 @@ function TryPanel({
 function CopyBaseUrl({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="sm"
       className="docs-copy-base"
       onClick={() => {
         void navigator.clipboard.writeText(value).then(() => setCopied(true));
@@ -414,7 +431,7 @@ function CopyBaseUrl({ value }: { value: string }) {
       onPointerLeave={() => setCopied(false)}
     >
       <Copy size={14} aria-hidden="true" /> {copied ? "Copied" : "Copy base URL"}
-    </button>
+    </Button>
   );
 }
 
