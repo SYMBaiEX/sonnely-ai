@@ -230,7 +230,7 @@ export function AdminCustomers({ join, wallet }: { join: AdminJoin; wallet: stri
   }
 
   return (
-    <div className={cn("grid gap-5", selected && "xl:grid-cols-[minmax(0,1fr)_24rem]")}>
+    <div className={cn("grid items-start gap-5", selected && "xl:grid-cols-[minmax(0,1fr)_24rem]")}>
       <div className="grid min-w-0 gap-5">
         <div className="grid gap-3 md:grid-cols-3">
           <Stat label="Customers" value={rows.length.toLocaleString()} hint={`${rows.filter((row) => row.active).length} activated`} />
@@ -260,9 +260,9 @@ export function AdminCustomers({ join, wallet }: { join: AdminJoin; wallet: stri
                   <TableRow key={row.id} className={cn("cursor-pointer", selected?.id === row.id && "bg-secondary")} onClick={() => setSelected(row)}>
                     <TableCell onClick={(event) => event.stopPropagation()}><Checkbox checked={checked.has(row.id)} onCheckedChange={(value) => toggleChecked(row.id, value === true)} aria-label={`Select ${row.name || row.id}`} /></TableCell>
                     <TableCell label="Customer">
-                      <span className="flex min-w-0 items-center gap-3">
+                      <span className="flex w-full min-w-0 items-center gap-3">
                         <CustomerAvatar row={row} />
-                        <span className="min-w-0">
+                        <span className="min-w-0 flex-1">
                           <span className="block truncate font-medium text-foreground">{row.name || row.username || shortWallet(row.id)}</span>
                           <span className="block truncate font-mono text-meta text-muted-foreground">{shortWallet(row.id)}</span>
                         </span>
@@ -272,7 +272,7 @@ export function AdminCustomers({ join, wallet }: { join: AdminJoin; wallet: stri
                     <TableCell label="Balance">{money(row.balance)}</TableCell>
                     <TableCell label="Requests">{row.requests.toLocaleString()}</TableCell>
                     <TableCell label="Spend">{money(row.spend)}</TableCell>
-                    <TableCell label="Flags"><span className="flex flex-wrap gap-1">{row.flags.slice(0, 3).map((flag) => <span key={flag} className="rounded-sm bg-secondary px-1.5 py-0.5 text-micro text-secondary-foreground">{flag}</span>)}</span></TableCell>
+                    <TableCell label="Flags"><span className="flex w-full flex-wrap gap-1">{row.flags.slice(0, 3).map((flag) => <span key={flag} className="rounded-sm bg-secondary px-1.5 py-0.5 text-micro text-secondary-foreground">{flag}</span>)}</span></TableCell>
                     <TableCell label="Joined">{dateTime(row.joined)}</TableCell>
                   </TableRow>
                 ))}

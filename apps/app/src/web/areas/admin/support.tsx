@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Button, Checkbox, cn, Field, Input, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea } from "@repo/ui";
 import { dateTime, postMachine, shortWallet, type AdminJoin, type Tickets } from "./data.ts";
-import { ChoiceGroup, Empty, FormError, Panel, StatusMark, TableFrame, stateTone } from "./ui.tsx";
+import { ChoiceGroup, Empty, FormError, Panel, StatusMark, TableFrame, stateLabel, stateTone } from "./ui.tsx";
 
 type Ticket = Tickets["tickets"][number];
 type Filter = "all" | "Open" | "InProgress" | "Resolved";
@@ -51,7 +51,7 @@ function TicketDetail({ ticket, join, wallet }: { ticket: Ticket; join: AdminJoi
       <div className="grid gap-2 border-b border-border px-4 py-3 text-meta text-muted-foreground">
         <p>{ticket.email} · opened {dateTime(ticket.openedAt)}</p>
         {ticket.wallet && <p className="font-mono">{shortWallet(ticket.wallet)}</p>}
-        <StatusMark tone={stateTone(ticket.state)}>{ticket.state}</StatusMark>
+        <StatusMark tone={stateTone(ticket.state)}>{stateLabel(ticket.state)}</StatusMark>
       </div>
       <div className="max-h-96 overflow-y-auto px-4 py-3">
         <div className="rounded-md bg-muted px-3 py-2 text-ui text-foreground">{ticket.message}</div>
@@ -71,7 +71,7 @@ function TicketDetail({ ticket, join, wallet }: { ticket: Ticket; join: AdminJoi
         </div>
         <div className="flex flex-wrap gap-2">
           {(["Open", "InProgress", "Resolved"] as const).map((state) => (
-            <Button key={state} type="button" size="sm" variant={ticket.state === state ? "secondary" : "outline"} disabled={busy} onClick={() => void run(async () => postMachine("support", { type: "setState", id: ticket.id, status: state, now: Date.now() }))}>{state}</Button>
+            <Button key={state} type="button" size="sm" variant={ticket.state === state ? "secondary" : "outline"} disabled={busy} onClick={() => void run(async () => postMachine("support", { type: "setState", id: ticket.id, status: state, now: Date.now() }))}>{stateLabel(state)}</Button>
           ))}
         </div>
         <form onSubmit={submit} className="grid gap-2">
@@ -137,8 +137,8 @@ export function AdminSupport({ join, wallet, full }: { join: AdminJoin; wallet: 
               {rows.slice(0, 80).map((ticket) => (
                 <TableRow key={ticket.id} className={cn("cursor-pointer", selected?.id === ticket.id && "bg-secondary")} onClick={() => setSelectedId(ticket.id)}>
                   <TableCell onClick={(event) => event.stopPropagation()}><Checkbox checked={checked.has(ticket.id)} onCheckedChange={(value) => toggle(ticket.id, value === true)} aria-label={`Select ${ticket.topic}`} /></TableCell>
-                  <TableCell label="Topic"><span className="block max-w-72 truncate font-medium text-foreground">{ticket.topic}</span><span className="block max-w-72 truncate text-meta text-muted-foreground">{ticket.message}</span></TableCell>
-                  <TableCell label="State"><StatusMark tone={stateTone(ticket.state)}>{ticket.state}</StatusMark></TableCell>
+                  <TableCell label="Topic"><span className="block w-full max-w-56 truncate font-medium text-foreground">{ticket.topic}</span><span className="block w-full max-w-56 truncate text-meta text-muted-foreground">{ticket.message}</span></TableCell>
+                  <TableCell label="State"><StatusMark tone={stateTone(ticket.state)}>{stateLabel(ticket.state)}</StatusMark></TableCell>
                   <TableCell className="font-mono text-meta" label="Owner">{ticket.assignedTo ? shortWallet(ticket.assignedTo) : "—"}</TableCell>
                   <TableCell label="Customer">{ticket.email}</TableCell>
                   <TableCell label="Updated">{dateTime(ticket.updatedAt)}</TableCell>

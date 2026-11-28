@@ -52,7 +52,7 @@ export function ChoiceGroup<T extends string>({ label, value, choices, onChange 
   onChange: (value: T) => void;
 }) {
   return (
-    <SegmentedControl value={value} aria-label={label} onValueChange={(next) => onChange(next as T)}>
+    <SegmentedControl value={value} aria-label={label} className="max-w-full flex-wrap" onValueChange={(next) => onChange(next as T)}>
       {choices.map((choice) => <SegmentedControlItem key={choice.value} value={choice.value}>{choice.label}</SegmentedControlItem>)}
     </SegmentedControl>
   );
@@ -62,14 +62,20 @@ export function Stat({ label, value, hint }: { label: string; value: ReactNode; 
   return (
     <Card className="gap-1 px-4 py-3">
       <p className="text-micro font-medium uppercase tracking-micro text-muted-foreground">{label}</p>
-      <p className="text-heading font-medium tracking-heading text-foreground">{value}</p>
-      {hint === undefined ? null : <p className="text-meta text-muted-foreground">{hint}</p>}
+      <div className="flex items-end justify-between gap-3">
+        <p className="text-heading font-medium tracking-heading text-foreground">{value}</p>
+        {hint === undefined ? null : <p className="text-right text-meta text-muted-foreground">{hint}</p>}
+      </div>
     </Card>
   );
 }
 
 export function StatusMark({ tone, children }: { tone: "ok" | "warn" | "error" | "info" | "muted"; children: ReactNode }) {
   return <Badge variant={tone === "error" ? "destructive" : tone}>{children}</Badge>;
+}
+
+export function stateLabel(state: string) {
+  return state === "InProgress" ? "In progress" : state;
 }
 
 export function stateTone(state: string): "ok" | "warn" | "error" | "info" | "muted" {
