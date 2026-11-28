@@ -9,8 +9,8 @@
     "./theme.css": "./generated/theme.css"
   },
   "scripts": {
-    "build": "spec tokens build",
-    "check": "spec tokens check"
+    "build": "node ../../packages/vibestack/src/spec.ts tokens build",
+    "check": "node ../../packages/vibestack/src/spec.ts tokens check"
   },
   "devDependencies": {
     "eslint": "catalog:",

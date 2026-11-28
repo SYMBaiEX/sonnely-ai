@@ -9,7 +9,7 @@
     "./styles.css": "./styles.css"
   },
   "scripts": {
-    "gen": "spec stories gen --check",
+    "gen": "node ../../packages/vibestack/src/spec.ts stories gen --check",
     "storybook": "storybook dev --no-open",
     "storybook:build": "storybook build",
     "test": "vitest run",
