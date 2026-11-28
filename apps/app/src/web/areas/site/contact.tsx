@@ -21,14 +21,14 @@ export function ContactPage() {
       <header className={styles.head}>
         <h1>Contact Sonnely</h1>
         <p className={styles.lede}>
-          Get help with your workspace or billing, become a provider, or share feedback.
+          Get help with your workspace or billing, talk to us about serving models, or share feedback.
         </p>
       </header>
 
       <form className={styles.form} noValidate onSubmit={(event) => submitContactForm(event, request)} aria-labelledby="cx-message-title">
         <div className={styles.routing}>
-          <fieldset className={styles.topics} aria-describedby="cx-desk-summary">
-            <legend>Choose a desk</legend>
+          <fieldset className={styles.topics} aria-describedby="cx-topic-summary">
+            <legend>Choose a topic</legend>
             <div className={styles["topic-grid"]}>
               {contactDestinations.map((destination) => (
                 <label className={styles.topic} data-active={request.topicId === destination.id} key={destination.id}>
@@ -39,16 +39,12 @@ export function ContactPage() {
                     checked={request.topicId === destination.id}
                     onChange={() => request.chooseTopic(destination.id)}
                   />
-                  <span className={styles["topic-icon"]} aria-hidden="true">
-                    <destination.Icon size={16} />
-                  </span>
                   <span>{destination.shortName}</span>
                 </label>
               ))}
             </div>
-            <p className={styles["desk-summary"]} id="cx-desk-summary">
-              <strong>{request.destination.name}</strong>
-              <span>{request.destination.summary}.</span>
+            <p className={styles["topic-summary"]} id="cx-topic-summary">
+              {request.destination.summary}.
             </p>
           </fieldset>
           <p className={styles["email-fallback"]}>
@@ -62,10 +58,7 @@ export function ContactPage() {
 
           <ContactFields request={request} messageRows={4} />
 
-          <div className={styles["form-actions"]}>
-            <SubmitButton request={request}>Send request</SubmitButton>
-            <p>Save the reference you receive to follow up.</p>
-          </div>
+          <SubmitButton request={request}>Send request</SubmitButton>
           <SupportFeedback request={request} />
         </div>
       </form>

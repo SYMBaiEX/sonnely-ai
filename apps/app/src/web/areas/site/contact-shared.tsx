@@ -1,7 +1,5 @@
 // spec/app/support.md, "Story: Open a request"
 import { useId, useState, type FormEvent } from "react";
-import type { LucideIcon } from "lucide-react";
-import { Code2, CreditCard, Handshake, MessageSquare } from "lucide-react";
 import { Button, Input, Textarea } from "@repo/ui";
 import type { Tickets } from "../../../../gen/app__support.ts";
 import { useRemote } from "../../remote.ts";
@@ -14,59 +12,44 @@ export type ContactTopicId = "workspace" | "billing" | "partnership" | "feedback
 export interface ContactDestination {
   id: ContactTopicId;
   topic: string;
-  name: string;
   shortName: string;
   summary: string;
   evidence: string;
   prompt: string;
-  route: readonly [string, string, string];
-  Icon: LucideIcon;
 }
 
 export const contactDestinations: readonly [ContactDestination, ContactDestination, ContactDestination, ContactDestination] = [
   {
     id: "workspace",
     topic: "Workspace support",
-    name: "Workspace & API",
     shortName: "Workspace",
     summary: "Sign-in, keys, API errors and model access",
     evidence: "Status code · model ID · approximate time",
     prompt: "What happened, which model, and when?",
-    route: ["You", "Gateway", "Workspace support"],
-    Icon: Code2,
   },
   {
     id: "billing",
     topic: "Billing",
-    name: "Billing & credits",
     shortName: "Billing",
     summary: "Payments, balances and usage charges",
     evidence: "Payment reference or public transaction signature",
     prompt: "Which payment or charge should we inspect?",
-    route: ["You", "Ledger", "Billing"],
-    Icon: CreditCard,
   },
   {
     id: "partnership",
     topic: "Provider partnership",
-    name: "Provider partnerships",
     shortName: "Providers",
     summary: "Serving inference through Sonnely, routing and integrations",
     evidence: "Models served · privacy tier · capacity · timeline",
     prompt: "What inference capacity or integration are you proposing?",
-    route: ["You", "Routing desk", "Providers"],
-    Icon: Handshake,
   },
   {
     id: "feedback",
     topic: "Product feedback",
-    name: "Product feedback",
     shortName: "Feedback",
     summary: "Ideas, gaps and what Sonnely should build next",
     evidence: "Workflow · expected result · current workaround",
     prompt: "What should change, and what are you doing today?",
-    route: ["You", "Product", "Feedback"],
-    Icon: MessageSquare,
   },
 ];
 
@@ -111,7 +94,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function recoverable(setSubmission: (value: ContactSubmission) => void) {
   setSubmission({
     kind: "failed",
-    message: "The request could not be sent. Your draft is still here; check the connection and try again.",
+    message: "We couldn’t send your request. Try again or switch to email. Your draft is still here.",
   });
 }
 
@@ -167,11 +150,11 @@ export function useSupportRequest(): SupportRequestController {
     const cleanEmail = email.trim();
     const cleanMessage = drafts[topicId].trim();
     const errors: ContactFieldErrors = {};
-    if (!cleanEmail) errors.email = "Enter the email we should answer.";
-    else if (cleanEmail.length > 254) errors.email = "Keep the email under 254 characters.";
+    if (!cleanEmail) errors.email = "Enter an email address for replies.";
+    else if (cleanEmail.length > 254) errors.email = "Use 254 characters or fewer for the email address.";
     else if (!emailPattern.test(cleanEmail)) errors.email = "Enter a valid email address.";
-    if (!cleanMessage) errors.message = "Write a few details so the team can act.";
-    else if (cleanMessage.length > 3000) errors.message = "Keep the message under 3,000 characters.";
+    if (!cleanMessage) errors.message = "Enter a message for the support team.";
+    else if (cleanMessage.length > 3000) errors.message = "Use 3,000 characters or fewer for the message.";
     setFieldErrors(errors);
     if (errors.email || errors.message) return;
     if (!wallet) {
@@ -232,22 +215,13 @@ export function WalletGate({ request }: { request: SupportRequestController }) {
         onSignIn={request.signIn}
         onSignOut={request.signOut}
       />
-      <div className={styles["wallet-copy"]}>
-        <span>
-          {request.sessionState.kind === "ready"
-            ? "Workspace attached"
-            : request.sessionState.kind === "checking"
-              ? "Checking workspace"
-              : "Attach your workspace"}
-        </span>
-        <small>
-          {request.sessionState.kind === "ready"
-            ? "Your public key travels with the request"
-            : request.sessionState.kind === "checking"
-              ? "Restoring the current workspace session"
-              : "Sign in with your wallet. No funds move."}
-        </small>
-      </div>
+      <p className={styles["wallet-copy"]}>
+        {request.sessionState.kind === "ready"
+          ? "Your wallet’s public key is included with the request."
+          : request.sessionState.kind === "checking"
+            ? "Checking whether you’re signed in."
+            : "Sign in to send a request. No funds move."}
+      </p>
     </div>
   );
 }
@@ -260,7 +234,7 @@ export function ContactFields({ request, messageRows = 6 }: { request: SupportRe
   return (
     <>
       <label className={styles.field}>
-        <span>Email</span>
+        <span id={`${id}-email-label`}>Email for replies</span>
         <Input
           name="email"
           type="email"
@@ -269,6 +243,7 @@ export function ContactFields({ request, messageRows = 6 }: { request: SupportRe
           placeholder="you@example.com"
           value={request.email}
           invalid={Boolean(request.fieldErrors.email)}
+          aria-labelledby={`${id}-email-label`}
           aria-describedby={request.fieldErrors.email ? emailErrorId : undefined}
           onChange={(event) => request.updateEmail(event.currentTarget.value)}
         />
@@ -277,7 +252,7 @@ export function ContactFields({ request, messageRows = 6 }: { request: SupportRe
         )}
       </label>
       <label className={styles.field}>
-        <span>Message</span>
+        <span id={`${id}-message-label`}>Message</span>
         <Textarea
           name="message"
           rows={messageRows}
@@ -285,11 +260,12 @@ export function ContactFields({ request, messageRows = 6 }: { request: SupportRe
           placeholder={request.destination.prompt}
           value={request.message}
           invalid={Boolean(request.fieldErrors.message)}
+          aria-labelledby={`${id}-message-label`}
           aria-describedby={`${messageHelpId}${request.fieldErrors.message ? ` ${messageErrorId}` : ""}`}
           onChange={(event) => request.updateMessage(event.currentTarget.value)}
         />
         <span className={styles.safety} id={messageHelpId}>
-          {request.destination.evidence}. Keep API keys, wallet recovery phrases and private prompt text out of the request.
+          Include: {request.destination.evidence}. Don’t share API keys, wallet recovery phrases, or private prompts.
         </span>
         {request.fieldErrors.message && (
           <span role="alert" className={styles["field-error"]} id={messageErrorId}>{request.fieldErrors.message}</span>
@@ -318,7 +294,6 @@ export function SupportFeedback({ request }: { request: SupportRequestController
     return (
       <div role="alert" className={styles.error}>
         <p>{request.submission.message}</p>
-        <small>Nothing was lost. The message above is still editable.</small>
         <div className={styles["error-actions"]}>
           <button type="button" className={styles["error-action"]} onClick={() => void request.submit()}>Try again</button>
           <a className={styles["error-action"]} href={mailtoFor(request.destination)}>Email instead</a>
@@ -330,7 +305,7 @@ export function SupportFeedback({ request }: { request: SupportRequestController
     return (
       <div role="status" className={styles.confirmation}>
         <h3>Request received</h3>
-        <p>Save this reference. The team can use it to find the thread when you write again.</p>
+        <p>Save this reference and include it if you follow up.</p>
         <code className={styles.reference}>{request.submission.reference}</code>
       </div>
     );
@@ -339,7 +314,7 @@ export function SupportFeedback({ request }: { request: SupportRequestController
     return (
       <div role="alert" className={styles.error}>
         <p>{request.remoteError}</p>
-        <small>Use the email fallback if the support channel stays unavailable.</small>
+        <small>Use “Email us instead” if the form is still unavailable.</small>
       </div>
     );
   }
