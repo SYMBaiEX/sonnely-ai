@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
-import { CopyButton as UiCopyButton, EmptyState } from "@repo/ui";
+import { Button, CopyButton as UiCopyButton, EmptyState } from "@repo/ui";
 import "./data-rows.css";
 
 export const shorten = (wallet: string) => wallet.slice(0, 4) + "…" + wallet.slice(-4);

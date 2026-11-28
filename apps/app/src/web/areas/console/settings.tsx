@@ -1,7 +1,7 @@
 // spec/app/console/index.md, "Story: Set up the workspace profile"; spec/app/console/index.md, "Story: Choose how this device shows the console"; spec/app/console/index.md, "Story: Choose whether the workspace keeps chat history"; spec/app/console/chat.md, "Story: Erase what the workspace keeps"; spec/app/session.md, "Story: Sign in with a wallet"
 import { useState, type FormEvent, type ReactNode } from "react";
 import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield, Trash2 } from "lucide-react";
-import { Button, Card, CardTitle, Checkbox, Input, Label } from "@repo/ui";
+import { Button, Card, CardTitle, Checkbox, Input, Label, SegmentedControl, SegmentedControlItem } from "@repo/ui";
 import type { Console, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
 import type { Chat } from "../../../../gen/app__console__chat.ts";
 import { useRemote, type Remote } from "../../remote.ts";
@@ -63,23 +63,11 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
       <PreferenceRow
         title="Appearance"
         control={
-          <div className="flex rounded-lg border border-border bg-background p-1" role="group" aria-label="Console theme">
-            {themes.map(({ id, label }) => {
-              const active = shell.theme === browserThemes[id];
-              return (
-                <Button
-                  key={id}
-                  variant={active ? "secondary" : "ghost"}
-                  size="sm"
-                  aria-pressed={active}
-                  className="rounded-md"
-                  onClick={() => void shell.chooseTheme(browserThemes[id])}
-                >
-                  {label}
-                </Button>
-              );
-            })}
-          </div>
+          <SegmentedControl aria-label="Console theme" value={shell.theme} onValueChange={(theme: string) => void shell.chooseTheme(theme as BrowserTheme)}>
+            {themes.map(({ id, label }) => (
+              <SegmentedControlItem key={id} value={browserThemes[id]}>{label}</SegmentedControlItem>
+            ))}
+          </SegmentedControl>
         }
       >
         Choose the console theme.

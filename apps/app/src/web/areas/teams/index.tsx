@@ -7,7 +7,7 @@ import type { Project, Role, Team, Teams } from "../../../../gen/app__teams.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { reconnectMachine, useRemote } from "../../remote.ts";
-import { Button, Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger, Input, Label } from "@repo/ui";
+import { Button, Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger, Input, Label, Select } from "@repo/ui";
 import { ConsoleFrame } from "../console/frame.tsx";
 import { CopyButton, Empty, WorkspaceHeading, creditBalance, creditDecimal, date, dateTime, day, parseCreditAmount, shorten } from "../console/bits.tsx";
 
@@ -20,7 +20,6 @@ const usageStatuses: Record<Status, string> = {
 };
 const sevenDays = 7 * 86_400_000;
 const budgetWarningRatio = 0.8;
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-ui text-foreground disabled:cursor-not-allowed disabled:opacity-50";
 const summaryClass = "cursor-pointer px-4 py-3 text-ui font-medium outline-none focus-visible:outline-2 focus-visible:outline-ring";
 
 type SendEvent = (input: unknown) => Promise<boolean>;
@@ -486,14 +485,14 @@ function TeamWorkspace({
           {projects.length > 0 && (
             <Label className="grid gap-2 text-ui font-medium text-foreground">
               Project
-              <select className={selectClass} value={project?.id ?? ""} onChange={(event) => setSelectedProject(event.target.value)}>
+              <Select value={project?.id ?? ""} onChange={(event) => setSelectedProject(event.target.value)}>
                 {projects.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.name}
                     {entry.archived ? " (archived)" : ""}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Label>
           )}
           {!projects.length && <p className="text-meta text-muted-foreground">No projects yet.</p>}
@@ -622,10 +621,10 @@ function TeamWorkspace({
                   </Label>
                   <Label className="grid gap-2 text-ui font-medium text-foreground">
                     Team role
-                    <select className={selectClass} name="role">
+                    <Select name="role">
                       <option value="member">Member</option>
                       {role === "Owner" && <option value="admin">Admin</option>}
-                    </select>
+                    </Select>
                   </Label>
                 </FieldForm>
               </div>
@@ -754,13 +753,13 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
             {team && (
               <Label className="grid gap-2 text-ui font-medium text-foreground">
                 Team
-                <select className={selectClass} value={team.id} onChange={(event) => setSelectedTeam(event.target.value)}>
+                <Select value={team.id} onChange={(event) => setSelectedTeam(event.target.value)}>
                   {all.map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.name} · {roles[entry.members.find((member) => member.wallet === wallet)?.role ?? "Member"]}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Label>
             )}
             <details className="rounded-lg border border-border bg-background open:bg-card" open={!team}>
