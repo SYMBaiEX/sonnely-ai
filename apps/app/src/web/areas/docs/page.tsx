@@ -4,13 +4,11 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
-  CircleHelp,
   Copy,
-  Fingerprint,
+  FileText,
   List,
   PanelLeftClose,
   PanelLeftOpen,
-  Rocket,
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -33,12 +31,6 @@ import "../site/appearance.ts";
 import { MotionSwitch, AmbientVisualizer } from "../site/motion.tsx";
 import { SiteHeader, useAmbientMotion, useTheme } from "../site/chrome.tsx";
 import { Blocks } from "./blocks.tsx";
-
-const sectionIcons = {
-  "Get started": Rocket,
-  Inference: Fingerprint,
-  Support: CircleHelp,
-} as const;
 
 const sidebarKey = "sonnely.docs.sidebar";
 
@@ -66,6 +58,7 @@ export function DocsPage({ slug }: { slug: string }) {
   const lines = useMemo(() => bodyLines(slug), [slug]);
   const blocks = useMemo(() => parseBlocks(lines), [lines]);
   const toc = useMemo(() => tocOf(lines), [lines]);
+  const hasToc = toc.length > 1;
   const before = docBefore(slug);
   const after = docAfter(slug);
   const motion = useAmbientMotion();
@@ -97,21 +90,21 @@ export function DocsPage({ slug }: { slug: string }) {
           <Search size={15} aria-hidden="true" />
         </button>
       </div>
-      <div className="docs-layout">
+      <div className="docs-layout" data-toc={hasToc ? "" : undefined}>
         <Sidebar slug={slug} onCollapse={() => setCollapsed(true)} />
         <main id="docs-page" className="docs-main" tabIndex={-1}>
-          <article className="docs-article">
-            <header className="docs-article-header" data-docs-page={kind}>
+          <article className="docs-article" data-docs-page={kind}>
+            <header className="docs-article-header">
               <h1>{doc.title}</h1>
               <p className="docs-article-description">{doc.description}</p>
               <div className="docs-page-actions">
                 <CopyMarkdown slug={slug} />
                 <a className="docs-page-action" href={markdownUrl(slug)}>
-                  View Markdown
+                  <FileText size={15} aria-hidden="true" /> View Markdown
                 </a>
               </div>
             </header>
-            {toc.length > 1 && (
+            {hasToc && (
               <details className="docs-minitoc">
                 <summary>
                   <List size={15} aria-hidden="true" /> On this page
@@ -151,7 +144,7 @@ export function DocsPage({ slug }: { slug: string }) {
             </footer>
           </article>
         </main>
-        {toc.length > 0 && (
+        {hasToc && (
           <aside className="docs-toc" aria-label="On this page">
             <p className="docs-toc-title">On this page</p>
             <nav>
@@ -198,39 +191,33 @@ function Sidebar({ slug, onCollapse }: { slug: string; onCollapse: () => void })
         >
           <span className="docs-nav-toggle-label">
             Browse docs
-            <strong>{docAt(slug).title}</strong>
+            <strong>{slug === "index" ? "Overview" : docAt(slug).title}</strong>
           </span>
           <ChevronDown size={16} aria-hidden="true" />
         </button>
       </div>
       <nav className="docs-sidebar-nav" id="docs-sidebar-nav" aria-label="Documentation">
-        <a href="/docs" className="docs-sidebar-link" data-overview="" aria-current={slug === "index" ? "page" : undefined} onClick={close}>
-          <BookOpen size={16} aria-hidden="true" />
+        <a href="/docs" className="docs-sidebar-link" aria-current={slug === "index" ? "page" : undefined} onClick={close}>
           <span>Overview</span>
           <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
         </a>
-        {sections.map((section) => {
-          const Icon = sectionIcons[section as keyof typeof sectionIcons] ?? CircleHelp;
-          return (
-            <section key={section}>
-              <h2 className="docs-sidebar-section">
-                <Icon size={15} aria-hidden="true" /> {section}
-              </h2>
-              {docsIn(section).map((d) => (
-                <a
-                  key={d.slug}
-                  href={`/docs/${d.slug}`}
-                  className="docs-sidebar-link"
-                  aria-current={d.slug === slug ? "page" : undefined}
-                  onClick={close}
-                >
-                  <span>{d.title}</span>
-                  <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
-                </a>
-              ))}
-            </section>
-          );
-        })}
+        {sections.map((section) => (
+          <section key={section}>
+            <h2 className="docs-sidebar-section">{section}</h2>
+            {docsIn(section).map((d) => (
+              <a
+                key={d.slug}
+                href={`/docs/${d.slug}`}
+                className="docs-sidebar-link"
+                aria-current={d.slug === slug ? "page" : undefined}
+                onClick={close}
+              >
+                <span>{d.title}</span>
+                <ChevronRight size={14} className="docs-sidebar-chevron" aria-hidden="true" />
+              </a>
+            ))}
+          </section>
+        ))}
       </nav>
         <footer className="docs-sidebar-footer">
           <nav aria-label="Sonnely links">
@@ -265,7 +252,7 @@ function CopyMarkdown({ slug }: { slug: string }) {
       onBlur={() => setCopied(false)}
       onPointerLeave={() => setCopied(false)}
     >
-      <Copy size={14} /> {copied ? "Copied" : "Copy Markdown"}
+      <Copy size={15} aria-hidden="true" /> <span aria-live="polite">{copied ? "Copied" : "Copy Markdown"}</span>
     </button>
   );
 }

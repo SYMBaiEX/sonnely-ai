@@ -2,6 +2,7 @@
 // body, rendered as the components they name, markdown around them.
 import {
   ArrowDown,
+  ArrowRight,
   ArrowUpRight,
   Box,
   Braces,
@@ -78,10 +79,13 @@ function Block_({ block }: { block: Block }) {
     case "card": {
       const Icon = ICONS[block.icon] ?? Box;
       return (
-        <a className={`docs-start-card${block.primary ? " docs-start-card-primary" : ""}`} href={block.href}>
-          <Icon size={20} />
-          <span className="docs-start-card-title">{block.title}</span>
-          <span className="docs-start-card-description">{block.description}</span>
+        <a className="docs-start-card" data-primary={block.primary ? "" : undefined} href={block.href}>
+          <Icon className="docs-start-card-icon" size={18} aria-hidden="true" />
+          <span>
+            <strong className="docs-start-card-title">{block.title}</strong>
+            <span className="docs-start-card-description">{block.description}</span>
+          </span>
+          <ArrowRight className="docs-start-card-arrow" size={17} aria-hidden="true" />
         </a>
       );
     }
@@ -90,7 +94,7 @@ function Block_({ block }: { block: Block }) {
       return (
         <section className="docs-guide-group">
           <h3 id={block.id}>
-            {Icon && <Icon size={16} />} {block.title}
+            {Icon && <Icon size={16} aria-hidden="true" />} {block.title}
           </h3>
           <ul>
             {block.children.map((child, i) => (
