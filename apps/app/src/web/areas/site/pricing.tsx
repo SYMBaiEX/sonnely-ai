@@ -202,15 +202,14 @@ function InferenceRates() {
   );
 }
 
-function PricingQuestion({ question, answer }: { question: string; answer: string }) {
-  const [open, setOpen] = useState(false);
+function PricingQuestion({ question, answer, open, onToggle }: { question: string; answer: string; open: boolean; onToggle: () => void }) {
   return (
     <div className="border-t border-border last:border-b">
       <Button
         type="button"
         variant="ghost"
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={onToggle}
         className="h-auto w-full justify-between rounded-none px-0 py-4 text-left font-medium hover:bg-transparent"
       >
         {question}
@@ -229,6 +228,7 @@ function PricingQuestions() {
     ["Where can I see what a request cost?", "Open Usage in the console to review token counts, request status, and charges. Billing lists payment receipts separately."],
     ["Can I spend credits from devnet payments?", "No. Devnet payments test checkout. Spendable credits require a verified mainnet payment."],
   ] as const;
+  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   return (
     <section className="mt-14 grid gap-6 lg:grid-cols-[minmax(180px,0.5fr)_minmax(0,1.5fr)]" aria-labelledby="pricing-questions-title">
       <div>
@@ -241,7 +241,13 @@ function PricingQuestions() {
       </div>
       <div>
         {questions.map(([question, answer]) => (
-          <PricingQuestion key={question} question={question} answer={answer} />
+          <PricingQuestion
+            key={question}
+            question={question}
+            answer={answer}
+            open={openQuestion === question}
+            onToggle={() => setOpenQuestion(openQuestion === question ? null : question)}
+          />
         ))}
       </div>
     </section>
