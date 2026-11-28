@@ -8,7 +8,7 @@ const baselinePath = new URL("../design-baseline.json", import.meta.url);
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
 const write = process.argv.includes("--write");
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const run = spawnSync(command, ["exec", "eslint", "apps/app/src/web", "--format", "json"], {
+const run = spawnSync(command, ["exec", "eslint", "apps/app/src/web/**/*.{ts,tsx}", "--format", "json"], {
   cwd: root,
   encoding: "utf8",
   maxBuffer: 64 * 1024 * 1024,
@@ -19,13 +19,18 @@ if (!run.stdout.trim()) throw new Error(run.stderr || "eslint produced no JSON o
 
 const results = JSON.parse(run.stdout);
 const current = {};
+const fatal = [];
 let total = 0;
 
 for (const row of results) {
   const file = relative(root, row.filePath).replaceAll("\\", "/");
   const groups = new Map();
   for (const message of row.messages ?? []) {
-    if (message.severity !== 2 || !message.ruleId) continue;
+    if (message.severity !== 2) continue;
+    if (!message.ruleId) {
+      fatal.push(`${file}:${message.line ?? 0}: ${message.message}`);
+      continue;
+    }
     const key = message.message ?? "";
     if (!groups.has(key)) groups.set(key, new Map());
     const rules = groups.get(key);
@@ -38,6 +43,12 @@ for (const row of results) {
     current[file][[...rules.keys()].sort().join("\n") + "\n" + message] = count;
     total += count;
   }
+}
+
+if (fatal.length) {
+  for (const line of fatal.slice(0, 40)) console.error(line);
+  console.error("eslint reported fatal diagnostics; fix them before comparing the design baseline");
+  process.exit(1);
 }
 
 if (write) {
