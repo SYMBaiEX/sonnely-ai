@@ -1,6 +1,7 @@
 // spec/app/models.md, "Story: Filter the catalog"
 import { ArrowDown, ArrowRight, ArrowUpRight, Network, SlidersHorizontal } from "lucide-react";
 import { useRef, useState, type Ref } from "react";
+import { Button, Card, Field, SegmentedControl, SegmentedControlItem, Select } from "@repo/ui";
 import { SearchField } from "../../search.tsx";
 import { useMachine } from "../../../../gen/app__models.react.ts";
 import {
@@ -27,13 +28,6 @@ import {
 import { catalogRuntime } from "./filter.ts";
 import { entryActions, pages } from "./content.ts";
 import { PlatformLinks } from "./products.tsx";
-import {
-  buttonAccent,
-  buttonQuiet,
-  textLink,
-  wrap,
-} from "./ui.ts";
-import "./models.css";
 import type { CanonicalModel } from "./catalog-groups.ts";
 import {
   CatalogCards,
@@ -41,6 +35,13 @@ import {
   type CatalogRateKind,
   type CatalogStatus,
 } from "./catalog-cards.tsx";
+
+const sortOptions: readonly { value: Sort; label: string }[] = [
+  { value: "AvailableFirst", label: "Available first" },
+  { value: "ByName", label: "Model name (A–Z)" },
+  { value: "ByInputRate", label: "Lowest input token rate" },
+  { value: "ByOutputRate", label: "Lowest output token rate" },
+];
 
 function CatalogTools({
   filter,
@@ -56,87 +57,97 @@ function CatalogTools({
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "";
   const activeFilters = Number(providerValue !== "") + Number(workloadValue !== "");
   return (
-    <div className="catalog-filter">
-      <div data-models-toolbar>
-        <div>
-          <label htmlFor="models-search">Find a model</label>
-          <SearchField
-            id="models-search"
-            ref={searchRef}
-            value={filter.query}
-            onChange={(event) => void send({ type: "search", query: event.target.value })}
-            placeholder="Name or ID"
-          />
-        </div>
-        <button
+    <div className="border-b border-border">
+      <div className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:px-5">
+        <Field
+          label="Find a model"
+          control={(field) => (
+            <SearchField
+              {...field}
+              ref={searchRef}
+              value={filter.query}
+              onChange={(event) => void send({ type: "search", query: event.target.value })}
+              placeholder="Name or ID"
+            />
+          )}
+        />
+        <Button
           type="button"
-          className={buttonQuiet}
+          variant="outline"
           aria-expanded={showFilters}
           aria-controls="models-filter-fields"
           onClick={() => setShowFilters(!showFilters)}
+          className="justify-self-start sm:justify-self-end"
         >
           <SlidersHorizontal size={16} aria-hidden="true" />
           Filter &amp; sort{activeFilters > 0 && ` (${activeFilters})`}
-        </button>
+        </Button>
       </div>
-      <div id="models-filter-fields" className="catalog-filter-grid" hidden={!showFilters}>
-        <label>
-          <span>Provider</span>
-          <select
-            value={providerValue}
-            onChange={(event) =>
-              void send({
-                type: "chooseProvider",
-                provider: event.target.value
-                  ? { tag: "Only", provider: event.target.value as ProviderId }
-                  : { tag: "EveryProvider" },
-              })
-            }
-          >
-            <option value="">All providers</option>
-            {(Object.keys(providerNames) as ProviderId[]).map((id) => (
-              <option key={id} value={id}>
-                {providerNames[id]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Workload</span>
-          <select
-            value={workloadValue}
-            onChange={(event) =>
-              void send({
-                type: "chooseWorkload",
-                workload: event.target.value
-                  ? { tag: "OnEndpoint", endpoint: event.target.value as Endpoint }
-                  : { tag: "EveryWorkload" },
-              })
-            }
-          >
-            <option value="">All workloads</option>
-            {endpointIds.map((id) => (
-              <option key={id} value={id}>
-                {workloadNames[id]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Sort by</span>
-          <select
-            value={filter.sort}
-            onChange={(event) =>
-              void send({ type: "chooseSort", sort: event.target.value as Sort })
-            }
-          >
-            <option value="AvailableFirst">Available first</option>
-            <option value="ByName">Model name (A–Z)</option>
-            <option value="ByInputRate">Lowest input token rate</option>
-            <option value="ByOutputRate">Lowest output token rate</option>
-          </select>
-        </label>
-      </div>
+      {showFilters && (
+        <div id="models-filter-fields" className="grid gap-5 border-t border-border px-4 py-4 sm:px-5">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Field
+              label="Provider"
+              control={(field) => (
+                <Select
+                  {...field}
+                  value={providerValue}
+                  onChange={(event) => {
+                    const provider = event.target.value;
+                    void send({
+                      type: "chooseProvider",
+                      provider: provider === "" ? { tag: "EveryProvider" } : { tag: "Only", provider: provider as ProviderId },
+                    });
+                  }}
+                >
+                  <option value="">All providers</option>
+                  {(Object.keys(providerNames) as ProviderId[]).map((id) => (
+                    <option key={id} value={id}>{providerNames[id]}</option>
+                  ))}
+                </Select>
+              )}
+            />
+            <Field
+              label="Workload"
+              control={(field) => (
+                <Select
+                  {...field}
+                  value={workloadValue}
+                  onChange={(event) => {
+                    const endpoint = endpointIds.find((id) => id === event.target.value);
+                    void send({
+                      type: "chooseWorkload",
+                      workload: endpoint ? { tag: "OnEndpoint", endpoint } : { tag: "EveryWorkload" },
+                    });
+                  }}
+                >
+                  <option value="">All workloads</option>
+                  {endpointIds.map((id: Endpoint) => (
+                    <option key={id} value={id}>{workloadNames[id]}</option>
+                  ))}
+                </Select>
+              )}
+            />
+            <Field
+              label="Sort by"
+              control={(field) => (
+                <Select
+                  {...field}
+                  value={filter.sort}
+                  onChange={(event) => {
+                    const sort = sortOptions.find((option) => option.value === event.target.value)?.value;
+                    if (sort) void send({ type: "chooseSort", sort });
+                  }}
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </Select>
+              )}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -235,72 +246,76 @@ export function ModelCatalog() {
     if (chosenEndpoint) await send({ type: "chooseWorkload", workload: { tag: "EveryWorkload" } });
   }
 
-  return (
-    <div data-models-browser data-models-empty={empty || undefined}>
-      <div className="catalog-availability" role="group" aria-label="Model lists">
-        <button
-          type="button"
-          aria-pressed={!inventory}
-          data-active={!inventory || undefined}
-          onClick={() => void send({ type: "chooseAvailability", availability: "Available" })}
+  const catalogHeader = (
+    <>
+      <div className="border-b border-border px-4 py-3 sm:px-5">
+        <SegmentedControl
+          aria-label="Model lists"
+          value={inventory ? "CatalogOnly" : "Available"}
+          onValueChange={(value) => {
+            if (value === "Available" || value === "CatalogOnly") {
+              void send({ type: "chooseAvailability", availability: value });
+            }
+          }}
         >
-          On Sonnely <b>{routableCount}</b>
-        </button>
-        <button
-          type="button"
-          aria-pressed={inventory}
-          data-active={inventory || undefined}
-          onClick={() => void send({ type: "chooseAvailability", availability: "CatalogOnly" })}
-        >
-          Provider only <b>{inventoryCount}</b>
-        </button>
+          <SegmentedControlItem value="Available">
+            On Sonnely <span className="ml-1 font-mono text-micro text-muted-foreground">{routableCount}</span>
+          </SegmentedControlItem>
+          <SegmentedControlItem value="CatalogOnly">
+            Provider only <span className="ml-1 font-mono text-micro text-muted-foreground">{inventoryCount}</span>
+          </SegmentedControlItem>
+        </SegmentedControl>
       </div>
       <CatalogTools filter={filter} searchRef={searchRef} send={send} />
-      <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
+    </>
+  );
+
+  return (
+    <div>
+      <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} header={catalogHeader} />
       {empty && (
-        <div data-models-recovery>
-          <button type="button" className={buttonQuiet} onClick={() => void clearFilters()}>
+        <div className="mt-3">
+          <Button type="button" variant="outline" onClick={() => void clearFilters()}>
             Clear search and filters
-          </button>
+          </Button>
         </div>
       )}
-      <aside className="catalog-note">
+      <aside className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-meta text-muted-foreground">
         <span>Prices shown are the final Sonnely rates.</span>
-        <a href="/pricing">How billing works <ArrowUpRight size={12} aria-hidden="true" /></a>
-        <a href={apiBasePath + "/provider-models"}>Catalog JSON <ArrowUpRight size={12} aria-hidden="true" /></a>
+        <a href="/pricing" className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline">How billing works <ArrowUpRight size={12} aria-hidden="true" /></a>
+        <a href={apiBasePath + "/provider-models"} className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline">Catalog JSON <ArrowUpRight size={12} aria-hidden="true" /></a>
         {!live.loaded && !inventory && <span>Models marked Routed don’t have confirmed live availability.</span>}
       </aside>
     </div>
   );
 }
 
-
 function ModelGuide() {
   const entries = featuredUpstreamIds
     .map((id) => catalog.find((entry) => entry.provider === "NearAI" && entry.upstreamId === id))
     .filter((entry): entry is CatalogEntry => entry !== undefined);
   return (
-    <section className="models-guide" aria-labelledby="compare-models-heading">
-      <div className="models-guide-copy">
-        <h2 id="compare-models-heading">Choose by workload</h2>
+    <section className="mt-14 grid gap-6 lg:grid-cols-[minmax(190px,0.55fr)_minmax(0,1.45fr)]" aria-labelledby="compare-models-heading">
+      <div>
+        <h2 id="compare-models-heading" className="text-heading font-strong leading-heading tracking-heading sm:text-title sm:leading-title sm:tracking-title">Choose by workload</h2>
       </div>
-      <dl className="models-guide-rows">
+      <dl className="border-t border-border">
         {entries.map((model) => {
           const type = featuredTypes[model.upstreamId]?.type as keyof typeof workloadGuide | undefined;
           return (
-            <div key={model.upstreamId}>
-              <dt>{model.name}</dt>
-              <dd>{type ? workloadGuide[type] : model.summary}</dd>
+            <div key={model.upstreamId} className="grid gap-1 border-b border-border py-3 sm:grid-cols-[minmax(150px,0.36fr)_minmax(0,1fr)] sm:gap-7">
+              <dt className="font-mono text-meta font-medium text-foreground">{model.name}</dt>
+              <dd className="text-ui text-muted-foreground">{type ? workloadGuide[type] : model.summary}</dd>
             </div>
           );
         })}
-        <div className="models-guide-limits">
-          <dt>Sonnely request limits</dt>
-          <dd>
+        <div className="grid gap-1 border-b border-border py-3 sm:grid-cols-[minmax(150px,0.36fr)_minmax(0,1fr)] sm:gap-7">
+          <dt className="font-mono text-meta font-medium text-foreground">Sonnely request limits</dt>
+          <dd className="text-ui text-muted-foreground">
             The context window describes the underlying model. Sonnely currently accepts up to{" "}
             {limits.bodyBytes.toLocaleString("en-US")} bytes per request and returns up to{" "}
             {limits.maxOutputTokens.toLocaleString("en-US")} output tokens.{" "}
-            <a href="/docs/api#request-limits">
+            <a href="/docs/api#request-limits" className="inline-flex items-center gap-1 whitespace-nowrap text-primary underline-offset-4 hover:underline">
               See request limits <ArrowUpRight size={12} aria-hidden="true" />
             </a>
           </dd>
@@ -314,58 +329,61 @@ export function ModelsPage() {
   const [title] = pages.models;
   const entry = entryActions.models;
   return (
-    <div className={wrap + " models-page"}>
-      <header className="models-hero">
-        <div className="models-hero-copy">
-          <h1>{title}</h1>
-          <p className="models-hero-description">Compare model prices, context windows, and provider routes.</p>
-          <nav className="actions" aria-label="Model catalog actions">
-            <a
-              href={entry.section}
-              className={buttonAccent}
-              onClick={(event) => {
-                if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-                const section = document.getElementById(entry.section.slice(1));
-                if (!section) return;
-                event.preventDefault();
-                history.replaceState(history.state, "", entry.section);
-                section.focus({ preventScroll: true });
-                section.scrollIntoView();
-              }}
-            >
-              {entry.label} <ArrowDown size={15} aria-hidden="true" />
-            </a>
-            <a href={entry.next} className={textLink}>
-              Open playground <ArrowRight size={15} aria-hidden="true" />
-            </a>
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 sm:py-10">
+      <header className="mb-8 grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <h1 className="text-title font-strong leading-title tracking-title md:text-display md:leading-display md:tracking-display">{title}</h1>
+          <p className="mt-3 max-w-prose text-lead text-muted-foreground">Compare model prices, context windows, and provider routes.</p>
+          <nav className="mt-4 flex flex-wrap gap-2" aria-label="Model catalog actions">
+            <Button asChild>
+              <a
+                href={entry.section}
+                onClick={(event) => {
+                  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                  const section = document.getElementById(entry.section.slice(1));
+                  if (!section) return;
+                  event.preventDefault();
+                  history.replaceState(history.state, "", entry.section);
+                  section.focus({ preventScroll: true });
+                  section.scrollIntoView();
+                }}
+              >
+                {entry.label} <ArrowDown size={15} aria-hidden="true" />
+              </a>
+            </Button>
+            <Button asChild variant="ghost" className="px-0 text-primary">
+              <a href={entry.next}>
+                Open playground <ArrowRight size={15} aria-hidden="true" />
+              </a>
+            </Button>
           </nav>
         </div>
-        <aside className="models-hero-index" aria-label="Catalog providers">
+        <Card className="flex-row items-center gap-3 p-3 sm:p-4" aria-label="Catalog providers">
+          <Network size={17} aria-hidden="true" className="shrink-0 text-primary" />
           <div>
-            <Network size={17} aria-hidden="true" />
-            <div>
-              <span>Catalog providers</span>
-              <strong>{Object.values(providerNames).join(" · ")}</strong>
-            </div>
+            <span className="block text-meta text-muted-foreground">Catalog providers</span>
+            <strong className="text-ui font-strong">{Object.values(providerNames).join(" · ")}</strong>
           </div>
-        </aside>
+        </Card>
       </header>
       <section
-        className="models-catalog-section"
+        className="scroll-mt-24"
         id="available-models"
         aria-labelledby="model-comparison-title"
         tabIndex={-1}
       >
-        <div className="models-section-head">
-          <h2 id="model-comparison-title">Models and rates</h2>
-          <a className={textLink} href="/inference#routing">
-            How routing works <ArrowUpRight size={15} aria-hidden="true" />
-          </a>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 id="model-comparison-title" className="text-heading font-strong leading-heading tracking-heading sm:text-title sm:leading-title sm:tracking-title">Models and rates</h2>
+          <Button asChild variant="ghost" size="sm" className="px-0 text-primary">
+            <a href="/inference#routing">
+              How routing works <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+          </Button>
         </div>
         <ModelCatalog />
       </section>
       <ModelGuide />
-      <PlatformLinks compact className="models-platform-links" />
+      <PlatformLinks compact className="mt-12" />
     </div>
   );
 }
