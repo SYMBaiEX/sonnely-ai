@@ -143,9 +143,9 @@ export function ShellRules() {
   return <style>{shellRules}</style>;
 }
 
-export function Brand({ href = "/" }: { href?: string }) {
+export function Brand({ href = "/", onClick }: { href?: string; onClick?: () => void }) {
   return (
-    <a href={href} className="brand" aria-label="Sonnely">
+    <a href={href} className="brand" aria-label="Sonnely" onClick={onClick}>
       <span className="brand-icon" aria-hidden="true" />
       <span className="brand-wordmark" aria-hidden="true" />
     </a>
@@ -155,18 +155,17 @@ export function Brand({ href = "/" }: { href?: string }) {
 export function SiteHeader({ current }: { current: string }) {
   return (
     <header className="site-header" aria-label="Sonnely">
-      <div className="wrap site-nav">
-        <Brand />
-        <SiteNavigation current={current} />
-      </div>
+      <SiteNavigation current={current} />
     </header>
   );
 }
 
 function SiteNavigation({ current }: { current: string }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [openRoute, setOpenRoute] = useState<string | null>(null);
+  const mobileOpen = openRoute === current;
   const menuControlRef = useRef<HTMLButtonElement>(null);
-  const closeMobile = () => setMobileOpen(false);
+  const closeMobile = () => setOpenRoute(null);
+  if (openRoute !== null && !mobileOpen) setOpenRoute(null);
 
   function dismissMobile() {
     closeMobile();
@@ -181,7 +180,8 @@ function SiteNavigation({ current }: { current: string }) {
   }
 
   return (
-    <>
+    <div className="wrap site-nav">
+      <Brand onClick={closeMobile} />
       {mobileOpen && (
         <button type="button" className="nav-dismiss" aria-label="Dismiss navigation" tabIndex={-1} onClick={dismissMobile} />
       )}
@@ -192,7 +192,7 @@ function SiteNavigation({ current }: { current: string }) {
         aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
         aria-expanded={mobileOpen}
         aria-controls="site-navigation"
-        onClick={() => setMobileOpen(!mobileOpen)}
+        onClick={() => setOpenRoute(mobileOpen ? null : current)}
         onKeyDown={handleEscape}
       >
         <span className="mobile-menu-glyph" aria-hidden="true">
@@ -218,7 +218,7 @@ function SiteNavigation({ current }: { current: string }) {
         <ThemeSwitch />
         <ConsoleLink />
       </div>
-    </>
+    </div>
   );
 }
 

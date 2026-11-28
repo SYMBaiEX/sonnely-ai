@@ -47,6 +47,20 @@ it('returns focus to the mobile navigation trigger on Escape (spec/app/nav.md, "
   expect([trigger.getAttribute("aria-expanded"), document.activeElement]).toEqual(["false", trigger]);
 });
 
+it('dismisses the mobile menu on route changes and when selecting the current home link (spec/app/nav.md, "Story: Move around")', async () => {
+  const { el, runtime } = renderApp();
+  const trigger = el.querySelector<HTMLButtonElement>(".mobile-menu-control")!;
+  const brand = el.querySelector<HTMLAnchorElement>(".site-header .brand")!;
+  act(() => trigger.click());
+  await act(async () => { await navigate(runtime, { tag: "Models" }); });
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  await act(async () => { await navigate(runtime, { tag: "Home" }); });
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  act(() => trigger.click());
+  act(() => brand.click());
+  expect([trigger.getAttribute("aria-expanded"), el.querySelector(".nav-dismiss")]).toEqual(["false", null]);
+});
+
 // spec/app/nav.md, "Story: Move around"
 it("keeps the hash of a cross-page link and scrolls to its element", async () => {
   const { el, runtime } = renderApp();
