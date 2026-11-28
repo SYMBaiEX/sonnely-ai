@@ -3812,6 +3812,7 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  width: 100%;
   min-height: 280px;
   aspect-ratio: 1.85;
   background: light-dark(#d9ddf5, #1b1014);
