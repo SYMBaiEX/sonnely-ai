@@ -1,7 +1,7 @@
 // The sign-in gate: what a signed-out visitor sees where a signed-in section would be.
 import { Lock } from "lucide-react";
 import { useConsoleShell } from "./frame.tsx";
-import { useBillingCluster, WalletControl } from "./wallet.tsx";
+import { useBillingCluster, WalletControl } from "../../shell/wallet.tsx";
 
 /** Asks for a wallet where the section needs one; wallet authentication opens the workspace. */
 export function SignInGate({ message }: { message: string }) {

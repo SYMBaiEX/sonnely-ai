@@ -29,7 +29,8 @@ import {
   tocOf,
 } from "../../../docs.ts";
 import "../site/appearance.ts";
-import { SiteHeader, useTheme } from "../site/chrome.tsx";
+import { SiteHeader } from "../site/chrome.tsx";
+import { useTheme } from "../../shell/theme.tsx";
 import { Blocks } from "./blocks.tsx";
 
 const sidebarKey = "sonnely.docs.sidebar";

@@ -29,13 +29,15 @@ import type { Registry as AdminRegistry } from "../../../../gen/app__admin.ts";
 import type { Crm } from "../../../../gen/app__admin__crm.ts";
 import { useRemote, type Remote } from "../../remote.ts";
 import { useSession, type SessionSnapshot, type WorkspaceSession } from "../../session.ts";
-import { Brand, ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
-import { AmbientVisualizer } from "../site/motion.tsx";
+import { Brand } from "../../shell/brand.tsx";
+import { CommandMenu } from "../../shell/command-menu.tsx";
+import { MobileMenuButton } from "../../shell/navigation.tsx";
+import { ShellSurface } from "../../shell/surface.tsx";
+import { setTheme as applyTheme, ThemeSwitch, useTheme, type Theme } from "../../shell/theme.tsx";
+import { useBillingCluster, WalletControl } from "../../shell/wallet.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
-import { CommandMenu } from "./command-menu.tsx";
 import { Onboarding } from "./onboarding.tsx";
 import { TermsAcceptance, termsVersion } from "./terms-acceptance.tsx";
-import { useBillingCluster, WalletControl } from "./wallet.tsx";
 import "./console.css";
 
 export type { WorkspaceSession };
@@ -131,7 +133,6 @@ export interface ConsoleShell {
   profile: ConsoleProfile | null;
   termsRequired: boolean;
   theme: Theme;
-  motion: boolean;
   signIn: (wallet: string) => Promise<boolean>;
   signOut: () => Promise<boolean>;
   saveProfile: (name: string, username: string) => Promise<boolean>;
@@ -157,7 +158,6 @@ export function ConsoleFrame({ section, children }: { section: Section; children
   const admin = useRemote<AdminRegistry>("admin");
   const crm = useRemote<Crm>("admin-crm");
   const theme = useTheme();
-  const motion = useAmbientMotion();
   const [palette, setPalette] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -318,7 +318,6 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     profile,
     termsRequired,
     theme,
-    motion,
     signIn,
     signOut,
     saveProfile,
@@ -345,12 +344,8 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     ));
 
   return (
-    <div className="theme-root site" data-area="console" data-theme={theme} data-motion={motion ? "on" : "off"}>
+    <ShellSurface area="console" skipHref="#console-content" className="console-shell">
       <div className="console">
-      <a href="#console-content" className="skip">
-        Skip to workspace
-      </a>
-      <div className="workspace-scene" aria-hidden="true" />
       <aside ref={navPanel} id="console-navigation" className={"rail glass" + (navOpen ? " rail-open" : "")}>
         <div className="rail-top">
           <Brand />
@@ -431,18 +426,13 @@ export function ConsoleFrame({ section, children }: { section: Section; children
               <ThemeSwitch choose={(next) => void chooseTheme(next)} />
             </span>
             <WalletControl wallet={signedIn || undefined} cluster={cluster} checkingAccount={checkingAccount} onSignIn={signIn} onSignOut={signOut} />
-            <button
-              type="button"
-              className="mobile-menu-control console-menu-toggle"
-              aria-expanded={navOpen}
-              aria-controls="console-navigation"
-              aria-label={navOpen ? "Close workspace menu" : "Open workspace menu"}
-              onClick={(event) => toggleNavigation(event.currentTarget)}
-            >
-              <span className="mobile-menu-glyph" aria-hidden="true">
-                <span />
-              </span>
-            </button>
+            <MobileMenuButton
+              className="console-menu-toggle"
+              open={navOpen}
+              controls="console-navigation"
+              label="workspace menu"
+              onClick={toggleNavigation}
+            />
           </div>
         </header>
         <CommandMenu
@@ -512,9 +502,8 @@ export function ConsoleFrame({ section, children }: { section: Section; children
           <span>All pages</span>
         </button>
       </nav>
-      <AmbientVisualizer motion={motion} theme={theme} />
       </div>
-    </div>
+    </ShellSurface>
   );
 }
 

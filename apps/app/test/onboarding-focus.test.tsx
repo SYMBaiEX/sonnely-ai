@@ -38,7 +38,7 @@ function type(input: HTMLInputElement, value: string) {
 // spec/app/console/index.md, "Story: Set up the workspace profile"
 it("keeps the profile input focused while typing", () => {
   const el = renderOnboarding();
-  const input = el.querySelector<HTMLInputElement>("form.onboarding-form input");
+  const input = document.body.querySelector<HTMLInputElement>("form[data-onboarding-form] input");
   if (!input) throw new Error("profile input did not render");
   input.focus();
   expect(document.activeElement).toBe(input);
@@ -50,13 +50,13 @@ it("keeps the profile input focused while typing", () => {
 // spec/app/console/index.md, "Story: Set up the workspace profile"
 it("moves focus to the step heading when the step changes", async () => {
   const el = renderOnboarding();
-  const form = el.querySelector("form.onboarding-form");
+  const form = document.body.querySelector("form[data-onboarding-form]");
   if (!form) throw new Error("profile form did not render");
   await act(async () => {
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await Promise.resolve();
   });
-  expect(document.activeElement).toBe(el.querySelector("#onboarding-title"));
+  expect(document.activeElement).toBe(document.body.querySelector("[data-onboarding-step] h2"));
 });
 
 function renderOnboardingWithFinish(onFinish: () => Promise<boolean>, close: () => void) {
@@ -89,20 +89,20 @@ function renderOnboardingWithFinish(onFinish: () => Promise<boolean>, close: () 
 it("stays open and surfaces the failure when finishing the setup fails", async () => {
   let closed = false;
   const el = renderOnboardingWithFinish(() => Promise.resolve(false), () => { closed = true; });
-  const form = el.querySelector("form.onboarding-form");
+  const form = document.body.querySelector("form[data-onboarding-form]");
   if (!form) throw new Error("profile form did not render");
   await act(async () => {
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     await Promise.resolve();
   });
-  const addCredits = [...el.querySelectorAll("button")].find((button) => button.textContent?.includes("Add credits"));
+  const addCredits = [...document.body.querySelectorAll("button")].find((button) => button.textContent?.includes("Add credits"));
   if (!addCredits) throw new Error("funding step did not render");
   await act(async () => {
     addCredits.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
   });
-  expect({ closed, errorShown: el.querySelector("p.error")?.textContent ?? "" }).toEqual({
+  expect({ closed, errorShown: document.body.querySelector("[data-slot=alert]")?.textContent ?? "" }).toEqual({
     closed: false,
     errorShown: "Could not save your setup choice. Check your connection and try again.",
   });

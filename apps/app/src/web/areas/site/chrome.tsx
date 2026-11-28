@@ -1,141 +1,14 @@
 // spec/app/site/index.md, "Story: Check the service status"
-import {
-  ArrowUpRight,
-  MonitorSmartphone,
-  Moon,
-  Sun,
-} from "lucide-react";
-import { useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { ArrowUpRight } from "lucide-react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { CopyButton as UiCopyButton } from "@repo/ui";
+import { Brand } from "../../shell/brand.tsx";
+import { MotionSwitch } from "../../shell/motion.tsx";
+import { MobileMenuButton } from "../../shell/navigation.tsx";
+import { ShellSurface } from "../../shell/surface.tsx";
+import { ThemeSwitch } from "../../shell/theme.tsx";
 import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
-import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
-
-export const themeKey = "sonnely.theme";
-const legacyThemeKey = "fathom.theme";
-const themeChangeEvent = "sonnely:theme";
-export const motionKey = "sonnely.ambient-motion";
-export const motionChangeEvent = "sonnely:ambient-motion";
-export const reducedQuery = "(prefers-reduced-motion: reduce)";
-let motionPaused = false;
-export function setMotionPaused(value: boolean) {
-  motionPaused = value;
-}
-
-export type Theme = "dark" | "light" | "system";
-
-export function readTheme(): Theme {
-  try {
-    const stored = localStorage.getItem(themeKey) ?? localStorage.getItem(legacyThemeKey);
-    if (stored === "light" || stored === "system") return stored;
-  } catch {
-    return "dark";
-  }
-  return "dark";
-}
-
-function applyTheme(theme: Theme) {
-  const root = document.documentElement.classList;
-  root.toggle("dark", theme === "dark");
-  root.toggle("light", theme === "light");
-}
-
-applyTheme(readTheme());
-
-function subscribeTheme(onChange: () => void) {
-  window.addEventListener("storage", onChange);
-  window.addEventListener(themeChangeEvent, onChange);
-  return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(themeChangeEvent, onChange);
-  };
-}
-
-export function useTheme() {
-  return useSyncExternalStore(subscribeTheme, readTheme, () => "dark" as const);
-}
-
-export function setTheme(theme: Theme) {
-  try {
-    localStorage.setItem(themeKey, theme);
-  } catch {
-    applyTheme(theme);
-  }
-  applyTheme(theme);
-  window.dispatchEvent(new Event(themeChangeEvent));
-}
-
-const systemLight = () => matchMedia("(prefers-color-scheme: light)").matches;
-const reducedMotion = () => matchMedia(reducedQuery).matches;
-
-function subscribeMotion(update: () => void) {
-  const media = matchMedia(reducedQuery);
-  media.addEventListener("change", update);
-  window.addEventListener("storage", update);
-  window.addEventListener(motionChangeEvent, update);
-  return () => {
-    media.removeEventListener("change", update);
-    window.removeEventListener("storage", update);
-    window.removeEventListener(motionChangeEvent, update);
-  };
-}
-
-function motionEnabled() {
-  if (reducedMotion()) return false;
-  try {
-    return localStorage.getItem(motionKey) !== "off";
-  } catch {
-    return !motionPaused;
-  }
-}
-
-export function useAmbientMotion() {
-  return useSyncExternalStore(subscribeMotion, motionEnabled, () => true);
-}
-
-function subscribeSystemLight(update: () => void) {
-  const media = matchMedia("(prefers-color-scheme: light)");
-  media.addEventListener("change", update);
-  return () => media.removeEventListener("change", update);
-}
-
-const nextTheme: Record<Theme, Theme> = { dark: "system", system: "light", light: "dark" };
-
-export function ThemeSwitch({ choose = setTheme }: { choose?: (theme: Theme) => void }) {
-  const theme = useTheme();
-  const light = useSyncExternalStore(subscribeSystemLight, systemLight, () => false);
-  const on = theme === "light" || (theme === "system" && light);
-  return (
-    <button
-      className="theme-switch"
-      type="button"
-      aria-label={`Color theme: ${theme}. Activate for ${nextTheme[theme]}.`}
-      data-light={on}
-      data-theme-pos={theme}
-      onClick={() => choose(nextTheme[theme])}
-    >
-      <span className="theme-switch-thumb" aria-hidden="true" />
-      <span className="theme-switch-icon theme-switch-moon" aria-hidden="true">
-        <Moon size={16} />
-      </span>
-      <span className="theme-switch-icon theme-switch-system" aria-hidden="true">
-        <MonitorSmartphone size={15} />
-      </span>
-      <span className="theme-switch-icon theme-switch-sun" aria-hidden="true">
-        <Sun size={17} />
-      </span>
-    </button>
-  );
-}
-
-export function Brand({ href = "/", onClick }: { href?: string; onClick?: () => void }) {
-  return (
-    <a href={href} className="brand" aria-label="Sonnely" onClick={onClick}>
-      <span className="brand-icon" aria-hidden="true" />
-      <span className="brand-wordmark" aria-hidden="true" />
-    </a>
-  );
-}
 
 export function SiteHeader({ current }: { current: string }) {
   return (
@@ -170,19 +43,13 @@ function SiteNavigation({ current }: { current: string }) {
       {mobileOpen && (
         <button type="button" className="nav-dismiss" aria-label="Dismiss navigation" tabIndex={-1} onClick={dismissMobile} />
       )}
-      <button
-        ref={menuControlRef}
-        className="mobile-menu-control"
-        type="button"
-        aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-        aria-expanded={mobileOpen}
-        aria-controls="site-navigation"
+      <MobileMenuButton
+        buttonRef={menuControlRef}
+        open={mobileOpen}
+        controls="site-navigation"
+        label="navigation"
         onClick={() => setOpenRoute(mobileOpen ? null : current)}
-      >
-        <span className="mobile-menu-glyph" aria-hidden="true">
-          <span />
-        </span>
-      </button>
+      />
       <nav id="site-navigation" aria-label="Main navigation" data-mobile-open={mobileOpen || undefined}>
         {headerLinks.map(([href, label]) => (
           <a
@@ -257,26 +124,14 @@ export function SiteFooter() {
 }
 
 export function ThemeSurface({ current, children }: { current: string; children: ReactNode }) {
-  const theme = useTheme();
-  const motion = useAmbientMotion();
   return (
-    <div
-      className="theme-root site"
-      data-area="site"
-      data-theme={theme}
-      data-motion={motion ? "on" : "off"}
-    >
-      <a href="#content" className="skip">
-        Skip to content
-      </a>
-      <div className="workspace-scene" aria-hidden="true" />
+    <ShellSurface area="site" skipHref="#content" className="theme-root site">
       <SiteHeader current={current} />
       <main id="content" tabIndex={-1}>
         {children}
       </main>
       <SiteFooter />
-      <AmbientVisualizer motion={motion} theme={theme} />
-    </div>
+    </ShellSurface>
   );
 }
 

@@ -2,9 +2,10 @@ import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { Button, CopyButton as UiCopyButton, EmptyState, cn } from "@repo/ui";
+import { shortenWallet } from "../../shell/format.ts";
 import "./data-rows.css";
 
-export const shorten = (wallet: string) => wallet.slice(0, 4) + "…" + wallet.slice(-4);
+export const shorten = shortenWallet;
 
 export function creditDecimal(micros: number, minimumDecimals = 0) {
   const units = BigInt(Math.trunc(Math.abs(micros)));

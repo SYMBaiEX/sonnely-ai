@@ -14,7 +14,7 @@ import {
   type SolanaSignInOutput,
 } from "@solana/wallet-standard-features";
 import { ChevronDown, Wallet as WalletIcon } from "lucide-react";
-import { shorten } from "./bits.tsx";
+import { shortenWallet as shorten } from "./format.ts";
 import { canAuthenticateWallet, isMobileAdapter, mobileAdapterName, registerMobileWallet, solanaWalletClients } from "./solana-wallet.ts";
 
 async function sessionRequest<T>(task: string, data?: unknown): Promise<T> {

@@ -1,5 +1,4 @@
 // spec/app/admin/index.md, "The admin machine"
-import "../site/site.css";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { Button } from "@repo/ui";
 import { useAdmin, useSession } from "./data.ts";

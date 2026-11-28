@@ -18,7 +18,7 @@ import type { Page } from "../../../../gen/app__nav.ts";
 import { useRemote } from "../../remote.ts";
 import { WorkspaceHeading } from "../console/bits.tsx";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
-import { solanaWalletClients } from "../console/solana-wallet.ts";
+import { solanaWalletClients } from "../../shell/solana-wallet.ts";
 import {
   CopyButton,
   creditBalance,
