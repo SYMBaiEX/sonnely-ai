@@ -58,7 +58,7 @@ export function DocsPage({ slug }: { slug: string }) {
   const lines = useMemo(() => bodyLines(slug), [slug]);
   const blocks = useMemo(() => parseBlocks(lines), [lines]);
   const toc = useMemo(() => tocOf(lines), [lines]);
-  const hasToc = toc.length > 1;
+  const hasDesktopToc = toc.length > (slug === "index" ? 1 : 0);
   const before = docBefore(slug);
   const after = docAfter(slug);
   const motion = useAmbientMotion();
@@ -90,7 +90,7 @@ export function DocsPage({ slug }: { slug: string }) {
           <Search size={15} aria-hidden="true" />
         </button>
       </div>
-      <div className="docs-layout" data-toc={hasToc ? "" : undefined}>
+      <div className="docs-layout" data-toc={hasDesktopToc ? "" : undefined}>
         <Sidebar slug={slug} onCollapse={() => setCollapsed(true)} />
         <main id="docs-page" className="docs-main" tabIndex={-1}>
           <article className="docs-article" data-docs-page={kind}>
@@ -104,7 +104,7 @@ export function DocsPage({ slug }: { slug: string }) {
                 </a>
               </div>
             </header>
-            {hasToc && (
+            {toc.length > 1 && (
               <details className="docs-minitoc">
                 <summary>
                   <List size={15} aria-hidden="true" /> On this page
@@ -144,7 +144,7 @@ export function DocsPage({ slug }: { slug: string }) {
             </footer>
           </article>
         </main>
-        {hasToc && (
+        {hasDesktopToc && (
           <aside className="docs-toc" aria-label="On this page">
             <p className="docs-toc-title">On this page</p>
             <nav>

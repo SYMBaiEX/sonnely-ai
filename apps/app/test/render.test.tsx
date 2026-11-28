@@ -43,4 +43,16 @@ describe("Docs wayfinding", () => {
     expect(el.querySelector(anchor ?? "#missing")).not.toBeNull();
     act(() => root.unmount());
   });
+
+  it("keeps the single desktop section link on the migration guide", () => {
+    const el = document.createElement("div");
+    const root = createRoot(el);
+    act(() => root.render(<DocsPage slug="migration" />));
+
+    const link = el.querySelector('aside[aria-label="On this page"] a');
+    expect(link?.textContent).toBe("Move your integration");
+    expect(link?.getAttribute("href")).toBe("#move-your-integration");
+    expect(el.querySelector("#move-your-integration")).not.toBeNull();
+    act(() => root.unmount());
+  });
 });
