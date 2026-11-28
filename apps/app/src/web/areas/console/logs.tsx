@@ -433,7 +433,7 @@ export function LogsSection() {
                 if (id) openDetail(id);
               }}
             >
-              <FieldLabel className="min-w-64 flex-1">
+              <FieldLabel className="min-w-64 flex-1 max-md:min-w-0 max-md:basis-full">
                 Find a request by reference
                 <SearchField
                   id="log-lookup-input"

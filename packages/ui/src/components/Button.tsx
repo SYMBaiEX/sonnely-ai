@@ -36,7 +36,7 @@ export function Button({ variant, size, loading = false, asChild = false, type =
   // The child of `asChild`, a link, has no `disabled`: it is marked, leaves the tab order and refuses activation.
   const state = asChild ? off && { "aria-disabled": true, tabIndex: -1, onClickCapture: (event: MouseEvent) => { event.preventDefault(); event.stopPropagation(); } } : { type, disabled: off };
   return (
-    <Comp aria-busy={loading || undefined} className={cn(buttonVariants({ variant, size }), className)} {...props} {...state}>
+    <Comp data-ui-button aria-busy={loading || undefined} className={cn(buttonVariants({ variant, size }), className)} {...props} {...state}>
       {loading && <Spinner size="sm" aria-hidden />}
       <Slottable>{children}</Slottable>
     </Comp>

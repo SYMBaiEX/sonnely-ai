@@ -257,7 +257,7 @@ function UsageConsole() {
           </FilterPanel>
         </section>
       )}
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Usage summary">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Usage summary">
         {stats.map(([label, value, description]) => <Stat key={label} label={label} value={value} detail={description} />)}
       </section>
       <section className={`${panelClass} grid gap-4`} aria-labelledby="usage-chart-heading">

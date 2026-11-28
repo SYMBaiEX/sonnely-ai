@@ -85,9 +85,10 @@ export function TableHead({ scope = "col", className, ...props }: TableHeadProps
 /** One value in a `Table`; `label` keeps the value self-describing in a responsive card. */
 export function TableCell({ label, wide = false, className, children, ...props }: TableCellProps) {
   const responsive = use(ResponsiveContext);
+  const empty = children === null || children === undefined || children === false;
   return (
-    <td className={cn("p-3 align-top", responsive && "max-md:grid max-md:content-start max-md:justify-items-start max-md:gap-1 max-md:break-words max-md:p-0", wide && "max-md:col-span-full", className)} {...props}>
-      {responsive && label ? <span className="text-micro font-medium tracking-micro text-muted-foreground uppercase md:hidden">{label}</span> : null}
+    <td className={cn("p-3 align-top", responsive && "max-md:grid max-md:content-start max-md:justify-items-start max-md:gap-1 max-md:break-words max-md:p-0", responsive && empty && "max-md:hidden", wide && "max-md:col-span-full", className)} {...props}>
+      {responsive && label && !empty ? <span className="text-micro font-medium tracking-micro text-muted-foreground uppercase md:hidden">{label}</span> : null}
       {children}
     </td>
   );

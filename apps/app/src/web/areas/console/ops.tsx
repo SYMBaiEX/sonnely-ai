@@ -28,6 +28,7 @@ export type TableColumn<Row> = {
   header?: boolean;
   span?: boolean;
   className?: string;
+  optional?: boolean;
 };
 
 export function DataTable<Row>({
@@ -45,12 +46,16 @@ export function DataTable<Row>({
   labelledBy?: string;
   className?: string;
 }) {
+  const visibleColumns = columns.filter((column) => !column.optional || rows.some((row) => {
+    const content = column.value(row);
+    return content !== null && content !== undefined && content !== false && content !== "";
+  }));
   return (
     <TableContainer className={cn("border-0 bg-transparent", className)} aria-labelledby={labelledBy} aria-label={ariaLabel}>
       <Table responsive className="text-left">
         <TableHeader>
           <TableRow>
-            {columns.map((column) => (
+            {visibleColumns.map((column) => (
               <TableHead key={column.label} data-ops-cell className="px-3 py-2.5 whitespace-nowrap text-micro font-medium uppercase tracking-micro">
                 {column.label}
               </TableHead>
@@ -60,7 +65,7 @@ export function DataTable<Row>({
         <TableBody>
           {rows.map((row) => (
             <TableRow key={rowKey(row)}>
-              {columns.map((column) => {
+              {visibleColumns.map((column) => {
                 const content = column.value(row);
                 const classes = cn("px-3 py-2.5 align-middle whitespace-nowrap max-md:whitespace-normal max-md:wrap-anywhere", column.header && "font-medium", column.className);
                 if (column.header) {

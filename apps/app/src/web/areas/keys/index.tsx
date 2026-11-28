@@ -251,7 +251,7 @@ function KeysConsole() {
           </div>
         </div>
       )}
-      <div className={`${panelClass} p-0`}>
+      <div className={`${panelClass} p-0 max-md:border-0 max-md:bg-transparent`}>
         {signedIn && data?.length ? (
           <DataTable
             rows={data}
@@ -284,7 +284,7 @@ function KeysConsole() {
                 ),
               },
               {
-                label: "Actions", span: true,
+                label: "Actions", span: true, optional: true,
                 value: (item) => item.status === "Active" && item.project === "" ? (
                   <span className="flex flex-wrap gap-2">
                     <Button type="button" variant="ghost" size="sm" aria-label={`Edit ${item.label}`} disabled={busy} onClick={(event) => { rowActionRef.current = event.currentTarget; setOpen(false); setKey(""); setRevoke(null); setStatus(""); setEditing(item); setFailure(""); }}>Edit</Button>

@@ -735,7 +735,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
                 <Button variant="ghost" type="button" disabled={busy} onClick={() => void reload()}><RefreshCw size={16} aria-hidden="true" /> Refresh saved batch</Button>
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <div className="rounded-md border border-border bg-background p-3"><dt className="text-meta text-muted-foreground">Requests</dt><dd className="text-heading font-strong">{rows.length}</dd></div>
               <div className="rounded-md border border-border bg-background p-3"><dt className="text-meta text-muted-foreground">Completed</dt><dd className="text-heading font-strong">{completed}</dd></div>
               <div className="rounded-md border border-border bg-background p-3"><dt className="text-meta text-muted-foreground">Needs attention</dt><dd className="text-heading font-strong">{attention}</dd></div>
@@ -770,13 +770,17 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
                     ),
                   },
                   {
-                    label: "Actions", span: true,
-                    value: ({ row, index }) => (
-                      <span className="flex flex-wrap gap-2">
-                        {row.reference && <a className="inline-flex items-center gap-1 text-ui text-primary hover:underline" href={"/console/logs?request=" + encodeURIComponent(row.reference)}>Request details <ArrowUpRight size={14} aria-hidden="true" /></a>}
-                        {(row.status === "interrupted" || row.status === "sending") && activity !== "running" && <Button variant="ghost" size="sm" type="button" disabled={busy || confirmClear || !inferenceKey} title={inferenceKey ? undefined : "Paste an inference key first"} onClick={() => void run(saved.id, index)}>Retry interrupted request<span className="sr-only"> {row.customId}</span></Button>}
-                      </span>
-                    ),
+                    label: "Actions", span: true, optional: true,
+                    value: ({ row, index }) => {
+                      const retry = (row.status === "interrupted" || row.status === "sending") && activity !== "running";
+                      if (!row.reference && !retry) return null;
+                      return (
+                        <span className="flex flex-wrap gap-2">
+                          {row.reference && <a className="inline-flex items-center gap-1 text-ui text-primary hover:underline" href={"/console/logs?request=" + encodeURIComponent(row.reference)}>Request details <ArrowUpRight size={14} aria-hidden="true" /></a>}
+                          {retry && <Button variant="ghost" size="sm" type="button" disabled={busy || confirmClear || !inferenceKey} title={inferenceKey ? undefined : "Paste an inference key first"} onClick={() => void run(saved.id, index)}>Retry interrupted request<span className="sr-only"> {row.customId}</span></Button>}
+                        </span>
+                      );
+                    },
                   },
                 ]}
               />
