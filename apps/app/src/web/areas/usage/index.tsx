@@ -150,7 +150,9 @@ function UsageConsole() {
   const signedIn = session.state?.tag === "SignedIn";
   const wallet = session.state?.tag === "SignedIn" ? session.state.wallet : undefined;
   const allRows = useMemo(() => state?.rows ?? [], [state]);
-  const [now] = useState(() => Date.now());
+  const [openedAt] = useState(() => Date.now());
+  const latestActivity = allRows.reduce((latest, row) => Math.max(latest, row.time), 0);
+  const now = Math.max(openedAt, latestActivity);
   const ranged = useMemo(() => {
     const start = now - range * 86_400_000;
     return allRows.filter((row) => row.time >= start);
