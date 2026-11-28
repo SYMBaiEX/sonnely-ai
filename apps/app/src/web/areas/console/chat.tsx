@@ -205,6 +205,7 @@ function ChatPlayground() {
       ]
       : [...storedMessages, ...liveMessages];
   const ready = signedIn && state !== undefined;
+  const machineFailure = signedIn && historyOn ? remote.error : undefined;
   const model = state?.model ?? models[0].id;
   const entry = models.find((item) => item.id === model) ?? models[0];
   const routeReady = Boolean(providerRoute(entry, provider));
@@ -647,6 +648,11 @@ function ChatPlayground() {
             )}
           </div>
         </div>
+        {machineFailure && (
+          <Alert variant="destructive">
+            The chat machine reported: {machineFailure}
+          </Alert>
+        )}
         {error && (
           <Alert variant="destructive">
             {error}
