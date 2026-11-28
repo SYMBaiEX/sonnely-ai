@@ -1,50 +1,43 @@
-// spec/app/admin/index.md: the admin workspace chrome — one heading, one horizontal section
-// navigation inside the modern console shell, and the area the operator opened.
 import { ShieldCheck } from "lucide-react";
+import { cn } from "@repo/ui";
 import { WorkspaceHeading } from "../console/bits.tsx";
-import { adminTabs, type AdminTab } from "./legacy/admin-tabs.tsx";
-import type { AdminArea } from "./legacy/admin-areas.ts";
-import { AdminCrm } from "./legacy/admin-crm.tsx";
+import { adminAreas, adminHref, type AdminArea } from "./areas.ts";
+import { navBadges, useAdminJoin, type AdminJoin } from "./data.ts";
+import { AdminAnalytics } from "./analytics.tsx";
+import { AdminCustomers } from "./customers.tsx";
+import { AdminLogs } from "./logs.tsx";
+import { AdminOperators } from "./operators.tsx";
+import { AdminOverview } from "./overview.tsx";
 import { AdminPayouts } from "./payouts.tsx";
-import { AdminOverview, useNavBadges } from "./overview.tsx";
+import { AdminSupport } from "./support.tsx";
+import { AdminTraces } from "./traces.tsx";
+import { AdminError, AdminLoading, Panel } from "./ui.tsx";
 
-const descriptions: Record<string, string> = {
-  overview: "What needs action first, then platform activity, treasury, and inference.",
-  customers: "Find a wallet and review its account, referrals, payments, requests, and support history.",
-  support: "Triage the queue, assign ownership, and reply without losing your place.",
-  traces: "Inspect request metadata, provider outcomes, and settlement amounts.",
-  operators: "Admin, support, and finance wallets for this deployment.",
-  payouts: "Ledger-derived margin, unsigned treasury payout preparation, and execution verification.",
-  analytics: "Platform requests, spend, signups, and deposits by UTC day.",
-  logs: "Privileged admin actions recorded across the workspace.",
-};
-
-function badgeFor(id: AdminArea, badges: { openTickets: number; overdueTasks: number } | undefined) {
-  if (id === "support") return badges?.openTickets;
-  if (id === "overview") return badges?.overdueTasks;
-  return undefined;
+function badgeFor(id: AdminArea, badges: { openTickets: number; overdueTasks: number }) {
+  if (id === "support") return badges.openTickets;
+  if (id === "overview") return badges.overdueTasks;
+  return 0;
 }
 
-function tabHref(id: AdminArea) {
-  return id === "overview" ? "/console/admin" : "/console/admin/" + id;
-}
-
-export function AdminTabs({
-  area,
-  badges,
-}: {
-  area: AdminArea;
-  badges: { openTickets: number; overdueTasks: number } | undefined;
-}) {
+function AdminTabs({ area, badges }: { area: AdminArea; badges: { openTickets: number; overdueTasks: number } }) {
   return (
-    <nav className="admin-tabs" aria-label="Admin sections">
-      {adminTabs.map(({ id, label, Icon }) => {
+    <nav className="flex gap-1 overflow-x-auto border-b border-border pb-px" aria-label="Admin sections">
+      {adminAreas.map(({ id, label, Icon }) => {
         const badge = badgeFor(id, badges);
+        const active = area === id;
         return (
-          <a key={id} href={tabHref(id)} aria-current={area === id ? "page" : undefined}>
+          <a
+            key={id}
+            href={adminHref(id)}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 rounded-t-md border-b-2 px-3 py-2 text-ui font-medium transition-colors",
+              active ? "border-primary bg-secondary text-foreground" : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
             <Icon size={15} aria-hidden="true" />
             <span>{label}</span>
-            {badge ? <span className="admin-tab-badge">{badge > 99 ? "99+" : badge}</span> : null}
+            {badge > 0 && <span className="text-micro text-muted-foreground">{badge > 99 ? "99+" : badge}</span>}
           </a>
         );
       })}
@@ -52,15 +45,21 @@ export function AdminTabs({
   );
 }
 
-function areaContent(area: AdminArea, wallet: string, badges: { openTickets: number; overdueTasks: number } | undefined) {
-  if (area === "overview") return <AdminOverview wallet={wallet} badges={badges} />;
-  const tab: AdminTab | undefined = adminTabs.find((item) => item.id === area);
-  return tab?.render?.(wallet) ?? null;
+function areaContent(area: AdminArea, wallet: string, join: AdminJoin) {
+  if (area === "customers") return <AdminCustomers join={join} wallet={wallet} />;
+  if (area === "support") return <AdminSupport join={join} wallet={wallet} full />;
+  if (area === "traces") return <AdminTraces join={join} />;
+  if (area === "operators") return <AdminOperators join={join} />;
+  if (area === "payouts") return <AdminPayouts />;
+  if (area === "analytics") return <AdminAnalytics join={join} />;
+  if (area === "logs") return <AdminLogs join={join} />;
+  return <AdminOverview join={join} wallet={wallet} />;
 }
 
 export function AdminWorkspace({ area, wallet, role }: { area: AdminArea; wallet: string; role: string }) {
-  const authorized = role === "admin";
-  const badges = useNavBadges(authorized);
+  const remote = useAdminJoin();
+  const info = adminAreas.find((item) => item.id === area) ?? adminAreas[0];
+  const badges = navBadges(remote.data, remote.fetchedAt ?? 0);
 
   if (role === "support" || role === "finance") {
     return (
@@ -68,14 +67,10 @@ export function AdminWorkspace({ area, wallet, role }: { area: AdminArea; wallet
         <WorkspaceHeading
           icon={ShieldCheck}
           title={role === "support" ? "Support workspace" : "Finance workspace"}
-          description={
-            role === "support"
-              ? "Review and assign support requests."
-              : "Prepare and verify treasury payouts from ledger-derived margin."
-          }
+          description={role === "support" ? "Review and assign support requests." : "Prepare and verify treasury payouts from ledger-derived margin."}
         />
-        {role === "support" ? (
-          <AdminCrm view="support" key={wallet} canOpenCustomer={false} />
+        {remote.error ? <AdminError message={remote.error} retry={() => void remote.refresh()} /> : !remote.data ? <AdminLoading /> : role === "support" ? (
+          <AdminSupport join={remote.data} wallet={wallet} full={false} />
         ) : (
           <AdminPayouts />
         )}
@@ -83,33 +78,26 @@ export function AdminWorkspace({ area, wallet, role }: { area: AdminArea; wallet
     );
   }
 
-  if (!authorized) {
+  if (role !== "admin") {
     return (
       <>
-        <WorkspaceHeading
-          icon={ShieldCheck}
-          title="Admin"
-          description="Manage customers, support, request traces, and treasury operations."
-        />
-        <section className="panel stack-panel admin-access">
-          <ShieldCheck size={21} aria-hidden="true" />
-          <h2>Administrator access required</h2>
-          <p>Connect an authorized Solana wallet to view this workspace.</p>
-        </section>
+        <WorkspaceHeading icon={ShieldCheck} title="Admin" description="Manage customers, support, request traces, and treasury operations." />
+        <Panel className="px-6 py-10 text-center">
+          <ShieldCheck size={21} aria-hidden="true" className="mx-auto text-muted-foreground" />
+          <h2 className="mt-3 text-heading font-medium tracking-heading">Administrator access required</h2>
+          <p className="mt-2 text-ui text-muted-foreground">Connect an authorized Solana wallet to view this workspace.</p>
+        </Panel>
       </>
     );
   }
 
-  const tab = adminTabs.find((item) => item.id === area);
   return (
     <>
-      <WorkspaceHeading
-        icon={tab?.Icon ?? ShieldCheck}
-        title={tab?.label ?? "Admin"}
-        description={descriptions[area] ?? "Manage customers, support, request traces, and treasury operations."}
-      />
+      <WorkspaceHeading icon={info.Icon} title={info.label} description={info.description} />
       <AdminTabs area={area} badges={badges} />
-      <div className="admin-area">{areaContent(area, wallet, badges)}</div>
+      <div className="mt-5 min-w-0">
+        {remote.error ? <AdminError message={remote.error} retry={() => void remote.refresh()} /> : !remote.data ? <AdminLoading /> : areaContent(area, wallet, remote.data)}
+      </div>
     </>
   );
 }

@@ -1,613 +1,141 @@
-// spec/app/admin/index.md: the operations overview — what needs action first, then the
-// work queues, then the passive analytics an operator consults once the queue is clear.
-import { useCallback, useEffect, useState } from "react";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  CalendarClock,
-  Landmark,
-  LifeBuoy,
-  RefreshCw,
-  ShieldAlert,
-  type LucideIcon,
-} from "lucide-react";
-import { creditBalance } from "../console/bits.tsx";
-import { EmptyState, Skeleton } from "./legacy/admin/ui.tsx";
-import { CreditRecovery } from "./legacy/credit-recovery.tsx";
-import { models, shorten } from "./legacy/lib/models.ts";
-import { request } from "./legacy/wallet.tsx";
+import { AlertTriangle, ArrowRight, CircleDollarSign, Clock3, LifeBuoy, UserCheck } from "lucide-react";
+import { Button, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@repo/ui";
+import { customersFrom, dateTime, money, shortWallet, type AdminJoin } from "./data.ts";
+import { Empty, Panel, Stat, StatusMark, TableFrame, stateTone } from "./ui.tsx";
 
-type ModelMetric = {
-  requests: number;
-  complete: number;
-  failed: number;
-  held: number;
-  spendMicros: number;
-};
+const dayMs = 24 * 60 * 60 * 1000;
 
-type FollowUp = {
-  id: string;
-  title: string;
-  name: string;
-  wallet: string;
-  dueAt?: number;
-};
-
-type Payout = {
-  reference: string;
-  recipient: string;
-  treasury: string;
-  cluster: "mainnet";
-  amount: number;
-  signature?: string;
-};
-
-export type AdminOverviewData = {
-  stats: {
-    requests: number;
-    complete: number;
-    failed: number;
-    held: number;
-    input: number;
-    output: number;
-    spendMicros: number;
-  };
-  deposits: number;
-  depositMicros: number;
-  activeWallets: number;
-  tickets: number;
-  activation: {
-    joined: number;
-    accepted: number;
-    finishedSetup: number;
-    startedFunding: number;
-    funded: number;
-    active: number;
-    capped: boolean;
-  } | null;
-  creditRecovery: React.ComponentProps<typeof CreditRecovery>["data"];
-  creditLiability: number | null;
-  treasuryMicros: number | null;
-  gateway?: {
-    state: "ready" | "unavailable" | "disabled";
-    count: number;
-    completed: number;
-    errors: number;
-    cancelled: number;
-    from: string;
-    through: string;
-    fetchedAt: number;
-    latestSettledAt: number | null;
-    truncated: boolean;
-    latestReceiptUrl?: string;
-  };
-  payouts: Payout[];
-  finance: {
-    reconciled: number;
-    customerMicros: number;
-    providerNano: number;
-    availableMicros: number;
-    paidMicros: number;
-  };
-  models: Record<string, ModelMetric | undefined>;
-  truncated: boolean;
-  hasUnreconciled: boolean;
-};
-
-export type NavBadges = { openTickets: number; overdueTasks: number };
-
-export function useNavBadges(authorized: boolean) {
-  const [badges, setBadges] = useState<NavBadges>();
-  useEffect(() => {
-    if (!authorized) return;
-    let active = true;
-    void request<NavBadges>("admin-crm?view=nav-badges")
-      .then((value) => {
-        if (active) setBadges(value);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [authorized]);
-  return badges;
+function percent(part: number, whole: number) {
+  return whole === 0 ? "0%" : Math.round((part / whole) * 100) + "%";
 }
 
-function FollowUpsDue() {
-  const [state, setState] = useState<{ data?: FollowUp[]; error?: string }>();
-  useEffect(() => {
-    let active = true;
-    void request<FollowUp[]>("admin-crm?view=tasks")
-      .then((data) => {
-        if (active) setState({ data });
-      })
-      .catch((error: Error) => {
-        if (active) setState({ error: error.message });
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-  if (!state?.data?.length) return null;
-  const now = Date.now();
-  const week = now + 7 * 86_400_000;
-  const overdue = state.data.filter((row) => row.dueAt !== undefined && row.dueAt < now).length;
-  const dueSoon = state.data.filter(
-    (row) => row.dueAt !== undefined && row.dueAt >= now && row.dueAt <= week,
-  ).length;
-  const rows = [...state.data].sort(
-    (a, b) => (a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER),
-  );
+export function AdminOverview({ join, wallet }: { join: AdminJoin; wallet: string }) {
+  const customers = customersFrom(join);
+  const tasks = join.crm?.tasks ?? [];
+  const tickets = join.support?.tickets ?? [];
+  const usage = join.usage?.rows ?? [];
+  const now = Math.max(0, ...tasks.map((row) => row.createdAt), ...usage.map((row) => row.time), ...customers.map((row) => row.joined));
+  const overdue = tasks.filter((row) => row.doneAt === 0 && row.dueAt !== 0 && row.dueAt < now);
+  const mineDue = tasks.filter((row) => row.doneAt === 0 && row.assignee === wallet && row.dueAt !== 0 && row.dueAt < now + dayMs);
+  const unassigned = tickets.filter((row) => row.state !== "Resolved" && !row.assignedTo);
+  const failed = usage.filter((row) => row.status === "Failed" && row.time > now - dayMs);
+  const negative = customers.filter((row) => row.balance < 0);
+  const weekUsage = usage.filter((row) => row.time > now - 7 * dayMs);
+  const complete = weekUsage.filter((row) => row.status === "Complete");
+  const spend = complete.reduce((sum, row) => sum + row.cost, 0);
+  const signups = customers.filter((row) => row.joined > now - 7 * dayMs);
+  const deposits = (join.deposits?.intents ?? []).filter((row) => row.status.tag === "Finalized");
+  const depositTotal = deposits.reduce((sum, row) => sum + row.atomic, 0);
+  const modelRows = [...Map.groupBy(weekUsage, (row) => row.model)].map(([model, rows]) => ({ model, rows })).sort((a, b) => b.rows.length - a.rows.length).slice(0, 6);
+  const attention = [
+    ...overdue.slice(0, 3).map((row) => ({ id: row.id, tone: "warn" as const, title: row.title, detail: `Follow-up due ${dateTime(row.dueAt)}`, href: "/console/admin/customers" })),
+    ...unassigned.slice(0, 3).map((row) => ({ id: row.id, tone: "info" as const, title: row.topic, detail: "Unassigned support request", href: "/console/admin/support" })),
+    ...negative.slice(0, 2).map((row) => ({ id: row.id, tone: "error" as const, title: shortWallet(row.id), detail: `${money(row.balance)} balance needs recovery`, href: "/console/admin/customers" })),
+  ];
+
   return (
-    <section className="panel stack-panel">
-      <h2>Follow-ups due</h2>
-      <dl className="admin-metrics">
-        <div>
-          <dt>Overdue</dt>
-          <dd>{overdue.toLocaleString()}</dd>
-        </div>
-        <div>
-          <dt>Next 7 days</dt>
-          <dd>{dueSoon.toLocaleString()}</dd>
-        </div>
-        <div>
-          <dt>Open</dt>
-          <dd>{state.data.length.toLocaleString()}</dd>
-        </div>
-      </dl>
-      <div className="crm-records">
-        {rows.slice(0, 8).map((row) => {
-          const late = row.dueAt !== undefined && row.dueAt < now;
-          return (
-            <div key={row.id} className="crm-record crm-task">
-              <span>
-                <strong>{row.title}</strong>
-                <span className={"caption" + (late ? " crm-overdue" : "")}>
-                  {row.name || shorten(row.wallet)} ·{" "}
-                  {row.dueAt === undefined ? "No due date" : "Due " + new Date(row.dueAt).toLocaleString()}
-                  {late ? " · Overdue" : ""}
-                </span>
-              </span>
-              <a className="button quiet small" href="/console/admin/customers">
-                Open customers
-              </a>
+    <div className="grid gap-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Requests · 7d" value={weekUsage.length.toLocaleString()} hint={`${complete.length} completed`} />
+        <Stat label="Inference spend · 7d" value={money(spend)} hint={`${usage.length.toLocaleString()} lifetime requests`} />
+        <Stat label="New customers · 7d" value={signups.length.toLocaleString()} hint={`${percent(signups.filter((row) => row.funded).length, signups.length)} funded`} />
+        <Stat label="Finalized deposits" value={money(depositTotal)} hint={`${deposits.length.toLocaleString()} deposits`} />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <Panel title="Needs action" aside={<span className="text-meta text-muted-foreground">{attention.length} open</span>}>
+          {attention.length === 0 ? <Empty title="Nothing needs immediate action" /> : (
+            <div className="divide-y divide-border">
+              {attention.map((item) => (
+                <a key={item.id} href={item.href} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted">
+                  {item.tone === "error" ? <CircleDollarSign size={17} className="text-destructive" aria-hidden="true" /> : item.tone === "info" ? <LifeBuoy size={17} className="text-info" aria-hidden="true" /> : <AlertTriangle size={17} className="text-warn" aria-hidden="true" />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-ui font-medium text-foreground">{item.title}</span>
+                    <span className="block truncate text-meta text-muted-foreground">{item.detail}</span>
+                  </span>
+                  <ArrowRight size={15} className="text-muted-foreground" aria-hidden="true" />
+                </a>
+              ))}
             </div>
-          );
-        })}
-      </div>
-      {state.data.length > 8 && <p className="caption">Showing the 8 most urgent follow-ups.</p>}
-    </section>
-  );
-}
-
-type AttentionItem = {
-  Icon: LucideIcon;
-  label: string;
-  href?: string;
-  run?: () => void;
-  anchor?: string;
-};
-
-function metricRows(data: AdminOverviewData) {
-  const rows = models.map(({ id, name }) => ({ id, name, metric: data.models[id] }));
-  const active = rows.filter(
-    ({ metric }) =>
-      metric && (metric.requests > 0 || metric.complete > 0 || metric.failed > 0 || metric.held > 0 || metric.spendMicros > 0),
-  );
-  const extra = rows.filter((row) => !active.includes(row));
-  return { active, extra };
-}
-
-function ModelTable({ rows, labelledBy }: { rows: ReturnType<typeof metricRows>["active"]; labelledBy: string }) {
-  return (
-    <div className="table-wrap workspace-data-table" role="region" aria-labelledby={labelledBy} tabIndex={0}>
-      <table>
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th className="num">Requests</th>
-            <th className="num">Completed</th>
-            <th className="num">Failed</th>
-            <th className="num">Held</th>
-            <th className="num">Spend</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ id, name, metric }) => (
-            <tr key={id}>
-              <th scope="row">{name}</th>
-              <td className="num">{(metric?.requests ?? 0).toLocaleString()}</td>
-              <td className="num">{(metric?.complete ?? 0).toLocaleString()}</td>
-              <td className="num">{(metric?.failed ?? 0).toLocaleString()}</td>
-              <td className="num">{(metric?.held ?? 0).toLocaleString()}</td>
-              <td className="num">{creditBalance(metric?.spendMicros ?? 0)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-export function AdminOverview({ wallet, badges }: { wallet: string; badges: NavBadges | undefined }) {
-  const [data, setData] = useState<AdminOverviewData>();
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const reload = useCallback(async () => {
-    setData(await request<AdminOverviewData>("admin"));
-  }, []);
-  useEffect(() => {
-    void reload().catch((failure: Error) => setError(failure.message));
-  }, [reload]);
-
-  async function act(action: () => Promise<string>) {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      setNotice(await action());
-      await reload();
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "The admin action failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!data) {
-    return error ? (
-      <p className="caption" role="status">
-        Platform activity is unavailable.
-      </p>
-    ) : (
-      <section className="panel stack-panel" aria-label="Loading platform activity">
-        <Skeleton rows={8} />
-      </section>
-    );
-  }
-
-  const unsignedPayouts = data.payouts.filter((payout) => !payout.signature).length;
-  const heldRequests = data.creditRecovery?.held.length ?? 0;
-  const attention: AttentionItem[] = (
-    [
-      badges?.openTickets
-        ? {
-            Icon: LifeBuoy,
-            label: badges.openTickets + " support request" + (badges.openTickets === 1 ? "" : "s") + " open",
-            href: "/console/admin/support",
-          }
-        : null,
-      badges?.overdueTasks
-        ? {
-            Icon: CalendarClock,
-            label: badges.overdueTasks + " follow-up" + (badges.overdueTasks === 1 ? "" : "s") + " overdue",
-            href: "/console/admin/customers",
-          }
-        : null,
-      unsignedPayouts
-        ? {
-            Icon: Landmark,
-            label:
-              unsignedPayouts +
-              " payout" +
-              (unsignedPayouts === 1 ? "" : "s") +
-              " awaiting treasury approval",
-            anchor: "admin-payouts",
-          }
-        : null,
-      data.hasUnreconciled
-        ? {
-            Icon: RefreshCw,
-            label: "Usage records awaiting reconciliation",
-            run: () =>
-              void act(async () => {
-                const { count } = await request<{ count: number }>("admin-reconcile", {});
-                return count
-                  ? "Reconciled " + count + " requests."
-                  : "NEAR has no new finalized cost records yet.";
-              }),
-          }
-        : null,
-      heldRequests
-        ? {
-            Icon: ShieldAlert,
-            label: heldRequests + " held request" + (heldRequests === 1 ? "" : "s") + " awaiting resolution",
-            anchor: "admin-recovery",
-          }
-        : null,
-    ] as (AttentionItem | null)[]
-  ).filter((item): item is AttentionItem => item !== null);
-
-  const inference = metricRows(data);
-
-  return (
-    <div className="admin-overview">
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p className="status" role="status">
-          {notice}
-        </p>
-      )}
-      {attention.length > 0 && (
-        <div className="admin-attention" aria-label="Needs attention">
-          {attention.map((item) =>
-            item.href ? (
-              <a key={item.label} className="attention-row" href={item.href}>
-                <item.Icon size={15} aria-hidden="true" />
-                <span>{item.label}</span>
-                <ArrowRight size={14} aria-hidden="true" className="attention-arrow" />
-              </a>
-            ) : (
-              <button
-                key={item.label}
-                type="button"
-                className="attention-row"
-                disabled={busy}
-                onClick={() => {
-                  if (item.run) item.run();
-                  else if (item.anchor)
-                    document.getElementById(item.anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                <item.Icon size={15} aria-hidden="true" />
-                <span>{item.label}</span>
-                <ArrowRight size={14} aria-hidden="true" className="attention-arrow" />
-              </button>
-            ),
           )}
-        </div>
-      )}
-      {attention.length === 0 && (
-        <p className="status admin-clear" role="status">
-          Nothing needs action right now. Support, follow-ups, payouts, and held credits are clear.
-        </p>
-      )}
-      <dl className="stat-cards">
-        <div>
-          <dt>Requests · 30d</dt>
-          <dd>{data.stats.requests.toLocaleString()}</dd>
-          <dd className="stat-sub">
-            {data.stats.requests
-              ? Math.round((data.stats.complete / data.stats.requests) * 100) + "% completed"
-              : "No traffic yet"}
-          </dd>
-        </div>
-        <div>
-          <dt>Customer spend · 30d</dt>
-          <dd>{creditBalance(data.stats.spendMicros)}</dd>
-          <dd className="stat-sub">
-            {data.stats.input.toLocaleString()} in · {data.stats.output.toLocaleString()} out
-          </dd>
-        </div>
-        <div>
-          <dt>USDC received · 30d</dt>
-          <dd>{creditBalance(data.depositMicros)}</dd>
-          <dd className="stat-sub">{data.deposits.toLocaleString()} deposits</dd>
-        </div>
-        <div>
-          <dt>Active wallets</dt>
-          <dd>{data.activeWallets.toLocaleString()}</dd>
-          <dd className="stat-sub">in 30 days</dd>
-        </div>
-        <div>
-          <dt>New workspaces · 14d</dt>
-          <dd>{data.activation ? data.activation.joined.toLocaleString() : "—"}</dd>
-          <dd className="stat-sub">{data.activation ? data.activation.funded + " funded" : ""}</dd>
-        </div>
-        <div>
-          <dt>Open support</dt>
-          <dd>{badges === undefined ? "—" : badges.openTickets.toLocaleString()}</dd>
-          <dd className="stat-sub">{data.tickets.toLocaleString()} in 30d</dd>
-        </div>
-      </dl>
-      <div className="admin-grid admin-queues">
-        <FollowUpsDue />
-        <div id="admin-recovery">
-          <CreditRecovery data={data.creditRecovery} busy={busy} act={act} />
-        </div>
-        <section className="panel stack-panel">
-          <h2 id="admin-payouts">Profit payouts</h2>
-          <p className="caption">
-            Payout preparation, treasury approval and finality verification live on the payouts surface.
-          </p>
-          <div className="actions">
-            <a className="button quiet" href="/console/admin/payouts">
-              Open payouts
-            </a>
-          </div>
-        </section>
-      </div>
-      <div className="admin-grid">
-        {data.activation && (
-          <section className="panel stack-panel">
-            <h2>New workspaces · Last 14 days</h2>
-            {data.activation.capped && <p className="caption">Showing the most recent 200 workspaces.</p>}
-            <dl className="admin-metrics">
-              {(
-                [
-                  ["Wallets signed in", data.activation.joined],
-                  ["Terms accepted", data.activation.accepted],
-                  ["Setup completed", data.activation.finishedSetup],
-                  ["USDC checkout started", data.activation.startedFunding],
-                  ["Credits added", data.activation.funded],
-                  ["First paid request", data.activation.active],
-                ] as const
-              ).map(([label, count]) => (
-                <div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{count.toLocaleString()}</dd>
+        </Panel>
+
+        <Panel title="My follow-ups">
+          {mineDue.length === 0 ? <Empty title="No follow-ups due" /> : (
+            <div className="divide-y divide-border">
+              {mineDue.slice(0, 5).map((task) => (
+                <div key={task.id} className="flex items-start gap-3 px-4 py-3">
+                  <Clock3 size={16} className="mt-0.5 text-warn" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-ui font-medium text-foreground">{task.title}</p>
+                    <p className="text-meta text-muted-foreground">{shortWallet(task.account)} · due {dateTime(task.dueAt)}</p>
+                  </div>
                 </div>
               ))}
-            </dl>
-          </section>
-        )}
-        <section className="panel stack-panel">
-          <h2>Activity over 30 days</h2>
-          <dl className="admin-metrics">
-            <div>
-              <dt>Requests</dt>
-              <dd>{data.stats.requests.toLocaleString()}</dd>
             </div>
-            <div>
-              <dt>Completed</dt>
-              <dd>{data.stats.complete.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>Failed</dt>
-              <dd>{data.stats.failed.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>Open reservations</dt>
-              <dd>{data.stats.held.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>Input tokens</dt>
-              <dd>{data.stats.input.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>Output tokens</dt>
-              <dd>{data.stats.output.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>Active wallets</dt>
-              <dd>{data.activeWallets.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>Support requests</dt>
-              <dd>{data.tickets.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>Finalized deposits</dt>
-              <dd>{data.deposits.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>USDC received</dt>
-              <dd>{creditBalance(data.depositMicros)}</dd>
-            </div>
-            <div>
-              <dt>Customer inference spend</dt>
-              <dd>{creditBalance(data.stats.spendMicros)}</dd>
-            </div>
-          </dl>
-          {data.truncated && (
-            <p className="caption">Activity is based on the 1,000 newest records of each type in this window.</p>
           )}
-        </section>
-        {data.gateway && data.gateway.state !== "disabled" && (
-          <section className="panel stack-panel">
-            <h2>UsageMax receipts</h2>
-            {data.gateway.state === "unavailable" ? (
-              <p className="caption">UsageMax reporting is unavailable. Local activity is shown above.</p>
-            ) : (
-              <>
-                <dl className="admin-metrics">
-                  <div>
-                    <dt>Receipts returned</dt>
-                    <dd>{data.gateway.count.toLocaleString()}</dd>
-                  </div>
-                  <div>
-                    <dt>Completed</dt>
-                    <dd>{data.gateway.completed.toLocaleString()}</dd>
-                  </div>
-                  <div>
-                    <dt>Errors</dt>
-                    <dd>{data.gateway.errors.toLocaleString()}</dd>
-                  </div>
-                  <div>
-                    <dt>Cancelled</dt>
-                    <dd>{data.gateway.cancelled.toLocaleString()}</dd>
-                  </div>
-                </dl>
-                <p className="caption">
-                  From {data.gateway.from} through {data.gateway.through} UTC. Refreshed{" "}
-                  {new Date(data.gateway.fetchedAt).toLocaleString()}.
-                </p>
-                <p className="caption">
-                  {data.gateway.latestSettledAt === null
-                    ? "No receipts returned in this window."
-                    : "Latest settlement " + new Date(data.gateway.latestSettledAt).toLocaleString() + "."}
-                </p>
-                {data.gateway.truncated && (
-                  <p className="caption">Counts cover the returned receipts. More receipts exist in this window.</p>
-                )}
-                {data.gateway.latestReceiptUrl && (
-                  <a className="caption" href={data.gateway.latestReceiptUrl}>
-                    Open latest receipt in UsageMax
-                  </a>
-                )}
-                <p className="caption">Analytics powered by UsageMax</p>
-              </>
-            )}
-          </section>
-        )}
-        <section className="panel stack-panel">
-          <h2>Treasury</h2>
-          <dl className="admin-metrics">
-            <div>
-              <dt>Finalized treasury USDC</dt>
-              <dd>{data.treasuryMicros === null ? "—" : creditBalance(data.treasuryMicros)}</dd>
-            </div>
-            <div>
-              <dt>Credits and open reservations</dt>
-              <dd>{data.creditLiability === null ? "—" : creditBalance(data.creditLiability)}</dd>
-            </div>
-            <div>
-              <dt>Reconciled requests</dt>
-              <dd>{data.finance.reconciled.toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>Reconciled charges</dt>
-              <dd>{creditBalance(data.finance.customerMicros)}</dd>
-            </div>
-            <div>
-              <dt>Verified NEAR cost</dt>
-              <dd>${(data.finance.providerNano / 1e9).toFixed(9).replace(/0{1,7}$/, "")}</dd>
-            </div>
-            <div>
-              <dt>Available margin</dt>
-              <dd>{creditBalance(data.finance.availableMicros)}</dd>
-            </div>
-            <div>
-              <dt>Profit paid</dt>
-              <dd>{creditBalance(data.finance.paidMicros)}</dd>
-            </div>
-          </dl>
-          <p className="caption">
-            Provider cost reconciliation is not modeled in this shell, so only customer-side ledger
-            figures are shown. Payouts are prepared and verified on the payouts surface.
-          </p>
-          <div className="actions">
-            <a className="button accent" href="/console/admin/payouts">
-              Open payouts
-            </a>
-          </div>
-        </section>
-        <section className="panel breakdown">
-          <h2 id="admin-inference-by-model">Inference by model</h2>
-          {inference.active.length ? (
-            <ModelTable rows={inference.active} labelledBy="admin-inference-by-model" />
-          ) : (
-            <EmptyState
-              title="No inference traffic"
-              hint="Models with requests, failures, held credit, or spend in this window will appear here."
-            />
-          )}
-          {inference.extra.length > 0 && inference.active.length > 0 && (
-            <details className="admin-zero-rows">
-              <summary className="caption">
-                {inference.extra.length} model{inference.extra.length === 1 ? "" : "s"} with no traffic
-              </summary>
-              <ModelTable rows={inference.extra} labelledBy="admin-inference-by-model" />
-            </details>
-          )}
-        </section>
+        </Panel>
       </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Panel title="Customer activation">
+          <div className="grid gap-3 px-4 py-4 sm:grid-cols-3">
+            {[
+              { label: "signed up", value: signups.length, icon: UserCheck },
+              { label: "funded", value: signups.filter((row) => row.funded).length, icon: CircleDollarSign },
+              { label: "activated", value: signups.filter((row) => row.active).length, icon: UserCheck },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded-md border border-border bg-muted px-3 py-3">
+                <Icon size={16} className="text-muted-foreground" aria-hidden="true" />
+                <p className="mt-2 text-heading font-medium tracking-heading">{value}</p>
+                <p className="text-meta text-muted-foreground">{label}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Recent failures" aside={<Button asChild variant="outline" size="sm"><a href="/console/admin/traces">Open traces</a></Button>}>
+          {failed.length === 0 ? <Empty title="No failed requests in the last day" /> : (
+            <TableFrame>
+              <TableHeader><TableRow><TableHead>Request</TableHead><TableHead>Customer</TableHead><TableHead>Model</TableHead><TableHead>Status</TableHead><TableHead>Time</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {failed.slice(0, 6).map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-mono text-meta" label="Request">{row.id.slice(0, 10)}</TableCell>
+                    <TableCell className="font-mono text-meta" label="Customer">{shortWallet(row.wallet)}</TableCell>
+                    <TableCell label="Model">{row.model}</TableCell>
+                    <TableCell label="Status"><StatusMark tone={stateTone(row.status)}>{row.status}</StatusMark></TableCell>
+                    <TableCell label="Time">{dateTime(row.time)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </TableFrame>
+          )}
+        </Panel>
+      </div>
+
+      <Panel title="Inference by model · 7d">
+        {modelRows.length === 0 ? <Empty title="No inference activity yet" /> : (
+          <TableFrame>
+            <TableHeader><TableRow><TableHead>Model</TableHead><TableHead>Requests</TableHead><TableHead>Completed</TableHead><TableHead>Spend</TableHead><TableHead>Median latency</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {modelRows.map(({ model, rows }) => {
+                const done = rows.filter((row) => row.status === "Complete");
+                const latencies = done.map((row) => row.providerMs).sort((a, b) => a - b);
+                return (
+                  <TableRow key={model}>
+                    <TableCell label="Model">{model}</TableCell>
+                    <TableCell label="Requests">{rows.length.toLocaleString()}</TableCell>
+                    <TableCell label="Completed">{done.length.toLocaleString()}</TableCell>
+                    <TableCell label="Spend">{money(done.reduce((sum, row) => sum + row.cost, 0))}</TableCell>
+                    <TableCell label="Median latency">{latencies.length ? `${latencies[Math.floor(latencies.length / 2)].toLocaleString()} ms` : "—"}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </TableFrame>
+        )}
+      </Panel>
     </div>
   );
 }
