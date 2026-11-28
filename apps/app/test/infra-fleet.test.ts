@@ -62,3 +62,85 @@ describe("fleet machine cache", () => {
     expect(await providePipe(program)).toEqual({ rebuilt: true });
   });
 });
+
+describe("legacy fleet state (spec/app/console/index.md, \"The console starts unnamed with factory defaults\")", () => {
+  function seedAndLoad(machine: string, wallet: string, stored: unknown) {
+    return Effect.gen(function* () {
+      const kv = yield* KeyValueStore.KeyValueStore;
+      yield* kv.set(machine + ":" + wallet, JSON.stringify(stored));
+      const fleet = yield* Fleet;
+      const instance = yield* fleet.machine(machine, wallet);
+      return yield* instance.get();
+    });
+  }
+
+  it("loads a legacy console state missing plain and history with the factory choices", async () => {
+    const legacy = { name: "Ada", username: "ada", theme: "Light" };
+    const state = (await providePipe(seedAndLoad("console", "wallet-legacy-plain", legacy))) as Record<string, unknown>;
+    expect(state).toEqual({ name: "Ada", username: "ada", theme: "Light", plain: true, history: true });
+  });
+
+  it("drops the retired saveOnDevice field and keeps the stored choices", async () => {
+    const legacy = { name: "Ada", username: "ada", theme: "Dark", plain: false, history: false, saveOnDevice: true };
+    const state = (await providePipe(seedAndLoad("console", "wallet-legacy-retired", legacy))) as Record<string, unknown>;
+    expect(state).toEqual({ name: "Ada", username: "ada", theme: "Dark", plain: false, history: false });
+  });
+
+  // spec/app/console/chat.md, "A conversation is an alternating run of user and assistant messages"
+  it("loads a legacy chat state whose messages miss their model with the inherited one", async () => {
+    const legacy = {
+      threads: [
+        {
+          id: "thread-legacy",
+          model: "thread-model",
+          messages: [
+            { role: "User", content: "hi" },
+            { role: "Assistant", content: "hello", model: "kept-model", tokens: 4 },
+          ],
+          retiredThreadField: true,
+        },
+        {
+          id: "thread-older",
+          messages: [{ role: "User", content: "older" }],
+        },
+      ],
+      active: "thread-legacy",
+      model: "root-model",
+      retiredRootField: 1,
+    };
+    const state = (await providePipe(seedAndLoad("console__chat", "wallet-legacy-chat", legacy))) as {
+      threads: { id: string; model: string; messages: { role: string; content: string; model: string }[] }[];
+      active: string;
+      model: string;
+    };
+    expect(state).toEqual({
+      threads: [
+        {
+          id: "thread-legacy",
+          model: "thread-model",
+          messages: [
+            { role: "User", content: "hi", model: "thread-model" },
+            { role: "Assistant", content: "hello", model: "kept-model" },
+          ],
+        },
+        {
+          id: "thread-older",
+          model: "root-model",
+          messages: [{ role: "User", content: "older", model: "root-model" }],
+        },
+      ],
+      active: "thread-legacy",
+      model: "root-model",
+    });
+  });
+
+  it("loads a current chat state exactly as stored", async () => {
+    const current = {
+      threads: [{ id: "thread-now", model: "m", messages: [{ role: "User", content: "hi", model: "m" }] }],
+      active: "thread-now",
+      model: "m",
+    };
+    const state = await providePipe(seedAndLoad("console__chat", "wallet-current-chat", current));
+    expect(state).toEqual(current);
+  });
+});

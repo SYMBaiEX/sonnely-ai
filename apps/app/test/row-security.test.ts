@@ -174,6 +174,7 @@ function makeAppWithDir(finalizedDeposit = false, usageRows: Usage.Row[] = [], a
     gatewayApi,
     sessionApi,
     fleetMachineApi("console__chat", { events: ["newChat", "send"] }),
+    fleetMachineApi("console", { events: ["chooseTheme", "saveProfile", "setPlain", "setHistory"] }),
   );
   const state = Layer.provideMerge(
     Layer.mergeAll(
@@ -441,6 +442,88 @@ describe("row-level access", () => {
       bIds: b.threads.map((t) => t.id),
     }).toEqual({ writeOk: 200, aIds: ["thread-a"], bIds: ["thread-b"] });
   });
+
+  // spec/app/console/chat.md, "A conversation is an alternating run of user and assistant messages"
+  it("serves a legacy chat state whose messages miss their model with the inherited one", async () => {
+    const { handler, dir } = makeAppWithDir();
+    writeFileSync(join(dir, encodeURIComponent("console__chat:" + walletB)), JSON.stringify({
+      threads: [{
+        id: "thread-legacy",
+        model: "thread-model",
+        messages: [
+          { role: "User", content: "hi" },
+          { role: "Assistant", content: "hello", model: "kept-model", tokens: 4 },
+        ],
+      }],
+      active: "thread-legacy",
+      model: "root-model",
+      saveOnDevice: true,
+    }));
+    const state = await (await get(handler, "/api/machines/console__chat", tokenB)).json() as {
+      threads: { id: string; model: string; messages: { role: string; content: string; model: string }[] }[];
+    };
+    expect(state).toEqual({
+      threads: [{
+        id: "thread-legacy",
+        model: "thread-model",
+        messages: [
+          { role: "User", content: "hi", model: "thread-model" },
+          { role: "Assistant", content: "hello", model: "kept-model" },
+        ],
+      }],
+      active: "thread-legacy",
+      model: "root-model",
+    });
+  });
+
+  // spec/app/console/index.md, "The console starts unnamed with factory defaults"
+  it("serves a legacy console settings state with the factory choices filled", async () => {
+    const { handler, dir } = makeAppWithDir();
+    writeFileSync(join(dir, encodeURIComponent("console:" + walletA)), JSON.stringify({
+      name: "Ada",
+      username: "ada",
+      theme: "Light",
+      saveOnDevice: true,
+    }));
+    const response = await get(handler, "/api/machines/console", tokenA);
+    const state = await response.json() as Record<string, unknown>;
+    expect({ status: response.status, state }).toEqual({
+      status: 200,
+      state: { name: "Ada", username: "ada", theme: "Light", plain: true, history: true },
+    });
+  });
+
+  // spec/app/console/chat.md, "The playground is the threads, the open one and the chosen model"; spec/app/session.md, "Only an active session can sign out"
+  it("serves the multiplexed and per-machine streams while another fleet machine is corrupt", async () => {
+    const { handler, dir } = makeAppWithDir();
+    writeFileSync(join(dir, encodeURIComponent("console:" + walletA)), JSON.stringify({
+      name: 42,
+      username: "ada",
+      theme: "Light",
+      plain: true,
+      history: true,
+    }));
+    const multiplexed = await get(handler, "/api/machines/stream", tokenA);
+    expect(multiplexed.status).toBe(200);
+    const multiplexReader = multiplexed.body!.getReader();
+    const first = await multiplexReader.read();
+    const opening = first.done ? "" : new TextDecoder().decode(first.value);
+    await multiplexReader.cancel();
+
+    const chatStream = await get(handler, "/api/machines/console__chat/stream", tokenA);
+    expect(chatStream.status).toBe(200);
+    const chatReader = chatStream.body!.getReader();
+    const chatFirst = await chatReader.read();
+    const chatOpening = chatFirst.done ? "" : new TextDecoder().decode(chatFirst.value);
+    await chatReader.cancel();
+
+    const consoleState = await get(handler, "/api/machines/console", tokenA);
+    expect({
+      multiplexedFrames: opening.includes("data: "),
+      chatFrames: chatOpening.includes("secret prompt"),
+      corruptStatus: consoleState.status,
+    }).toEqual({ multiplexedFrames: true, chatFrames: true, corruptStatus: 500 });
+  }, 15_000);
 
   // spec/app/gateway/batch.md, "Story: Run a resumable batch"
   it("keeps each wallet's batch job in its own instance", async () => {

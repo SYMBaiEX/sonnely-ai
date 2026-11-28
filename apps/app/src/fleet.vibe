@@ -16,18 +16,22 @@ export interface FleetMachine {
   changes: Stream.Stream<unknown>
 }
 
-export const fleetMachineNames = ["console", "console__chat", "console__logs", "console__batch"]
-
 interface Storekv {
   get(key: string): (string | undefined)!any
   set(key: string, value: string): void!any
 }
 
 // spec/app/console/index.md, "The console starts unnamed with factory defaults"
-function withConsoleDefaults(parsed: unknown) {
-  if (parsed == undefined || typeof parsed != "object") return parsed
-  const state = parsed as { history?: unknown }
-  return typeof state.history == "boolean" ? parsed : { ...state, history: true }
+function migrateConsoleState(parsed: unknown) {
+  if (parsed == undefined || typeof parsed != "object" || Array.isArray(parsed)) return parsed
+  const state = parsed as { name?: unknown; username?: unknown; theme?: unknown; plain?: unknown; history?: unknown }
+  return {
+    name: state.name,
+    username: state.username,
+    theme: state.theme,
+    plain: typeof state.plain == "boolean" ? state.plain : true,
+    history: typeof state.history == "boolean" ? state.history : true,
+  }
 }
 
 effect function buildConsole(kv: Storekv, key: string) {
@@ -35,7 +39,7 @@ effect function buildConsole(kv: Storekv, key: string) {
     const found = try Effect.orDie(kv.get(key))
     if (found === undefined) return Console.initial
     const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Console.NotAState({ input: found }) }))
-    return try Effect.orDie(Console.decodeState(withConsoleDefaults(parsed)))
+    return try Effect.orDie(Console.decodeState(migrateConsoleState(parsed)))
   }
   return try Effect.orDie(Console.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
 }
@@ -45,12 +49,35 @@ interface Storekv {
   set(key: string, value: string): void!any
 }
 
+// spec/app/console/chat.md, "A conversation is an alternating run of user and assistant messages"
+function migrateChatMessage(message: unknown, inherited: string | undefined) {
+  if (message == undefined || typeof message != "object" || Array.isArray(message)) return message
+  const record = message as { role?: unknown; content?: unknown; model?: unknown }
+  return { role: record.role, content: record.content, model: typeof record.model == "string" ? record.model : inherited }
+}
+
+function migrateChatThread(thread: unknown, rootModel: string | undefined) {
+  if (thread == undefined || typeof thread != "object" || Array.isArray(thread)) return thread
+  const record = thread as { id?: unknown; model?: unknown; messages?: unknown }
+  const model = typeof record.model == "string" ? record.model : rootModel
+  const messages = Array.isArray(record.messages) ? record.messages.map((message) => migrateChatMessage(message, model)) : record.messages
+  return { id: record.id, model, messages }
+}
+
+function migrateChatState(parsed: unknown) {
+  if (parsed == undefined || typeof parsed != "object" || Array.isArray(parsed)) return parsed
+  const state = parsed as { threads?: unknown; active?: unknown; model?: unknown }
+  const rootModel = typeof state.model == "string" ? state.model : undefined
+  const threads = Array.isArray(state.threads) ? state.threads.map((thread) => migrateChatThread(thread, rootModel)) : state.threads
+  return { threads, active: state.active, model: state.model }
+}
+
 effect function buildChat(kv: Storekv, key: string) {
   effect function load() {
     const found = try Effect.orDie(kv.get(key))
     if (found === undefined) return Chat.initial
     const parsed = try Effect.orDie(Effect.try({ try: () => JSON.parse(found) as unknown, catch: () => new Chat.NotAState({ input: found }) }))
-    return try Effect.orDie(Chat.decodeState(parsed))
+    return try Effect.orDie(Chat.decodeState(migrateChatState(parsed)))
   }
   return try Effect.orDie(Chat.machineOver(load, (next) => Effect.orDie(kv.set(key, JSON.stringify(next)))))
 }

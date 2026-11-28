@@ -7,7 +7,7 @@ import * as Admin from "../gen/app__admin.effect.vibe"
 import * as Session from "../gen/app__session.effect.vibe"
 import * as Schedule from "effect/Schedule"
 import { authenticatedSession, authenticatedWallet } from "./api/session.vibe"
-import { Fleet, fleetMachineNames, type FleetMachine } from "./fleet.vibe"
+import { Fleet, type FleetMachine } from "./fleet.vibe"
 
 export interface MachineLike {
   get(): unknown!!
@@ -257,13 +257,6 @@ effect function getMultiplexedStream(registry: MachineRegistry.Shape) {
     const state = entry.scoping.project != undefined && wallet != "" ? entry.scoping.project(raw, wallet) : raw
     return `data: ${JSON.stringify({ machine: name, state })}\n\n`
   }))
-  if (wallet != "") {
-    const fleet = try Fleet
-    for (const name of fleetMachineNames) {
-      const instance = try fleet.machine(name, wallet)
-      streams.push(Stream.map(instance.changes, (state) => `data: ${JSON.stringify({ machine: name, state })}\n\n`))
-    }
-  }
   const merged = Stream.mergeAll(streams, { concurrency: "unbounded" })
   return try sessionBoundSse(merged, wallet, session.digest)
 }
