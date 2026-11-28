@@ -8,12 +8,14 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Machine } from "../gen/app__nav.effect.vibe";
 import { App, navigate } from "../src/web/App.tsx";
-import { nav } from "../src/web/nav.vibe";
+import { current, nav } from "../src/web/nav.vibe";
+
+function makeRuntime(): ManagedRuntime.ManagedRuntime<Machine, unknown> {
+  return ManagedRuntime.make(Layer.provide(nav, KeyValueStore.layerMemory));
+}
 
 function renderApp() {
-  const runtime: ManagedRuntime.ManagedRuntime<Machine, unknown> = ManagedRuntime.make(
-    Layer.provide(nav, KeyValueStore.layerMemory),
-  );
+  const runtime = makeRuntime();
   const el = document.createElement("div");
   document.body.appendChild(el);
   const root = createRoot(el);
@@ -133,6 +135,16 @@ it("keeps the page open when a same-page hash entry appears", async () => {
   });
   const current = el.querySelector(".site-nav nav a[aria-current='page']");
   expect([current?.getAttribute("href"), location.hash]).toEqual(["/inference", "#evidence"]);
+});
+
+// spec/app/nav.md, "Story: Move around"
+it("does not reopen the current page", async () => {
+  const runtime = makeRuntime();
+  await navigate(runtime, { tag: "Inference" });
+  const before = await runtime.runPromise(current());
+  await navigate(runtime, { tag: "Inference" });
+  const after = await runtime.runPromise(current());
+  expect(after).toEqual(before);
 });
 
 // spec/app/nav.md, "Story: Move around"
