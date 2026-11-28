@@ -226,6 +226,7 @@ export function ModelCatalog() {
   const providerValue = filter.provider.tag === "Only" ? filter.provider.provider : "every";
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "every";
   const filterSignature = [filter.query, providerValue, workloadValue, filter.availability, filter.sort].join("|");
+  const empty = displayed.length === 0;
 
   async function clearFilters() {
     searchRef.current?.focus();
@@ -235,7 +236,7 @@ export function ModelCatalog() {
   }
 
   return (
-    <div data-models-browser>
+    <div data-models-browser data-models-empty={empty || undefined}>
       <div className="catalog-availability" role="group" aria-label="Model lists">
         <button
           type="button"
@@ -255,16 +256,14 @@ export function ModelCatalog() {
         </button>
       </div>
       <CatalogTools filter={filter} searchRef={searchRef} send={send} />
-      {displayed.length > 0
-        ? <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
-        : (
-          <div id="model-rates" data-models-empty>
-            <p role="status">No models match your search and filters.</p>
-            <button type="button" className={buttonQuiet} onClick={() => void clearFilters()}>
-              Clear search and filters
-            </button>
-          </div>
-        )}
+      <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
+      {empty && (
+        <div data-models-recovery>
+          <button type="button" className={buttonQuiet} onClick={() => void clearFilters()}>
+            Clear search and filters
+          </button>
+        </div>
+      )}
       <aside className="catalog-note">
         <span>Prices shown are the final Sonnely rates.</span>
         <a href="/pricing">How billing works <ArrowUpRight size={12} aria-hidden="true" /></a>
