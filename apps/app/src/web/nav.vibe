@@ -5,6 +5,12 @@ import type { Page } from "../../gen/app__nav.ts"
 /** The navigator, kept under "nav2": the page model changed when observability merged into inference, and a state written against it is not a state now. */
 export const nav = stored("nav2")
 
+/** The navigation state as it is kept now. */
+export effect function current() {
+  const machine = try Machine
+  return try machine.get()
+}
+
 /** A page opened from a link in the page. */
 export effect function open(page: Page) {
   const machine = try Machine

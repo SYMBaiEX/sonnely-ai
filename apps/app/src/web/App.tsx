@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import type { Machine } from "../../gen/app__nav.effect.vibe";
 import { useMachine } from "../../gen/app__nav.react.ts";
 import type { Page } from "../../gen/app__nav.ts";
-import { back, open } from "./nav.vibe";
+import { back, current, open } from "./nav.vibe";
 import { pageOf, pathOf, redirectOf } from "./routes.ts";
 import { titleOf } from "./titles.ts";
 
@@ -29,6 +29,11 @@ function scrollToHash(hash: string): boolean {
   if (!target) return false;
   target.scrollIntoView();
   return true;
+}
+
+function jumpToHash(hash: string) {
+  history.replaceState(history.state, "", location.pathname + hash);
+  scrollToHash(hash);
 }
 
 /**
@@ -88,7 +93,6 @@ export function App({ runtime, path }: AppProps) {
       if (!anchor || anchor.target || anchor.hasAttribute("download")) return;
       const url = new URL(anchor.href, location.href);
       if (url.origin !== location.origin || url.search) return;
-      if (url.pathname === location.pathname && url.hash) return;
       event.preventDefault();
       void navigate(runtime, pageOf(url.pathname), url.hash);
     };
@@ -119,10 +123,21 @@ export function App({ runtime, path }: AppProps) {
 }
 
 export async function navigate(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>, page: Page, hash = "") {
+  const path = pathOf(page);
+  const state = await runtime.runPromise(current());
+  if (pathOf(state.page) === path) {
+    if (hash) {
+      jumpToHash(hash);
+    } else {
+      history.replaceState(history.state, "", path);
+      scrollTo(0, 0);
+    }
+    return Exit.succeed(state);
+  }
   pendingScrollHash = hash === "" ? null : hash;
   const exit = await runtime.runPromiseExit(open(page));
   if (Exit.isSuccess(exit)) {
-    history.pushState(null, "", pathOf(page) + hash);
+    history.pushState(null, "", path + hash);
     if (!hash) scrollTo(0, 0);
   } else {
     pendingScrollHash = null;
