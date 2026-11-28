@@ -27,6 +27,7 @@ let pendingScrollHash: string | null = null;
 function scrollToHash(hash: string): boolean {
   const target = document.getElementById(hash.slice(1));
   if (!target) return false;
+  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
   target.focus({ preventScroll: true });
   target.scrollIntoView();
   return true;

@@ -156,7 +156,6 @@ it("moves focus to a same-page hash target without adding history", async () => 
   await navigate(runtime, { tag: "Inference" });
   const target = document.createElement("section");
   target.id = "focus-target";
-  target.tabIndex = -1;
   document.body.appendChild(target);
   const historyLength = history.length;
   try {
