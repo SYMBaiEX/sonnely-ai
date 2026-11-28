@@ -64,8 +64,8 @@ export function PlaygroundRoute({
   }
 
   function selectModel(choice: ChatModel) {
+    if (choice.id !== draftModel) setDraftFallbacks([]);
     setDraftModel(choice.id);
-    setDraftFallbacks([]);
     const eligibleRoutes = availableRoutes(choice, availableProviders);
     if (!eligibleRoutes.some(({ provider }) => provider === draftProvider)) {
       setDraftProvider(eligibleRoutes[0]?.provider ?? choice.routes[0]?.provider ?? "near-ai");
@@ -153,8 +153,8 @@ export function PlaygroundRoute({
                           key={route.provider}
                           aria-pressed={selected}
                           onClick={() => {
+                            if (route.provider !== draftProvider) setDraftFallbacks([]);
                             setDraftProvider(route.provider);
-                            setDraftFallbacks([]);
                           }}
                           className={choiceClass(selected)}
                         >
