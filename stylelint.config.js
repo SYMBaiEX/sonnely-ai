@@ -8,12 +8,16 @@ const semanticRuleName = "sonnely/no-semantic-token-override";
 const aliasRuleName = "sonnely/no-legacy-design-alias";
 
 const hexColor = /#[0-9a-f]{3,8}\b/gi;
-const colorFunction = /\b(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\s*\(/gi;
+const colorFunction = /\b(?:color|rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\s*\(/gi;
 const namedColors = "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen".split(" ");
 const namedColor = new RegExp(`(?<![\\w-])(?:${namedColors.join("|")})(?![\\w-])`, "gi");
 
+const cssUrl = /url\((?:[^()\\]|\\.)*\)/gi;
+const cssString = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
+
 function literalColorCount(value) {
-  return (value.match(hexColor)?.length ?? 0) + (value.match(colorFunction)?.length ?? 0) + (value.match(namedColor)?.length ?? 0);
+  const colors = value.replace(cssUrl, " ").replace(cssString, " ");
+  return (colors.match(hexColor)?.length ?? 0) + (colors.match(colorFunction)?.length ?? 0) + (colors.match(namedColor)?.length ?? 0);
 }
 
 function fileName(root) {
