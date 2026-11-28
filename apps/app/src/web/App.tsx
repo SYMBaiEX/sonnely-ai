@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import type { Machine } from "../../gen/app__nav.effect.vibe";
 import { useMachine } from "../../gen/app__nav.react.ts";
 import type { Page } from "../../gen/app__nav.ts";
-import { back, current, open } from "./nav.vibe";
+import { back, open } from "./nav.vibe";
 import { pageOf, pathOf, redirectOf } from "./routes.ts";
 import { titleOf } from "./titles.ts";
 
@@ -27,12 +27,14 @@ let pendingScrollHash: string | null = null;
 function scrollToHash(hash: string): boolean {
   const target = document.getElementById(hash.slice(1));
   if (!target) return false;
+  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  target.focus({ preventScroll: true });
   target.scrollIntoView();
   return true;
 }
 
-function jumpToHash(hash: string) {
-  history.replaceState(history.state, "", location.pathname + hash);
+function jumpToHash(path: string, hash: string) {
+  history.replaceState(history.state, "", path + hash);
   scrollToHash(hash);
 }
 
@@ -124,15 +126,14 @@ export function App({ runtime, path }: AppProps) {
 
 export async function navigate(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>, page: Page, hash = "") {
   const path = pathOf(page);
-  const state = await runtime.runPromise(current());
-  if (pathOf(state.page) === path) {
+  if (path === pathOf(pageOf(location.pathname))) {
     if (hash) {
-      jumpToHash(hash);
+      jumpToHash(path, hash);
     } else {
       history.replaceState(history.state, "", path);
       scrollTo(0, 0);
     }
-    return Exit.succeed(state);
+    return Exit.succeed(undefined);
   }
   pendingScrollHash = hash === "" ? null : hash;
   const exit = await runtime.runPromiseExit(open(page));
