@@ -59,6 +59,9 @@ async function seed() {
     inviter: "",
     now,
   });
+  await machine("teams", { type: "createTeam", id: "team-consolepolish-" + runId, name: "Workspace operations", actor: wallet, now });
+  await machine("teams", { type: "createProject", teamId: "team-consolepolish-" + runId, projectId: "project-consolepolish-" + runId, actor: wallet, name: "Settlement console", budget: 25000000 });
+  await machine("admin-referrals", { type: "issueCode", wallet, code: "ADA-" + runId.toUpperCase() });
   await machine("support", {
     type: "open",
     id: ticketId,
@@ -106,7 +109,11 @@ async function capture(browser, name, path, actions, viewport, colorScheme) {
   if (actions) await actions(page);
   const tag = `${viewport.width > 500 ? "desktop" : "mobile"}-${colorScheme}`;
   await mkdir(`${out}/${tag}`, { recursive: true });
-  await page.screenshot({ path: `${out}/${tag}/${name}.png`, fullPage: false });
+  try {
+    await page.screenshot({ path: `${out}/${tag}/${name}.png`, fullPage: false, timeout: 10_000 });
+  } catch {
+    errors.push("screenshot timed out while fonts loaded");
+  }
   if (errors.length) console.error(`console errors on ${name} (${tag}):\n` + [...new Set(errors)].join("\n"));
   await context.close();
 }
@@ -129,6 +136,9 @@ for (const viewport of [desktop, mobile]) {
       await page.waitForTimeout(400);
     });
     await run("models", "/console/models");
+    await run("billing", "/console/billing");
+    await run("teams", "/console/teams");
+    await run("referrals", "/console/referrals");
     await run("support", "/console/support");
     await run("support-thread", "/console/support", async (page) => {
       await page.locator("details summary").first().click();
