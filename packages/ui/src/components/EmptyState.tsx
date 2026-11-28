@@ -18,7 +18,7 @@ export function EmptyState({ title, description, icon, className, children, ...p
     <div className={cn("flex flex-col items-center gap-4 p-8 text-center", className)} {...props}>
       {icon ? <div aria-hidden className="text-muted-foreground">{icon}</div> : null}
       <div className="flex flex-col gap-1">
-        <p className="text-ui font-medium text-muted-foreground">{title}</p>
+        <h2 className="text-ui font-medium text-muted-foreground">{title}</h2>
         {description ? <p className="text-meta text-muted-foreground">{description}</p> : null}
       </div>
       {children}
