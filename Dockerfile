@@ -14,13 +14,11 @@ RUN npm_config_ignore_scripts=true pnpm deploy --legacy --filter @repo/app --pro
 FROM node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9
 WORKDIR /app
 COPY --from=build /out .
+COPY --chmod=555 deploy/railway/entrypoint.sh /usr/local/bin/railway-entrypoint
 ENV NODE_ENV=production \
     PORT=3010
-# The machines persist under dist/data; the node user needs it writable. A
-# mounted volume shadows this directory, so its ownership is the platform's.
-RUN mkdir -p /app/dist/data && chown -R node:node /app/dist/data
-USER node
 EXPOSE 3010
 HEALTHCHECK --interval=30s --timeout=5s --start-period=75s --retries=3 \
   CMD node -e "fetch('http://localhost:'+(process.env.PORT||3010)+'/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+ENTRYPOINT ["/usr/local/bin/railway-entrypoint"]
 CMD ["node", "dist/src/main.js"]
