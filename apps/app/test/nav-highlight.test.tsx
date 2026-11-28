@@ -57,6 +57,22 @@ it("keeps the hash of a cross-page link and scrolls to its element", async () =>
 });
 
 // spec/app/nav.md, "Story: Move around"
+it("jumps to an Inference topic without adding a page to browser history", async () => {
+  const { el, runtime } = renderApp();
+  await act(async () => {
+    await navigate(runtime, { tag: "Inference" });
+  });
+  const link = el.querySelector<HTMLAnchorElement>('nav[aria-label="On this page"] a[href="#traces"]');
+  const historyLength = history.length;
+  act(() => {
+    link?.click();
+  });
+  expect([location.pathname, location.hash, document.activeElement?.id, history.length]).toEqual([
+    "/inference", "#traces", "traces", historyLength,
+  ]);
+});
+
+// spec/app/nav.md, "Story: Move around"
 it("drops the hash when navigating without one", async () => {
   const { runtime } = renderApp();
   await act(async () => {
