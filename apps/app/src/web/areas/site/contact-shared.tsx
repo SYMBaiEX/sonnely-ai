@@ -1,7 +1,7 @@
 // spec/app/support.md, "Story: Open a request"
 import { useId, useState, type FormEvent } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Code2, CreditCard, MessageSquare, Send } from "lucide-react";
+import { Code2, CreditCard, Handshake, MessageSquare } from "lucide-react";
 import { Button, Input, Textarea } from "@repo/ui";
 import type { Tickets } from "../../../../gen/app__support.ts";
 import { useRemote } from "../../remote.ts";
@@ -54,7 +54,7 @@ export const contactDestinations: readonly [ContactDestination, ContactDestinati
     evidence: "Models served · privacy tier · capacity · timeline",
     prompt: "What inference capacity or integration are you proposing?",
     route: ["You", "Routing desk", "Providers"],
-    Icon: Send,
+    Icon: Handshake,
   },
   {
     id: "feedback",
@@ -319,8 +319,8 @@ export function SupportFeedback({ request }: { request: SupportRequestController
         <p>{request.submission.message}</p>
         <small>Nothing was lost. The message above is still editable.</small>
         <div className="cx-error-actions">
-          <button type="button" onClick={() => void request.submit()}>Try again</button>
-          <a href={mailtoFor(request.destination)}>Email instead</a>
+          <button type="button" className="cx-error-action" onClick={() => void request.submit()}>Try again</button>
+          <a className="cx-error-action" href={mailtoFor(request.destination)}>Email instead</a>
         </div>
       </div>
     );
