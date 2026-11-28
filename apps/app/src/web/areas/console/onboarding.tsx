@@ -158,7 +158,7 @@ export function Onboarding({
                   Display name <span className="text-meta text-muted-foreground">Optional</span>
                   <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={60} autoComplete="nickname" placeholder="Your name" />
                 </label>
-                <Button disabled={busy}>
+                <Button type="submit" disabled={busy}>
                   {busy ? "Saving…" : "Continue"} <ArrowRight size={16} aria-hidden />
                 </Button>
               </form>
