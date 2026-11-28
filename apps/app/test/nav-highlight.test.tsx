@@ -16,6 +16,7 @@ function makeRuntime(): ManagedRuntime.ManagedRuntime<Machine, unknown> {
 
 function renderApp() {
   const runtime = makeRuntime();
+  history.replaceState(null, "", "/");
   const el = document.createElement("div");
   document.body.appendChild(el);
   const root = createRoot(el);
@@ -140,11 +141,30 @@ it("keeps the page open when a same-page hash entry appears", async () => {
 // spec/app/nav.md, "Story: Move around"
 it("does not reopen the current page", async () => {
   const runtime = makeRuntime();
+  history.replaceState(null, "", "/");
   await navigate(runtime, { tag: "Inference" });
   const before = await runtime.runPromise(current());
   await navigate(runtime, { tag: "Inference" });
   const after = await runtime.runPromise(current());
   expect(after).toEqual(before);
+});
+
+// spec/app/nav.md, "Story: Move around"
+it("moves focus to a same-page hash target without adding history", async () => {
+  const runtime = makeRuntime();
+  history.replaceState(null, "", "/");
+  await navigate(runtime, { tag: "Inference" });
+  const target = document.createElement("section");
+  target.id = "focus-target";
+  target.tabIndex = -1;
+  document.body.appendChild(target);
+  const historyLength = history.length;
+  try {
+    await navigate(runtime, { tag: "Inference" }, "#focus-target");
+    expect([location.hash, document.activeElement, history.length]).toEqual(["#focus-target", target, historyLength]);
+  } finally {
+    target.remove();
+  }
 });
 
 // spec/app/nav.md, "Story: Move around"
