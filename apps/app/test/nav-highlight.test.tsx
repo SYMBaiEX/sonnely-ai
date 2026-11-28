@@ -81,3 +81,24 @@ it("drops the hash when navigating without one", async () => {
   });
   expect(location.pathname + location.hash).toBe("/pricing");
 });
+
+// spec/app/nav.md, "Story: Move around"
+it("jumps between pricing sections without leaving the page", async () => {
+  const { el, runtime } = renderApp();
+  await act(async () => {
+    await navigate(runtime, { tag: "Pricing" });
+  });
+  const historyLength = history.length;
+  act(() => {
+    el.querySelector<HTMLAnchorElement>('.pricing-hero a[href="#estimate"]')?.click();
+  });
+  expect([location.pathname, location.hash, document.activeElement?.id, history.length]).toEqual([
+    "/pricing", "#estimate", "estimate", historyLength,
+  ]);
+  act(() => {
+    el.querySelector<HTMLAnchorElement>('#estimate a[href="#inference-rates"]')?.click();
+  });
+  expect([location.pathname, location.hash, document.activeElement?.id, history.length]).toEqual([
+    "/pricing", "#inference-rates", "inference-rates", historyLength,
+  ]);
+});

@@ -1,11 +1,11 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowRight, ArrowUpRight, Calculator, Fingerprint, KeyRound, Plus, ReceiptText, Terminal, Wallet } from "lucide-react";
-import { useState } from "react";
+import { ArrowDown, ArrowUpRight, Fingerprint, KeyRound, Plus, Wallet } from "lucide-react";
+import { useState, type MouseEvent } from "react";
 import { Input } from "@repo/ui";
 import { creditBalance, formatRate, limits, requestCharge, routeRates } from "./data.ts";
 import { canonicalGroups, chatModels, chatModelRoute, liveStatuses, useLiveAvailability } from "./catalog-data.ts";
 import { CatalogCards } from "./catalog-cards.tsx";
-import { buttonAccent, buttonQuiet, eyebrow, sectionHead, textLink } from "./ui.ts";
+import { buttonAccent, buttonQuiet, sectionHead, textLink } from "./ui.ts";
 import "./pricing.css";
 
 const tokenPriced = (group: (typeof canonicalGroups)[number]) =>
@@ -26,6 +26,17 @@ function tokens(value: string, maximum: number) {
     : null;
 }
 
+function jumpToPricingSection(event: MouseEvent<HTMLAnchorElement>) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const { hash } = event.currentTarget;
+  const section = document.getElementById(hash.slice(1));
+  if (!section) return;
+  event.preventDefault();
+  history.replaceState(history.state, "", hash);
+  section.focus({ preventScroll: true });
+  section.scrollIntoView();
+}
+
 function CostExample() {
   const [modelId, setModelId] = useState(() => chatModelRoute(chatModels[0])?.modelId ?? "");
   const [input, setInput] = useState("10000");
@@ -41,100 +52,84 @@ function CostExample() {
       : requestCharge(rates, inputTokens, 0, outputTokens);
 
   return (
-    <section className="section pricing-estimate-section" id="estimate" aria-labelledby="pricing-estimate-title">
+    <section className="section pricing-estimate-section" id="estimate" aria-labelledby="pricing-estimate-title" tabIndex={-1}>
       <div className={sectionHead}>
         <div>
           <h2 id="pricing-estimate-title">Estimate a request.</h2>
+          <p>Uncached text request at final token rates.</p>
         </div>
-        <a href="#inference-rates" className={textLink}>
+        <a href="#inference-rates" className={textLink} onClick={jumpToPricingSection}>
           Compare the full rate card <ArrowUpRight size={15} aria-hidden="true" />
         </a>
       </div>
-      <div className="term pricing-estimate" data-scan data-reveal="fade">
-        <div className="term-chrome">
-          <span className="term-path">
-            <Terminal size={13} aria-hidden="true" /> ~/pricing/estimate
-            <span className="term-caret" aria-hidden="true" />
-          </span>
-          <span className="pricing-estimate-note">uncached text request · final token rates</span>
+      <div className="pricing-estimate">
+        <div className="pricing-estimate-inputs">
+          <label>
+            <span>Model</span>
+            <select value={modelId} onChange={(event) => setModelId(event.target.value)}>
+              {chatModels.map((model) => {
+                const route = chatModelRoute(model)!;
+                return (
+                  <option key={model.provider + route.modelId} value={route.modelId}>
+                    {model.name}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          <label>
+            <span>Input tokens</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={limits.bodyBytes}
+              step={1}
+              invalid={inputTokens === null}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Output tokens</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={limits.maxOutputTokens}
+              step={1}
+              invalid={outputTokens === null}
+              value={output}
+              onChange={(event) => setOutput(event.target.value)}
+            />
+          </label>
         </div>
-        <div className="pricing-estimate-grid">
-          <div className="pricing-estimate-inputs">
-            <label>
-              <span>model</span>
-              <select value={modelId} onChange={(event) => setModelId(event.target.value)}>
-                {chatModels.map((model) => {
-                  const route = chatModelRoute(model)!;
-                  return (
-                    <option key={model.provider + route.modelId} value={route.modelId}>
-                      {model.name}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-            <label>
-              <span>input tokens</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={limits.bodyBytes}
-                step={1}
-                invalid={inputTokens === null}
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-              />
-            </label>
-            <label>
-              <span>output tokens</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={limits.maxOutputTokens}
-                step={1}
-                invalid={outputTokens === null}
-                value={output}
-                onChange={(event) => setOutput(event.target.value)}
-              />
-            </label>
-          </div>
-          <figure className="preview-data pricing-invoice" aria-label="Estimated charge">
-            <figcaption>
-              <Calculator size={14} aria-hidden="true" /> <strong>estimated charge</strong>
-            </figcaption>
-            <div className="preview-body">
-              <div className="preview-hero">
-                <strong>
-                  <output aria-live="polite">
-                    {estimate === null ? "Check token counts" : creditBalance(estimate)}
-                  </output>
-                </strong>
-                <span>per request · {entry?.name ?? "uncached text"}</span>
-              </div>
-              <dl aria-label="Rates per million tokens">
-                <div>
-                  <dt>input / 1M tokens</dt>
-                  <dd>{formatRate(rates.Input ?? 0)}</dd>
-                </div>
-                {rates.Cached !== undefined && rates.Cached >= 0 && (
-                  <div>
-                    <dt>cached input / 1M tokens</dt>
-                    <dd>{formatRate(rates.Cached)}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt>output / 1M tokens</dt>
-                  <dd>{formatRate(rates.Output ?? 0)}</dd>
-                </div>
-              </dl>
-              <p className="pricing-invoice-note">
-                Actual charges use reported usage and account for cached input.
-              </p>
+        <figure className="pricing-invoice">
+          <figcaption>Estimated charge</figcaption>
+          <output>
+            {estimate === null ? "Check token counts" : creditBalance(estimate)}
+          </output>
+          <p>Per request · {entry?.name ?? "uncached text"}</p>
+          <dl aria-label="Rates per million tokens">
+            <div>
+              <dt>Input / 1M tokens</dt>
+              <dd>{formatRate(rates.Input ?? 0)}</dd>
             </div>
-          </figure>
-        </div>
+            {rates.Cached !== undefined && rates.Cached >= 0 && (
+              <div>
+                <dt>Cached input / 1M tokens</dt>
+                <dd>{formatRate(rates.Cached)}</dd>
+              </div>
+            )}
+            <div>
+              <dt>Output / 1M tokens</dt>
+              <dd>{formatRate(rates.Output ?? 0)}</dd>
+            </div>
+          </dl>
+          <p>
+            Actual charges use reported usage and account for cached input.
+          </p>
+        </figure>
       </div>
     </section>
   );
@@ -145,7 +140,6 @@ function PricingEssentials() {
     {
       title: "Prepaid credits",
       Icon: Wallet,
-      stage: "fund",
       copy: "When checkout is available in this deployment, choose a credit amount and pay with USDC or SOL. Credits post automatically when the Solana transfer finalizes.",
       href: "/console/billing",
       link: "Billing console",
@@ -153,7 +147,6 @@ function PricingEssentials() {
     {
       title: "Final rates",
       Icon: Fingerprint,
-      stage: "rates",
       copy: "Token endpoints are priced per million tokens. File and media endpoints use the listed per-request rate.",
       href: "#inference-rates",
       link: "Inference rates",
@@ -161,7 +154,6 @@ function PricingEssentials() {
     {
       title: "Key budgets",
       Icon: KeyRound,
-      stage: "limits",
       copy: "Set daily and lifetime spend limits, choose an expiration and revoke a key immediately.",
       href: "/console/keys",
       link: "Manage keys",
@@ -169,28 +161,14 @@ function PricingEssentials() {
   ] as const;
   return (
     <section className="section pricing-terms" aria-labelledby="pricing-essentials-title">
-      <div className={sectionHead}>
-        <div>
-          <p className={eyebrow}>Terms of account</p>
-          <h2 id="pricing-essentials-title">Before traffic starts.</h2>
-        </div>
-      </div>
+      <h2 id="pricing-essentials-title">Terms of account.</h2>
       <ul className="pricing-terms-grid" role="list">
-        {terms.map(({ title, Icon, stage, copy, href, link }, index) => (
-          <li key={title} className="gateway-tile" data-reveal="rise">
-            <div className="gateway-tile-copy">
-              <span className="home-feature-icon">
-                <Icon size={19} aria-hidden="true" />
-              </span>
-              <div>
-                <p className="gateway-tile-stage" aria-hidden="true">
-                  {String(index + 1).padStart(2, "0")} · {stage}
-                </p>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-              </div>
-            </div>
-            <a href={href} className="text-link">
+        {terms.map(({ title, Icon, copy, href, link }) => (
+          <li key={title}>
+            <Icon size={22} aria-hidden="true" />
+            <h3>{title}</h3>
+            <p>{copy}</p>
+            <a href={href} className={textLink} onClick={href.startsWith("#") ? jumpToPricingSection : undefined}>
               {link} <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           </li>
@@ -203,11 +181,11 @@ function PricingEssentials() {
 function InferenceRates() {
   const live = useLiveAvailability();
   return (
-    <section className="section pricing-rates" id="inference-rates" aria-labelledby="inference-rates-title">
+    <section className="section pricing-rates" id="inference-rates" aria-labelledby="inference-rates-title" tabIndex={-1}>
       <div className={sectionHead}>
         <div>
           <h2 id="inference-rates-title">Inference rates.</h2>
-          <p className="pricing-rates-copy">
+          <p>
             Every rate comes from the same catalog the gateway uses. Open a model to compare
             provider routes and endpoint-specific fees.
           </p>
@@ -216,9 +194,7 @@ function InferenceRates() {
           Model catalog <ArrowUpRight size={15} aria-hidden="true" />
         </a>
       </div>
-      <div data-reveal="fade">
-        <CatalogCards groups={pricedGroups} filterSignature="pricing" statuses={liveStatuses(live)} />
-      </div>
+      <CatalogCards groups={pricedGroups} filterSignature="pricing" statuses={liveStatuses(live)} />
     </section>
   );
 }
@@ -233,8 +209,7 @@ function PricingQuestions() {
   ] as const;
   return (
     <section className="section home-split home-faq pricing-faq" aria-labelledby="pricing-questions-title">
-      <div className="home-section-intro" data-reveal="rise">
-        <p className={eyebrow}>Notes on settlement</p>
+      <div className="home-section-intro">
         <h2 id="pricing-questions-title">Pricing questions.</h2>
         <a className={textLink} href="/docs/billing">
           Credits and checkout <ArrowUpRight size={16} aria-hidden="true" />
@@ -242,7 +217,7 @@ function PricingQuestions() {
       </div>
       <div className="faq">
         {questions.map(([question, answer]) => (
-          <details name="pricing-questions" key={question} data-reveal="fade">
+          <details name="pricing-questions" key={question}>
             <summary>
               {question} <Plus size={17} aria-hidden="true" />
             </summary>
@@ -258,53 +233,43 @@ export function PricingPage() {
   return (
     <div className="wrap pricing-page">
       <header className="pricing-hero">
-        <div className="pricing-hero-copy">
-          <p className={eyebrow}>Rate card · Sonnely</p>
-          <h1>
-            Pay for what you use<span>.</span>
-          </h1>
-          <p className="pricing-hero-description">
-            Prepaid Solana credits, final inference rates and request charges that settle against
-            real usage.
-          </p>
-          <div className="actions">
-            <a href="#estimate" className={buttonAccent}>
-              Estimate a request <ArrowDown size={15} aria-hidden="true" />
-            </a>
-            <a href="#inference-rates" className={buttonQuiet}>
-              Browse rates <ArrowRight size={15} aria-hidden="true" />
-            </a>
-          </div>
+        <h1>
+          Pay for what <em>you use.</em>
+        </h1>
+        <p className="pricing-hero-description">
+          Prepaid Solana credits, final inference rates and request charges that settle against
+          real usage.
+        </p>
+        <div className="actions">
+          <a href="#estimate" className={buttonAccent} onClick={jumpToPricingSection}>
+            Estimate a request <ArrowDown size={15} aria-hidden="true" />
+          </a>
+          <a href="#inference-rates" className={buttonQuiet} onClick={jumpToPricingSection}>
+            Browse rates <ArrowDown size={15} aria-hidden="true" />
+          </a>
         </div>
-        <figure className="preview-data pricing-hero-facts" aria-label="Pricing at a glance">
-          <figcaption>
-            <ReceiptText size={14} aria-hidden="true" /> <strong>account summary</strong>
-          </figcaption>
-          <div className="preview-body">
-            <dl>
-              <div>
-                <dt>routable models</dt>
-                <dd>{pricedGroups.length}</dd>
-              </div>
-              <div>
-                <dt>token rates</dt>
-                <dd>per 1M tokens</dd>
-              </div>
-              <div>
-                <dt>billing</dt>
-                <dd>USDC or SOL</dd>
-              </div>
-              <div>
-                <dt>settlement</dt>
-                <dd>reported usage</dd>
-              </div>
-            </dl>
+        <dl className="pricing-hero-facts" aria-label="Pricing at a glance">
+          <div>
+            <dt>Routable models</dt>
+            <dd>{pricedGroups.length}</dd>
           </div>
-        </figure>
+          <div>
+            <dt>Token rates</dt>
+            <dd>Per 1M tokens</dd>
+          </div>
+          <div>
+            <dt>Billing</dt>
+            <dd>USDC or SOL</dd>
+          </div>
+          <div>
+            <dt>Settlement</dt>
+            <dd>Reported usage</dd>
+          </div>
+        </dl>
       </header>
-      <PricingEssentials />
       <CostExample />
       <InferenceRates />
+      <PricingEssentials />
       <PricingQuestions />
     </div>
   );
