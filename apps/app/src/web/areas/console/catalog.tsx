@@ -195,14 +195,14 @@ export function CatalogSection() {
   const selectClass = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <WorkspaceHeading icon={Cpu} title="Models" description="Browse the providers' models, their routes and their Sonnely rates." />
       <div className="flex flex-wrap items-center gap-2" aria-label="Catalog inventory">
         <button
           type="button"
           aria-pressed={!inventory}
           onClick={() => setAvailability("available")}
-          className={"min-h-10 rounded-full border px-4 text-sm font-medium transition-colors " + (inventory ? inactiveSurface : activeSurface)}
+          className={"min-h-9 rounded-full border px-3 text-sm font-medium transition-colors " + (inventory ? inactiveSurface : activeSurface)}
         >
           On Sonnely · {routableCount}
         </button>
@@ -210,7 +210,7 @@ export function CatalogSection() {
           type="button"
           aria-pressed={inventory}
           onClick={() => setAvailability("catalog")}
-          className={"min-h-10 rounded-full border px-4 text-sm font-medium transition-colors " + (inventory ? activeSurface : inactiveSurface)}
+          className={"min-h-9 rounded-full border px-3 text-sm font-medium transition-colors " + (inventory ? activeSurface : inactiveSurface)}
         >
           Provider inventory · {inventoryCount}
         </button>
@@ -256,7 +256,7 @@ export function CatalogSection() {
         </label>
       </div>
       <CatalogCards groups={displayed} filterSignature={filterSignature} />
-      <aside className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+      <aside className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
         Rates shown are the final Sonnely rates.{" "}
         <a href="/pricing" className="text-primary hover:underline">How billing works</a>
         {" · "}
