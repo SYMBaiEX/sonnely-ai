@@ -37,22 +37,36 @@ function machineSources(urlPrefix: string) {
   return FakeEventSource.instances.filter((instance) => instance.url.startsWith(urlPrefix));
 }
 
+function currentMachineSource(urlPrefix: string) {
+  const open = machineSources(urlPrefix).filter((instance) => !instance.closed);
+  if (open.length !== 1) throw new Error(`expected one open stream for ${urlPrefix}, found ${open.length}`);
+  return open[0];
+}
+
+function deferredResponse() {
+  let release: (response: Response) => void = () => undefined;
+  const promise = new Promise<Response>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+}
+
 async function settle() {
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await Promise.resolve();
   });
 }
 
-async function renderProbe(machine: "teams" | "admin-referrals" | "console__chat" = "teams") {
+async function renderProbe(machine: "teams" | "admin-referrals" | "console" | "console__chat" = "teams") {
   vi.resetModules();
   FakeEventSource.instances = [];
   const remote = await import("../src/web/remote.ts");
   const sessionModule = await import("../src/web/session.ts");
   let session: SessionSnapshot | undefined;
-  let teams: Remote<{ teams?: unknown[] }> | undefined;
+  let machineRemote: Remote<{ teams?: unknown[]; profile?: string }> | undefined;
   function Probe() {
     session = sessionModule.useSession();
-    teams = remote.useRemote(machine);
+    machineRemote = remote.useRemote(machine);
     return null;
   }
   const el = document.createElement("div");
@@ -64,7 +78,7 @@ async function renderProbe(machine: "teams" | "admin-referrals" | "console__chat
   await settle();
   return {
     session: () => session!,
-    teams: () => teams!,
+    machine: () => machineRemote!,
     root,
     el,
   };
@@ -78,7 +92,10 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
     document.body.innerHTML = "";
   });
 
-  function stubTransport(initial: WorkspaceSession = signedIn(walletA)) {
+  function stubTransport(
+    initial: WorkspaceSession = signedIn(walletA),
+    transport: { readSession?: () => Promise<Response>; writeMachine?: () => Promise<Response> } = {},
+  ) {
     sessionState = initial;
     vi.stubGlobal("EventSource", FakeEventSource);
     vi.stubGlobal("fetch", (input: unknown, init?: RequestInit) => {
@@ -87,8 +104,8 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
         sessionState = { tag: "SignedOut" };
         return Promise.resolve(Response.json({ ok: true }));
       }
-      if (url === "/api/session") return Promise.resolve(Response.json(sessionState));
-      if (init?.method === "POST") return Promise.resolve(Response.json({ ok: true }));
+      if (url === "/api/session") return transport.readSession?.() ?? Promise.resolve(Response.json(sessionState));
+      if (init?.method === "POST") return transport.writeMachine?.() ?? Promise.resolve(Response.json({ ok: true }));
       return Promise.resolve(new Response("not found", { status: 404 }));
     });
   }
@@ -122,25 +139,36 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
 
   // spec/app/session.md, "Only an active session can sign out"
   it("closes every machine stream and drops machine state on sign-out", async () => {
-    stubTransport();
-    const probe = await renderProbe();
-    expect(machineSources("/api/machines/stream").length).toBe(1);
-    const multiplexed = machineSources("/api/machines/stream")[0];
-    act(() => {
-      multiplexed.emit({ machine: "teams", state: { teams: [{ id: "team-a" }] } });
+    const pendingWrite = deferredResponse();
+    stubTransport(signedIn(walletA), {
+      readSession: () =>
+        sessionState.tag === "SignedOut"
+          ? Promise.resolve(new Response("unavailable", { status: 500 }))
+          : Promise.resolve(Response.json(sessionState)),
+      writeMachine: () => pendingWrite.promise,
     });
-    expect(probe.teams().state?.teams?.length).toBe(1);
+    const probe = await renderProbe("console");
+    const scoped = currentMachineSource("/api/machines/console/stream");
+    act(() => {
+      scoped.emit({ profile: "workspace-a" });
+    });
+    expect(probe.machine().state).toEqual({ profile: "workspace-a" });
+    const write = probe.machine().send({ type: "saveProfile" });
 
     await act(async () => {
       await probe.session().send({ type: "signOut" });
     });
+    pendingWrite.release(Response.json({ ok: true, state: { profile: "workspace-a" } }));
+    await act(async () => {
+      await write;
+    });
     await settle();
 
     expect({
-      multiplexedClosed: multiplexed.closed,
-      stateAfterSignOut: probe.teams().state,
+      scopedClosed: scoped.closed,
+      stateAfterSignOut: probe.machine().state,
       sessionTag: probe.session().state?.tag,
-    }).toEqual({ multiplexedClosed: true, stateAfterSignOut: undefined, sessionTag: "SignedOut" });
+    }).toEqual({ scopedClosed: true, stateAfterSignOut: undefined, sessionTag: "SignedOut" });
   });
 
   // spec/app/console/chat.md, "The playground is the threads, the open one and the chosen model"
@@ -157,25 +185,29 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
     act(() => {
       scoped.emit({ threads: [{ id: "thread-a" }], active: "thread-a", model: "m" });
     });
-    expect((probe.teams().state as { threads?: unknown[] } | undefined)?.threads?.length).toBe(1);
+    expect((probe.machine().state as { threads?: unknown[] } | undefined)?.threads?.length).toBe(1);
   });
 
   // spec/app/session.md, "Only an active session can sign out"
   it("never reuses a prior wallet's stream when a different wallet signs in", async () => {
     stubTransport();
     const probe = await renderProbe();
-    const multiplexed = machineSources("/api/machines/stream")[0];
-    const sessionStream = machineSources("/api/session/stream")[0];
+    const multiplexed = currentMachineSource("/api/machines/stream");
+    const sessionStream = currentMachineSource("/api/session/stream");
     act(() => {
       multiplexed.emit({ machine: "teams", state: { teams: [{ id: "team-a" }] } });
     });
-    expect(probe.teams().state?.teams?.length).toBe(1);
+    expect(probe.machine().state?.teams?.length).toBe(1);
 
     sessionState = signedIn(walletB);
     await act(async () => {
       await probe.session().refresh();
     });
     await settle();
+    act(() => {
+      multiplexed.emit({ machine: "teams", state: { teams: [{ id: "team-a" }] } });
+      sessionStream.emit(signedIn(walletA));
+    });
 
     const reopened = machineSources("/api/machines/stream").filter((instance) => !instance.closed);
     const sessionReopened = machineSources("/api/session/stream").filter((instance) => !instance.closed);
@@ -184,7 +216,7 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
       oldSessionStreamClosed: sessionStream.closed,
       reopenedIsNew: reopened.length === 1 && reopened[0] !== multiplexed,
       sessionReopenedIsNew: sessionReopened.length === 1 && sessionReopened[0] !== sessionStream,
-      stateDropped: probe.teams().state,
+      stateDropped: probe.machine().state,
       wallet: (() => {
         const state = probe.session().state;
         return state?.tag === "SignedIn" ? state.wallet : undefined;
@@ -197,5 +229,35 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
       stateDropped: undefined,
       wallet: walletB,
     });
+  });
+
+  // spec/app/session.md, "Only an active session can sign out"
+  it("ignores bootstrap state that a newer sign-out stream transition has superseded", async () => {
+    const pendingSession = deferredResponse();
+    stubTransport(signedIn(walletA), { readSession: () => pendingSession.promise });
+    const probe = await renderProbe();
+    const multiplexed = currentMachineSource("/api/machines/stream");
+    const sessionStream = currentMachineSource("/api/session/stream");
+    act(() => {
+      multiplexed.emit({ machine: "teams", state: { teams: [{ id: "team-a" }] } });
+    });
+    expect(probe.machine().state?.teams?.length).toBe(1);
+
+    act(() => {
+      sessionStream.emit({ tag: "SignedOut" });
+    });
+    expect(probe.session().state?.tag).toBe("SignedOut");
+
+    await act(async () => {
+      pendingSession.release(Response.json(signedIn(walletA)));
+      await pendingSession.promise;
+    });
+    await settle();
+
+    expect({
+      sessionTag: probe.session().state?.tag,
+      machineState: probe.machine().state,
+      oldMultiplexedClosed: multiplexed.closed,
+    }).toEqual({ sessionTag: "SignedOut", machineState: undefined, oldMultiplexedClosed: true });
   });
 });
