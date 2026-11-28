@@ -627,13 +627,13 @@ function WorkspacePreview() {
       <Tabs value={active} onValueChange={setActive} className="workspace-showcase">
         <TabsList className="workspace-tabs" aria-label="Workspace preview">
           {workspaceCards.map(({ id, label, icon: Icon }) => (
-            <TabsTrigger id={"workspace-tab-" + id} value={id} key={id}>
+            <TabsTrigger value={id} key={id}>
               <Icon size={18} aria-hidden="true" /> {label}
             </TabsTrigger>
           ))}
         </TabsList>
         {workspaceCards.map(({ id, previewTitle, icon: Icon, title, description, link, action, Preview }) => (
-          <TabsContent id={"workspace-panel-" + id} className="workspace-preview" value={id} key={id}>
+          <TabsContent className="workspace-preview" value={id} key={id}>
             <div className="workspace-preview-copy">
               <h3>{title}</h3>
               <p>{description}</p>
