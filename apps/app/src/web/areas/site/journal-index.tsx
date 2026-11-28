@@ -8,12 +8,40 @@ import "./journal.css";
 
 const topics = ["All", ...new Set(articles.map((article) => article.category))];
 
+function topicCount(topic: string) {
+  return topic === "All"
+    ? articles.length
+    : articles.filter((article) => article.category === topic).length;
+}
+
 export function JournalMeta({ article }: { article: Article }) {
   return (
     <span className="jrn-meta">
       <ProductIcon name={categoryIcons[article.category] ?? "Box"} size={13} aria-hidden="true" />
       {article.category} · {readingMinutes(article)} min read
     </span>
+  );
+}
+
+function JournalEntry({ article, lead }: { article: Article; lead: boolean }) {
+  const Title = lead ? "h2" : "h3";
+  return (
+    <li className={lead ? "jrn-entry jrn-lead" : "jrn-entry"}>
+      <a href={"/blog/" + article.slug}>
+        <span className="jrn-topic">
+          <ProductIcon name={categoryIcons[article.category] ?? "Box"} size={14} aria-hidden="true" />
+          {article.category}
+        </span>
+        <span className="jrn-entry-main">
+          <Title>{article.title}</Title>
+          <p>{article.summary}</p>
+        </span>
+        <span className="jrn-minutes">
+          {readingMinutes(article)} min read
+          <ArrowUpRight size={16} aria-hidden="true" />
+        </span>
+      </a>
+    </li>
   );
 }
 
@@ -28,12 +56,11 @@ export function JournalIndex() {
         .toLowerCase()
         .includes(term),
   );
-  const featured = topic === "All" && !term ? entries[0] : undefined;
-  const indexed = entries.filter((entry) => entry !== featured);
+  const leading = topic === "All" && !term;
   return (
     <section className="jrn-index" id="journal-articles" aria-label="Journal articles">
       <div className="jrn-tools">
-        <div className="segmented" role="group" aria-label="Filter by topic">
+        <div className="jrn-topics" role="group" aria-label="Filter by topic">
           {topics.map((item) => (
             <button
               key={item}
@@ -42,6 +69,7 @@ export function JournalIndex() {
               onClick={() => setTopic(item)}
             >
               {item}
+              <span className="jrn-count">{topicCount(item)}</span>
             </button>
           ))}
         </div>
@@ -53,39 +81,26 @@ export function JournalIndex() {
           aria-label="Search the journal"
         />
       </div>
-      {featured && (
-        <a className="jrn-feature" href={"/blog/" + featured.slug} data-reveal="fade">
-          <span className="jrn-feature-top">
-            <JournalMeta article={featured} />
-            <span className="jrn-number" aria-hidden="true">01</span>
-          </span>
-          <h2>{featured.title}</h2>
-          <p>{featured.summary}</p>
-          <span className="jrn-read">
-            Read article <ArrowUpRight size={15} aria-hidden="true" />
-          </span>
-        </a>
-      )}
       {entries.length ? (
-        <ul className="jrn-list" role="list">
-          {indexed.map((item, index) => (
-            <li key={item.slug}>
-              <a href={"/blog/" + item.slug} data-reveal="rise">
-                <span className="jrn-number" aria-hidden="true">
-                  {String(index + (featured ? 2 : 1)).padStart(2, "0")}
-                </span>
-                <span className="jrn-row-main">
-                  <JournalMeta article={item} />
-                  <h3>{item.title}</h3>
-                  <p>{item.summary}</p>
-                </span>
-                <ArrowUpRight size={17} className="jrn-row-arrow" aria-hidden="true" />
-              </a>
-            </li>
+        <ul className="jrn-list" role="list" data-reveal="fade">
+          {entries.map((item, index) => (
+            <JournalEntry key={item.slug} article={item} lead={leading && index === 0} />
           ))}
         </ul>
       ) : (
-        <p className="jrn-empty" role="status">No articles match this search.</p>
+        <div className="jrn-empty" role="status">
+          <p>No articles match {term ? "“" + search.trim() + "”" : "this topic"}.</p>
+          <button
+            type="button"
+            className="button quiet small"
+            onClick={() => {
+              setTopic("All");
+              setSearch("");
+            }}
+          >
+            Show all articles
+          </button>
+        </div>
       )}
     </section>
   );
@@ -95,7 +110,6 @@ export function JournalPage() {
   return (
     <div className="wrap jrn-page">
       <header className="jrn-hero">
-        <span className="eyebrow">Journal</span>
         <h1>Field notes, written plainly.</h1>
         <p>Notes on how requests run, how you’re billed and what to check when something breaks.</p>
       </header>
