@@ -1,5 +1,5 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Terminal } from "lucide-react";
 import { SearchField } from "../../search.tsx";
 import { useMachine } from "../../../../gen/app__models.react.ts";
 import {
@@ -13,7 +13,6 @@ import {
   type Sort,
 } from "../../../../gen/app__models.ts";
 import { canonicalGroups, endpointIds, liveStatuses, useLiveAvailability } from "./catalog-data.ts";
-import { CorrespondenceHero } from "./chrome.tsx";
 import {
   apiBasePath,
   featuredTypes,
@@ -28,10 +27,13 @@ import { catalogRuntime } from "./filter.ts";
 import { entryActions, pages } from "./content.ts";
 import { PlatformLinks } from "./products.tsx";
 import {
-  selectClass,
+  buttonAccent,
+  buttonQuiet,
+  eyebrow,
   textLink,
   wrap,
 } from "./ui.ts";
+import "./models.css";
 import type { CanonicalModel } from "./catalog-groups.ts";
 import {
   CatalogCards,
@@ -61,30 +63,28 @@ function CatalogTools({
         />
         <label>
           <span>provider</span>
-        <select
-          className={selectClass}
-          value={providerValue}
-          onChange={(event) =>
-            void send({
-              type: "chooseProvider",
-              provider: event.target.value
-                ? { tag: "Only", provider: event.target.value as ProviderId }
-                : { tag: "EveryProvider" },
-            })
-          }
-        >
-          <option value="">All providers</option>
-          {(Object.keys(providerNames) as ProviderId[]).map((id) => (
-            <option key={id} value={id}>
-              {providerNames[id]}
-            </option>
-          ))}
-        </select>
-      </label>
+          <select
+            value={providerValue}
+            onChange={(event) =>
+              void send({
+                type: "chooseProvider",
+                provider: event.target.value
+                  ? { tag: "Only", provider: event.target.value as ProviderId }
+                  : { tag: "EveryProvider" },
+              })
+            }
+          >
+            <option value="">All providers</option>
+            {(Object.keys(providerNames) as ProviderId[]).map((id) => (
+              <option key={id} value={id}>
+                {providerNames[id]}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           <span>workload</span>
           <select
-            className={selectClass}
             value={workloadValue}
             onChange={(event) =>
               void send({
@@ -106,7 +106,6 @@ function CatalogTools({
         <label>
           <span>sort models</span>
           <select
-            className={selectClass}
             value={filter.sort}
             onChange={(event) =>
               void send({ type: "chooseSort", sort: event.target.value as Sort })
@@ -229,7 +228,7 @@ export function ModelCatalog() {
         </button>
       </div>
       <CatalogTools filter={filter} send={send} />
-      <div className="cor-ratecards">
+      <div className="models-ratecards">
         <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
       </div>
       <aside className="catalog-note">
@@ -248,17 +247,12 @@ function ModelGuide() {
     .map((id) => catalog.find((entry) => entry.provider === "NearAI" && entry.upstreamId === id))
     .filter((entry): entry is CatalogEntry => entry !== undefined);
   return (
-    <section className="catalog-guide" aria-labelledby="compare-models-heading">
-      <header className="catalog-guide-head">
-        <div>
-          <h2 id="compare-models-heading">Compare models by workload</h2>
-          <p>
-            Chat Completions models accept and return text through Sonnely. Start with one
-            representative prompt and compare the output before committing a budget.
-          </p>
-        </div>
-      </header>
-      <dl className="catalog-guide-rows">
+    <section className="models-guide" aria-labelledby="compare-models-heading">
+      <div className="models-guide-copy">
+        <p className={eyebrow}>workload notes</p>
+        <h2 id="compare-models-heading">Choose by workload.</h2>
+      </div>
+      <dl className="models-guide-rows">
         {entries.map((model) => {
           const type = featuredTypes[model.upstreamId]?.type as keyof typeof workloadGuide | undefined;
           return (
@@ -268,14 +262,14 @@ function ModelGuide() {
             </div>
           );
         })}
-        <div className="catalog-guide-limits">
+        <div className="models-guide-limits">
           <dt>request limits</dt>
           <dd>
             The context window describes the underlying model. Sonnely currently accepts up to{" "}
             {limits.bodyBytes.toLocaleString("en-US")} bytes per request and returns up to{" "}
             {limits.maxOutputTokens.toLocaleString("en-US")} output tokens.{" "}
             <a href="/docs/api#request-limits">
-              see request limits <ArrowUpRight size={12} aria-hidden="true" />
+              See request limits <ArrowUpRight size={12} aria-hidden="true" />
             </a>
           </dd>
         </div>
@@ -290,45 +284,66 @@ export function ModelsPage() {
   const sonnelyModels = canonicalGroups.filter((group) => !group.catalogOnly).length;
   const inventoryModels = canonicalGroups.length - sonnelyModels;
   return (
-    <div className={wrap + " cor-page cor-market-page models-page"}>
-      <CorrespondenceHero
-        eyebrow="Model catalog · Sonnely"
-        title={title}
-        description={description}
-        actionsLabel="Model catalog actions"
-        asideLabel="Model catalog at a glance"
-        brief={{
-          title: "Sonnely catalog",
-          rows: [
-            ["Sonnely models", String(sonnelyModels)],
-            ["Provider inventory", String(inventoryModels)],
-            ["Providers", "NEAR AI, Phala, Tinfoil"],
-          ],
-        }}
-      >
-        <a href={entry.section} className="cor-primary-action">
-          {entry.label} <ArrowDown size={15} aria-hidden="true" />
-        </a>
-        <a href={entry.next}>
-          {entry.action} <ArrowRight size={15} aria-hidden="true" />
-        </a>
-      </CorrespondenceHero>
+    <div className={wrap + " models-page"}>
+      <header className="models-hero">
+        <div className="models-hero-copy">
+          <p className={eyebrow}>provider routes · final rates</p>
+          <h1>
+            {title}
+            <span>.</span>
+          </h1>
+          <p className="models-hero-description">{description}</p>
+          <nav className="actions" aria-label="Model catalog actions">
+            <a href={entry.section} className={buttonAccent}>
+              {entry.label} <ArrowDown size={15} aria-hidden="true" />
+            </a>
+            <a href={entry.next} className={buttonQuiet}>
+              {entry.action} <ArrowRight size={15} aria-hidden="true" />
+            </a>
+          </nav>
+        </div>
+        <aside className="term models-hero-index" aria-label="Model catalog at a glance">
+          <div className="term-chrome">
+            <span className="term-path">
+              <Terminal size={12} aria-hidden="true" />
+              <span>~/models</span>
+            </span>
+            <span>provider snapshot</span>
+          </div>
+          <dl className="models-hero-facts">
+            <div>
+              <dt>on sonnely</dt>
+              <dd>{sonnelyModels}</dd>
+            </div>
+            <div>
+              <dt>provider inventory</dt>
+              <dd>{inventoryModels}</dd>
+            </div>
+            <div className="models-hero-providers">
+              <dt>providers</dt>
+              <dd>NEAR AI · Phala · Tinfoil</dd>
+            </div>
+          </dl>
+        </aside>
+      </header>
       <section
-        className="catalog-section"
+        className="models-catalog-section"
         id="available-models"
         aria-labelledby="model-comparison-title"
       >
-        <header className="catalog-section-head">
-          <h2 id="model-comparison-title">Models and rates</h2>
-          <p>Compare provider routes, supported endpoints, and pricing.</p>
-        </header>
+        <div className="models-section-head">
+          <div>
+            <p className={eyebrow}>catalog browser</p>
+            <h2 id="model-comparison-title">Models and rates.</h2>
+          </div>
+          <a className={textLink} href="/inference#routing">
+            How routing works <ArrowUpRight size={15} aria-hidden="true" />
+          </a>
+        </div>
         <ModelCatalog />
-        <a className={textLink} href="/inference#routing">
-          How routing works <ArrowUpRight size={15} aria-hidden="true" />
-        </a>
       </section>
       <ModelGuide />
-      <PlatformLinks compact />
+      <PlatformLinks compact className="models-platform-links" />
     </div>
   );
 }
