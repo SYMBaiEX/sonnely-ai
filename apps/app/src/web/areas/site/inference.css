@@ -4,9 +4,9 @@
 
 .site .inference-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr);
-  align-items: center;
-  gap: clamp(28px, 6vw, 90px);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  align-items: end;
+  gap: clamp(20px, 5vw, 72px);
   padding-block: clamp(32px, 4.5vw, 56px) clamp(24px, 3.5vw, 40px);
 }
 
@@ -14,7 +14,7 @@
   font-size: clamp(44px, 6.4vw, 5rem);
   font-weight: 650;
   line-height: 0.97;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
@@ -28,6 +28,7 @@
   color: var(--muted);
   font-size: clamp(1rem, 1.4vw, 1.1875rem);
   line-height: 1.55;
+  text-wrap: pretty;
 }
 
 .site .inference-hero .actions {
@@ -36,8 +37,7 @@
   margin-top: 14px;
 }
 
-.site .inference-brief,
-.site .inference-section :is(.inference-factcard, .inference-term),
+.site .inference-section .inference-term,
 .site .inference-trace {
   min-width: 0;
   margin: 0;
@@ -46,13 +46,20 @@
   background: var(--home-panel);
 }
 
-.site .inference-brief > figcaption,
-.site .inference-section :where(.inference-factcard, .inference-term) > figcaption {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 16px;
+.site .inference-brief {
+  min-width: 0;
+  margin: 0 0 8px;
+}
+
+.site .inference-brief > figcaption {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.site .inference-section .inference-term > figcaption {
   padding: 12px 16px;
   border-bottom: 1px solid var(--home-divider);
   color: var(--ink);
@@ -60,60 +67,37 @@
   font-weight: 600;
 }
 
-.site .inference-brief code,
-.site .inference-term figcaption code {
+.site .inference-brief code {
   color: var(--muted);
-  font: 500 0.75rem / 1.5 var(--mono);
+  font: 500 0.8125rem / 1.5 var(--mono);
   overflow-wrap: anywhere;
 }
 
 .site .inference-brief ol {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
-  padding: 16px;
+  padding: 0;
   list-style: none;
 }
 
 .site .inference-brief li {
-  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 12px;
-  min-height: 40px;
-}
-
-.site .inference-brief li:not(:last-child) {
-  padding-bottom: 16px;
-}
-
-.site .inference-brief li:not(:last-child)::before {
-  position: absolute;
-  inset-block: 36px 0;
-  inset-inline-start: 18px;
-  border-inline-start: 1px solid var(--home-divider);
-  content: "";
-}
-
-.site .inference-brief :where(li) > span {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border: 1px solid var(--home-divider);
-  border-radius: var(--radius);
-  color: var(--accent);
-}
-
-.site .inference-brief strong {
-  color: var(--ink);
-  font-size: 0.9375rem;
-}
-
-.site .inference-brief p {
-  margin: 2px 0 0;
+  align-content: start;
+  gap: 8px;
+  padding: 12px 8px 0 0;
+  border-top: 1px solid var(--home-divider);
   color: var(--muted);
   font-size: 0.875rem;
+}
+
+.site .inference-brief li + li {
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--home-divider);
+}
+
+.site .inference-brief svg {
+  color: var(--accent);
 }
 
 .site .inference-page > div {
@@ -154,22 +138,22 @@
 }
 
 .site .inference-section {
-  padding-block: 10px clamp(18px, 3vw, 36px);
+  padding-block: 8px clamp(16px, 2.6vw, 32px);
   scroll-margin-block-start: 16px;
 }
 
 .site .inference-section + .inference-section {
-  padding-top: clamp(18px, 3vw, 36px);
+  padding-top: clamp(20px, 3vw, 36px);
   border-top: 1px solid var(--home-divider);
 }
 
 .site .inference-section h2,
 .site .inference-closing h2 {
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   font-size: clamp(1.75rem, 2.7vw, 2.375rem);
   font-weight: 650;
   line-height: 1.12;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.025em;
   text-wrap: balance;
 }
 
@@ -178,8 +162,8 @@
   min-height: 44px;
 }
 
-.site .inference-section > .text-link {
-  margin-top: 8px;
+.site .inference-copy > .text-link {
+  margin-top: 4px;
   color: var(--accent);
 }
 
@@ -187,7 +171,7 @@
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: start;
-  gap: clamp(14px, 2.4vw, 28px);
+  gap: clamp(16px, 3vw, 40px);
 }
 
 .site .inference-wide {
@@ -195,12 +179,13 @@
   gap: 16px;
 }
 
-.site .inference-copy > p {
-  max-width: 68ch;
+.site :is(.inference-copy, .inference-closing) p {
+  max-width: 58ch;
   margin: 0;
   color: var(--muted);
-  font-size: var(--home-copy);
+  font-size: max(1rem, var(--home-copy));
   line-height: 1.6;
+  text-wrap: pretty;
 }
 
 .site .inference-copy > p code {
@@ -209,34 +194,29 @@
   overflow-wrap: anywhere;
 }
 
-.site .inference-copy .inference-note {
-  font-size: 0.875rem;
-}
-
-.site .inference-facts {
-  margin: 0;
-  padding-inline: 16px;
-  font-size: 0.875rem;
-}
-
-.site .inference-facts > div {
+.site .inference-copy > dl {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  gap: 8px;
-  padding-block: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+  max-width: 72ch;
+  margin: 16px 0;
 }
 
-.site .inference-facts > div + div {
+.site .inference-copy :where(dl) > div {
+  padding-top: 8px;
   border-top: 1px solid var(--home-divider);
 }
 
-.site .inference-facts dt {
-  color: var(--muted);
+.site .inference-copy dt {
+  color: var(--ink);
+  font-weight: 650;
 }
 
-.site .inference-facts dd {
-  margin: 0;
-  color: var(--ink);
+.site .inference-copy dd {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+  text-wrap: pretty;
 }
 
 .site .inference-code {
@@ -246,7 +226,8 @@
   border-end-start-radius: inherit;
   border-end-end-radius: inherit;
   font: 500 0.8125rem / 1.65 var(--mono);
-  white-space: pre;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .site .inference-trace {
@@ -322,19 +303,26 @@
 }
 
 .site .inference-trace-detail p {
+  max-width: 62ch;
   margin: 0;
   color: var(--muted);
+  text-wrap: pretty;
 }
 
 .site .inference-closing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  min-height: 176px;
-  margin-block: 20px 8px;
-  padding: clamp(18px, 2.5vw, 32px);
-  align-items: end;
+  margin-top: 12px;
+  padding-block: clamp(24px, 4vw, 48px) 0;
+  border-top: 1px solid var(--home-divider);
 }
 
 .site .inference-closing .actions {
+  align-items: center;
+  gap: 4px 20px;
   margin: 0;
 }
 
@@ -354,6 +342,7 @@
 
 @media (width <= 680px) {
   .site .inference-hero,
+  .site .inference-copy > dl,
   .site .inference-split {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -371,10 +360,5 @@
     width: 100%;
     margin-inline-start: 0;
     order: 3;
-  }
-
-  .site .inference-closing {
-    align-items: start;
-    align-content: end;
   }
 }

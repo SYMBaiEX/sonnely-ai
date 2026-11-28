@@ -5,8 +5,7 @@ import { HighlightedCode } from "../../syntax.tsx";
 import { apiBasePath } from "./data.ts";
 import { entryActions, pages, platformLinks, traceStages } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
-import { Scene } from "./scene.tsx";
-import { buttonAccent, buttonQuiet, textLink, wrap } from "./ui.ts";
+import { buttonAccent, textLink, wrap } from "./ui.ts";
 import "./inference.css";
 
 export function PlatformLinks({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
@@ -71,9 +70,9 @@ const directoryBriefs = {
 } as const;
 
 const requestPath = [
-  ["Send", "Request", "Send one OpenAI-compatible request."],
-  ["Cpu", "Execution", "Sonnely routes it to confidential compute."],
-  ["ReceiptText", "Settlement", "Follow the trace and see the charge."],
+  ["Send", "Request"],
+  ["Cpu", "Confidential compute"],
+  ["ReceiptText", "Trace and charge"],
 ] as const;
 
 function jumpToSection(event: MouseEvent<HTMLAnchorElement>) {
@@ -88,7 +87,7 @@ function jumpToSection(event: MouseEvent<HTMLAnchorElement>) {
 }
 
 function Hero() {
-  const [title, description] = pages.inference;
+  const [title] = pages.inference;
   const entry = entryActions.inference;
   return (
     <header className="inference-hero">
@@ -97,7 +96,10 @@ function Hero() {
           {title}
           <span>.</span>
         </h1>
-        <p className="inference-hero-description">{description}</p>
+        <p className="inference-hero-description">
+          Use an OpenAI-compatible client to run models on confidential compute, stream responses,
+          and see what each request cost.
+        </p>
         <div className="actions">
           <a href={entry.next} className={buttonAccent}>
             {entry.action} <ArrowRight size={15} aria-hidden="true" />
@@ -113,15 +115,10 @@ function Hero() {
           <code>POST {apiBasePath}/chat/completions</code>
         </figcaption>
         <ol>
-          {requestPath.map(([icon, label, detail]) => (
+          {requestPath.map(([icon, label]) => (
             <li key={label}>
-              <span>
-                <ProductIcon name={icon} size={19} />
-              </span>
-              <div>
-                <strong>{label}</strong>
-                <p>{detail}</p>
-              </div>
+              <ProductIcon name={icon} size={18} aria-hidden="true" />
+              {label}
             </li>
           ))}
         </ol>
@@ -130,51 +127,18 @@ function Hero() {
   );
 }
 
-function Facts({ rows }: { rows: readonly (readonly [string, string])[] }) {
-  return (
-    <dl className="inference-facts">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function FactCard({
-  rows,
-  label,
-}: {
-  rows: readonly (readonly [string, string])[];
-  label: string;
-}) {
-  return (
-    <figure className="inference-factcard">
-      <figcaption>{label}</figcaption>
-      <Facts rows={rows} />
-    </figure>
-  );
-}
-
-function CodeWindow({
-  tag,
+function CodeExample({
   source,
   language,
   label,
 }: {
-  tag: string;
   source: string;
   language: "http" | "json";
   label: string;
 }) {
   return (
     <figure className="inference-term">
-      <figcaption>
-        <span>{label}</span>
-        <code>{tag}</code>
-      </figcaption>
+      <figcaption>{label}</figcaption>
       <pre className="inference-code" tabIndex={0} aria-label={label}>
         <HighlightedCode source={source} language={language} />
       </pre>
@@ -187,23 +151,28 @@ function Section({
   title,
   href,
   action,
-  wide = false,
+  example,
   children,
 }: {
   id: string;
   title: string;
   href: string;
   action: string;
-  wide?: boolean;
+  example?: { content: ReactNode; placement: "beside" | "below" };
   children: ReactNode;
 }) {
   return (
     <section id={id} className="inference-section" aria-labelledby={id + "-heading"} tabIndex={-1}>
-      <h2 id={id + "-heading"}>{title}</h2>
-      <div className={wide ? "inference-wide" : "inference-split"}>{children}</div>
-      <a href={href} className={textLink}>
-        {action} <ArrowUpRight size={15} aria-hidden="true" />
-      </a>
+      <div className={example?.placement === "beside" ? "inference-split" : "inference-wide"}>
+        <div className="inference-copy">
+          <h2 id={id + "-heading"}>{title}</h2>
+          {children}
+          <a href={href} className={textLink}>
+            {action} <ArrowUpRight size={15} aria-hidden="true" />
+          </a>
+        </div>
+        {example?.content}
+      </div>
     </section>
   );
 }
@@ -274,146 +243,130 @@ function Inference() {
     <>
       <Section
         id="routing"
-        title="Confidential routing"
+        title="How requests are routed"
         href="/models#available-models"
         action="Compare models and prices"
+        example={{
+          placement: "beside",
+          content: (
+            <CodeExample
+              label="Chat Completions example"
+              source={[
+                '→ {',
+                '    "model": "z-ai/glm-5.3-flash",',
+                '    "messages": [',
+                '      { "role": "user", "content": "…" }',
+                '    ]',
+                '  }',
+                "",
+                '← {',
+                '    "choices": [',
+                '      { "message": { "content": "…" } }',
+                '    ],',
+                '    "usage": {',
+                '      "prompt_tokens": 18,',
+                '      "completion_tokens": 64',
+                '    }',
+                '  }',
+              ].join("\n")}
+              language="http"
+            />
+          ),
+        }}
       >
-        <div className="inference-copy">
-          <p>
-            Every request runs on confidential compute selected by the gateway. Choose a model ID
-            from the catalog; Sonnely routes it to an available attested execution environment and
-            meters the tokens it reports back.
-          </p>
-        </div>
-        <CodeWindow
-          tag="Chat Completions"
-          label="Example request and response"
-          source={[
-            '→ { "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",',
-            '    "messages": [{ "role": "user", "content": "…" }] }',
-            "",
-            '← { "choices": [{ "message": { "content": "…" } }],',
-            '    "usage": { "prompt_tokens": 18, "completion_tokens": 64 } }',
-          ].join("\n")}
-          language="http"
-        />
+        <p>
+          Choose a model ID from the catalog. Sonnely routes your request to an available attested
+          environment and meters the tokens that environment reports.
+        </p>
       </Section>
       <Section
         id="streaming"
         title="Streaming and cost limits"
         href="/docs/streaming"
         action="Read the streaming guide"
+        example={{
+          placement: "beside",
+          content: (
+            <CodeExample
+              label="Streaming request options"
+              source={JSON.stringify(
+                {
+                  stream: true,
+                  stream_options: { include_usage: true },
+                  max_cost_microusd: 500,
+                },
+                null,
+                2,
+              )}
+              language="json"
+            />
+          ),
+        }}
       >
-        <div className="inference-copy">
-          <p>
-            Use the Sonnely SDK or a Chat Completions client with streaming enabled. Ask for final
-            usage when consuming the stream. Set a cap for one request with{" "}
-            <code>max_cost_microusd</code>, alongside daily and lifetime limits on the API key.
-          </p>
-        </div>
-        <CodeWindow
-          tag="JSON"
-          label="Streaming request fragment"
-          source={JSON.stringify(
-            {
-              stream: true,
-              stream_options: { include_usage: true },
-              max_cost_microusd: 500,
-            },
-            null,
-            2,
-          )}
-          language="json"
-        />
+        <p>
+          Enable streaming in the Sonnely SDK or your Chat Completions client and request a final
+          usage count. Cap a single request with <code>max_cost_microusd</code>, in addition to
+          daily and lifetime limits on your API key.
+        </p>
       </Section>
       <Section
         id="evidence"
-        title="The privacy boundary"
+        title="What confidential compute protects"
         href="/docs/attestation"
-        action="Review attestation evidence"
+        action="Learn how to verify attestation"
       >
-        <div className="inference-copy">
-          <p>
-            A trusted execution environment protects the model while it runs. Sonnely’s HTTPS
-            gateway can read the request while forwarding it. Each route supplies its own evidence,
-            so verify the claim in the optional Sonnely receipt before relying on a specific
-            attestation guarantee.
-          </p>
-        </div>
-        <FactCard
-          label="What each component handles"
-          rows={[
-            ["sonnely gateway", "validation, forwarding, settlement"],
-            ["confidential tee", "model execution"],
-            ["receipt", "route evidence"],
-          ]}
-        />
+        <dl>
+          <div>
+            <dt>Sonnely HTTPS gateway</dt>
+            <dd>Can read the request while forwarding it. Handles validation and settlement.</dd>
+          </div>
+          <div>
+            <dt>Trusted execution environment</dt>
+            <dd>Protects the model while it runs.</dd>
+          </div>
+        </dl>
+        <p>
+          Each route supplies its own evidence. Check the optional Sonnely receipt before relying
+          on a specific attestation guarantee.
+        </p>
       </Section>
       <Section
         id="traces"
         title="Request traces"
         href="/docs/observability"
         action="Read the observability guide"
-        wide
+        example={{ placement: "below", content: <TracePreview /> }}
       >
-        <div className="inference-copy">
-          <p>
-            See where a request spent time, from reserving credits and executing the request to
-            evidence verification and settlement. A pending billing hold stays visible while it is
-            investigated.
-          </p>
-        </div>
-        <TracePreview />
-        <div className="inference-copy">
-          <p className="inference-note">
-            Trace data contains timing, route, and billing metadata — never prompt or response
-            text. Your own tokens and charges are in Usage and Request logs; fleet-wide traces and
-            provider compute costs stay with authorized operators.
-          </p>
-        </div>
+        <p>
+          See where a request spent time. Traces contain timing, route, and billing metadata,
+          never prompts or responses. Only authorized operators can see fleet-wide traces and
+          provider compute costs.
+        </p>
       </Section>
       <Section
         id="usage"
         title="Workspace usage"
         href="/docs/observability"
-        action="Read the usage guide"
+        action="Read the observability guide"
       >
-        <div className="inference-copy">
-          <p>
-            See spend, tokens, and request counts for the UTC date range you choose. Export up to
-            100 settled requests as a batch for your own analytics, or download the loaded rows as
-            CSV.
-          </p>
-        </div>
-        <FactCard
-          label="Usage report options"
-          rows={[
-            ["breakdown", "by model, provider, or key"],
-            ["range", "utc date range"],
-            ["export", "csv · usage batch"],
-          ]}
-        />
+        <p>
+          See spend, tokens, and request counts by model, provider, or key for the UTC date range
+          you choose. Export up to 100 settled requests as a batch, or download the loaded rows
+          as CSV.
+        </p>
       </Section>
       <Section
         id="logs"
         title="Request logs and charges"
         href="/docs/observability"
-        action="Read the request logs guide"
+        action="Read the observability guide"
       >
-        <div className="inference-copy">
-          <p>
-            Every response carries an <code>X-Sonnely-Request-Id</code> header. Paste it into
-            Request logs to see what the request was charged — charged, still reserved, or released
-            after a failure — and filter your workspace history by date range or provider before
-            exporting the rows.
-          </p>
-        </div>
-        <CodeWindow
-          tag="HTTP"
-          label="Example response headers"
-          source={["x-sonnely-request-id: sr_9f2c…", "x-sonnely-provider: tinfoil"].join("\n")}
-          language="http"
-        />
+        <p>
+          Find the <code>X-Sonnely-Request-Id</code> response header and paste it into Request logs.
+          You’ll see the charge, whether credits are still on hold during investigation, or
+          whether they were released after a failure. Use <code>X-Sonnely-Provider</code> to
+          identify the provider, then filter your history by provider or UTC date before exporting.
+        </p>
       </Section>
       <Section
         id="batch"
@@ -421,21 +374,11 @@ function Inference() {
         href="/docs/batch"
         action="Read the batch guide"
       >
-        <div className="inference-copy">
-          <p>
-            Upload up to 200 nonstreaming Chat Completions requests as JSONL and run them against
-            your workspace credits, one at a time. The browser checkpoints progress, so an
-            interrupted run resumes where it stopped, and completed responses export as JSONL.
-          </p>
-        </div>
-        <FactCard
-          label="Batch run limits and output"
-          rows={[
-            ["rows", "up to 200 requests"],
-            ["resume", "browser checkpoint"],
-            ["results", "jsonl export"],
-          ]}
-        />
+        <p>
+          Upload up to 200 nonstreaming Chat Completions requests in a JSONL file. The browser
+          runs them one at a time against workspace credits, saves progress so you can resume an
+          interrupted run, and exports completed responses as JSONL.
+        </p>
       </Section>
     </>
   );
@@ -452,6 +395,7 @@ const sections = [
 ] as const;
 
 export function InferencePage() {
+  const entry = entryActions.inference;
   return (
     <div className={wrap + " inference-page"}>
       <Hero />
@@ -466,20 +410,17 @@ export function InferencePage() {
           <Inference />
         </div>
       </div>
-      <section className="closing inference-closing" aria-labelledby="inference-closing-heading">
-        <Scene />
+      <section className="inference-closing" aria-labelledby="inference-closing-heading">
         <div>
           <h2 id="inference-closing-heading">Send your first request.</h2>
-          <p>
-            Create an API key, pick a model from the catalog, and trace the call end to end.
-          </p>
+          <p>Set up your client, choose a model, and follow the call through to its charge.</p>
         </div>
         <div className="actions">
-          <a className={buttonAccent} href="/console/keys">
-            Create an API key <ArrowUpRight size={16} aria-hidden="true" />
+          <a className={buttonAccent} href={entry.next}>
+            {entry.action} <ArrowRight size={15} aria-hidden="true" />
           </a>
-          <a className={buttonQuiet} href="/docs/quickstart">
-            Quickstart <ArrowRight size={15} aria-hidden="true" />
+          <a className={textLink} href="/console/keys">
+            Create an API key <ArrowUpRight size={16} aria-hidden="true" />
           </a>
         </div>
       </section>
