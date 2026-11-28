@@ -1,7 +1,7 @@
 // spec/app/console/index.md, "Story: Set up the workspace profile"; spec/app/console/index.md, "Story: Choose how this device shows the console"; spec/app/console/index.md, "Story: Choose whether the workspace keeps chat history"; spec/app/console/chat.md, "Story: Erase what the workspace keeps"; spec/app/session.md, "Story: Sign in with a wallet"
 import { useState, type FormEvent, type ReactNode } from "react";
 import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield, Trash2 } from "lucide-react";
-import { Button, Card, CardTitle, Checkbox, Input, Label, SegmentedControl, SegmentedControlItem } from "@repo/ui";
+import { Button, Card, CardTitle, Input, Label, SegmentedControl, SegmentedControlItem, Switch } from "@repo/ui";
 import type { Console, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
 import type { Chat } from "../../../../gen/app__console__chat.ts";
 import { useRemote, type Remote } from "../../remote.ts";
@@ -78,14 +78,7 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
       <PreferenceRow
         title="Plain writing"
         control={
-          <Label className="flex items-center gap-2 text-meta font-regular text-muted-foreground">
-            <Checkbox
-              aria-label="Plain writing"
-              checked={state?.plain ?? true}
-              onCheckedChange={(checked) => void send({ type: "setPlain", on: checked === true })}
-            />
-            Enabled
-          </Label>
+          <Switch aria-label="Plain writing" checked={state?.plain ?? true} onCheckedChange={(checked) => void send({ type: "setPlain", on: checked })} />
         }
       >
         Ask the chat model for concise, clear language.
@@ -93,14 +86,7 @@ function PreferencesPanel({ settings, state }: { settings: Remote<Console>; stat
       <PreferenceRow
         title="Chat history"
         control={
-          <Label className="flex items-center gap-2 text-meta font-regular text-muted-foreground">
-            <Checkbox
-              aria-label="Chat history"
-              checked={state?.history ?? true}
-              onCheckedChange={(checked) => void send({ type: "setHistory", on: checked === true })}
-            />
-            Enabled
-          </Label>
+          <Switch aria-label="Chat history" checked={state?.history ?? true} onCheckedChange={(checked) => void send({ type: "setHistory", on: checked })} />
         }
       >
         Keep playground conversations server-side under your wallet, so they reopen on any device. Off, new conversations live in the browser session only and are never written to the server. Already-kept conversations stay until you clear them below.

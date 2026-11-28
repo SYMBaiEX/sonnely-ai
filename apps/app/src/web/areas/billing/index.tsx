@@ -331,7 +331,7 @@ function BillingConsole() {
         <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm" id="buy-credits">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2>Buy credits</h2>
-            <span className="inline-flex items-center rounded-xl border border-info/40 bg-info/10 px-2 py-0.5 text-micro font-medium text-info">{billingEnabled ? cluster : "Solana Pay"}</span>
+            <span className="inline-flex items-center rounded-xl border border-info/40 bg-info/10 px-2 py-0.5 text-micro font-medium text-info">{"Solana Pay"}</span>
           </div>
           {(showSol || showOther) && (
             <fieldset className="grid gap-2 border-0 p-0">
