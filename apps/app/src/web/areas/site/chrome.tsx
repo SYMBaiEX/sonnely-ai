@@ -11,7 +11,6 @@ import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } fr
 import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
-import { ProductIcon } from "./icons.tsx";
 
 export const themeKey = "sonnely.theme";
 const legacyThemeKey = "fathom.theme";
@@ -156,7 +155,7 @@ export function Brand({ href = "/" }: { href?: string }) {
 export function SiteHeader({ current }: { current: string }) {
   return (
     <header className="site-header" aria-label="Sonnely">
-      <div className="wrap site-nav glass">
+      <div className="wrap site-nav">
         <Brand />
         <SiteNavigation current={current} />
       </div>
@@ -165,22 +164,21 @@ export function SiteHeader({ current }: { current: string }) {
 }
 
 function SiteNavigation({ current }: { current: string }) {
-  const [openPath, setOpenPath] = useState<string | null>(null);
-  const mobileOpen = openPath !== null;
+  const [mobileOpen, setMobileOpen] = useState(false);
   const consoleAction = (
     <a href="/console/chat" className="button accent">
       Open console <ArrowUpRight size={15} aria-hidden="true" />
     </a>
   );
 
-  const closeMobile = () => setOpenPath(null);
+  const closeMobile = () => setMobileOpen(false);
 
   return (
     <>
       {mobileOpen && (
         <button type="button" className="nav-dismiss" aria-label="Close navigation" onClick={closeMobile} />
       )}
-      <nav aria-label="Main navigation" data-mobile-open={mobileOpen || undefined}>
+      <nav id="site-navigation" aria-label="Main navigation" data-mobile-open={mobileOpen || undefined}>
         {headerLinks.map(([href, label]) => (
           <a
             key={href}
@@ -203,7 +201,8 @@ function SiteNavigation({ current }: { current: string }) {
           type="button"
           aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
           aria-expanded={mobileOpen}
-          onClick={() => setOpenPath(mobileOpen ? null : "/")}
+          aria-controls="site-navigation"
+          onClick={() => setMobileOpen(!mobileOpen)}
         >
           <span className="mobile-menu-glyph" aria-hidden="true">
             <span />
@@ -218,27 +217,12 @@ export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="wrap footer-inner">
-        <div className="footer-proof">
-          <div className="footer-proof-readout" aria-hidden="true">
-            <span className="footer-proof-segment">
-              <i className="footer-proof-dot" />
-              <ProductIcon name="Cpu" size={13} /> inference · tee enclave
-            </span>
-            <span className="footer-proof-segment">
-              <ProductIcon name="Fingerprint" size={13} /> attestation · verifiable
-            </span>
-            <span className="footer-proof-segment">
-              <ProductIcon name="ReceiptText" size={13} /> settlement · solana
-            </span>
-            <span className="footer-proof-cursor" />
-          </div>
-          <a href="/verify" className="footer-proof-link">
-            Verify a receipt <ArrowUpRight size={13} aria-hidden="true" />
-          </a>
-        </div>
         <div className="footer-brand">
           <Brand />
-          <p>Confidential AI inference, routed and verified on Solana.</p>
+          <p>Confidential AI inference on Solana.</p>
+          <a href="/verify" className="inline-flex min-h-11 items-center gap-1.5 font-medium">
+            Verify a receipt <ArrowUpRight size={13} aria-hidden="true" />
+          </a>
           <div className="footer-social" aria-label="Sonnely elsewhere">
             <a href="https://github.com/Sonnely-AI" aria-label="Sonnely on GitHub">
               GitHub <ArrowUpRight size={13} aria-hidden="true" />
