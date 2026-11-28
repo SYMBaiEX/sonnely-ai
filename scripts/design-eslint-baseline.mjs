@@ -8,7 +8,7 @@ const baselinePath = new URL("../design-baseline.json", import.meta.url);
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
 const write = process.argv.includes("--write");
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-const run = spawnSync(command, ["exec", "eslint", "apps/app/src/web/**/*.{ts,tsx}", "--format", "json"], {
+const run = spawnSync(command, ["exec", "eslint", "apps/app/src/web/**/*.{ts,tsx,vibe}", "--format", "json"], {
   cwd: root,
   encoding: "utf8",
   maxBuffer: 64 * 1024 * 1024,

@@ -31,7 +31,7 @@
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
         "code/effects\nNo effect hooks: shared state lives in the spec-backed Machine (AGENTS.md, \"Writing code\").": 2,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: bars": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: between": 3,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: breakdown": 3,
@@ -82,7 +82,7 @@
         "@typescript-eslint/restrict-plus-operands\nInvalid operand for a '+' operation. Operands must each be a number or string, allowing a string + any of: `any`, `boolean`, `null`, `RegExp`, `undefined`. Got `URLSearchParams`.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
         "@typescript-eslint/no-unnecessary-type-assertion\nThis assertion is unnecessary since it does not change the type of the expression.": 2,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: actions": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: between": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: button": 4,
@@ -106,7 +106,7 @@
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "@typescript-eslint/restrict-plus-operands\nInvalid operand for a '+' operation. Operands must each be a number or string, allowing a string + any of: `any`, `boolean`, `null`, `RegExp`, `undefined`. Got `URLSearchParams`.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: actions": 2,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: between": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: button": 5,
@@ -145,7 +145,7 @@
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
         "code/effects\nNo effect hooks: shared state lives in the spec-backed Machine (AGENTS.md, \"Writing code\").": 2,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: admin-deploy-list": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: admin-deploy-notes": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: between": 1,
@@ -177,7 +177,7 @@
       "apps/app/src/web/areas/admin/legacy/admin-tabs.tsx": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/admin/customer.tsx": {
         "@typescript-eslint/no-redundant-type-constituents\n'any' overrides all other types in this union type.": 1,
@@ -190,7 +190,7 @@
         "react-hooks/purity\nError: Cannot call impure function during render\n\n`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).\n\n/home/ubuntu/repos/sonnely/apps/app/src/web/areas/admin/legacy/admin/customer.tsx:309:92\n  307 |     <div className=\"crm-records\">\n  308 |       {ordered.map((row) => {\n> 309 |         const overdue = row.doneAt === undefined && row.dueAt !== undefined && row.dueAt < Date.now();\n      |                                                                                            ^^^^^^^^^^ Cannot call impure function\n  310 |         return (\n  311 |           <div key={row.id} className={\"crm-record crm-task\" + (row.doneAt === undefined ? \"\" : \" crm-done\")}>\n  312 |             <span>": 1,
         "max-lines-per-function\nFunction 'CustomerWorkspace' has too many lines (579). Maximum allowed is 250.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: actions": 4,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: admin-nav-badge": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: button": 16,
@@ -299,7 +299,7 @@
       "apps/app/src/web/areas/admin/legacy/admin/customers.tsx": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: active": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: button": 6,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: caption": 2,
@@ -352,7 +352,7 @@
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
         "code/effects\nNo effect hooks: shared state lives in the spec-backed Machine (AGENTS.md, \"Writing code\").": 2,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "@typescript-eslint/no-duplicate-type-constituents\nUnion type constituent is duplicated with Customer.": 2,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: caption": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: crm-identity": 1,
@@ -386,7 +386,7 @@
         "react-hooks/refs\nError: Cannot access refs during render\n\nReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).\n\n/home/ubuntu/repos/sonnely/apps/app/src/web/areas/admin/legacy/admin/support.tsx:565:33\n  563 |                       type=\"button\"\n  564 |                       className=\"button quiet small\"\n> 565 |                       disabled={page.isDone}\n      |                                 ^^^^^^^^^^^ Cannot access ref value during render\n  566 |                       onClick={() => {\n  567 |                         if (page) setTrail([...trail, page.continueCursor]);\n  568 |                       }}": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
         "@typescript-eslint/no-unnecessary-type-assertion\nThis assertion is unnecessary since it does not change the type of the expression.": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: actions": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: active": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: between": 1,
@@ -464,7 +464,7 @@
         "@typescript-eslint/restrict-plus-operands\nInvalid operand for a '+' operation. Operands must each be a number or string, allowing a string + any of: `any`, `boolean`, `null`, `RegExp`, `undefined`. Got `URLSearchParams`.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
         "@typescript-eslint/no-unnecessary-type-assertion\nThis assertion is unnecessary since it does not change the type of the expression.": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: actions": 2,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: button": 6,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: caption": 2,
@@ -511,7 +511,7 @@
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
         "code/effects\nNo effect hooks: shared state lives in the spec-backed Machine (AGENTS.md, \"Writing code\").": 2,
         "code/effects\nNo timers: wait with Effect in VibeLang, or let the Machine say when (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: admin-toolbar": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: caption": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: empty-state": 1,
@@ -535,7 +535,7 @@
         "boundaries/no-unknown-dependencies\nDependencies to unknown elements and files are not allowed": 1,
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: accent": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: button": 2,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: caption": 4,
@@ -573,64 +573,64 @@
       "apps/app/src/web/areas/admin/legacy/lib/credit-amount.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/intent-funding.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 2,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/model-privacy.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/models.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/pricing.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 2,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/provider-catalog.ts": {
         "@typescript-eslint/consistent-type-imports\nAll imports in the declaration are only used as types. Use `import type`.": 1,
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/provider-invoice.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/provider-models.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/sol-quote.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/sonnely-error.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/usagemax-gateway.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "@typescript-eslint/restrict-plus-operands\nInvalid operand for a '+' operation. Operands must each be a number or string, allowing a string + any of: `any`, `boolean`, `null`, `RegExp`, `undefined`. Got `URLSearchParams`.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/lib/usagemax-operations.ts": {
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 1,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 legacy Convex return types...'.": 1
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — legacy Convex return types...'.": 1
       },
       "apps/app/src/web/areas/admin/legacy/shared.tsx": {
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: button": 1,
@@ -646,7 +646,7 @@
         "@typescript-eslint/no-unsafe-member-access\nComputed name [row.model] resolves to an `any` value.": 2,
         "@typescript-eslint/ban-ts-comment\nDo not use \"@ts-nocheck\" because it alters compilation errors.": 1,
         "code/comments\nNo code comments: only spec citations and tool directives (AGENTS.md, \"Writing code\").": 8,
-        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck \u2014 compatibility adapter from...'.": 1,
+        "no-warning-comments\nUnexpected 'legacy' comment: '@ts-nocheck — compatibility adapter from...'.": 1,
         "@typescript-eslint/await-thenable\nUnexpected `await` of a non-Promise (non-\"Thenable\") value.": 1,
         "@typescript-eslint/no-explicit-any\nUnexpected any. Specify a different type.": 54,
         "@typescript-eslint/no-unsafe-argument\nUnsafe argument of type `any` assigned to a parameter of type `ArrayLike<unknown> | { [s: string]: unknown; }`.": 3,
@@ -1343,8 +1343,8 @@
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: models-section-head": 1
       },
       "apps/app/src/web/areas/site/motion.tsx": {
-        "design-system/no-literal-colors\nLiteral color in \"#5876e2\". Use a token: var(--primary), bg-primary, text-muted-foreground \u2026": 1,
-        "design-system/no-literal-colors\nLiteral color in \"#f17c68\". Use a token: var(--primary), bg-primary, text-muted-foreground \u2026": 1,
+        "design-system/no-literal-colors\nLiteral color in \"#5876e2\". Use a token: var(--primary), bg-primary, text-muted-foreground …": 1,
+        "design-system/no-literal-colors\nLiteral color in \"#f17c68\". Use a token: var(--primary), bg-primary, text-muted-foreground …": 1,
         "code/effects\nNo timers: wait with Effect in VibeLang, or let the Machine say when (AGENTS.md, \"Writing code\").": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: ambient-visualizer": 1,
         "better-tailwindcss/no-unknown-classes\nUnknown class detected: button": 1,
