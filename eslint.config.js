@@ -21,6 +21,7 @@ export default vibestackConfig({
     "ops/**",
     "sdk/**",
     "packages/vibestack/**",
+    "**/skills/impeccable/**",
   ],
   commented: {
     "apps/app/src/App.tsx": 5, "apps/app/src/greeter.vibe": 5, "apps/app/src/greeting.ts": 1, "apps/app/src/link.contract.ts": 2, "apps/app/src/link.ts": 3,
