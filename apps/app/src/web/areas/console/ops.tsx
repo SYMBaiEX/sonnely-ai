@@ -1,27 +1,25 @@
-import type { ComponentProps, ReactNode } from "react";
-import { Button, Dialog, DialogContent, DialogTitle, Input, cn } from "@repo/ui";
+import type { ReactNode } from "react";
+import {
+  Badge,
+  Button,
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+  cn,
+} from "@repo/ui";
 
 export const panelClass = "rounded-lg border border-border bg-card p-4";
 export const actionRowClass = "flex flex-wrap items-center justify-end gap-2.5";
 
-export function NativeSelect({ className, ...props }: ComponentProps<"select">) {
-  return (
-    <select
-      className={cn(
-        "h-9 w-full rounded-md border border-input bg-background px-3 text-ui text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
 export function FieldLabel({ children, className }: { children: ReactNode; className?: string }) {
   return <label className={cn("grid min-w-0 gap-1.5 text-meta font-medium text-muted-foreground", className)}>{children}</label>;
-}
-
-export function TextInput(props: ComponentProps<typeof Input>) {
-  return <Input {...props} />;
 }
 
 export type TableColumn<Row> = {
@@ -48,106 +46,42 @@ export function DataTable<Row>({
   className?: string;
 }) {
   return (
-    <div className={cn("w-full", className)} role="region" aria-labelledby={labelledBy} aria-label={ariaLabel} tabIndex={0}>
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full border-collapse text-left text-ui">
-          <thead>
-            <tr>
-              {columns.map((column) => (
-                <th scope="col" key={column.label} data-ops-cell className="border-b border-border px-3 py-2.5 text-left whitespace-nowrap text-micro font-medium uppercase tracking-micro text-muted-foreground">
-                  {column.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={rowKey(row)}>
-                {columns.map((column) => {
-                  const content = column.value(row);
-                  const classes = cn(
-                    "border-b border-border px-3 py-2.5 text-left align-middle whitespace-nowrap",
-                    column.header && "font-medium",
-                    column.className,
-                  );
-                  if (column.header) {
-                    return (
-                      <th scope="row" key={column.label} data-ops-cell className={classes}>
-                        {content}
-                      </th>
-                    );
-                  }
-                  return <td key={column.label} data-ops-cell className={classes}>{content}</td>;
-                })}
-              </tr>
+    <TableContainer className={cn("border-0 bg-transparent", className)} aria-labelledby={labelledBy} aria-label={ariaLabel}>
+      <Table responsive className="text-left">
+        <TableHeader>
+          <TableRow>
+            {columns.map((column) => (
+              <TableHead key={column.label} data-ops-cell className="px-3 py-2.5 whitespace-nowrap text-micro font-medium uppercase tracking-micro">
+                {column.label}
+              </TableHead>
             ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="grid gap-3 md:hidden">
-        {rows.map((row) => (
-          <article key={rowKey(row)} className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-border bg-card p-4">
-            {columns.map((column) => {
-              const content = column.value(row);
-              return (
-                <div key={column.label} className={cn("min-w-0 content-start gap-1 wrap-anywhere", column.header ? "col-span-2 font-medium" : "grid", column.span && "col-span-2")}>
-                  {!column.header && <span className="text-micro font-medium uppercase tracking-micro text-muted-foreground">{column.label}</span>}
-                  {content}
-                </div>
-              );
-            })}
-          </article>
-        ))}
-      </div>
-    </div>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={rowKey(row)}>
+              {columns.map((column) => {
+                const content = column.value(row);
+                const classes = cn("px-3 py-2.5 align-middle whitespace-nowrap max-md:whitespace-normal max-md:wrap-anywhere", column.header && "font-medium", column.className);
+                if (column.header) {
+                  return (
+                    <TableHead scope="row" key={column.label} data-ops-cell className={classes}>
+                      {content}
+                    </TableHead>
+                  );
+                }
+                return <TableCell key={column.label} label={column.label} wide={column.span} data-ops-cell className={classes}>{content}</TableCell>;
+              })}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
-const statusTones = {
-  neutral: "border-border bg-secondary text-muted-foreground",
-  ok: "border-ok/40 bg-ok/10 text-ok",
-  destructive: "border-destructive/40 bg-destructive/10 text-destructive",
-  info: "border-info/40 bg-info/10 text-info",
-  warn: "border-warn/40 bg-warn/10 text-warn",
-} as const;
-
-export function StatusPill({ tone = "neutral", children, className }: { tone?: keyof typeof statusTones; children: ReactNode; className?: string }) {
-  return (
-    <span className={cn("inline-flex w-max items-center whitespace-nowrap rounded-full border px-2.5 py-1 font-mono text-micro font-medium", statusTones[tone], className)}>
-      {children}
-    </span>
-  );
-}
-
-export function SegmentedControl<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: readonly { value: T; label: ReactNode }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="inline-flex flex-wrap gap-1 rounded-md border border-border bg-card p-1" aria-label={label}>
-      {options.map((option) => (
-        <button
-          type="button"
-          key={option.value}
-          aria-pressed={option.value === value}
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "rounded-sm px-2.5 py-1.5 text-micro whitespace-nowrap text-muted-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-            option.value === value && "bg-secondary font-medium text-foreground",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
+export function StatusPill({ tone = "muted", children, className }: { tone?: "muted" | "ok" | "destructive" | "info" | "warn"; children: ReactNode; className?: string }) {
+  return <Badge variant={tone} className={cn("font-mono", className)}>{children}</Badge>;
 }
 
 export function Stat({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -187,17 +121,17 @@ export function SideDrawer({
   children: ReactNode;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-3 right-3 bottom-3 left-auto max-h-none w-full max-w-xl translate-none overflow-y-auto rounded-lg p-0">
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-popover px-5 py-4">
-          <DialogTitle asChild>
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent side="right" className="max-w-xl gap-0 overflow-hidden p-0">
+        <div className="flex items-start justify-between gap-3 border-b border-border bg-popover px-5 py-4">
+          <DrawerTitle asChild>
             <div>{title}</div>
-          </DialogTitle>
+          </DrawerTitle>
           <span className="w-6" />
         </div>
-        <div className="px-5 py-4">{children}</div>
-      </DialogContent>
-    </Dialog>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+      </DrawerContent>
+    </Drawer>
   );
 }
 

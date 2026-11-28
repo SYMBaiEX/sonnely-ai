@@ -2,7 +2,7 @@
 // spec/app/console/batch.md, "Story: Prepare and run a batch"
 import { ArrowUpRight, Download, Files, KeyRound, Pause, Play, RefreshCw, Upload } from "lucide-react";
 import { Suspense, use, useCallback, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Button, Progress } from "@repo/ui";
+import { Button, Input, Progress, Select } from "@repo/ui";
 import { z } from "zod";
 import type { Batch } from "../../../../gen/app__console__batch.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
@@ -10,7 +10,7 @@ import { useRemote, type Remote } from "../../remote.ts";
 import { useWorkspaceSession } from "./frame.tsx";
 import { WorkspaceHeading, creditBalance } from "./bits.tsx";
 import { providerIds, providerNames } from "./logs-shared.tsx";
-import { DataTable, FieldLabel, NativeSelect, StatusPill, TextInput, actionRowClass, panelClass } from "./ops.tsx";
+import { DataTable, FieldLabel, StatusPill, actionRowClass, panelClass } from "./ops.tsx";
 
 const batchLimits = { rows: 200, bytes: 4 * 1024 * 1024, delayMs: 5000 } as const;
 const batchEndpoint = "/v1/chat/completions";
@@ -652,7 +652,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
   });
 
   const rowStatusTone = {
-    queued: "neutral",
+    queued: "muted",
     sending: "info",
     succeeded: "ok",
     failed: "destructive",
@@ -681,7 +681,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
           <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-input bg-background px-4 py-6 text-ui transition-colors hover:border-ring hover:bg-secondary/40">
             <Upload size={18} aria-hidden="true" />
             <span className="grid gap-1"><strong>Choose JSONL file</strong><span className="text-meta text-muted-foreground">Each line needs a custom ID, endpoint, and request body.</span></span>
-            <TextInput ref={noteUploader} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready || !machine.state} onChange={(event) => void importBatch(event)} className="sr-only" />
+            <Input ref={noteUploader} type="file" accept=".jsonl,.ndjson,application/x-ndjson" aria-label="Choose JSONL file" disabled={busy || !ready || !machine.state} onChange={(event) => void importBatch(event)} className="sr-only" />
           </label>
           {issues && <div role="alert" className="grid gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive"><strong>Found {issues.count} {issues.count === 1 ? "issue" : "issues"} in this file.</strong><ul className="grid gap-1">{issues.lines.map((issue) => <li key={issue.line}>{issue.line ? "Line " + issue.line + " · " : ""}{issue.detail}</li>)}</ul>{issues.count > issues.lines.length && <p>Showing the first {issues.lines.length} issues.</p>}</div>}
           {!ready && !error && <p role="status" className="text-ui text-muted-foreground">Opening this device’s batch storage…</p>}
@@ -703,7 +703,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
               <form className="grid gap-3" onSubmit={applyKey}>
                 <FieldLabel>
                   Workspace inference key
-                  <TextInput
+                  <Input
                     type="password"
                     name="inference-key"
                     autoComplete="off"
@@ -750,7 +750,7 @@ function BatchWorkspaceLoaded({ boot, wallet, machine }: { boot: BatchBoot; wall
                 <h2 id="batch-rows-title" className="text-heading leading-heading font-medium">Requests</h2>
                 <p className="mt-1 text-ui text-muted-foreground">Filter by status or export the saved results and checkpoints.</p>
               </div>
-              <FieldLabel className="w-48">Show<NativeSelect value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="all">All requests</option><option value="remaining">Queued and blocked</option><option value="attention">Needs attention</option><option value="completed">Completed</option></NativeSelect></FieldLabel>
+              <FieldLabel className="w-48">Show<Select value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="all">All requests</option><option value="remaining">Queued and blocked</option><option value="attention">Needs attention</option><option value="completed">Completed</option></Select></FieldLabel>
             </div>
             {filtered.length ? (
               <DataTable

@@ -1,7 +1,7 @@
 // spec/app/console/logs.md, "Story: Review request activity"
 import { Activity, ArrowUpRight, Download, List, RefreshCw, Search } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
-import { Button } from "@repo/ui";
+import { Button, Input, Select } from "@repo/ui";
 import type { LogEntry, Logs, LogStatus, Window } from "../../../../gen/app__console__logs.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { visible } from "../../../../gen/app__console__logs.ts";
@@ -18,7 +18,7 @@ import {
   milliseconds,
 } from "./bits.tsx";
 import { providerIds, providerNames } from "./logs-shared.tsx";
-import { DataTable, DetailRows, FieldLabel, NativeSelect, SideDrawer, StatusPill, TextInput, panelClass } from "./ops.tsx";
+import { DataTable, DetailRows, FieldLabel, SideDrawer, StatusPill, panelClass } from "./ops.tsx";
 
 const defaults = { days: "7", provider: "", model: "", keyName: "", status: "" };
 const statusLabels: Record<LogStatus, string> = {
@@ -366,11 +366,11 @@ function FiltersForm({ initial, logs }: { initial: typeof defaults; logs: Remote
   return (
     <form className="grid w-full gap-3" onSubmit={(event) => void applyFilters(event)}>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <FieldLabel>Date range<NativeSelect value={draft.days} onChange={(event) => setDraft({ ...draft, days: event.target.value })}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option></NativeSelect></FieldLabel>
-        <FieldLabel>Provider<NativeSelect value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</NativeSelect></FieldLabel>
-        <FieldLabel>Status<NativeSelect value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}><option value="">All statuses</option>{Object.keys(lowerStatus).map((id) => <option key={id} value={id}>{statusLabels[lowerStatus[id]]}</option>)}</NativeSelect></FieldLabel>
-        <FieldLabel>Model ID<TextInput value={draft.model} maxLength={100} placeholder="Any model" onChange={(event) => setDraft({ ...draft, model: event.target.value })} /></FieldLabel>
-        <FieldLabel>Key name<TextInput value={draft.keyName} maxLength={60} placeholder="Any key" onChange={(event) => setDraft({ ...draft, keyName: event.target.value })} /></FieldLabel>
+        <FieldLabel>Date range<Select value={draft.days} onChange={(event) => setDraft({ ...draft, days: event.target.value })}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option></Select></FieldLabel>
+        <FieldLabel>Provider<Select value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</Select></FieldLabel>
+        <FieldLabel>Status<Select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}><option value="">All statuses</option>{Object.keys(lowerStatus).map((id) => <option key={id} value={id}>{statusLabels[lowerStatus[id]]}</option>)}</Select></FieldLabel>
+        <FieldLabel>Model ID<Input value={draft.model} maxLength={100} placeholder="Any model" onChange={(event) => setDraft({ ...draft, model: event.target.value })} /></FieldLabel>
+        <FieldLabel>Key name<Input value={draft.keyName} maxLength={60} placeholder="Any key" onChange={(event) => setDraft({ ...draft, keyName: event.target.value })} /></FieldLabel>
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <Button type="submit">Apply filters</Button>

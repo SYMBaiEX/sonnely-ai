@@ -1,13 +1,13 @@
 // spec/app/keys.md, "Story: Issue a key"
 import { ArrowUpRight, KeyRound, Plus } from "lucide-react";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Button } from "@repo/ui";
+import { Button, Input } from "@repo/ui";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import { reconnectMachine, useRemote } from "../../remote.ts";
 import { ConsoleFrame, useWorkspaceSession } from "../console/frame.tsx";
 import { CopyButton, Empty, Failure, WorkspaceHeading, creditBalance, date, day, parseCreditAmount } from "../console/bits.tsx";
-import { DataTable, FieldLabel, StatusPill, TextInput, actionRowClass, panelClass } from "../console/ops.tsx";
+import { DataTable, FieldLabel, StatusPill, actionRowClass, panelClass } from "../console/ops.tsx";
 
 const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
 function secret() {
@@ -47,15 +47,15 @@ function CapFields({ editing, now }: { editing?: Key; now: number }) {
     <>
       <FieldLabel>
         Daily cap (USD)
-        <TextInput name="daily" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.dailyCap !== 0 ? editing.dailyCap / 1_000_000 : ""} />
+        <Input name="daily" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.dailyCap !== 0 ? editing.dailyCap / 1_000_000 : ""} />
       </FieldLabel>
       <FieldLabel>
         Lifetime cap (USD)
-        <TextInput name="cap" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.cap !== 0 ? editing.cap / 1_000_000 : ""} />
+        <Input name="cap" type="number" min="0.01" step="0.01" placeholder="Optional" defaultValue={editing && editing.cap !== 0 ? editing.cap / 1_000_000 : ""} />
       </FieldLabel>
       <FieldLabel>
         Expires (UTC)
-        <TextInput name="expires" type="date" min={day(now)} defaultValue={editing && editing.expiresAt !== 0 ? day(editing.expiresAt) : ""} />
+        <Input name="expires" type="date" min={day(now)} defaultValue={editing && editing.expiresAt !== 0 ? day(editing.expiresAt) : ""} />
       </FieldLabel>
     </>
   );
@@ -217,7 +217,7 @@ function KeysConsole() {
         <form className={`${panelClass} grid gap-4`} onSubmit={(event) => void create(event)}>
           <h2 id="key-form-heading" ref={focusHeading} tabIndex={-1} className="text-heading leading-heading font-medium outline-none">Create an API key</h2>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <FieldLabel>Name<TextInput name="name" maxLength={60} placeholder="CI, notebook, or app" /></FieldLabel>
+            <FieldLabel>Name<Input name="name" maxLength={60} placeholder="CI, notebook, or app" /></FieldLabel>
             <CapFields now={now} />
           </div>
           <div className={actionRowClass}>
@@ -230,7 +230,7 @@ function KeysConsole() {
         <form className={`${panelClass} grid gap-4`} onSubmit={(event) => void update(event)} key={editing.id}>
           <h2 id="key-form-heading" ref={focusHeading} tabIndex={-1} className="text-heading leading-heading font-medium outline-none">Edit {editing.label}</h2>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <FieldLabel>Name<TextInput name="name" maxLength={60} defaultValue={editing.label} /></FieldLabel>
+            <FieldLabel>Name<Input name="name" maxLength={60} defaultValue={editing.label} /></FieldLabel>
             <CapFields editing={editing} now={now} />
           </div>
           <div className={actionRowClass}>
@@ -265,8 +265,8 @@ function KeysConsole() {
                 value: (item) => {
                   const expired = item.expiresAt !== 0 && item.expiresAt < now;
                   return (
-                    <span className="grid w-max gap-1">
-                      <StatusPill tone={item.status === "Revoked" || expired ? "neutral" : "ok"}>{item.status === "Revoked" ? "Revoked" : expired ? "Expired" : "Active"}</StatusPill>
+                    <span className="grid min-w-0 gap-1">
+                      <StatusPill tone={item.status === "Revoked" || expired ? "muted" : "ok"}>{item.status === "Revoked" ? "Revoked" : expired ? "Expired" : "Active"}</StatusPill>
                       {item.expiresAt !== 0 && item.status === "Active" ? <small className="text-meta text-muted-foreground">Expires {date(item.expiresAt)} UTC</small> : null}
                     </span>
                   );
@@ -284,7 +284,7 @@ function KeysConsole() {
                 ),
               },
               {
-                label: "Actions",
+                label: "Actions", span: true,
                 value: (item) => item.status === "Active" && item.project === "" ? (
                   <span className="flex flex-wrap gap-2">
                     <Button type="button" variant="ghost" size="sm" aria-label={`Edit ${item.label}`} disabled={busy} onClick={(event) => { rowActionRef.current = event.currentTarget; setOpen(false); setKey(""); setRevoke(null); setStatus(""); setEditing(item); setFailure(""); }}>Edit</Button>

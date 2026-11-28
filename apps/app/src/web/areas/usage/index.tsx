@@ -1,7 +1,7 @@
 // spec/app/usage.md, "Story: Roll usage up"
 import { ArrowUpRight, BarChart3, Download } from "lucide-react";
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { Button } from "@repo/ui";
+import { Button, SegmentedControl, SegmentedControlItem, Select } from "@repo/ui";
 import type { Page } from "../../../../gen/app__nav.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
@@ -20,7 +20,7 @@ import {
   shortDate,
 } from "../console/bits.tsx";
 import { providerIds, providerNames } from "../console/logs-shared.tsx";
-import { DataTable, FieldLabel, NativeSelect, SegmentedControl, Stat, panelClass } from "../console/ops.tsx";
+import { DataTable, FieldLabel, Stat, panelClass } from "../console/ops.tsx";
 
 const usageCount = new Intl.NumberFormat("en-US");
 const usagePercent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
@@ -229,11 +229,11 @@ function UsageConsole() {
         </Button>
         <FieldLabel className="w-36">
           Date range
-          <NativeSelect value={range} onChange={(event) => setRange(Number(event.target.value))}>
+          <Select value={range} onChange={(event) => setRange(Number(event.target.value))}>
             <option value={7}>Last 7 days</option>
             <option value={30}>Last 30 days</option>
             <option value={90}>Last 90 days</option>
-          </NativeSelect>
+          </Select>
         </FieldLabel>
       </WorkspaceHeading>
       {error && <Failure message={error} />}
@@ -241,10 +241,10 @@ function UsageConsole() {
         <section aria-label="Usage filters">
           <FilterPanel label="Filter usage" active={Object.values(filters).filter(Boolean).length}>
             <div className="grid w-full gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <FieldLabel>Provider<NativeSelect ref={providerFilterRef} value={filters.provider} onChange={(event) => updateFilter("provider", event.target.value)}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</NativeSelect></FieldLabel>
-              <FieldLabel>Model<NativeSelect value={filters.model} onChange={(event) => updateFilter("model", event.target.value)}><option value="">All models</option>{filters.model && !modelIds.includes(filters.model) && <option value={filters.model}>{usageModelName(filters.model)}</option>}{modelIds.map((id) => <option key={id} value={id}>{usageModelName(id)}</option>)}</NativeSelect></FieldLabel>
-              <FieldLabel>API key<NativeSelect value={filters.key} onChange={(event) => updateFilter("key", event.target.value)}><option value="">All keys</option>{filters.key && !keyLabels.has(filters.key) && <option value={filters.key}>Selected key</option>}{keyOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</NativeSelect></FieldLabel>
-              <FieldLabel>Status<NativeSelect value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}><option value="">All statuses</option>{Object.entries(statusValues).map(([value, status]) => <option key={value} value={value}>{usageStates[status]}</option>)}</NativeSelect></FieldLabel>
+              <FieldLabel>Provider<Select ref={providerFilterRef} value={filters.provider} onChange={(event) => updateFilter("provider", event.target.value)}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</Select></FieldLabel>
+              <FieldLabel>Model<Select value={filters.model} onChange={(event) => updateFilter("model", event.target.value)}><option value="">All models</option>{filters.model && !modelIds.includes(filters.model) && <option value={filters.model}>{usageModelName(filters.model)}</option>}{modelIds.map((id) => <option key={id} value={id}>{usageModelName(id)}</option>)}</Select></FieldLabel>
+              <FieldLabel>API key<Select value={filters.key} onChange={(event) => updateFilter("key", event.target.value)}><option value="">All keys</option>{filters.key && !keyLabels.has(filters.key) && <option value={filters.key}>Selected key</option>}{keyOptions.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></FieldLabel>
+              <FieldLabel>Status<Select value={filters.status} onChange={(event) => updateFilter("status", event.target.value)}><option value="">All statuses</option>{Object.entries(statusValues).map(([value, status]) => <option key={value} value={value}>{usageStates[status]}</option>)}</Select></FieldLabel>
             </div>
             {state && (
               <div className="flex w-full flex-wrap items-center justify-between gap-2 text-ui text-muted-foreground">
@@ -262,8 +262,8 @@ function UsageConsole() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="usage-chart-heading" className="text-heading leading-heading font-medium">{metric} by day</h2>
           <div className="flex flex-wrap items-end gap-3">
-            <FieldLabel>Chart metric<NativeSelect value={metric} onChange={(event) => setMetric(event.target.value as UsageMetric)}>{usageChartMetrics.map((value) => <option key={value}>{value}</option>)}</NativeSelect></FieldLabel>
-            <SegmentedControl label="Chart view" value={view} onChange={setView} options={["Chart", "Table"].map((value) => ({ value: value as "Chart" | "Table", label: value }))} />
+            <FieldLabel>Chart metric<Select value={metric} onChange={(event) => setMetric(event.target.value as UsageMetric)}>{usageChartMetrics.map((value) => <option key={value}>{value}</option>)}</Select></FieldLabel>
+            <SegmentedControl aria-label="Chart view" value={view} onValueChange={(value) => setView(value as typeof view)}><SegmentedControlItem value="Chart">Chart</SegmentedControlItem><SegmentedControlItem value="Table">Table</SegmentedControlItem></SegmentedControl>
           </div>
         </div>
         {!rows.length || !hasMetric ? (
@@ -283,8 +283,8 @@ function UsageConsole() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="request-breakdown" className="text-heading leading-heading font-medium">Request breakdown</h2>
           <div className="flex flex-wrap items-end gap-3">
-            <SegmentedControl label="Group usage" value={group} onChange={setGroup} options={usageGroups.map((value) => ({ value, label: "By " + value.toLowerCase() }))} />
-            <FieldLabel>Sort groups<NativeSelect value={order} onChange={(event) => setOrder(event.target.value as typeof order)}>{Object.entries(breakdownOrders).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</NativeSelect></FieldLabel>
+            <SegmentedControl aria-label="Group usage" value={group} onValueChange={(value) => setGroup(value as typeof group)}>{usageGroups.map((value) => <SegmentedControlItem key={value} value={value}>{"By " + value.toLowerCase()}</SegmentedControlItem>)}</SegmentedControl>
+            <FieldLabel>Sort groups<Select value={order} onChange={(event) => setOrder(event.target.value as typeof order)}>{Object.entries(breakdownOrders).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></FieldLabel>
           </div>
         </div>
         {breakdown.length ? (
