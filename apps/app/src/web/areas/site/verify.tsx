@@ -276,7 +276,7 @@ function ReceiptInspector() {
           <ShieldCheck size={16} aria-hidden="true" /> The receipt and files stay in this browser.
         </p>
       </form></Card>
-      <Card className="gap-4" aria-labelledby="verification-result">
+      <Card asChild className="gap-4" aria-labelledby="verification-result"><section>
         <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
             <span className="font-mono text-micro uppercase tracking-micro text-primary">Inspection results</span>
@@ -390,7 +390,7 @@ function ReceiptInspector() {
             </div>
           </div>
         )}
-      </Card>
+      </section></Card>
     </div>
   );
 }

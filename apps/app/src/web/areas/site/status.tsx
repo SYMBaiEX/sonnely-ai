@@ -119,7 +119,7 @@ export function StatusPage() {
         </a>
       </CorrespondenceHero>
 
-      <Card className="gap-5" aria-labelledby="status-checks">
+      <Card asChild className="gap-5" aria-labelledby="status-checks"><section>
         <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
             <span className="font-mono text-micro uppercase tracking-micro text-primary">Workspace checks</span>
@@ -195,7 +195,7 @@ export function StatusPage() {
           send billable requests.
         </p>
         {(error || refreshError) && <p className={caption}>{error || refreshError}</p>}
-      </Card>
+      </section></Card>
 
       <section className="grid gap-6 border-t border-border pt-8" aria-labelledby="status-notes">
         <header>
