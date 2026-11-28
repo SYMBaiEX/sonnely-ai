@@ -101,7 +101,7 @@
 }
 
 .usage-legacy .button.secondary {
-  border-color: var(--line);
-  background: var(--raised);
+  border-color: var(--border);
+  background: var(--secondary);
 }
 

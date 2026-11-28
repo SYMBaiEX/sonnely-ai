@@ -48,8 +48,8 @@ export async function tests(checking, dir, specs, remember, mode = "normal", fre
         }
         const runTests = async () => {
             const { NODE_TEST_CONTEXT: _, ...env } = process.env;
-            // The root that is checking: spec.ts refuses a check of it, or of a package below it, started from these tests.
-            const t = await exec(manager.name, ["run", "test", ...(mode === "nightly" ? ["--mode", "nightly"] : [])], root, { ...env, SPEC_TESTS: fs.realpathSync(checking) });
+            const nightlyArgs = mode === "nightly" ? [...(manager.name === "npm" ? ["--"] : []), "--mode", "nightly"] : [];
+            const t = await exec(manager.name, ["run", "test", ...nightlyArgs], root, { ...env, SPEC_TESTS: fs.realpathSync(checking) });
             const ok = t.status === 0 && !t.stopped;
             // From the runner's list of failures, Vitest's or Node's, at most 200 lines of it; else the end of what it said.
             const stdout = stripVTControlCharacters(t.stdout), stderr = stripVTControlCharacters(t.stderr);
@@ -80,7 +80,7 @@ function addVitest(root) {
 /** What a module import reaches: generated code, a test library, or anything else (the shell, a service, a helper). */
 const reaches = (quoted) => {
     const module = quoted.replace(/^["'`]|["'`]$/g, "");
-    return /(?:^|\/)gen\//.test(module) ? "gen" : /^(?:vitest|@vitest\/.+|@effect\/vitest|effect(?:\/.+)?|node:test|node:assert(?:\/strict)?|assert|@testing-library\/.+)$/.test(module) ? "library" : "outside";
+    return /(?:^|\/)gen\//.test(module) ? "gen" : /^(?:vitest|@vitest\/.+|@effect\/vitest|effect(?:\/.+)?|node:test|node:assert(?:\/strict)?|assert|@testing-library\/.+|vibestack\/testing(?:\/.+)?)$/.test(module) ? "library" : "outside";
 };
 /**
  * The tests of one file, each as its line, whether it reaches only generated code and whether a citation covers it;
@@ -88,8 +88,8 @@ const reaches = (quoted) => {
  * it calls in the same file; it is covered by a citation in it, on the `describe` or layer around it, or in the
  * file's header. Nothing, if the file cannot be read as tokens.
  */
-function readTests(text) {
-    const tokens = tokenize(text);
+function readTests(text, file) {
+    const tokens = tokenize(text, file);
     if (!tokens)
         return undefined;
     const word = (i) => /^[A-Za-z_$][\w$]*$/.test(tokens[i]?.text ?? "");
@@ -127,7 +127,7 @@ function readTests(text) {
     for (const s of statements) {
         let i = s.from;
         if (tokens[i].text === "import" && tokens[i + 1]?.text !== "(") {
-            if (tokens[i + 1].text === "type")
+            if (tokens[i + 1]?.text === "type")
                 continue;
             let fromAt = -1;
             for (let j = i + 1; j <= s.to; j++)
@@ -135,31 +135,40 @@ function readTests(text) {
                     fromAt = j;
                     break;
                 }
-            const module = tokens[fromAt < 0 ? i + 1 : fromAt + 1].text;
+            const module = tokens[fromAt < 0 ? i + 1 : fromAt + 1]?.text;
+            if (!module)
+                continue;
             if (/^["'](?:vitest|@effect\/vitest|node:test)["']$/.test(module)) {
-                if (tokens[i + 1]?.text === "*" && tokens[i + 2]?.text === "as")
+                if (tokens[i + 1]?.text === "*" && tokens[i + 2]?.text === "as" && tokens[i + 3])
                     runnerNamespaces.add(tokens[i + 3].text);
                 else if (word(i + 1))
                     runners.add(tokens[i + 1].text);
                 for (let j = i + 1; j < fromAt; j++)
-                    if (["it", "test"].includes(tokens[j].text) && tokens[j - 1]?.text !== "type")
-                        runners.add(tokens[j + 1]?.text === "as" ? tokens[j + 2].text : tokens[j].text);
+                    if (["it", "test"].includes(tokens[j].text) && tokens[j - 1]?.text !== "type") {
+                        const local = tokens[j + 1]?.text === "as" ? tokens[j + 2]?.text : tokens[j].text;
+                        if (local)
+                            runners.add(local);
+                    }
             }
             for (let j = i + 1; j < (fromAt < 0 ? i : fromAt); j++)
-                if (word(j) && !["type", "as"].includes(tokens[j].text) && tokens[j - 1].text !== "type" && tokens[j + 1]?.text !== "as")
+                if (word(j) && !["type", "as"].includes(tokens[j].text) && tokens[j - 1]?.text !== "type" && tokens[j + 1]?.text !== "as")
                     bound.set(tokens[j].text, reaches(module));
             if (fromAt < 0)
                 bound.set(`import ${module}`, reaches(module));
             continue;
         }
         header = Math.min(header, tokens[s.from].pos);
-        while (["export", "default", "declare", "async", "effect"].includes(tokens[i].text))
+        while (i < tokens.length && ["export", "default", "declare", "async", "effect"].includes(tokens[i].text))
             i++;
-        const declares = ["function", "class"].includes(tokens[i].text) ? [tokens[i + 1].text === "*" ? i + 2 : i + 1]
+        if (i >= tokens.length)
+            continue;
+        const end = close(i + 1);
+        const declares = ["function", "class"].includes(tokens[i].text) ? [tokens[i + 1]?.text === "*" ? i + 2 : i + 1]
             : !["const", "let", "var"].includes(tokens[i].text) ? [] : word(i + 1) ? [i + 1]
-                : ["{", "["].includes(tokens[i + 1]?.text) ? Array.from({ length: close(i + 1) - i - 2 }, (_, k) => i + 2 + k).filter(word) : [];
+                : ["{", "["].includes(tokens[i + 1]?.text) && end > i + 1 ? Array.from({ length: end - i - 2 }, (_, k) => i + 2 + k).filter(word) : [];
         for (const d of declares)
-            helpers.set(tokens[d].text, s);
+            if (d < tokens.length)
+                helpers.set(tokens[d].text, s);
     }
     const blocks = [];
     tokens.forEach((t, i) => {
@@ -250,7 +259,7 @@ function testRules(checking, dir, specs, testEntries, dirCitations) {
     const uncited = [];
     const said = [];
     for (const [file, text] of testEntries) {
-        const read = readTests(text);
+        const read = readTests(text, file);
         if (read?.generated)
             generatedOnly.push(`${dir}${file}: imports nothing but gen/ and test libraries`);
         for (const t of read?.tests ?? []) {
@@ -300,13 +309,19 @@ function driverImports(root, entries) {
     const ts = tsApi();
     const config = ts.findConfigFile(root, ts.sys.fileExists);
     const options = { module: ts.ModuleKind.NodeNext, moduleResolution: ts.ModuleResolutionKind.NodeNext,
-        ...config ? ts.getParsedCommandLineOfConfigFile(config, {}, { ...ts.sys, onUnRecoverableConfigFileDiagnostic() { } })?.options : {} };
+        ...config ? ts.getParsedCommandLineOfConfigFile(config, {}, { ...ts.sys, readDirectory: () => [], onUnRecoverableConfigFileDiagnostic() { } })?.options : {} };
     const cache = ts.createModuleResolutionCache(root, (file) => file, options);
     return entries.flatMap(([file, text]) => {
         const source = ts.createSourceFile(path.resolve(root, file), text, ts.ScriptTarget.Latest, true);
-        const host = ts.createCompilerHost({ noResolve: true, noLib: true });
-        host.getSourceFile = (name) => name === source.fileName ? source : undefined;
-        const checker = ts.createProgram([source.fileName], { noResolve: true, noLib: true }, host).getTypeChecker();
+        let checker;
+        const getChecker = () => {
+            if (!checker) {
+                const host = ts.createCompilerHost({ noResolve: true, noLib: true });
+                host.getSourceFile = (name) => name === source.fileName ? source : undefined;
+                checker = ts.createProgram([source.fileName], { noResolve: true, noLib: true }, host).getTypeChecker();
+            }
+            return checker;
+        };
         const moduleName = (node, seen = new Set()) => {
             if (!node)
                 return undefined;
@@ -328,7 +343,7 @@ function driverImports(root, entries) {
                 }
                 return out;
             }
-            const symbol = ts.isIdentifier(node) ? checker.getSymbolAtLocation(node) : undefined;
+            const symbol = ts.isIdentifier(node) ? getChecker().getSymbolAtLocation(node) : undefined;
             const declaration = symbol?.valueDeclaration;
             if (!symbol || seen.has(symbol) || !declaration || !ts.isVariableDeclaration(declaration) || !(declaration.parent.flags & ts.NodeFlags.Const))
                 return undefined;

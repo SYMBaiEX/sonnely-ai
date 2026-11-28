@@ -25,13 +25,13 @@
 .site :where(.pricing-page) .section-head p {
   max-width: 62ch;
   margin: 10px 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   line-height: 1.55;
 }
 
 .site .pricing-page .text-link {
   min-height: 44px;
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .site .pricing-page .section-head > .text-link {
@@ -56,14 +56,14 @@
 
 .site .pricing-hero h1 span {
   display: block;
-  font-family: var(--serif);
+  font-family: var(--font-serif);
   font-weight: 400;
 }
 
 .site .pricing-hero-description {
   max-width: 35ch;
   margin: 18px 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: clamp(16px, 1.5vw, 20px);
   line-height: 1.55;
   text-wrap: pretty;
@@ -96,7 +96,7 @@
 
 .site .pricing-estimate-section > p {
   margin: 7px 0 18px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   line-height: 1.45;
 }
 
@@ -128,12 +128,12 @@
 .site .pricing-estimate-inputs :is(input, select) {
   min-width: 0;
   min-height: 46px;
-  color: var(--ink);
+  color: var(--foreground);
   font-size: 1rem;
 }
 
 .site .pricing-estimate-inputs input {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -143,7 +143,7 @@
 
 .site .pricing-estimate-inputs p {
   margin: 0;
-  color: var(--ink);
+  color: var(--foreground);
   font-size: 0.875rem;
   line-height: 1.4;
 }
@@ -152,13 +152,13 @@
   margin: 0;
   border-inline-start: 1px solid var(--home-divider);
   border-radius: 0 13px 13px 0;
-  background: color-mix(in oklch, var(--accent) 9%, var(--home-panel));
+  background: color-mix(in oklch, var(--ring) 9%, var(--home-panel));
 }
 
 .site .pricing-invoice output {
   display: block;
   margin-top: 8px;
-  font: 550 clamp(27px, 2.7vw, 42px) / 1.12 var(--mono);
+  font: 550 clamp(27px, 2.7vw, 42px) / 1.12 var(--font-mono);
   letter-spacing: -0.04em;
   overflow-wrap: anywhere;
 }
@@ -173,7 +173,7 @@
 
 .site .pricing-invoice p {
   margin: 8px 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.9375rem;
   line-height: 1.5;
 }
@@ -194,7 +194,7 @@
 
 .site .pricing-invoice dd {
   margin: 0;
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -278,7 +278,7 @@
 
 .site .pricing-terms-grid p {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   line-height: 1.55;
 }
 

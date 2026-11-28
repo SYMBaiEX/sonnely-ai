@@ -20,6 +20,52 @@ export interface Driver<E, V> {
      */
     receive?(key: string, raw: unknown, by?: unknown): Outcome | Promise<Outcome>;
 }
+export type PathStrategy = "shortest" | "transitions" | "simple";
+export interface ModelStep<S, E> {
+    readonly before: S;
+    readonly event: Sent<E>;
+    readonly allowed: boolean;
+    readonly after: S;
+    readonly out?: unknown;
+}
+export interface ModelPath<S, E> {
+    readonly description: string;
+    readonly targetState: string;
+    readonly steps: readonly ModelStep<S, E>[];
+    readonly events: readonly Sent<E>[];
+}
+export interface PlanOptions<S, E> {
+    readonly strategy?: PathStrategy;
+    readonly stateKey?: (state: S) => string;
+    readonly includeRefusals?: boolean;
+    readonly maxStates?: number;
+    readonly maxDepth?: number;
+    readonly maxPaths?: number;
+    readonly transitions?: readonly string[];
+    readonly predicates?: Readonly<Record<string, (state: S) => boolean>>;
+    readonly seedTraces?: readonly (readonly Sent<E>[])[];
+    readonly hasOutput?: boolean;
+}
+export interface TransitionCoverage {
+    readonly total: number;
+    readonly accepted: readonly string[];
+    readonly refused: readonly string[];
+    readonly uncovered: readonly string[];
+}
+export interface ModelPlan<S, E> {
+    readonly strategy: PathStrategy;
+    readonly paths: readonly ModelPath<S, E>[];
+    readonly prefixForTransition: ReadonlyMap<string, {
+        readonly prefix: readonly Sent<E>[];
+        readonly event: Sent<E>;
+    }>;
+    readonly coverage: {
+        readonly states: number;
+        readonly paths: number;
+        readonly truncated: boolean;
+        readonly transitions: TransitionCoverage;
+    };
+}
 export interface Options<S, V> {
     /** What of the spec's state the driver can observe; without it, `observe` returns the whole state. */
     view?: (state: S) => V;
@@ -27,11 +73,15 @@ export interface Options<S, V> {
     keys?: string[];
     /**
      * At most this many random walks after the journeys, within the fixed profile (conform.ts); 0 runs the journeys
-     * only, as a slow driver (a browser) should.
+     * and model paths only, as a slow driver (a browser) should.
      */
     walks?: number;
     steps?: number;
     seed?: number;
+    /** Deterministic model-based path strategy run before random walks; `false` disables generated paths. */
+    paths?: PathStrategy | false;
+    /** Optional state abstraction key for model path planning. */
+    stateKey?: (state: S) => string;
 }
 /** What the generated `gen/<name>.ts` gives the check. */
 export interface Oracle<S, E> {
@@ -62,6 +112,7 @@ export interface Found<E> {
     shape: ComparisonShape;
     outputShape?: ComparisonShape;
     traces?: Sent<E>[][];
+    transitions?: string[];
 }
 export type Sent<E> = E & {
     by?: unknown;
@@ -76,16 +127,20 @@ export declare class ConformanceError<E = unknown> extends Error {
     readonly origin: string;
     constructor(message: string, trace: Trace<E>, seed: number, origin: string);
 }
+export declare function planModel<S, E>(oracle: Oracle<S, E>, events: readonly Sent<E>[], shape?: ComparisonShape, options?: PlanOptions<S, E>): ModelPlan<S, E>;
 /**
- * Run the journeys, the probes of a driver that can `receive`, then seeded random walks; throw a ConformanceError at
- * the first disagreement, shrunk to the fewest events that show it, or an Error at the first probe that fails.
+ * Run the journeys, deterministic model-based paths, probes of a driver that can `receive`, then seeded random walks;
+ * throw a ConformanceError at the first disagreement, shrunk to the fewest events that show it, or an Error at the
+ * first probe that fails.
  */
 export declare function check<S, E, V>(oracle: Oracle<S, E>, found: Found<E>, driver: Driver<E, V>, options?: Options<S, V>): Promise<{
+    plans: number;
     journeys: number;
     probes: number;
     walks: number;
     observed: number;
     outcomes: Outcome[];
+    coverage: TransitionCoverage;
     effects: string;
 }>;
 /**
@@ -93,7 +148,6 @@ export declare function check<S, E, V>(oracle: Oracle<S, E>, found: Found<E>, dr
  * an Error if it holds an event the spec no longer has, which only a person can bring up to date or delete.
  */
 export declare function replay<S, E, V>(oracle: Oracle<S, E>, found: Found<E>, driver: Driver<E, V>, trace: Trace<E>, options?: Options<S, V>, from?: string): Promise<void>;
-/** The state type, resolved by the generator so sets are sorted only in the variant that owns them. */
 export type ComparisonShape = "scalar" | {
     set: ComparisonShape;
 } | {

@@ -41,7 +41,7 @@ catalog:
   turbo: ^2.11.11
   typescript: ^6.0.3
   typescript-eslint: ^8.72.2
-  vibestack: ^0.2.0
+  vibestack: ^0.2.1
   vite: 8.3.5
   vitest: 5.1.0
 

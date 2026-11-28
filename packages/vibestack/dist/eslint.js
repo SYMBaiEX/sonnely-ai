@@ -1,5 +1,6 @@
 import { existsSync, globSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, join, matchesGlob, posix, relative, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join, matchesGlob, posix, resolve, sep } from "node:path";
 import { designSystem } from "./design/eslint.js";
 import { parseTokens } from "./design/tokens.js";
 const ASSET_EXTENSIONS = [
@@ -923,6 +924,12 @@ function findForbiddenInlineDisable(comments) {
     }
     return undefined;
 }
+function assertNoForbiddenInlineDisable(comments) {
+    const forbidden = findForbiddenInlineDisable(comments ?? []);
+    if (forbidden) {
+        throw Object.assign(new SyntaxError("Inline eslint-disable cannot suppress barrel/* or omit rule names."), { lineNumber: forbidden.loc.start.line, column: forbidden.loc.start.column + 1 });
+    }
+}
 function guardBarrelDisable(parser) {
     if (protectedParsers.has(parser))
         return parser;
@@ -936,10 +943,7 @@ function guardBarrelDisable(parser) {
         },
         parseForESLint(text, options) {
             const parsed = parser.parseForESLint(text, options);
-            const forbidden = findForbiddenInlineDisable(parsed.ast.comments ?? []);
-            if (forbidden) {
-                throw Object.assign(new SyntaxError("Inline eslint-disable cannot suppress barrel/* or omit rule names."), { lineNumber: forbidden.loc.start.line, column: forbidden.loc.start.column + 1 });
-            }
+            assertNoForbiddenInlineDisable(parsed.ast.comments);
             return parsed;
         },
     };
@@ -960,11 +964,40 @@ function targetsPackageJson(files) {
 function isEslintParser(value) {
     return typeof value === "object" && value !== null && "parseForESLint" in value && typeof value.parseForESLint === "function";
 }
-/**
- * Wraps an ESLint flat config to enforce barrel-only workspace exports (`barrel/exports` on workspace
- * `package.json` manifests) and barrel-only workspace imports (`barrel/no-subpath-imports` on JS/TS/VibeLang),
- * isolating `package.json` from non-manifest rules and blocking inline `eslint-disable` bypasses.
- */
+function createDefaultJsGuardedParser(root) {
+    let espree;
+    for (const anchor of [join(root, "package.json"), import.meta.url]) {
+        try {
+            const eslintPkg = createRequire(anchor).resolve("eslint/package.json");
+            espree = createRequire(eslintPkg)("espree");
+            break;
+        }
+        catch {
+            continue;
+        }
+    }
+    if (!espree)
+        return undefined;
+    const parser = {
+        meta: { name: "espree with barrel/inline", version: espree.version ?? "1.0.0" },
+        parseForESLint(text, options) {
+            const opts = options && typeof options === "object" ? options : {};
+            const ast = espree.parse(text, {
+                ...opts,
+                ecmaVersion: opts.ecmaVersion ?? "latest",
+                sourceType: opts.sourceType ?? "module",
+                loc: true,
+                range: true,
+                comment: true,
+                tokens: true,
+            });
+            assertNoForbiddenInlineDisable(ast.comments);
+            return { ast };
+        },
+    };
+    protectedParsers.add(parser);
+    return parser;
+}
 export function withWorkspaceBarrels(config, options) {
     const { root, ratchet } = parseOptions(options);
     const workspace = discoverWorkspace(root);
@@ -994,6 +1027,20 @@ export function withWorkspaceBarrels(config, options) {
         }
         return next;
     });
+    const defaultJsParser = createDefaultJsGuardedParser(root);
+    if (defaultJsParser) {
+        const firstNonIgnore = transformed.findIndex((entry) => !isGlobalIgnore(entry));
+        const defaultGuard = {
+            name: "vibestack/barrel-default-js-guard",
+            files: ["**/*.{js,mjs,cjs,jsx}"],
+            ignores: ["**/package.json"],
+            languageOptions: { parser: defaultJsParser },
+        };
+        if (firstNonIgnore < 0)
+            transformed.push(defaultGuard);
+        else
+            transformed.splice(firstNonIgnore, 0, defaultGuard);
+    }
     const importsEntry = {
         name: "vibestack/barrel-imports",
         files: ["**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx,vibe,vibex}"],
@@ -1036,7 +1083,7 @@ const STACK_REF = 'AGENTS.md, "The stack"';
 const WRITING_REF = 'AGENTS.md, "Writing code"';
 const BANNED_PACKAGES = ["redux", "react-redux", "zustand", "mobx", "jotai", "recoil", "valtio", "xstate", "vue", "svelte", "jest"];
 const BANNED_SCOPES = ["reduxjs", "angular", "xstate", "vue", "sveltejs", "jest"];
-const STACK_IMPORT_PATTERNS = [
+export const STACK_IMPORT_PATTERNS = [
     { regex: `^(?:@(?:${BANNED_SCOPES.join("|")})/|(?:${BANNED_PACKAGES.join("|")})(?:[/-]|$))`, message: `Not part of the stack: ${STACK_REF}.` },
 ];
 const CITATION_RE = String.raw `spec\/\S+\.md, "[^"]+"`;
@@ -1051,9 +1098,9 @@ const CODE_DIRECTIVES = {
     Block: [CITED_RE, ...ALLOWED_INLINE_CONFIGS, /^\*(?:[\s*]*@(?:model|design) \S+)+[\s*]*$/, THROWS_DIRECTIVE_RE],
     Shebang: [/^/],
 };
-const ANY_INLINE_CONFIG_RE = /^\s*(?:eslint(?:-[a-z]+)*|exported|globals?)(?:\s|$)/;
+const ANY_INLINE_CONFIG_RE = /^\s*(?:eslint(?:-[a-z]+)*|exported|globals?)(?:\s|$)/i;
 function createGuardedParser(parser) {
-    return {
+    const wrapped = {
         meta: { name: `${parser.meta?.name ?? "parser"} with code/inline`, version: parser.meta?.version ?? "1.0.0" },
         parseForESLint(text, options) {
             const parsed = parser.parseForESLint(text, options);
@@ -1064,28 +1111,41 @@ function createGuardedParser(parser) {
             return parsed;
         },
     };
+    protectedParsers.add(wrapped);
+    return wrapped;
 }
 function createCodePlugin(root) {
+    const canonicalRoot = canonicalPath(root);
     const withinFunction = (node) => Boolean(node) && (/Function/.test(String(node?.type ?? "")) || withinFunction(node?.parent));
     const isDocComment = (context, comment) => Boolean(context.options[0]?.jsdoc) && comment.type === "Block" && String(comment.value).startsWith("*")
         && !withinFunction(context.sourceCode.getNodeByRangeIndex(comment.range[0]));
     const leftSchema = { type: "object", additionalProperties: { type: "integer", minimum: 1 } };
-    const reportIfExcess = (context, found) => {
-        const rel = relative(root, context.filename).split(sep).join("/");
-        if (found.length > (context.options[0]?.left?.[rel] ?? 0)) {
+    const reportIfExcess = (context, node, found, kind) => {
+        const rel = relativePosixPath(canonicalRoot, context.cwd, context.filename);
+        const limits = context.options[0]?.left;
+        const allowed = rel && limits && Object.hasOwn(limits, rel) ? limits[rel] : 0;
+        if (found.length > allowed) {
             for (const problem of found)
                 context.report(problem);
+        }
+        else if (rel && allowed > 0 && found.length < allowed) {
+            context.report({
+                node,
+                message: found.length === 0
+                    ? `Stale ${kind} ratchet (${allowed}) for "${rel}": 0 remain; remove it so the ratchet tightens.`
+                    : `Stale ${kind} ratchet (${allowed}) for "${rel}": ${found.length} remain; lower it to ${found.length} so the ratchet tightens.`,
+            });
         }
     };
     const commentsRule = {
         meta: { type: "problem", schema: [{ type: "object", properties: { jsdoc: { type: "boolean" }, left: leftSchema }, additionalProperties: false }] },
         create(context) {
             return {
-                Program() {
+                Program(node) {
                     const invalid = context.sourceCode.getAllComments()
                         .filter((comment) => !(CODE_DIRECTIVES[comment.type] ?? []).some((directive) => directive.test(comment.value)) && !isDocComment(context, comment))
                         .map((comment) => ({ loc: comment.loc, message: `No code comments: only spec citations and tool directives (${WRITING_REF}).` }));
-                    reportIfExcess(context, invalid);
+                    reportIfExcess(context, node, invalid, "commented");
                 },
             };
         },
@@ -1101,7 +1161,7 @@ function createCodePlugin(root) {
             const found = [];
             return {
                 ...Object.fromEntries(Object.entries(schedulingSelectors).map(([selector, message]) => [selector, (node) => found.push({ node, message })])),
-                "Program:exit": () => reportIfExcess(context, found),
+                "Program:exit": (node) => reportIfExcess(context, node, found, "scheduled"),
             };
         },
     };
@@ -1219,7 +1279,17 @@ export function vibestackConfig(options) {
         if (existsSync(tokensFile)) {
             const tokens = parseTokens(JSON.parse(readFileSync(tokensFile, "utf8")));
             const dsConfigs = designSystem({ tailwind: plugins.tailwind, tokens, entryPoint: join(root, design, "generated/theme.css") });
-            entries.push(...scopeEntries(dsConfigs, tsx, { settings: { "better-tailwindcss": { cwd: join(root, design) } } }));
+            const tsxOnly = tsx
+                .map((pattern) => pattern.replace(/\.\{ts,tsx\}$/, ".tsx"))
+                .filter((pattern) => !pattern.endsWith(".ts"));
+            for (const entry of dsConfigs) {
+                const onlyTsx = Array.isArray(entry.files) && entry.files.length > 0
+                    && entry.files.every((pattern) => typeof pattern === "string" && pattern.endsWith(".tsx"));
+                const scopedFiles = onlyTsx ? tsxOnly : tsx;
+                if (scopedFiles.length === 0)
+                    continue;
+                entries.push(...scopeEntries([entry], scopedFiles, onlyTsx ? {} : { settings: { "better-tailwindcss": { cwd: join(root, design) } } }));
+            }
         }
     }
     if (uiPackage && tsx.length) {
@@ -1238,7 +1308,12 @@ export function vibestackConfig(options) {
             entries.push({ files: own, ignores: ["**/*.{vibe,vibex}"], languageOptions: { parser: createGuardedParser(tsPlugin.parser) } });
         }
         if (vibeParser) {
-            entries.push({ files: own.map((pattern) => pattern.replace(/\/\*\*$/, "/**/*.{vibe,vibex}")), languageOptions: { parser: createGuardedParser(vibeParser) } });
+            const ownVibe = own.map((pattern) => pattern.endsWith("/**") ? `${pattern}/*.{vibe,vibex}`
+                : pattern.endsWith("/**/*") ? `${pattern}.{vibe,vibex}`
+                    : /\.\{[^}]*\}$/.test(pattern) ? pattern.replace(/\.\{[^}]*\}$/, ".{vibe,vibex}")
+                        : /\.[a-z]+$/i.test(pattern) ? pattern.replace(/\.[a-z]+$/i, ".{vibe,vibex}")
+                            : `${pattern.replace(/\/+$/, "")}/**/*.{vibe,vibex}`);
+            entries.push({ files: ownVibe, languageOptions: { parser: createGuardedParser(vibeParser) } });
         }
         entries.push({ files: own, plugins: { code: codePlugin }, rules: { "no-console": "error", "code/comments": ["error", { left: commented }], "code/effects": ["error", { left: scheduled }] } });
         if (uiPackage) {

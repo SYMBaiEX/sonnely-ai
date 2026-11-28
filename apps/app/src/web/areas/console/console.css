@@ -3,7 +3,7 @@
   --console-control-size: 2.375rem;
   --console-text: 0.9375rem;
   --console-caption: 0.8125rem;
-  --console-selected: color-mix(in srgb, var(--active-fill) 82%, var(--surface));
+  --console-selected: color-mix(in srgb, var(--accent) 82%, var(--background));
   --workspace-scene-opacity: 0.34;
 }
 
@@ -18,13 +18,13 @@
 }
 
 .theme-root.site .console .rail {
-  background: var(--surface);
+  background: var(--background);
   border-radius: 0;
 }
 
 .theme-root.site .console .rail-top {
   padding-bottom: 0.55rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .theme-root.site .console .rail-nav {
@@ -39,13 +39,13 @@
   min-height: 46px;
   margin-top: 8px;
   padding: 7px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--card) 78%, var(--surface));
+  background: color-mix(in srgb, var(--card) 78%, var(--background));
 }
 
 .theme-root.site .console .rail-identity:hover {
-  background: var(--raised);
+  background: var(--secondary);
 }
 
 .theme-root.site .console .rail-identity-icon {
@@ -53,8 +53,8 @@
   place-items: center;
   aspect-ratio: 1;
   border-radius: 8px;
-  color: var(--accent);
-  background: var(--active-fill);
+  color: var(--ring);
+  background: var(--accent);
 }
 
 .theme-root.site .console .rail-identity :is(strong, small) {
@@ -70,7 +70,7 @@
 }
 
 .theme-root.site .console .rail-identity small {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.7rem;
 }
 
@@ -115,11 +115,11 @@
 
 .theme-root.site .console .rail-nav a[aria-current="page"] svg,
 .theme-root.site .console .crumb-page svg {
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .theme-root.site .console .console-bar {
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  background: color-mix(in srgb, var(--background) 78%, transparent);
 }
 
 .theme-root.site .console .console-menu-toggle {
@@ -148,18 +148,18 @@
   min-height: 34px;
   padding-inline: 8px;
   font-size: 0.8125rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: var(--card);
 }
 
 .console-credit:hover {
-  background: var(--raised);
+  background: var(--secondary);
 }
 
 .console-credit strong {
-  color: var(--ink);
+  color: var(--foreground);
   font-variant-numeric: tabular-nums;
 }
 
@@ -175,8 +175,8 @@
   display: grid;
   gap: 12px;
   min-width: 0;
-  color: var(--ink);
-  font-family: var(--font);
+  color: var(--foreground);
+  font-family: var(--font-sans);
   isolation: isolate;
 }
 
@@ -272,7 +272,7 @@
   gap: 8px 14px;
   margin-block: 0;
   padding: 0 0 clamp(8px, 1vw, 12px);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .console-title-identity,
@@ -299,7 +299,7 @@
   padding: 0;
   border: 0;
   border-radius: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: transparent;
 }
 
@@ -329,19 +329,19 @@
 .theme-root.site .console :is(.billing-balance, .workspace-feature) {
   background: linear-gradient(
     145deg,
-    color-mix(in srgb, var(--active-fill) 34%, var(--card)),
+    color-mix(in srgb, var(--accent) 34%, var(--card)),
     var(--card) 75%
   );
 }
 
 .theme-root.site .console :is(.admin-access, .settings-panel, .billing-balance) svg {
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .theme-root.site .console .settings-panel .settings-row {
   padding-block: 10px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 
 /* the profile form is a grid of full-width fields rather than a flex row, so
@@ -352,7 +352,7 @@
   align-items: start;
   gap: 12px 16px;
   padding-block: 10px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 .theme-root.site .console .settings-profile-form button[type="submit"] {
   grid-column: 1 / -1;
@@ -384,23 +384,23 @@
 }
 .theme-root.site .console .crm-state[data-status="Open"] {
   color: var(--info);
-  border-color: color-mix(in srgb, var(--info) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--info) 42%, var(--border));
   background: color-mix(in srgb, var(--info) 9%, var(--card));
 }
 .theme-root.site .console .crm-state[data-status="InProgress"] {
   color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 48%, var(--line));
+  border-color: color-mix(in srgb, var(--warn) 48%, var(--border));
   background: color-mix(in srgb, var(--warn) 10%, var(--card));
 }
 .theme-root.site .console .crm-state[data-status="Resolved"] {
   color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--border));
   background: color-mix(in srgb, var(--ok) 9%, var(--card));
 }
 .theme-root.site .console .crm-state[data-tone="accent"] {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
-  background: color-mix(in srgb, var(--accent) 9%, var(--card));
+  color: var(--ring);
+  border-color: color-mix(in srgb, var(--ring) 42%, var(--border));
+  background: color-mix(in srgb, var(--ring) 9%, var(--card));
 }
 @media (width <= 720px) {
   .theme-root.site .console .crm-record summary {
@@ -422,7 +422,7 @@
 .theme-root.site .console .key-record-expiry {
   display: block;
   margin-top: 4px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
 }
 
@@ -443,7 +443,7 @@
 }
 
 .theme-root.site .console .stat > span:first-child {
-  font: 620 0.6875rem/1.35 var(--font);
+  font: 620 0.6875rem/1.35 var(--font-sans);
   letter-spacing: 0.025em;
   text-transform: none;
 }
@@ -453,7 +453,7 @@
 }
 
 .theme-root.site .console .stat strong {
-  font-family: var(--font);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   font-weight: 630;
   letter-spacing: -0.042em;
@@ -461,7 +461,7 @@
 
 .theme-root.site .console .empty {
   padding: clamp(14px, 2.5vw, 24px);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
 }
@@ -479,7 +479,7 @@
 
 .theme-root.site .console .catalog-tools {
   padding: 7px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
 }
@@ -499,7 +499,7 @@
 }
 
 .theme-root.site .console .workspace-data-table:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -519,7 +519,7 @@
   padding: 0;
   background: transparent;
   border: 0;
-  color: var(--accent);
+  color: var(--ring);
   cursor: pointer;
 }
 
@@ -529,36 +529,36 @@
 }
 
 .theme-root.site .console .chart-panel .bars {
-  background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--line) 25%);
+  background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--border) 25%);
 }
 
 .theme-root.site .console .chart-panel .bars span {
   border-radius: 3px 3px 0 0;
-  background: var(--accent);
+  background: var(--ring);
 }
 
 .theme-root.site .console .chart-panel .bars span[data-empty] {
-  background: var(--line);
+  background: var(--border);
 }
 
 .theme-root.site .console .chat-layout {
-  background: color-mix(in srgb, var(--surface) 36%, transparent);
+  background: color-mix(in srgb, var(--background) 36%, transparent);
   border-radius: var(--radius);
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   .theme-root.site .console :is(.console-bar, .chat-layout) {
-    background: var(--surface);
+    background: var(--background);
   }
 }
 
 .theme-root.site .console .sessions {
-  background: color-mix(in srgb, var(--card) 58%, var(--surface));
+  background: color-mix(in srgb, var(--card) 58%, var(--background));
 }
 
 .theme-root.site .console .command-dialog {
-  background: var(--glass-solid);
-  box-shadow: 0 22px 70px var(--shadow);
+  background: var(--popover);
+  box-shadow: 0 22px 70px var(--effect-shadow);
 }
 
 .theme-root.site .console[data-motion="on"] :is(.console-title, .console-content > *, .chat-welcome, .playground-entry) {
@@ -613,7 +613,7 @@
   }
 
   .theme-root.site .console .console-stage {
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 15px;
   }
 
@@ -622,7 +622,7 @@
     height: 48px;
     padding: 0 10px 0 14px;
     border: 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
     border-radius: 14px 14px 0 0;
   }
 
@@ -702,7 +702,7 @@
   }
 
   .theme-root.site .console .mobile-dock {
-    background: var(--surface);
+    background: var(--background);
   }
 
   .theme-root.site .console .rail-nav a {
@@ -751,7 +751,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     padding: 14px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--card);
   }
@@ -773,13 +773,13 @@
 
   .theme-root.site .console .key-record-prefix {
     margin-top: -7px;
-    color: var(--muted);
+    color: var(--muted-foreground);
   }
 
   .theme-root.site .console .key-record-label {
     display: block;
     margin-bottom: 4px;
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: 0.75rem;
   }
 
@@ -861,10 +861,10 @@
   gap: 0.4rem 0.65rem;
   padding: 0.65rem 0.9rem;
   font-size: 0.82rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .workspace-setup-invite > svg {
-  color: var(--accent);
+  color: var(--ring);
 }
 .workspace-setup-invite button {
   padding: 0;
@@ -924,7 +924,7 @@
 
 .intents-guide a {
   font-weight: 600;
-  color: var(--ink);
+  color: var(--foreground);
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -935,9 +935,9 @@
   align-items: center;
   gap: 8px 12px;
   padding: 10px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--active-fill) 26%, var(--card));
+  background: color-mix(in srgb, var(--accent) 26%, var(--card));
 }
 
 .intents-recipient > div {
@@ -956,7 +956,7 @@
 }
 
 .intents-recipient h3 svg {
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .intents-recipient code {
@@ -1066,8 +1066,8 @@
 }
 
 .billing-payment-options .button[aria-pressed="true"] {
-  color: var(--ink);
-  border-color: var(--accent);
+  color: var(--foreground);
+  border-color: var(--ring);
   background: var(--console-selected);
 }
 
@@ -1082,11 +1082,11 @@
   display: grid;
   gap: .375rem;
   padding-block-end: .625rem;
-  border-block-end: 1px solid var(--line);
+  border-block-end: 1px solid var(--border);
 }
 
 .confidential-payment-details dt {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: var(--console-caption);
 }
 
@@ -1145,7 +1145,7 @@
 }
 
 .theme-root.site .console .usage-stats .stat small {
-  color: var(--muted);
+  color: var(--muted-foreground);
   overflow-wrap: anywhere;
 }
 
@@ -1156,9 +1156,9 @@
 
 /** Legacy onboarding modal, adapted from CSS modules to console-scoped classes. */
 .onboarding-dialog {
-  color: var(--ink);
+  color: var(--foreground);
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 1.4rem;
   padding: 0;
   width: min(920px, calc(100vw - 2rem));
@@ -1279,7 +1279,7 @@
   padding: clamp(1.25rem, 4vw, 2.65rem);
   background: radial-gradient(
     ellipse at top right,
-    color-mix(in srgb, var(--accent) 9%, transparent),
+    color-mix(in srgb, var(--ring) 9%, transparent),
     transparent 70%
   );
 }
@@ -1303,7 +1303,7 @@
   align-items: center;
   gap: 0.35rem 0.8rem;
   list-style: none;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
   font-weight: 650;
 }
@@ -1313,13 +1313,13 @@
   gap: 0.25rem;
 }
 .onboarding-progress li[aria-current] {
-  color: var(--ink);
+  color: var(--foreground);
   text-decoration: underline;
   text-underline-offset: 0.35rem;
-  text-decoration-color: var(--accent);
+  text-decoration-color: var(--ring);
 }
 .onboarding-progress li[data-done="true"] svg {
-  color: var(--accent);
+  color: var(--ring);
 }
 .onboarding-close {
   display: grid;
@@ -1327,13 +1327,13 @@
   min-width: 44px;
   min-height: 44px;
   border-radius: 0.7rem;
-  color: var(--muted);
-  background: var(--glass);
-  border: 1px solid var(--line);
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--popover) 84%, transparent);
+  border: 1px solid var(--border);
 }
 .onboarding-close:hover {
-  color: var(--ink);
-  background: var(--raised);
+  color: var(--foreground);
+  background: var(--secondary);
 }
 .onboarding-step {
   margin-block: auto;
@@ -1343,7 +1343,7 @@
   animation: lift 240ms ease-out both;
 }
 .onboarding-step h2 {
-  color: var(--ink);
+  color: var(--foreground);
   margin: 0;
   font-size: clamp(1.9rem, 4vw, 3.2rem);
   letter-spacing: -0.055em;
@@ -1353,7 +1353,7 @@
 }
 .onboarding-step p {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 .onboarding-step .wallet-widget {
   width: fit-content;
@@ -1410,15 +1410,15 @@
   padding: 0.45rem 0.6rem;
   min-height: 44px;
   border-radius: 0.65rem;
-  color: var(--ink);
-  background: var(--glass);
-  border: 1px solid var(--line);
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--popover) 84%, transparent);
+  border: 1px solid var(--border);
   font-size: 0.8rem;
 }
 .onboarding-tour-nav button[aria-pressed="true"] {
-  color: var(--ink);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+  color: var(--foreground);
+  border-color: var(--ring);
+  background: color-mix(in srgb, var(--ring) 14%, var(--card));
 }
 .onboarding-tour-note {
   animation: lift 200ms ease-out both;
@@ -1541,19 +1541,19 @@
     height: 44px;
     flex: 0 0 auto;
     padding: 0;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 14px;
-    background: linear-gradient(160deg, var(--raised), var(--card) 70%);
-    color: var(--ink);
-    box-shadow: inset 0 1px 0 var(--rim), 0 1px 2px var(--shadow);
+    background: linear-gradient(160deg, var(--secondary), var(--card) 70%);
+    color: var(--foreground);
+    box-shadow: inset 0 1px 0 var(--effect-rim), 0 1px 2px var(--effect-shadow);
   }
   .theme-root.site .console .mobile-menu-control[aria-expanded="true"] {
-    border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
-    background: linear-gradient(160deg, var(--active-fill), var(--card) 85%);
-    color: var(--accent);
+    border-color: color-mix(in srgb, var(--ring) 42%, var(--border));
+    background: linear-gradient(160deg, var(--accent), var(--card) 85%);
+    color: var(--ring);
   }
   .theme-root.site .console .mobile-menu-control:active {
-    background: var(--active-fill);
+    background: var(--accent);
   }
   .theme-root.site .console .mobile-menu-glyph {
     position: relative;
@@ -1595,7 +1595,7 @@
   .theme-root.site .console .mobile-menu-glyph::before,
   .theme-root.site .console .mobile-menu-glyph::after,
   .theme-root.site .console .mobile-menu-glyph > span {
-    transition: transform 180ms var(--ease-out), opacity 120ms ease;
+    transition: transform 180ms var(--ease-standard), opacity 120ms ease;
   }
 }
 @media (max-width: 720px) {
@@ -1614,7 +1614,7 @@
     height: auto;
     max-height: calc(100dvh - 158px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     margin-inline: auto;
-    background: var(--glass-solid);
+    background: var(--popover);
   }
   .theme-root.site .console .rail.rail-open {
     display: flex;
@@ -1689,13 +1689,13 @@
     border-radius: 12px;
     background: transparent;
     font-size: 10.5px;
-    color: var(--muted);
+    color: var(--muted-foreground);
   }
   .theme-root.site .console .dock-item[aria-current],
   .theme-root.site .console .dock-item[aria-expanded="true"] {
-    color: var(--ink);
-    background: var(--active-fill);
-    border-color: var(--line);
+    color: var(--foreground);
+    background: var(--accent);
+    border-color: var(--border);
   }
 }
 .theme-root.site .console .command-dialog {
@@ -1728,7 +1728,7 @@
 }
 .theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) :is(input:not([type="checkbox"], [type="radio"]), textarea, select) {
   width: 100%;
-  border: 1px solid var(--control-edge);
+  border: 1px solid var(--input);
   background: var(--card);
   border-radius: 9px;
   padding: 10px 12px;
@@ -1738,7 +1738,7 @@
   resize: vertical;
 }
 .theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) ::placeholder {
-  color: var(--muted);
+  color: var(--muted-foreground);
   opacity: 1;
 }
 .theme-root.site .console :is(.settings-panel, .onboarding-dialog, .terms-banner) form label {
@@ -1758,7 +1758,7 @@
 }
 /* The inherit reset above outspecifies the semantic button inks, so the accent and danger variants restate theirs. */
 .theme-root.site .console :is(.button.accent, .button.ink) {
-  color: var(--accent-ink);
+  color: var(--primary-foreground);
 }
 .theme-root.site .console .button.danger {
   color: var(--destructive-foreground);
@@ -1772,13 +1772,13 @@
 }
 
 .theme-root.site .console :is(.telemetry-legacy, .billing-area, .teams-panel) thead th {
-  font: 620 0.6875rem/1.35 var(--font);
+  font: 620 0.6875rem/1.35 var(--font-sans);
   letter-spacing: 0.025em;
   text-transform: none;
 }
 
 .theme-root.site .console .data-rows td[data-label]::before {
-  font-family: var(--font);
+  font-family: var(--font-sans);
   letter-spacing: 0.025em;
   text-transform: none;
 }
@@ -1792,7 +1792,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
-  background: var(--line);
+  background: var(--border);
 }
 
 .theme-root.site .console .usage-legacy .usage-summary-panel .stat {
@@ -1840,12 +1840,12 @@
 }
 
 .theme-root.site .console .catalog-model-metrics {
-  border-color: var(--line);
+  border-color: var(--border);
   background: transparent;
 }
 
 .theme-root.site .console .catalog-model-metrics dt {
-  font-family: var(--font);
+  font-family: var(--font-sans);
   font-size: 0.66rem;
   letter-spacing: 0.025em;
 }
@@ -1864,7 +1864,7 @@
 
 .theme-root.site .console .referral-invite p {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: var(--console-caption);
 }
 
@@ -1875,7 +1875,7 @@
 }
 
 .theme-root.site .console .teams-panel h3 {
-  font-family: var(--font);
+  font-family: var(--font-sans);
   letter-spacing: 0.025em;
   text-transform: none;
 }

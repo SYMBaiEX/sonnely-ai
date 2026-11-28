@@ -23,11 +23,6 @@ export interface WorkspaceBarrelsOptions {
     /** Existing non-barrel import specifiers temporarily allowed per repo-relative source file POSIX path. */
     readonly allowImports?: Readonly<Record<string, readonly string[]>>;
 }
-/**
- * Wraps an ESLint flat config to enforce barrel-only workspace exports (`barrel/exports` on workspace
- * `package.json` manifests) and barrel-only workspace imports (`barrel/no-subpath-imports` on JS/TS/VibeLang),
- * isolating `package.json` from non-manifest rules and blocking inline `eslint-disable` bypasses.
- */
 export declare function withWorkspaceBarrels<T extends FlatConfig = FlatConfig>(config: readonly T[], options: WorkspaceBarrelsOptions): T[];
 export interface VibestackEslintPlugins {
     js?: unknown;
@@ -53,6 +48,10 @@ export interface VibestackConfigOptions {
     allowImports?: Record<string, readonly string[]>;
     extra?: readonly FlatConfig[];
 }
+export declare const STACK_IMPORT_PATTERNS: {
+    regex: string;
+    message: string;
+}[];
 /**
  * Reusable ESLint flat-config preset for Vibestack repositories. Consumers pass the ESLint plugins
  * installed in their own project, keeping `eslint.config.js` concise while enforcing stack rules,

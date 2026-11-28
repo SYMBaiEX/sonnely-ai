@@ -29,7 +29,7 @@ import type { Registry as AdminRegistry } from "../../../../gen/app__admin.ts";
 import type { Crm } from "../../../../gen/app__admin__crm.ts";
 import { useRemote, type Remote } from "../../remote.ts";
 import { useSession, type SessionSnapshot, type WorkspaceSession } from "../../session.ts";
-import { Brand, ThemeSwitch, accentTokenAliases, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
+import { Brand, ThemeSwitch, setTheme as applyTheme, useAmbientMotion, useTheme, type Theme } from "../site/chrome.tsx";
 import { AmbientVisualizer } from "../site/motion.tsx";
 import { creditBalance, shorten } from "./bits.tsx";
 import { CommandMenu } from "./command-menu.tsx";
@@ -344,7 +344,7 @@ export function ConsoleFrame({ section, children }: { section: Section; children
     ));
 
   return (
-    <div className="theme-root site" data-area="console" data-theme={theme} data-motion={motion ? "on" : "off"} style={accentTokenAliases}>
+    <div className="theme-root site" data-area="console" data-theme={theme} data-motion={motion ? "on" : "off"}>
       <div className="console">
       <a href="#console-content" className="skip">
         Skip to workspace

@@ -19,13 +19,13 @@
 }
 
 .site .inference-hero :where(h1) span {
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .site .inference-hero-description {
   max-width: 47ch;
   margin-top: 14px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: clamp(1rem, 1.4vw, 1.1875rem);
   line-height: 1.55;
   text-wrap: pretty;
@@ -55,21 +55,21 @@
   display: grid;
   gap: 4px;
   margin-bottom: 12px;
-  color: var(--ink);
+  color: var(--foreground);
   font-weight: 650;
 }
 
 .site .inference-section .inference-term > figcaption {
   padding: 12px 16px;
   border-bottom: 1px solid var(--home-divider);
-  color: var(--ink);
+  color: var(--foreground);
   font-size: 0.875rem;
   font-weight: 600;
 }
 
 .site .inference-brief code {
-  color: var(--muted);
-  font: 500 0.8125rem / 1.5 var(--mono);
+  color: var(--muted-foreground);
+  font: 500 0.8125rem / 1.5 var(--font-mono);
   overflow-wrap: anywhere;
 }
 
@@ -87,7 +87,7 @@
   gap: 8px;
   padding: 12px 8px 0 0;
   border-top: 1px solid var(--home-divider);
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.875rem;
 }
 
@@ -97,7 +97,7 @@
 }
 
 .site .inference-brief svg {
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .site .inference-page > div {
@@ -120,7 +120,7 @@
 .site .inference-nav p {
   margin: 0;
   padding-block: 10px;
-  color: var(--ink);
+  color: var(--foreground);
   font-weight: 650;
 }
 
@@ -128,11 +128,11 @@
   display: flex;
   align-items: center;
   min-height: 44px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .site .inference-nav a:is(:hover, :focus-visible) {
-  color: var(--accent);
+  color: var(--ring);
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -164,7 +164,7 @@
 
 .site .inference-copy > .text-link {
   margin-top: 4px;
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .site .inference-split {
@@ -182,14 +182,14 @@
 .site :is(.inference-copy, .inference-closing) p {
   max-width: 58ch;
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: max(1rem, var(--home-copy));
   line-height: 1.6;
   text-wrap: pretty;
 }
 
 .site .inference-copy > p code {
-  color: var(--ink);
+  color: var(--foreground);
   font-size: 0.86em;
   overflow-wrap: anywhere;
 }
@@ -208,13 +208,13 @@
 }
 
 .site .inference-copy dt {
-  color: var(--ink);
+  color: var(--foreground);
   font-weight: 650;
 }
 
 .site .inference-copy dd {
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   line-height: 1.55;
   text-wrap: pretty;
 }
@@ -225,7 +225,7 @@
   overflow-x: auto;
   border-end-start-radius: inherit;
   border-end-end-radius: inherit;
-  font: 500 0.8125rem / 1.65 var(--mono);
+  font: 500 0.8125rem / 1.65 var(--font-mono);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
@@ -238,7 +238,7 @@
 
 .site .inference-trace-firsttoken {
   margin-inline-start: auto;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .site .inference-trace-stages {
@@ -262,7 +262,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
-  color: var(--ink);
+  color: var(--foreground);
   font: inherit;
   font-size: 0.8125rem;
   text-align: start;
@@ -270,20 +270,20 @@
 }
 
 .site .inference-trace-stages button:is(:hover, :focus-visible, [aria-pressed="true"]) {
-  background: var(--active-fill);
+  background: var(--accent);
 }
 
 .site .inference-trace-stages button[aria-pressed="true"] {
-  border-color: var(--accent);
+  border-color: var(--ring);
 }
 
 .site .inference-trace-stages svg {
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .site .inference-trace-ms {
   grid-column: 2;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
 
@@ -297,15 +297,15 @@
 
 .site .inference-trace-detail span {
   margin-inline-start: 4px;
-  color: var(--muted);
-  font-family: var(--mono);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
 .site .inference-trace-detail p {
   max-width: 62ch;
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   text-wrap: pretty;
 }
 

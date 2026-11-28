@@ -49,14 +49,14 @@
   gap: 12px;
   min-height: 76px;
   padding: 12px;
-  border: 1px dashed var(--line);
+  border: 1px dashed var(--border);
   border-radius: var(--radius);
   cursor: pointer;
 }
 
 .batch-legacy .batch-upload:hover,
 .batch-legacy .batch-upload:focus-within {
-  border-color: var(--accent);
+  border-color: var(--ring);
 }
 
 .batch-legacy .batch-upload > svg {
@@ -79,7 +79,7 @@
 .batch-legacy .batch-issues {
   padding: 10px 12px;
   overflow-wrap: anywhere;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
 }
@@ -89,7 +89,7 @@
 }
 
 .batch-legacy .batch-issues {
-  border-color: var(--accent);
+  border-color: var(--ring);
 }
 
 .batch-legacy .batch-issues ul {
@@ -114,13 +114,13 @@
 
 .batch-legacy .batch-stats div {
   padding: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
 .batch-legacy .batch-stats dt,
 .batch-legacy .batch-filter {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.82rem;
 }
 
@@ -137,23 +137,23 @@
   appearance: none;
   border: 0;
   border-radius: 999px;
-  background: var(--raised);
-  accent-color: var(--accent);
+  background: var(--secondary);
+  accent-color: var(--ring);
 }
 
 .batch-legacy .batch-progress::-webkit-progress-bar {
   border-radius: 999px;
-  background: var(--raised);
+  background: var(--secondary);
 }
 
 .batch-legacy .batch-progress::-webkit-progress-value {
   border-radius: 999px;
-  background: var(--action);
+  background: var(--primary);
 }
 
 .batch-legacy .batch-progress::-moz-progress-bar {
   border-radius: 999px;
-  background: var(--action);
+  background: var(--primary);
 }
 
 .batch-legacy .batch-filter {
@@ -176,7 +176,7 @@
   align-items: start;
   gap: 8px 16px;
   padding: 8px 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--border);
 }
 
 .batch-legacy .batch-request-name {
@@ -189,33 +189,33 @@
   display: inline-block;
   margin-bottom: 4px;
   padding: 3px 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.79rem;
 }
 
 .batch-legacy .batch-badge[data-status="succeeded"] {
   color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--border));
   background: color-mix(in srgb, var(--ok) 9%, var(--card));
 }
 
 .batch-legacy .batch-badge[data-status="failed"] {
   color: var(--destructive);
-  border-color: color-mix(in srgb, var(--destructive) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--destructive) 42%, var(--border));
   background: color-mix(in srgb, var(--destructive) 9%, var(--card));
 }
 
 .batch-legacy .batch-badge:is([data-status="blocked"], [data-status="interrupted"]) {
   color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 48%, var(--line));
+  border-color: color-mix(in srgb, var(--warn) 48%, var(--border));
   background: color-mix(in srgb, var(--warn) 10%, var(--card));
 }
 
 .batch-legacy .batch-badge:is([data-status="review"], [data-status="sending"]) {
   color: var(--info);
-  border-color: color-mix(in srgb, var(--info) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--info) 42%, var(--border));
   background: color-mix(in srgb, var(--info) 9%, var(--card));
 }
 
@@ -238,14 +238,14 @@
 .batch-legacy .batch-key-form label {
   display: grid;
   gap: 5px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.875rem;
 }
 
 .batch-legacy .batch-key-form input {
   min-height: 44px;
   padding: 8px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
   color: inherit;

@@ -1,8 +1,8 @@
 /* stylelint-disable no-descending-specificity, no-duplicate-selectors, declaration-property-value-keyword-no-deprecated -- the playground stylesheet preserves the source cascade and media overrides */
 .console-playground {
-  color: var(--ink);
-  background: var(--surface);
-  font-family: var(--font);
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.5;
 }
@@ -61,14 +61,14 @@
   }
 
 .console-playground :focus-visible {
-    outline: 2px solid var(--focus-ring);
+    outline: 2px solid var(--ring);
     outline-offset: 4px;
   }
 
 .console-playground code,
   .console-playground pre,
   .console-playground .mono {
-    font-family: var(--mono);
+    font-family: var(--font-mono);
   }
 
 .console-playground img {
@@ -79,7 +79,7 @@
   .console-playground textarea,
   .console-playground select {
     width: 100%;
-    border: 1px solid var(--control-edge);
+    border: 1px solid var(--input);
     background: var(--card);
     border-radius: 9px;
     padding: 10px 12px;
@@ -91,7 +91,7 @@
   }
 
 .console-playground ::placeholder {
-    color: var(--muted);
+    color: var(--muted-foreground);
     opacity: 1;
   }
 
@@ -106,8 +106,8 @@
     appearance: none;
     padding-inline-end: 34px;
     background-image:
-      linear-gradient(45deg, transparent 48%, var(--muted) 52%),
-      linear-gradient(135deg, var(--muted) 48%, transparent 52%);
+      linear-gradient(45deg, transparent 48%, var(--muted-foreground) 52%),
+      linear-gradient(135deg, var(--muted-foreground) 48%, transparent 52%);
     background-position:
       right 18px center,
       right 13px center;
@@ -149,25 +149,25 @@
   }
 
 .console-playground .button.accent {
-    background: var(--action);
-    color: var(--accent-ink);
+    background: var(--primary);
+    color: var(--primary-foreground);
     border-color: transparent;
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 22%),
-      0 6px 15px var(--shadow);
+      0 6px 15px var(--effect-shadow);
   }
 
 .console-playground .button.accent:not(:disabled):hover {
-    background: var(--action-hover);
+    background: color-mix(in oklch, var(--primary) 85%, var(--foreground));
   }
 
 .console-playground .button.quiet {
     background: var(--card);
-    border-color: var(--line);
+    border-color: var(--border);
   }
 
 .console-playground .button.quiet:hover {
-    background: var(--raised);
+    background: var(--secondary);
   }
 
 .console-playground .button.small {
@@ -182,12 +182,12 @@
     width: 34px;
     height: 34px;
     background: transparent;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 8px;
   }
 
 .console-playground .icon-button:hover {
-    background: var(--raised);
+    background: var(--secondary);
   }
 
 .console-playground .text-link {
@@ -200,12 +200,12 @@
 
 .console-playground .panel {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
   }
 
 .console-playground .caption {
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: 13px;
   }
 
@@ -222,7 +222,7 @@
 
 .console-playground .sessions {
     padding: 19px 13px;
-    border-right: 1px solid var(--line);
+    border-right: 1px solid var(--border);
     background: transparent;
   }
 
@@ -264,7 +264,7 @@
   }
 
 .console-playground .thread-item button.selected {
-    background: var(--raised);
+    background: var(--secondary);
   }
 
 .console-playground .thread-item .icon-button {
@@ -297,14 +297,14 @@
   }
 
 .console-playground .prompt {
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     background: var(--card);
     min-height: 37px;
     padding-block: 6px;
   }
 
 .console-playground .prompt:hover {
-    background: var(--raised);
+    background: var(--secondary);
   }
 
 .console-playground .composer {
@@ -343,7 +343,7 @@
     justify-content: center;
     align-items: center;
     font-size: 12px;
-    color: var(--muted);
+    color: var(--muted-foreground);
   }
 
 .console-playground .messages {
@@ -355,7 +355,7 @@
 
 .console-playground .message {
     padding: 14px 18px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 14px;
     max-width: 94%;
     word-break: break-word;
@@ -364,7 +364,7 @@
 
 .console-playground .message.user {
     justify-self: end;
-    background: var(--raised);
+    background: var(--secondary);
     min-width: min(250px, 100%);
   }
 
@@ -375,7 +375,7 @@
 
 .console-playground .message .mono {
     font-size: 11px;
-    color: var(--muted);
+    color: var(--muted-foreground);
     margin-bottom: 7px;
   }
 
@@ -414,9 +414,9 @@
 
 .console-playground .playground-entry {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 17px;
-    box-shadow: 0 8px 20px color-mix(in srgb, var(--shadow) 20%, transparent);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--effect-shadow) 20%, transparent);
   }
 
 .console-playground .messages ~ .playground-entry {
@@ -429,8 +429,8 @@
     justify-content: space-between;
     gap: 8px;
     padding: 8px;
-    border-top: 1px solid var(--line);
-    background: color-mix(in srgb, var(--card) 60%, var(--surface));
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--card) 60%, var(--background));
     border-radius: 0 0 17px 17px;
   }
 
@@ -451,8 +451,8 @@
   }
 
 .console-playground .playground-route-trigger:hover:not(:disabled) {
-    background: var(--raised);
-    border-color: var(--line);
+    background: var(--secondary);
+    border-color: var(--border);
   }
 
 .console-playground .playground-route-trigger:disabled {
@@ -461,7 +461,7 @@
   }
 
 .console-playground .playground-route-trigger > svg {
-    color: var(--muted);
+    color: var(--muted-foreground);
     margin-inline-start: 4px;
   }
 
@@ -471,9 +471,9 @@
     width: 28px;
     height: 28px;
     border-radius: 8px;
-    background: var(--active-fill);
-    color: var(--accent);
-    font: 660 0.83rem var(--mono);
+    background: var(--accent);
+    color: var(--ring);
+    font: 660 0.83rem var(--font-mono);
   }
 
 .console-playground .playground-route-label {
@@ -489,7 +489,7 @@
   }
 
 .console-playground .playground-route-label small {
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: 0.73rem;
     line-height: 1.25;
   }
@@ -522,7 +522,7 @@
     border: 0;
     min-height: 26px;
     background: transparent;
-    color: var(--accent);
+    color: var(--ring);
     text-decoration: underline;
     text-underline-offset: 3px;
   }
@@ -538,8 +538,8 @@
     gap: 10px;
     margin: 0;
     padding: 8px 14px;
-    border-bottom: 1px solid var(--line);
-    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    color: var(--muted-foreground);
     font-size: 0.78rem;
   }
 
@@ -552,7 +552,7 @@
   }
 
 .console-playground .message-stamp {
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: 0.72rem;
   }
 
@@ -575,7 +575,7 @@
 
 .console-playground .playground-starters h2,
   .console-playground .playground-sample-note {
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: 0.78rem;
     font-weight: 590;
   }
@@ -600,7 +600,7 @@
   }
 
 .console-playground .playground-starters .prompt:hover {
-    background: var(--raised);
+    background: var(--secondary);
   }
 
 .console-playground .playground-sample-note {
@@ -611,8 +611,8 @@
     margin: auto;
     width: min(740px, calc(100% - 24px));
     max-height: calc(100dvh - 24px);
-    color: var(--ink);
-    background: var(--glass-solid);
+    color: var(--foreground);
+    background: var(--popover);
     overflow: hidden;
   }
 
@@ -634,7 +634,7 @@
 
 .console-playground .playground-route-dialog header {
     justify-content: space-between;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
   }
 
 .console-playground .playground-route-dialog header h2 {
@@ -668,7 +668,7 @@
 .console-playground .playground-route-dialog legend {
     padding: 0;
     margin-bottom: 7px;
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: 0.76rem;
     font-weight: 620;
   }
@@ -709,21 +709,21 @@
   }
 
 .console-playground .playground-route-dialog label:hover {
-    background: var(--raised);
+    background: var(--secondary);
   }
 
 .console-playground .playground-route-dialog label:has(input:checked) {
-    background: var(--active-fill);
+    background: var(--accent);
   }
 
 .console-playground .playground-route-dialog label:has(input:focus-visible) {
-    outline: 2px solid var(--muted);
+    outline: 2px solid var(--muted-foreground);
     outline-offset: -2px;
   }
 
 .console-playground .playground-route-check {
     visibility: hidden;
-    color: var(--accent);
+    color: var(--ring);
   }
 
 .console-playground .playground-route-dialog input:checked ~ .playground-route-check {
@@ -746,13 +746,13 @@
     gap: 8px;
     min-height: 50px;
     padding: 7px 10px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 8px;
   }
 
 .console-playground .playground-route-dialog footer {
     justify-content: flex-end;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
   }
 
 @media (width <= 720px) {
@@ -807,7 +807,7 @@
   .console-playground .playground-route-summary,
   .console-playground .playground-file p,
   .console-playground .playground-run-actions p {
-    color: var(--muted);
+    color: var(--muted-foreground);
   }
 
 .console-playground .playground-canvas {
@@ -820,7 +820,7 @@
     align-items: center;
     gap: .5rem 1rem;
     padding: .75rem clamp(.875rem, 2vw, 1.375rem);
-    border-block-end: 1px solid var(--line);
+    border-block-end: 1px solid var(--border);
   }
 
 .console-playground .playground-request-toolbar label {
@@ -842,7 +842,7 @@
 
 .console-playground .playground-route-path,
   .console-playground .playground-result-footer code {
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: .75rem;
     overflow-wrap: anywhere;
   }
@@ -861,7 +861,7 @@
 .console-playground .playground-pane-header {
     min-block-size: 3.25rem;
     padding: .75rem clamp(.875rem, 2vw, 1.375rem);
-    border-block-end: 1px solid var(--line);
+    border-block-end: 1px solid var(--border);
   }
 
 .console-playground .playground-pane-header h2 {
@@ -920,7 +920,7 @@
     display: grid;
     gap: .5rem;
     padding: .875rem;
-    border: 1px dashed var(--line);
+    border: 1px dashed var(--border);
     border-radius: .75rem;
   }
 
@@ -967,8 +967,8 @@
     overflow: auto;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    background: var(--surface);
-    border: 1px solid var(--line);
+    background: var(--background);
+    border: 1px solid var(--border);
     border-radius: .625rem;
     font-size: .875rem;
   }
@@ -985,7 +985,7 @@
 
 .console-playground .playground-result-footer {
     padding: .75rem 1rem;
-    border-block-start: 1px solid var(--line);
+    border-block-start: 1px solid var(--border);
   }
 
 .console-playground .playground-result-footer > div {
@@ -1049,7 +1049,7 @@
 .console-playground .playground-endpoint-picker svg {
     position: absolute;
     inset-inline-start: .75rem;
-    color: var(--accent);
+    color: var(--ring);
     pointer-events: none;
   }
 
@@ -1102,10 +1102,10 @@
     inline-size: min(19rem, calc(100% - 1.25rem));
     max-block-size: min(28rem, 65vh);
     overflow: auto;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: .875rem;
     background: var(--card);
-    box-shadow: 0 12px 35px var(--shadow);
+    box-shadow: 0 12px 35px var(--effect-shadow);
   }
 
 .console-playground .playground-canvas .chat-main {
@@ -1145,19 +1145,19 @@
 
 .console-playground .playground-markdown [data-streamdown="code-block"] {
     max-width: 100%;
-    border-color: var(--line);
+    border-color: var(--border);
     background: var(--card);
   }
 
 .console-playground .playground-markdown [data-streamdown="code-block-header"] {
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
     padding-inline: 10px;
-    color: var(--muted);
+    color: var(--muted-foreground);
   }
 
 .console-playground .playground-markdown [data-streamdown="code-block-body"] {
-    border-color: var(--line);
-    background: var(--surface);
+    border-color: var(--border);
+    background: var(--background);
     scrollbar-width: thin;
   }
 
@@ -1197,7 +1197,7 @@
   }
 
 .console-playground .playground-workload-shortcuts svg {
-    color: var(--accent);
+    color: var(--ring);
   }
 
 .console-playground .playground-stage {
@@ -1277,7 +1277,7 @@
 .console-playground .playground-editor .playground-run-actions {
     align-items: center;
     padding-block-start: .75rem;
-    border-block-start: 1px solid var(--line);
+    border-block-start: 1px solid var(--border);
   }
 
 .console-playground .playground-editor .playground-route-summary {
@@ -1288,7 +1288,7 @@
 
 .console-playground .playground-editor .playground-output:not([data-idle]) {
     margin-block-start: 1.125rem;
-    border-block-start: 1px solid var(--line);
+    border-block-start: 1px solid var(--border);
   }
 
 .console-playground .playground-editor .playground-output[data-idle] .playground-result {
@@ -1351,7 +1351,7 @@
   }
 
 .console-playground .console-stage:has(> .console-chat) {
-    background: var(--surface);
+    background: var(--background);
   }
 
 .console-playground .playground-run-title {
@@ -1381,7 +1381,7 @@
   .console-playground .playground-result-meta,
   .console-playground .playground-artifact figcaption,
   .console-playground .playground-stream-state {
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: .8125rem;
   }
 
@@ -1393,16 +1393,16 @@
     justify-content: space-between;
     min-block-size: 2.75rem;
     padding: .5rem .625rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: .5rem;
-    background: var(--surface);
+    background: var(--background);
     overflow-wrap: anywhere;
     text-align: start;
   }
 
 .console-playground .playground-run-list button[aria-pressed="true"] {
-    border-color: var(--accent);
-    background: var(--active-fill);
+    border-color: var(--ring);
+    background: var(--accent);
   }
 
 .console-playground .playground-result-meta {
@@ -1444,7 +1444,7 @@
     justify-content: space-between;
     gap: .75rem;
     padding: .625rem .75rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: .5rem;
     overflow-wrap: anywhere;
   }
@@ -1456,7 +1456,7 @@
 .console-playground ol.playground-result-list li::before {
     counter-increment: rank;
     content: counter(rank);
-    color: var(--muted);
+    color: var(--muted-foreground);
   }
 
 .console-playground .playground-result-list li > span {
@@ -1488,13 +1488,13 @@
     inline-size: .5rem;
     block-size: .5rem;
     border-radius: 50%;
-    background: var(--accent);
+    background: var(--ring);
   }
 
 .console-playground .playground-canvas .thread-item button:first-child time {
     display: block;
     margin-block-start: .15rem;
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: .75rem;
   }
 
@@ -1510,10 +1510,10 @@
     inset-block-start: 100%;
     min-inline-size: min(16rem, calc(100vw - 3rem));
     padding: .625rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: .625rem;
     background: var(--card);
-    box-shadow: 0 12px 32px var(--shadow);
+    box-shadow: 0 12px 32px var(--effect-shadow);
   }
 
 @media (width <= 480px) {
@@ -1535,7 +1535,7 @@
     gap: 9px;
     margin-block-start: 10px;
     padding-block-start: 10px;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--border);
   }
 
 .console-playground .playground-route-dialog .playground-fallback-field {
@@ -1562,7 +1562,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--muted);
+    color: var(--muted-foreground);
     font-size: 0.8rem;
     min-height: 32px;
     width: fit-content;
@@ -1574,7 +1574,7 @@
     width: 16px;
     height: 16px;
     padding: 0;
-    accent-color: var(--accent);
+    accent-color: var(--ring);
   }
 
 .console-playground .playground-starters .prompts {

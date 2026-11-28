@@ -1667,7 +1667,7 @@
 
 .site .verify-panel-lede{
   margin-block: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.9rem;
   line-height: 1.55;
 }
@@ -1682,7 +1682,7 @@
   gap: 8px;
   align-items: center;
   min-height: 46px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .site .cor-status-board dd{
@@ -1690,17 +1690,17 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 13px;
 }
 
 .site .cor-status-board dd > svg{
-  color: var(--accent);
+  color: var(--ring);
 }
 
 .site .cor-status-board dt small{
   display: block;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-weight: 400;
   font-size: 0.78rem;
   line-height: 1.45;

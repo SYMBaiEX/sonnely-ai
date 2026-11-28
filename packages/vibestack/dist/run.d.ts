@@ -4,7 +4,7 @@ import fs from "node:fs";
 export declare const onPath: (name: string) => string | undefined;
 /** The managed Dafny 4.11 cache directory (`~/.cache/vibestack/dafny/4.11`). */
 export declare const cachedDafnyDir: () => string;
-/** Locate Dafny on PATH first, then in the managed vibestack cache (`~/.cache/vibestack/dafny/4.11/dafny`). */
+/** Locate Dafny in the managed vibestack cache first (respecting XDG_CACHE_HOME), then on PATH, then default ~/.cache. */
 export declare function findDafny(): string | undefined;
 /** Write a file whole or not at all: to a file of its own beside it, then renamed into place. */
 export declare function writeWhole(file: string, text: string | Uint8Array): void;

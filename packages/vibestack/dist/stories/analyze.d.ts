@@ -1,4 +1,4 @@
-import ts from "typescript";
+import type * as TS from "typescript";
 export interface Prop {
     name: string;
     kind: "boolean" | "number" | "string" | "union" | "function" | "node" | "object" | "array" | "unknown";
@@ -96,11 +96,9 @@ interface Imports {
     lookups: Lookup[];
 }
 export declare function programs(root: string, configs: Map<string, string | undefined>, configLookups: Lookup[]): (files: string[], reset: boolean) => {
-    program: ts.Program;
+    program: TS.Program;
     imports: Map<string, Imports>;
 };
-/** A prop a state story needs even when the component only passes it through to its element. */
 export declare const STATE: RegExp;
-/** Every exported component of one file: a capitalized export that is a function returning an element. */
-export declare function analyze(built: ts.Program, abs: string): Found[];
+export declare function analyze(built: TS.Program, abs: string): Found[];
 export {};

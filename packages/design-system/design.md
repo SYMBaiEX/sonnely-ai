@@ -19,6 +19,13 @@ Name a value by its token (`bg-primary`, `var(--primary)`), never by its value. 
 is unavoidable, such as a chart series or third-party markup, say why on the line above:
 `// eslint-disable-next-line design-system/no-literal-colors -- chart series`.
 
+Sonnely's ordinary surfaces use the semantic roles directly: `secondary` is the raised quiet fill,
+`accent` the selected or hover fill, and `popover` the solid floating surface. Visual-effect-only
+custom properties are scoped to the shell and derive from those roles: `--effect-rim`,
+`--effect-shadow`, `--effect-haze` and `--workspace-scene-tint`. They carry atmosphere for artwork,
+glass and elevation; they are not semantic colors and never replace `background`, `foreground`,
+`card`, `border`, `primary` or the state roles in ordinary UI.
+
 ## Changing it
 
 `tokens.json` is the source; the CSS in `generated/` and the table below are built from it. Nothing reads
@@ -42,8 +49,8 @@ this prose into tokens. To change the design, describe it, and have the change w
 | `card-foreground` | oklch(0.225 0.046 271.3) | oklch(0.979 0.004 337.4) |
 | `popover` | oklch(0.983 0.008 278.6) | oklch(0.233 0.019 314.4) |
 | `popover-foreground` | oklch(0.225 0.046 271.3) | oklch(0.979 0.004 337.4) |
-| `primary` | oklch(0.459 0.202 267.6) | oklch(0.58 0.225 27.9) |
-| `primary-foreground` | oklch(1 0 0) | oklch(1 0 0) |
+| `primary` | oklch(0.459 0.202 267.6) | oklch(0.64 0.225 27.9) |
+| `primary-foreground` | oklch(1 0 0) | oklch(0.152 0.007 300.8) |
 | `secondary` | oklch(0.936 0.022 274.7) | oklch(0.265 0.016 312.9) |
 | `secondary-foreground` | oklch(0.225 0.046 271.3) | oklch(0.979 0.004 337.4) |
 | `muted` | oklch(0.936 0.022 274.7) | oklch(0.265 0.016 312.9) |

@@ -7,7 +7,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
@@ -128,14 +128,6 @@ export function ThemeSwitch({ choose = setTheme }: { choose?: (theme: Theme) => 
     </button>
   );
 }
-
-export const accentTokenAliases = {
-  "--action": "var(--primary)",
-  // eslint-disable-next-line design-system/no-literal-colors -- the hover weight derives from the live primary by darkening it
-  "--action-hover": "color-mix(in oklch, var(--primary) 85%, black)",
-  "--accent": "var(--ring)",
-  "--focus-ring": "var(--ring)",
-} as CSSProperties;
 
 export function Brand({ href = "/", onClick }: { href?: string; onClick?: () => void }) {
   return (
@@ -274,7 +266,6 @@ export function ThemeSurface({ current, children }: { current: string; children:
       data-area="site"
       data-theme={theme}
       data-motion={motion ? "on" : "off"}
-      style={accentTokenAliases}
     >
       <a href="#content" className="skip">
         Skip to content

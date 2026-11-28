@@ -32,11 +32,10 @@ export declare function typeWalks(typedefs: Json[], module: string, prefix?: str
     tsType: (t: Json) => string;
     declaration: (d: Json) => string;
     qType: (t: Json) => string;
-    validators: (exact?: boolean) => {
-        test: (v: string, t0: Json, depth?: number, own?: boolean) => string;
+    parsers: (exact?: boolean) => {
+        parse: (v: string, t0: Json, depth?: number, own?: boolean) => string;
         lines: () => string[];
     };
-    copy: (v: string, t0: Json, depth?: number) => string;
     decode: (t0: Json, v: any) => any;
     canon: (t0: Json, v: any) => any;
     comparison: (t0: Json) => ComparisonShape;

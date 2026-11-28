@@ -29,25 +29,26 @@ export const onPath = (name) => (process.env.PATH ?? "").split(path.delimiter).f
 });
 /** The managed Dafny 4.11 cache directory (`~/.cache/vibestack/dafny/4.11`). */
 export const cachedDafnyDir = () => path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "vibestack", "dafny", "4.11");
-/** Locate Dafny on PATH first, then in the managed vibestack cache (`~/.cache/vibestack/dafny/4.11/dafny`). */
+/** Locate Dafny in the managed vibestack cache first (respecting XDG_CACHE_HOME), then on PATH, then default ~/.cache. */
 export function findDafny() {
+    const binName = WINDOWS ? "dafny.exe" : "dafny";
+    const executable = (candidate) => {
+        try {
+            fs.accessSync(candidate, fs.constants.X_OK);
+            return fs.statSync(candidate).isFile();
+        }
+        catch {
+            return false;
+        }
+    };
+    const managed = path.join(cachedDafnyDir(), binName);
+    if (executable(managed))
+        return managed;
     const fromPath = onPath("dafny");
     if (fromPath)
         return fromPath;
-    const binName = WINDOWS ? "dafny.exe" : "dafny";
-    const candidates = [
-        path.join(cachedDafnyDir(), binName),
-        path.join(os.homedir(), ".cache", "vibestack", "dafny", "4.11", binName),
-    ];
-    for (const candidate of candidates) {
-        try {
-            fs.accessSync(candidate, fs.constants.X_OK);
-            if (fs.statSync(candidate).isFile())
-                return candidate;
-        }
-        catch { /* not cached */ }
-    }
-    return undefined;
+    const fallback = path.join(os.homedir(), ".cache", "vibestack", "dafny", "4.11", binName);
+    return fallback !== managed && executable(fallback) ? fallback : undefined;
 }
 /** Write a file whole or not at all: to a file of its own beside it, then renamed into place. */
 export function writeWhole(file, text) {
@@ -281,6 +282,7 @@ function watchCpu(child, check) {
                     cleanupTable,
                 })] : []));
         }
+        catch { /* ignore transient accounting failure */ }
         finally {
             polling = undefined;
         }
@@ -474,9 +476,17 @@ export async function exec(exe, args, cwd, env, input, cancellation, priority = 
 /** A shell command in a process group of its own, so that stopping it stops what it started too; `stop` waits until it has closed. */
 export function startGroup(command, cwd, env) {
     const child = spawn(command, { cwd, env, shell: true, detached: !WINDOWS, stdio: ["pipe", "pipe", "pipe"] });
-    const closed = new Promise((resolve) => child.on("close", () => resolve()));
+    const closed = new Promise((resolve) => {
+        let settled = false;
+        const done = () => { if (!settled) {
+            settled = true;
+            resolve();
+        } };
+        child.once("close", done);
+        child.once("error", done);
+    });
     endsWithTheCheck(child, "SIGKILL");
-    const stop = async () => { signal(child, "SIGTERM"); const timer = setTimeout(() => signal(child, "SIGKILL"), 5000); await closed; clearTimeout(timer); };
+    const stop = async () => { signal(child, "SIGTERM", processes()); const timer = setTimeout(() => signal(child, "SIGKILL", processes()), 5000); await closed; clearTimeout(timer); };
     return { child, closed, stop };
 }
 /** What the proof stage needs installed. */

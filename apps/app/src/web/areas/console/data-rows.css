@@ -33,7 +33,7 @@
     gap: 11px 14px;
     margin-block: 10px;
     padding: 13px 14px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 12px;
     background: var(--card);
   }
@@ -61,8 +61,8 @@
 
   .data-rows td[data-label]::before {
     content: attr(data-label);
-    color: var(--muted);
-    font: 540 10.5px var(--mono);
+    color: var(--muted-foreground);
+    font: 540 10.5px var(--font-mono);
     letter-spacing: 0.07em;
     text-transform: uppercase;
   }
@@ -88,12 +88,12 @@
     justify-content: space-between;
     min-height: 44px;
     padding: 9px 13px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: 9px;
     background: var(--card);
     font-weight: 550;
     font-size: 13px;
-    color: var(--ink);
+    color: var(--foreground);
     cursor: pointer;
   }
 
@@ -110,9 +110,9 @@
     height: 20px;
     padding-inline: 5px;
     border-radius: 999px;
-    background: var(--active-fill);
-    color: var(--accent);
-    font: 600 11px var(--mono);
+    background: var(--accent);
+    color: var(--ring);
+    font: 600 11px var(--font-mono);
   }
 
   .filter-panel .filter-toggle svg.filter-chevron {
