@@ -1,4 +1,3 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes -- these controls intentionally use the migrated billing class names */
 // spec/app/billing/deposits.md, "Story: Open a payment intent"
 import { CopyButton as UiCopyButton } from "@repo/ui";
 import { z } from "zod";
@@ -126,12 +125,12 @@ export function focusHeading(node: HTMLHeadingElement | null) {
 
 export function Failure({ message }: { message: string | undefined }) {
   return message ? (
-    <p className="error" role="alert">
+    <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive" role="alert">
       {message}
     </p>
   ) : null;
 }
 
 export function CopyButton({ value, label = "Copy", text = label }: { value: string; label?: string; text?: string }) {
-  return <UiCopyButton value={value} label={label} text={text} className="button quiet small" />;
+  return <UiCopyButton value={value} label={label} text={text} variant="outline" />;
 }

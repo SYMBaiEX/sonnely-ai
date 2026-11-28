@@ -1,4 +1,4 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes, max-lines-per-function -- this area intentionally uses the migrated billing class names and keeps its payment workflow together */
+/* eslint-disable max-lines-per-function -- the payment workflow stays together while deposit, quote and confirmation share its state */
 // spec/app/billing/deposits.md, "Story: Open a payment intent"
 import { ArrowUpRight, Wallet } from "lucide-react";
 import QRCode from "qrcode";
@@ -11,7 +11,7 @@ import {
   getTransactionDecoder,
   isTransactionSendingSigner,
 } from "@solana/kit";
-import { Input } from "@repo/ui";
+import { Button, Input, Label } from "@repo/ui";
 import type { Deposits, Intent } from "../../../../gen/app__billing__deposits.ts";
 import { balanceOf, type Ledger } from "../../../../gen/app__billing__ledger.ts";
 import type { Page } from "../../../../gen/app__nav.ts";
@@ -38,7 +38,6 @@ import {
   type IntentFund,
   type PaymentMeta,
 } from "./shared.tsx";
-import "./billing.css";
 
 type PaymentMethod = "usdc" | "sol" | "other";
 
@@ -306,38 +305,38 @@ function BillingConsole() {
   const historyError = deposits.error;
 
   return (
-    <div className="billing-area">
+    <div className="grid min-w-0 gap-3 text-foreground">
       <WorkspaceHeading icon={Wallet} title="Billing" description="Fund credits and track wallet payments." />
       <Failure message={failure && !["deposit", "pay", "confirm"].includes(failure.action) ? failure.message : historyError} />
-      <p role="status" className={status ? "status" : "visually-hidden"}>
+      <p role="status" className={status ? "rounded-md border border-ok/40 bg-ok/10 px-3 py-2 text-ui text-ok" : "sr-only"}>
         {status}
       </p>
-      <div className="billing-grid">
-        <section className="panel stack-panel billing-balance">
-          <div className="between">
+      <div className="grid gap-3 xl:grid-cols-2">
+        <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2>Compute balance</h2>
             <Wallet size={21} />
           </div>
-          <p className="amount">{profile ? creditBalance(profile.balance) : "—"}</p>
-          <p className="caption">Available for inference.</p>
+          <p className="text-heading font-strong tracking-heading tabular-nums">{profile ? creditBalance(profile.balance) : "—"}</p>
+          <p className="text-meta text-muted-foreground">Available for inference.</p>
           {profile && profile.balance > 0 && (
-            <a className="text-link" href="/console/chat">
+            <a className="inline-flex items-center gap-1 text-ui font-medium text-primary underline-offset-4 hover:underline" href="/console/chat">
               Send a prompt <ArrowUpRight size={16} />
             </a>
           )}
-          <a className="text-link" href="/models">
+          <a className="inline-flex items-center gap-1 text-ui font-medium text-primary underline-offset-4 hover:underline" href="/models">
             View token rates <ArrowUpRight size={16} />
           </a>
         </section>
-        <section className="panel stack-panel buy-credits" id="buy-credits">
-          <div className="between">
+        <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm" id="buy-credits">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2>Buy credits</h2>
-            <span className="pill">{billingEnabled ? cluster : "Solana Pay"}</span>
+            <span className="inline-flex items-center rounded-xl border border-info/40 bg-info/10 px-2 py-0.5 text-micro font-medium text-info">{billingEnabled ? cluster : "Solana Pay"}</span>
           </div>
           {(showSol || showOther) && (
-            <fieldset className="billing-payment-method">
+            <fieldset className="grid gap-2 border-0 p-0">
               <legend>Payment method</legend>
-              <div className="billing-payment-options">
+              <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-background p-1">
                 {(
                   [
                     { id: "usdc", label: "USDC", available: true },
@@ -347,10 +346,9 @@ function BillingConsole() {
                 )
                   .filter(({ available }) => available)
                   .map(({ id, label }) => (
-                    <button
+                    <Button variant={method === id ? "secondary" : "outline"}
                       key={id}
                       type="button"
-                      className="button quiet"
                       aria-pressed={method === id}
                       disabled={!!pending || submitted}
                       onClick={() => {
@@ -361,14 +359,14 @@ function BillingConsole() {
                       }}
                     >
                       {label}
-                    </button>
+                    </Button>
                   ))}
               </div>
             </fieldset>
           )}
           {(method === "usdc" || method === "sol") && (
             <>
-              <p className="caption">
+              <p className="text-meta text-muted-foreground">
                 {profile
                   ? method === "sol"
                     ? "Enter the USD credit amount. You’ll review a time-limited SOL quote before you pay."
@@ -376,7 +374,7 @@ function BillingConsole() {
                   : "Connect your Solana wallet in the header to buy credits."}
               </p>
               <form
-                className="inline-form"
+                className="flex flex-wrap items-end gap-3"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void run("deposit", async () => {
@@ -419,7 +417,7 @@ function BillingConsole() {
                   });
                 }}
               >
-                <label>
+                <Label className="grid min-w-48 flex-1 gap-2 text-ui font-medium text-foreground">
                   {method === "sol" ? "Credits in USD" : "Amount in USDC"}
                   <Input
                     type="number"
@@ -433,21 +431,21 @@ function BillingConsole() {
                       if (failure?.action === "deposit" || failure?.action === "pay") setFailure(undefined);
                     }}
                   />
-                </label>
-                <button className="button accent" disabled={!profile || !billingEnabled || !!pending || submitted}>
+                </Label>
+                <Button type="submit" disabled={!profile || !billingEnabled || !!pending || submitted}>
                   {pending === "deposit" ? "Preparing…" : "Continue to payment"}
-                </button>
+                </Button>
               </form>
               {failure?.action === "deposit" && <Failure message={failure.message} />}
             </>
           )}
           {method === "other" && showOther && (
-            <div className="stack-panel">
-              <p className="caption">
+            <div className="grid gap-3">
+              <p className="text-meta text-muted-foreground">
                 NEAR Intents converts your funds to USDC in your wallet. Then pay with USDC to add credits.
               </p>
               <form
-                className="inline-form"
+                className="flex flex-wrap items-end gap-3"
                 onSubmit={(event) => {
                   event.preventDefault();
                   setIntent(null);
@@ -461,9 +459,9 @@ function BillingConsole() {
                   });
                 }}
               >
-                <label>
+                <Label className="grid min-w-48 flex-1 gap-2 text-ui font-medium text-foreground">
                   Source asset
-                  <select
+                  <select className="h-9 min-w-48 rounded-md border border-input bg-background px-3 text-ui text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                     value={fund}
                     disabled={quoting}
                     onChange={(event) => {
@@ -477,8 +475,8 @@ function BillingConsole() {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label>
+                </Label>
+                <Label className="grid min-w-48 flex-1 gap-2 text-ui font-medium text-foreground">
                   Amount in {swapAsset.symbol}
                   <Input
                     inputMode="decimal"
@@ -492,9 +490,9 @@ function BillingConsole() {
                       setIntent(null);
                     }}
                   />
-                </label>
+                </Label>
                 {fund !== "sol" && (
-                  <label>
+                  <Label className="grid min-w-48 flex-1 gap-2 text-ui font-medium text-foreground">
                     Refund wallet on {swapAsset.network}
                     <Input
                       autoComplete="off"
@@ -509,16 +507,16 @@ function BillingConsole() {
                         setIntent(null);
                       }}
                     />
-                  </label>
+                  </Label>
                 )}
-                <button className="button quiet" disabled={!profile || !billingEnabled || !!pending}>
+                <Button type="submit" variant="outline" disabled={!profile || !billingEnabled || !!pending}>
                   {pending === "quote" ? "Quoting…" : "Get quote"}
-                </button>
+                </Button>
               </form>
               {failure?.action === "quote" && <Failure message={failure.message} />}
               {fundingDetails && (
-                <section className="checkout" aria-label="Swap details">
-                  <p role="status" className="status">
+                <section className="grid gap-4 rounded-lg border border-border bg-background p-4" aria-label="Swap details">
+                  <p role="status" className="rounded-md border border-ok/40 bg-ok/10 px-3 py-2 text-ui text-ok">
                     {creditBalance(Number(fundingDetails.amountOut))} estimated · {creditBalance(Number(fundingDetails.minAmountOut))} minimum
                   </p>
                   {fundingDetails.depositAddress ? (
@@ -533,23 +531,22 @@ function BillingConsole() {
                         transaction ID.
                       </p>
                       <CopyButton value={fundingDetails.depositAddress} label="Copy swap deposit address" />
-                      <code className="break-anywhere">{fundingDetails.depositAddress}</code>
+                      <code className="break-all rounded-md border border-border bg-background px-3 py-2 font-mono text-meta">{fundingDetails.depositAddress}</code>
                       {fundingDetails.depositMemo && (
                         <>
                           <p>Include this memo with your transfer.</p>
                           <CopyButton value={fundingDetails.depositMemo} label="Copy deposit memo" />
-                          <code className="break-anywhere">{fundingDetails.depositMemo}</code>
+                          <code className="break-all rounded-md border border-border bg-background px-3 py-2 font-mono text-meta">{fundingDetails.depositMemo}</code>
                         </>
                       )}
-                      <p className="caption">
+                      <p className="text-meta text-muted-foreground">
                         Solana USDC goes to {shorten(fundingDetails.recipient)}. Refunds go to {shorten(fundingDetails.refundTo)} on{" "}
                         {swapAsset.network}. Once USDC arrives in your wallet, select USDC to finish paying for credits.
                       </p>
                     </>
                   ) : (
-                    <button
+                    <Button
                       type="button"
-                      className="button accent"
                       disabled={!!pending || !billingEnabled}
                       onClick={() =>
                         void run("prepare-swap", async () => {
@@ -564,7 +561,7 @@ function BillingConsole() {
                       }
                     >
                       {pending === "prepare-swap" ? "Preparing…" : "Get swap deposit address"}
-                    </button>
+                    </Button>
                   )}
                   {failure?.action === "prepare-swap" && <Failure message={failure.message} />}
                 </section>
@@ -572,8 +569,8 @@ function BillingConsole() {
             </div>
           )}
           {order && profile && method === (order.intent.asset === "SOL" ? "sol" : "usdc") && (
-            <section className="checkout" aria-label={archived ? "Archived payment" : "Review transfer"}>
-              <div className="between">
+            <section className="grid gap-4 rounded-lg border border-border bg-background p-4" aria-label={archived ? "Archived payment" : "Review transfer"}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 tabIndex={-1} ref={focusHeading}>
                   {archived
                     ? "Archived payment"
@@ -581,9 +578,9 @@ function BillingConsole() {
                       ? "Pay " + solDecimal(order.intent.atomic) + " SOL"
                       : "Pay " + creditBalance(order.intent.amount) + " in USDC"}
                 </h2>
-                <span className="pill">{order.cluster}</span>
+                <span className="inline-flex items-center rounded-xl border border-info/40 bg-info/10 px-2 py-0.5 text-micro font-medium text-info">{order.cluster}</span>
               </div>
-              <p className="caption">
+              <p className="text-meta text-muted-foreground">
                 {archived
                   ? "If you already sent this transfer, you can still check for confirmation and receive credits."
                   : order.intent.asset === "SOL"
@@ -591,20 +588,19 @@ function BillingConsole() {
                     : "Your wallet shows the transfer before you approve. A small SOL fee and token account setup may apply."}
               </p>
               {finalizedSignature ? (
-                <p role="status" className="status">
+                <p role="status" className="rounded-md border border-ok/40 bg-ok/10 px-3 py-2 text-ui text-ok">
                   Payment confirmed. Credits added to your balance.
                 </p>
               ) : submitted ? (
-                <p role="status" className="status">
+                <p role="status" className="rounded-md border border-ok/40 bg-ok/10 px-3 py-2 text-ui text-ok">
                   Payment submitted. Waiting for Solana finality — usually under a minute.
                 </p>
               ) : archived ? null : quoteExpired ? (
                 <p role="status">SOL quote expired. Continue to payment to request a new quote.</p>
               ) : (
                 <>
-                  <button
+                  <Button
                     type="button"
-                    className="button accent"
                     disabled={!billingEnabled || !!pending}
                     onClick={() =>
                       void run("pay", async () => {
@@ -616,18 +612,20 @@ function BillingConsole() {
                     }
                   >
                     {pending === "pay" ? "Waiting for wallet…" : "Pay with connected wallet"}
-                  </button>
+                  </Button>
                   {failure?.action === "pay" && <Failure message={failure.message} />}
-                  <details>
-                    <summary>Use a Solana Pay link or QR code</summary>
-                    <div className="payment-qr">
-                      {order.qr && <img className="payment-qr-image" src={order.qr} width={176} height={176} alt="Scan with a Solana Pay wallet" />}
+                  <details className="rounded-lg border border-border bg-background open:bg-card">
+                    <summary className="cursor-pointer px-4 py-3 text-ui font-medium outline-none focus-visible:outline-2 focus-visible:outline-ring">Use a Solana Pay link or QR code</summary>
+                    <div className="grid gap-4 border-t border-border px-4 py-4 sm:grid-cols-[auto_1fr]">
+                      {order.qr && <img className="size-44 rounded-md border border-border bg-card p-2" src={order.qr} width={176} height={176} alt="Scan with a Solana Pay wallet" />}
                       <div>
                         <p>Open the payment in a compatible wallet on {order.cluster}.</p>
                         {order.uri && (
-                          <a className="button quiet" href={order.uri}>
-                            Open in wallet <ArrowUpRight size={16} />
-                          </a>
+                          <Button variant="outline" asChild>
+                            <a href={order.uri}>
+                              Open in wallet <ArrowUpRight size={16} aria-hidden />
+                            </a>
+                          </Button>
                         )}
                         {order.uri && <CopyButton value={order.uri} label="Copy payment link" />}
                       </div>
@@ -636,9 +634,9 @@ function BillingConsole() {
                 </>
               )}
               <details key={reference} open={archived || undefined}>
-                <summary>Check payment status</summary>
+                <summary className="cursor-pointer px-4 py-3 text-ui font-medium outline-none focus-visible:outline-2 focus-visible:outline-ring">Check payment status</summary>
                 <form
-                  className="inline-form"
+                  className="flex flex-wrap items-end gap-3"
                   onSubmit={(event) => {
                     event.preventDefault();
                     void run("confirm", async () => {
@@ -652,26 +650,26 @@ function BillingConsole() {
                     });
                   }}
                 >
-                  <label>
+                  <Label className="grid min-w-48 flex-1 gap-2 text-ui font-medium text-foreground">
                     Transaction signature (optional)
                     <Input minLength={64} maxLength={88} value={signature} onChange={(event) => setSignature(event.target.value)} />
-                  </label>
-                  <button className="button quiet" disabled={!paymentVerificationEnabled || !!pending}>
+                  </Label>
+                  <Button type="submit" variant="outline" disabled={!paymentVerificationEnabled || !!pending}>
                     {pending === "confirm" ? "Checking…" : "Check now"}
-                  </button>
+                  </Button>
                 </form>
                 {failure?.action === "confirm" && <Failure message={failure.message} />}
               </details>
             </section>
           )}
         </section>
-        <section className="panel breakdown billing-history">
+        <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm xl:col-span-2">
           <h2 id="payment-history" tabIndex={-1}>
             Payment history
           </h2>
           {profile && paymentHistory.length > 0 ? (
-            <div className="table-wrap workspace-data-table payment-history" role="region" aria-labelledby="payment-history" tabIndex={0}>
-              <table>
+            <div className="overflow-x-auto rounded-lg border border-border" role="region" aria-labelledby="payment-history" tabIndex={0}>
+              <table className="w-full border-collapse bg-card text-ui">
                 <thead>
                   <tr>
                     <th>Date (UTC)</th>
@@ -691,9 +689,9 @@ function BillingConsole() {
                         <td data-label="Paid with">{item.asset === "SOL" ? solDecimal(item.atomic) + " SOL" : "USDC"}</td>
                         <td data-label="Status">
                           {item.status.tag === "Finalized" ? (
-                            <div className="payment-status">
+                            <div className="flex flex-wrap items-center gap-2">
                               <a
-                                className="text-link"
+                                className="inline-flex items-center gap-1 text-ui font-medium text-primary underline-offset-4 hover:underline"
                                 href={
                                   "https://explorer.solana.com/tx/" +
                                   item.status.signature +
@@ -708,10 +706,10 @@ function BillingConsole() {
                               />
                             </div>
                           ) : archive === item.reference ? (
-                            <div className="payment-status">
-                              <span className="caption">Archive this payment request on this device?</span>
-                              <button
-                                className="text-link destructive"
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-meta text-muted-foreground">Archive this payment request on this device?</span>
+                              <Button variant="ghost" size="sm"
+                                className="h-auto px-1 text-destructive underline-offset-4 hover:underline"
                                 type="button"
                                 disabled={!!pending}
                                 onClick={() => {
@@ -729,14 +727,14 @@ function BillingConsole() {
                                 }}
                               >
                                 Confirm archive
-                              </button>
-                              <button className="text-link subtle" type="button" disabled={!!pending} onClick={() => setArchive("")}>
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-auto px-1 text-muted-foreground underline-offset-4 hover:underline" type="button" disabled={!!pending} onClick={() => setArchive("")}>
                                 Keep
-                              </button>
+                              </Button>
                             </div>
                           ) : (
-                            <div className="payment-status">
-                              <span className={item.status.tag === "Expired" ? "caption state-expired" : "caption"}>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-meta text-muted-foreground">
                                 {meta[item.reference]?.archivedAt !== undefined
                                   ? "Archived"
                                   : item.status.tag === "Expired" || isPast(item.expiresAt)
@@ -745,19 +743,19 @@ function BillingConsole() {
                               </span>
                               {item.status.tag !== "Expired" && !isPast(item.expiresAt) && (
                                 <>
-                                  <button
-                                    className="text-link"
+                                  <Button variant="ghost" size="sm"
+                                    className="h-auto px-1 text-primary underline-offset-4 hover:underline"
                                     type="button"
                                     aria-label={meta[item.reference]?.archivedAt !== undefined ? "Check archived payment" : "Resume payment"}
                                     disabled={!!pending}
                                     onClick={() => void run("resume", () => resumePayment(item.reference))}
                                   >
                                     {meta[item.reference]?.archivedAt !== undefined ? "Check status" : "Resume"}
-                                  </button>
+                                  </Button>
                                   {meta[item.reference]?.archivedAt === undefined && (
-                                    <button className="text-link destructive" type="button" disabled={!!pending} onClick={() => setArchive(item.reference)}>
+                                    <Button variant="ghost" size="sm" className="h-auto px-1 text-destructive underline-offset-4 hover:underline" type="button" disabled={!!pending} onClick={() => setArchive(item.reference)}>
                                       Archive on this device
-                                    </button>
+                                    </Button>
                                   )}
                                 </>
                               )}
@@ -773,7 +771,7 @@ function BillingConsole() {
               </table>
             </div>
           ) : (
-            <p className="caption" role="status">
+            <p className="text-meta text-muted-foreground" role="status">
               {!profile
                 ? "Connect a wallet to view payment history."
                 : historyError
@@ -791,20 +789,20 @@ function BillingConsole() {
 
 function BillingFallback() {
   return (
-    <div className="billing-area">
+    <div className="grid min-w-0 gap-3 text-foreground">
       <WorkspaceHeading icon={Wallet} title="Billing" description="Fund credits and track wallet payments." />
-      <div className="billing-grid">
-        <section className="panel stack-panel billing-balance">
-          <div className="between">
+      <div className="grid gap-3 xl:grid-cols-2">
+        <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2>Compute balance</h2>
             <Wallet size={21} />
           </div>
-          <p className="amount">—</p>
-          <p className="caption">Available for inference.</p>
+          <p className="text-heading font-strong tracking-heading tabular-nums">—</p>
+          <p className="text-meta text-muted-foreground">Available for inference.</p>
         </section>
-        <section className="panel breakdown billing-history">
+        <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm xl:col-span-2">
           <h2>Payment history</h2>
-          <p className="caption" role="status">
+          <p className="text-meta text-muted-foreground" role="status">
             Loading payment history…
           </p>
         </section>
