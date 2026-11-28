@@ -1,6 +1,6 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { ArrowUpRight } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { SearchField } from "../../search.tsx";
 import { articles, categoryIcons, readingMinutes, type Article } from "./journal.ts";
 import { ProductIcon } from "./icons.tsx";
@@ -48,6 +48,7 @@ function JournalEntry({ article, lead }: { article: Article; lead: boolean }) {
 export function JournalIndex() {
   const [topic, setTopic] = useState("All");
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const term = search.trim().toLowerCase();
   const entries = articles.filter(
     (article) =>
@@ -74,6 +75,7 @@ export function JournalIndex() {
           ))}
         </div>
         <SearchField
+          ref={searchRef}
           className="jrn-search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -96,6 +98,7 @@ export function JournalIndex() {
             onClick={() => {
               setTopic("All");
               setSearch("");
+              searchRef.current?.focus();
             }}
           >
             Show all articles
