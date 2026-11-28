@@ -33,8 +33,8 @@ function scrollToHash(hash: string): boolean {
   return true;
 }
 
-function jumpToHash(hash: string) {
-  history.replaceState(history.state, "", location.pathname + hash);
+function jumpToHash(path: string, hash: string) {
+  history.replaceState(history.state, "", path + hash);
   scrollToHash(hash);
 }
 
@@ -126,9 +126,9 @@ export function App({ runtime, path }: AppProps) {
 
 export async function navigate(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>, page: Page, hash = "") {
   const path = pathOf(page);
-  if (path === location.pathname) {
+  if (path === pathOf(pageOf(location.pathname))) {
     if (hash) {
-      jumpToHash(hash);
+      jumpToHash(path, hash);
     } else {
       history.replaceState(history.state, "", path);
       scrollTo(0, 0);

@@ -167,6 +167,17 @@ it("moves focus to a same-page hash target without adding history", async () => 
 });
 
 // spec/app/nav.md, "Story: Move around"
+it("treats a trailing slash as the current page", async () => {
+  const runtime = makeRuntime();
+  history.replaceState(null, "", "/docs/quickstart/");
+  const historyLength = history.length;
+  await navigate(runtime, { tag: "Doc", slug: "quickstart" }, "#set-up-your-workspace");
+  expect([location.pathname, location.hash, history.length]).toEqual([
+    "/docs/quickstart", "#set-up-your-workspace", historyLength,
+  ]);
+});
+
+// spec/app/nav.md, "Story: Move around"
 it("drops the hash when navigating without one", async () => {
   const { runtime } = renderApp();
   await act(async () => {
