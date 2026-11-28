@@ -1763,3 +1763,83 @@
 .theme-root.site .console .catalog-model-metrics > div {
   padding: 6px 9px;
 }
+
+@media (width >= 721px) {
+  .theme-root.site .console :is(.logs-legacy, .usage-legacy, .batch-legacy, .keys-legacy, .billing-area, .teams-stack) {
+    gap: 12px;
+  }
+
+  .theme-root.site .console :is(.log-filters, .log-panel) {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .theme-root.site .console :is(.log-controls, .log-filter-panel, .log-filter-panel .filter-body) {
+    gap: 8px;
+  }
+
+  .theme-root.site .console .usage-filters {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .theme-root.site .console :is(.usage-filter-panel, .usage-filter-panel .filter-body) {
+    gap: 10px;
+  }
+
+  .theme-root.site .console .usage-filter-grid {
+    gap: 8px 10px;
+  }
+
+  .theme-root.site .console .batch-panel-section {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .theme-root.site .console .batch-upload {
+    min-height: 64px;
+    padding: 10px;
+  }
+
+  .theme-root.site .console .billing-area {
+    --console-control-size: 2.375rem;
+    --console-text: 0.9375rem;
+    --console-caption: 0.8125rem;
+  }
+
+  .theme-root.site .console .billing-grid {
+    gap: 12px;
+  }
+
+  .theme-root.site .console .billing-area :is(.stack-panel, .breakdown) {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .theme-root.site .console .teams-panel {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .theme-root.site .console .teams-disclosure > summary {
+    min-height: 40px;
+    padding: 9px 12px;
+  }
+
+  .theme-root.site .console .teams-disclosure-body {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .theme-root.site .console .telemetry-legacy .chart-empty {
+    height: 180px;
+  }
+
+  .theme-root.site .console .telemetry-legacy .bars {
+    height: 190px;
+  }
+
+  .theme-root.site .console .telemetry-legacy .compact-table {
+    max-height: 260px;
+  }
+}
