@@ -1,7 +1,7 @@
 // spec/app/nav.md, "Story: Move around"
 // @vitest-environment happy-dom
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { Layer, ManagedRuntime } from "effect";
 import * as KeyValueStore from "effect/persistence/KeyValueStore";
 import { act } from "react";
@@ -86,7 +86,7 @@ it('cycles the public header theme through system, light and dark (spec/app/nav.
   }
 });
 
-it('links directly to the landing API example and supports horizontal workspace tabs (spec/app/nav.md, "Story: Move around")', () => {
+it('links directly to the landing API example and supports horizontal workspace tabs (spec/app/nav.md, "Story: Move around")', async () => {
   const { el } = renderApp();
   const jump = el.querySelector<HTMLAnchorElement>('main a[href="#quickstart"]')!;
   expect(jump.textContent).toContain("API quickstart");
@@ -97,9 +97,11 @@ it('links directly to the landing API example and supports horizontal workspace 
   act(() => {
     keys.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
   });
-  expect(usage.getAttribute("aria-selected")).toBe("true");
-  expect(document.activeElement).toBe(usage);
-  expect(el.querySelector("#workspace-panel-usage")?.hasAttribute("hidden")).toBe(false);
+  await vi.waitFor(() => {
+    expect(usage.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(usage);
+    expect(el.querySelector("#workspace-panel-usage")?.hasAttribute("hidden")).toBe(false);
+  });
 });
 
 // spec/app/nav.md, "Story: Move around"
