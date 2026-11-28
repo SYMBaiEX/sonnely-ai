@@ -99,7 +99,7 @@ export function DocsPage({ slug }: { slug: string }) {
               <p className="docs-article-description">{doc.description}</p>
               <div className="docs-page-actions">
                 <CopyMarkdown slug={slug} />
-                <a className="docs-page-action" href={markdownUrl(slug)}>
+                <a className="docs-page-action" href={markdownUrl(slug)} target="_self">
                   <FileText size={15} aria-hidden="true" /> View Markdown
                 </a>
               </div>

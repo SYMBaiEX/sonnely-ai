@@ -79,13 +79,13 @@ function Block_({ block }: { block: Block }) {
     case "card": {
       const Icon = ICONS[block.icon] ?? Box;
       return (
-        <a className="docs-start-card" data-primary={block.primary ? "" : undefined} href={block.href}>
-          <Icon className="docs-start-card-icon" size={18} aria-hidden="true" />
+        <a data-start-card="" data-primary={block.primary ? "" : undefined} href={block.href}>
+          <Icon data-start-icon="" size={18} aria-hidden="true" />
           <span>
             <strong className="docs-start-card-title">{block.title}</strong>
             <span className="docs-start-card-description">{block.description}</span>
           </span>
-          <ArrowRight className="docs-start-card-arrow" size={17} aria-hidden="true" />
+          <ArrowRight data-start-arrow="" size={17} aria-hidden="true" />
         </a>
       );
     }
