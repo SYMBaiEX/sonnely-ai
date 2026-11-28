@@ -37,7 +37,7 @@ export const DrawerClose = DialogPrimitive.Close;
 export function DrawerContent({ side, closeLabel = "Close", className, children, ...props }: DrawerContentProps) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/50" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/50 dark:bg-background/75" />
       <DialogPrimitive.Content aria-describedby={undefined} className={cn(drawerContentVariants({ side }), className)} {...props}>
         {children}
         <DialogPrimitive.Close aria-label={closeLabel} className={cn(focusRing, "absolute top-4 right-4 rounded-sm text-muted-foreground hover:text-foreground")}>

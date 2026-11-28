@@ -1,7 +1,7 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax -- this area intentionally uses the migrated request-log class names and keeps the drawer workflow together */
 // spec/app/console/logs.md, "Story: Review request activity"
-import { Activity, ArrowUpRight, Download, List, RefreshCw, Search, X } from "lucide-react";
+import { Activity, ArrowUpRight, Download, List, RefreshCw, Search } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
+import { Button, Input, Select } from "@repo/ui";
 import type { LogEntry, Logs, LogStatus, Window } from "../../../../gen/app__console__logs.ts";
 import { catalog } from "../../../../gen/app__console__catalog.ts";
 import { visible } from "../../../../gen/app__console__logs.ts";
@@ -18,7 +18,7 @@ import {
   milliseconds,
 } from "./bits.tsx";
 import { providerIds, providerNames } from "./logs-shared.tsx";
-import "./logs.css";
+import { DataTable, DetailRows, FieldLabel, SideDrawer, StatusPill, panelClass } from "./ops.tsx";
 
 const defaults = { days: "7", provider: "", model: "", keyName: "", status: "" };
 const statusLabels: Record<LogStatus, string> = {
@@ -168,93 +168,52 @@ function requestLogCsv(rows: readonly LogRow[]) {
   );
 }
 
-function DetailList({ fields }: { fields: [string, string | number | undefined][] }) {
-  return (
-    <dl className="log-details">
-      {fields.map(([name, value]) =>
-        value === undefined ? null : (
-          <div key={name}>
-            <dt>{name}</dt>
-            <dd>{value}</dd>
-          </div>
-        ),
-      )}
-    </dl>
-  );
-}
-
 function RequestDetail({ id, row, loaded, close }: { id: string; row: LogRow | undefined; loaded: boolean; close: () => void }) {
   const [error, setError] = useState("");
+  const linkClass = "inline-flex w-max items-center gap-1 text-ui text-primary hover:underline";
 
   return (
-    <dialog
-      ref={(node) => {
-        if (node && !node.open) node.showModal();
-      }}
-      className="log-drawer"
-      aria-labelledby="request-detail-heading"
-      onCancel={(event) => {
-        event.preventDefault();
-        close();
-      }}
+    <SideDrawer
+      open
+      onOpenChange={(next) => { if (!next) close(); }}
+      title={(
+        <>
+          <h2 id="request-detail-heading" className="text-heading leading-heading font-medium">Request details</h2>
+          {row && <p className="mt-1 text-meta text-muted-foreground">{statusLabels[row.status]} · {time(rowTime(row))}</p>}
+        </>
+      )}
     >
-      <header>
-        <div>
-          <h2 id="request-detail-heading">Request details</h2>
-          {row && (
-            <p className="caption">
-              {statusLabels[row.status]} · {time(rowTime(row))}
-            </p>
-          )}
-        </div>
-        <button type="button" className="icon-button" onClick={close} aria-label="Close request details">
-          <X size={18} aria-hidden="true" />
-        </button>
-      </header>
-      <div className="log-drawer-body">
+      <div className="grid gap-5">
         {error ? (
           <>
-            <p className="error" role="alert">
-              {error}
-            </p>
-            <button type="button" className="button quiet" onClick={() => setError("")}>
-              Retry
-            </button>
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive" role="alert">{error}</p>
+            <Button type="button" variant="ghost" size="sm" className="w-max" onClick={() => setError("")}>Retry</Button>
           </>
         ) : !row && loaded ? (
-          <p role="status" className="caption">
-            Request {id} is not in this workspace’s history. Check the reference, or sign in with the wallet that ran it.
-          </p>
+          <p role="status" className="text-ui text-muted-foreground">Request {id} is not in this workspace’s history. Check the reference, or sign in with the wallet that ran it.</p>
         ) : !row ? (
-          <p role="status" className="caption">
-            Loading request details…
-          </p>
+          <p role="status" className="text-ui text-muted-foreground">Loading request details…</p>
         ) : (
           <>
             {sampleHistoryIds.has(row.id) && (
-              <p className="caption" role="note">
-                Sample row: part of the seeded example history every workspace opens with, not a real request you ran.
-              </p>
+              <p className="rounded-md border border-border bg-secondary px-3 py-2 text-meta text-muted-foreground" role="note">Sample row: part of the seeded example history every workspace opens with, not a real request you ran.</p>
             )}
-            <div className="log-actions">
-              <CopyButton value={row.id} label="Copy request reference" />
-              <CopyButton value={location.origin + detailPath(row.id)} label="Copy link to request" />
+            <div className="flex flex-wrap gap-2">
+              <CopyButton value={row.id} label="Copy request reference" quiet={false} />
+              <CopyButton value={location.origin + detailPath(row.id)} label="Copy link to request" quiet={false} />
             </div>
-            <h3>Route and status</h3>
+            <h3 className="text-body font-strong">Route and status</h3>
             {!!row.providerRejections?.length && (
-              <ol className="route-attempts" aria-label="Provider attempts">
+              <ol className="grid gap-1.5 rounded-md border border-border bg-secondary/50 p-3 text-ui text-muted-foreground" aria-label="Provider attempts">
                 {row.providerRejections.map((attempt) => (
                   <li key={attempt.provider}>
-                    {providerNames[attempt.provider] ?? attempt.provider} · Rate limited (HTTP 429) ·{" "}
-                    {milliseconds(attempt.endedAt - attempt.startedAt)}
+                    {providerNames[attempt.provider] ?? attempt.provider} · Rate limited (HTTP 429) · {milliseconds(attempt.endedAt - attempt.startedAt)}
                   </li>
                 ))}
-                <li>
-                  {providerNames[row.provider] ?? row.provider} · {statusLabels[row.status]}
-                </li>
+                <li>{providerNames[row.provider] ?? row.provider} · {statusLabels[row.status]}</li>
               </ol>
             )}
-            <DetailList
+            <DetailRows
               fields={[
                 ["Request reference", row.id],
                 ["Model ID", row.model],
@@ -267,8 +226,8 @@ function RequestDetail({ id, row, loaded, close }: { id: string; row: LogRow | u
                 ["Streaming", row.stream === undefined ? undefined : row.stream ? "Yes" : "No"],
               ]}
             />
-            <h3>Usage and billing</h3>
-            <DetailList
+            <h3 className="text-body font-strong">Usage and billing</h3>
+            <DetailRows
               fields={[
                 ["Billing", billing(row)],
                 ["Input tokens", amount(row.input)],
@@ -277,8 +236,8 @@ function RequestDetail({ id, row, loaded, close }: { id: string; row: LogRow | u
                 ["Reasoning output tokens", amount(row.reasoningTokens)],
               ]}
             />
-            <h3>Timing</h3>
-            <DetailList
+            <h3 className="text-body font-strong">Timing</h3>
+            <DetailRows
               fields={[
                 ["Started", time(rowTime(row))],
                 ["Settled", row.settledAt === undefined ? undefined : time(row.settledAt)],
@@ -288,17 +247,13 @@ function RequestDetail({ id, row, loaded, close }: { id: string; row: LogRow | u
               ]}
             />
             {(row.endpoint === "chat/completions" || !row.endpoint) && (
-              <a className="text-link" href="/verify">
-                Inspect a completion receipt <ArrowUpRight size={15} aria-hidden="true" />
-              </a>
+              <a className={linkClass} href="/verify">Inspect a completion receipt <ArrowUpRight size={15} aria-hidden="true" /></a>
             )}
-            <a className="text-link" href="/console/support">
-              Get help with a request <ArrowUpRight size={15} aria-hidden="true" />
-            </a>
+            <a className={linkClass} href="/console/support">Get help with a request <ArrowUpRight size={15} aria-hidden="true" /></a>
           </>
         )}
       </div>
-    </dialog>
+    </SideDrawer>
   );
 }
 
@@ -319,79 +274,54 @@ function LogResults({ rows, error, open }: { rows: LogRow[]; error: string | und
   }
 
   return (
-    <section className="panel log-panel" aria-labelledby="request-log-table-heading">
-      <div className="between">
-        <h2 id="request-log-table-heading">Request history</h2>
-        <button type="button" className="button quiet" disabled={!rows.length} onClick={exportRows}>
+    <section className={`${panelClass} grid gap-4`} aria-labelledby="request-log-table-heading">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="request-log-table-heading" className="text-heading leading-heading font-medium">Request history</h2>
+        <Button type="button" variant="ghost" size="sm" disabled={!rows.length} onClick={exportRows}>
           <Download size={16} aria-hidden="true" /> Export loaded CSV
-        </button>
+        </Button>
       </div>
-      <p role="status" className="caption">
-        {!rows.length
-          ? error
-            ? "Request history unavailable."
-            : "No matching requests."
-          : `${rows.length} ${rows.length === 1 ? "request" : "requests"} loaded`}
+      <p role="status" className="text-ui text-muted-foreground">
+        {!rows.length ? error ? "Request history unavailable." : "No matching requests." : `${rows.length} ${rows.length === 1 ? "request" : "requests"} loaded`}
       </p>
-      {error && (
-        <div className="log-actions">
-          <p className="error" role="alert">
-            {error}
-          </p>
-        </div>
-      )}
+      {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive" role="alert">{error}</p>}
       {!!shown.length && (
-        <div className="table-wrap workspace-data-table data-rows" role="region" aria-labelledby="request-log-table-heading" tabIndex={0}>
-          <table aria-label="Request logs">
-            <thead>
-              <tr>
-                <th scope="col">Request</th>
-                <th scope="col">Provider</th>
-                <th scope="col">Status</th>
-                <th scope="col">Duration</th>
-                <th scope="col">Tokens</th>
-                <th scope="col">Billing</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((row) => (
-                <tr key={row.id}>
-                  <th scope="row">
-                    <div className="log-model">
-                      <a
-                        className="text-link"
-                        href={detailPath(row.id)}
-                        aria-label={`View ${modelNames.get(row.model) ?? row.model} request ${row.id}`}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          open(row.id);
-                        }}
-                      >
-                        {modelNames.get(row.model) ?? row.model}
-                      </a>
-                      <span className="caption">{time(rowTime(row))}</span>
-                      {row.endpoint && <code className="caption">/{row.endpoint}</code>}
-                      {sampleHistoryIds.has(row.id) && <span className="caption">Sample</span>}
-                    </div>
-                  </th>
-                  <td data-label="Provider">{providerNames[row.provider] ?? row.provider}</td>
-                  <td data-label="Status">
-                    <span className="pill log-status" data-status={row.status}>{statusLabels[row.status]}</span>
-                  </td>
-                  <td data-label="Duration">{milliseconds(row.durationMs) ?? "—"}</td>
-                  <td data-label="Tokens">{amount(row.input + row.output)}</td>
-                  <td data-label="Billing" data-span>{billing(row)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={shown}
+          rowKey={(row) => row.id}
+          labelledBy="request-log-table-heading"
+          columns={[
+            {
+              label: "Request", header: true, value: (row) => (
+                <span className="grid gap-1 whitespace-normal">
+                  <a
+                    className="inline-flex w-max text-ui font-medium text-primary hover:underline"
+                    href={detailPath(row.id)}
+                    aria-label={`View ${modelNames.get(row.model) ?? row.model} request ${row.id}`}
+                    onClick={(event) => { event.preventDefault(); open(row.id); }}
+                  >
+                    {modelNames.get(row.model) ?? row.model}
+                  </a>
+                  <span className="text-meta text-muted-foreground">{time(rowTime(row))}</span>
+                  {row.endpoint && <code className="font-mono text-meta text-muted-foreground">/{row.endpoint}</code>}
+                  {sampleHistoryIds.has(row.id) && <span className="text-meta text-muted-foreground">Sample</span>}
+                </span>
+              ),
+            },
+            { label: "Provider", value: (row) => providerNames[row.provider] ?? row.provider },
+            {
+              label: "Status",
+              value: (row) => <StatusPill tone={row.status === "Complete" ? "ok" : row.status === "Failed" ? "destructive" : row.status === "Pending" ? "info" : "warn"}>{statusLabels[row.status]}</StatusPill>,
+            },
+            { label: "Duration", value: (row) => milliseconds(row.durationMs) ?? "—" },
+            { label: "Tokens", value: (row) => amount(row.input + row.output) },
+            { label: "Billing", span: true, value: (row) => billing(row) },
+          ]}
+        />
       )}
       {nextCursor && (
-        <div className="log-pagination">
-          <button type="button" className="button quiet" onClick={() => setLimit((value) => value + pageSize)}>
-            Load older requests
-          </button>
+        <div className="flex justify-center border-t border-border pt-3">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setLimit((value) => value + pageSize)}>Load older requests</Button>
         </div>
       )}
     </section>
@@ -434,68 +364,18 @@ function FiltersForm({ initial, logs }: { initial: typeof defaults; logs: Remote
   }
 
   return (
-    <form className="log-filters-form" onSubmit={(event) => void applyFilters(event)}>
-      <div className="log-controls">
-        <label>
-          Date range
-          <select value={draft.days} onChange={(event) => setDraft({ ...draft, days: event.target.value })}>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="all">All time</option>
-          </select>
-        </label>
-        <label>
-          Provider
-          <select value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })}>
-            <option value="">All providers</option>
-            {providerIds.map((id) => (
-              <option key={id} value={id}>
-                {providerNames[id]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Status
-          <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
-            <option value="">All statuses</option>
-            {Object.keys(lowerStatus).map((id) => (
-              <option key={id} value={id}>
-                {statusLabels[lowerStatus[id]]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Model ID
-          <input
-            value={draft.model}
-            maxLength={100}
-            placeholder="Any model"
-            onChange={(event) => setDraft({ ...draft, model: event.target.value })}
-          />
-        </label>
-        <label>
-          Key name
-          <input
-            value={draft.keyName}
-            maxLength={60}
-            placeholder="Any key"
-            onChange={(event) => setDraft({ ...draft, keyName: event.target.value })}
-          />
-        </label>
+    <form className="grid w-full gap-3" onSubmit={(event) => void applyFilters(event)}>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <FieldLabel>Date range<Select value={draft.days} onChange={(event) => setDraft({ ...draft, days: event.target.value })}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All time</option></Select></FieldLabel>
+        <FieldLabel>Provider<Select value={draft.provider} onChange={(event) => setDraft({ ...draft, provider: event.target.value })}><option value="">All providers</option>{providerIds.map((id) => <option key={id} value={id}>{providerNames[id]}</option>)}</Select></FieldLabel>
+        <FieldLabel>Status<Select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}><option value="">All statuses</option>{Object.keys(lowerStatus).map((id) => <option key={id} value={id}>{statusLabels[lowerStatus[id]]}</option>)}</Select></FieldLabel>
+        <FieldLabel>Model ID<Input value={draft.model} maxLength={100} placeholder="Any model" onChange={(event) => setDraft({ ...draft, model: event.target.value })} /></FieldLabel>
+        <FieldLabel>Key name<Input value={draft.keyName} maxLength={60} placeholder="Any key" onChange={(event) => setDraft({ ...draft, keyName: event.target.value })} /></FieldLabel>
       </div>
-      <div className="log-actions">
-        <button className="button accent" type="submit">
-          Apply filters
-        </button>
-        <button className="button quiet" type="button" disabled={filtersAreDefault(logs.state)} onClick={() => void logs.send({ type: "resetFilters" })}>
-          Reset
-        </button>
-        <button className="button quiet" type="button" onClick={() => void sendFilters(initial)}>
-          <RefreshCw size={15} aria-hidden="true" /> Refresh
-        </button>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="submit">Apply filters</Button>
+        <Button variant="ghost" type="button" disabled={filtersAreDefault(logs.state)} onClick={() => void logs.send({ type: "resetFilters" })}>Reset</Button>
+        <Button variant="ghost" type="button" onClick={() => void sendFilters(initial)}><RefreshCw size={15} aria-hidden="true" /> Refresh</Button>
       </div>
     </form>
   );
@@ -536,66 +416,47 @@ export function LogsSection() {
   }
 
   return (
-    <div className="telemetry-legacy logs-legacy">
-      <WorkspaceHeading
-        icon={List}
-        title="Request logs"
-        description="Inspect routing, timing, tokens, and charges."
-      >
-        <a href="/console/usage" className="button quiet">
-          <Activity size={16} aria-hidden="true" /> View usage
-        </a>
+    <div className="grid gap-4">
+      <WorkspaceHeading icon={List} title="Request logs" description="Inspect routing, timing, tokens, and charges.">
+        <Button asChild variant="ghost" size="sm"><a href="/console/usage"><Activity size={16} aria-hidden="true" /> View usage</a></Button>
       </WorkspaceHeading>
       {!signedIn ? (
-        <p className="panel empty">Connect a Solana wallet to view your request logs.</p>
+        <p className={`${panelClass} text-ui text-muted-foreground`}>Connect a Solana wallet to view your request logs.</p>
       ) : (
         <>
-          <section className="panel log-filters" aria-label="Request log controls">
-        <form
-          className="log-lookup"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const id = lookup.trim().toLowerCase();
-            if (id) openDetail(id);
-          }}
-        >
-          <div className="log-lookup-field">
-            <label htmlFor="log-lookup-input">Find a request by reference</label>
-            <SearchField
-              id="log-lookup-input"
-              placeholder="Paste a request reference"
-              minLength={20}
-              maxLength={80}
-              pattern="[a-zA-Z0-9-]{20,80}"
-              spellCheck={false}
-              autoComplete="off"
-              required
-              value={lookup}
-              onChange={(event) => setLookup(event.target.value)}
-            />
-          </div>
-          <button type="submit" className="button quiet">
-            <Search size={16} aria-hidden="true" /> Find request
-          </button>
-        </form>
-        <FilterPanel
-          label="Filter requests"
-          active={
-            state
-              ? [
-                  state.window !== "Week",
-                  !!state.provider,
-                  !!state.model,
-                  !!state.keyName,
-                  state.showing.tag !== "AnyStatus",
-                ].filter(Boolean).length
-              : 0
-          }
-          className="log-filter-panel"
-        >
-        <FiltersForm key={filterSignature} initial={state ? machineDraft(state) : defaults} logs={logs} />
-        </FilterPanel>
-      </section>
+          <section className="grid gap-3" aria-label="Request log controls">
+            <form
+              className={`${panelClass} flex flex-wrap items-end gap-3`}
+              onSubmit={(event) => {
+                event.preventDefault();
+                const id = lookup.trim().toLowerCase();
+                if (id) openDetail(id);
+              }}
+            >
+              <FieldLabel className="min-w-64 flex-1 max-md:min-w-0 max-md:basis-full">
+                Find a request by reference
+                <SearchField
+                  id="log-lookup-input"
+                  placeholder="Paste a request reference"
+                  minLength={20}
+                  maxLength={80}
+                  pattern="[a-zA-Z0-9-]{20,80}"
+                  spellCheck={false}
+                  autoComplete="off"
+                  required
+                  value={lookup}
+                  onChange={(event) => setLookup(event.target.value)}
+                />
+              </FieldLabel>
+              <Button type="submit" variant="ghost"><Search size={16} aria-hidden="true" /> Find request</Button>
+            </form>
+            <FilterPanel
+              label="Filter requests"
+              active={state ? [state.window !== "Week", !!state.provider, !!state.model, !!state.keyName, state.showing.tag !== "AnyStatus"].filter(Boolean).length : 0}
+            >
+              <FiltersForm key={filterSignature} initial={state ? machineDraft(state) : defaults} logs={logs} />
+            </FilterPanel>
+          </section>
           <LogResults key={state ? windowDays[state.window] + state.provider + state.model + state.keyName + state.showing.tag : "loading"} rows={rows} error={logs.error} open={openDetail} />
           {requestId && <RequestDetail key={requestId} id={requestId} row={detailRow} loaded={state !== undefined} close={closeDetail} />}
         </>

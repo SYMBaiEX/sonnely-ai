@@ -26,7 +26,7 @@ export const DialogClose = DialogPrimitive.Close;
 export function DialogContent({ closeLabel = "Close", hideClose = false, className, children, ...props }: DialogContentProps) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 bg-foreground/50" />
+      <DialogPrimitive.Overlay className="fixed inset-0 bg-foreground/50 dark:bg-background/75" />
       <DialogPrimitive.Content
         aria-describedby={undefined}
         className={cn("fixed top-1/2 left-1/2 flex w-full max-w-md -translate-1/2 flex-col gap-4 rounded-lg border border-border bg-popover p-6 text-popover-foreground shadow-lg outline-none", className)}
@@ -34,10 +34,10 @@ export function DialogContent({ closeLabel = "Close", hideClose = false, classNa
       >
         {children}
         {!hideClose && (
-          <DialogPrimitive.Close aria-label={closeLabel} className={cn(focusRing, "absolute top-4 right-4 rounded-sm text-muted-foreground hover:text-foreground")}>
-          <svg aria-hidden viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-4">
-            <path d="m3 3 10 10M13 3 3 13" />
-          </svg>
+          <DialogPrimitive.Close aria-label={closeLabel} className={cn(focusRing, "absolute top-4 right-4 z-10 rounded-sm text-muted-foreground hover:text-foreground")}>
+            <svg aria-hidden viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-4">
+              <path d="m3 3 10 10M13 3 3 13" />
+            </svg>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
