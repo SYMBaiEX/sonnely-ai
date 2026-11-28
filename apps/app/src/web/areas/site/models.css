@@ -76,7 +76,7 @@
   display: grid;
   grid-template-columns: minmax(210px, 0.58fr) minmax(0, 1.42fr);
   gap: clamp(24px, 5vw, 82px);
-  margin-top: clamp(68px, 8vw, 112px);
+  margin-top: clamp(46px, 5.4vw, 72px);
 }
 
 .site .models-guide-copy {
@@ -93,7 +93,7 @@
   display: grid;
   grid-template-columns: minmax(150px, 0.36fr) minmax(0, 1fr);
   gap: 5px 28px;
-  padding-block: 17px;
+  padding-block: 13px;
   border-bottom: 1px solid color-mix(in srgb, var(--home-divider) 58%, transparent);
 }
 
@@ -125,7 +125,7 @@
 }
 
 .site .models-platform-links {
-  margin-top: clamp(58px, 7vw, 94px);
+  margin-top: clamp(40px, 5vw, 64px);
 }
 
 .site .model-breadcrumb {
@@ -597,7 +597,7 @@
 }
 
 .site .models-page {
-  padding-block: clamp(34px, 4.2vw, 60px) clamp(68px, 8vw, 112px);
+  padding-block: clamp(28px, 3.4vw, 40px) clamp(52px, 6vw, 80px);
 }
 
 .site .models-hero {
@@ -605,12 +605,12 @@
   grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
   align-items: end;
   gap: clamp(26px, 4vw, 58px);
-  margin-bottom: clamp(42px, 5vw, 70px);
+  margin-bottom: clamp(30px, 3.6vw, 44px);
 }
 
 .site .models-hero h1 {
   margin: 0;
-  font-size: clamp(44px, 6.4vw, 90px);
+  font-size: clamp(44px, 5.7vw, 72px);
   font-weight: 650;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -682,7 +682,7 @@
 .site .models-section-head h2,
 .site .models-guide-copy h2 {
   margin: 0;
-  font-size: clamp(29px, 3.4vw, 46px);
+  font-size: clamp(29px, 3vw, 38px);
   font-weight: 660;
   line-height: 1.04;
   letter-spacing: -0.035em;
@@ -763,7 +763,7 @@
 .site .models-page .catalog-filter-grid {
   align-items: end;
   gap: 11px 14px;
-  padding: 13px var(--home-inset) 16px;
+  padding: 12px var(--home-inset) 12px;
 }
 
 .site .models-page .catalog-filter-grid label > span {
@@ -789,8 +789,8 @@
 
 .site .models-page .catalog-list-meta,
 .site .models-page .catalog-list-foot {
-  min-height: 57px;
-  padding: 6px var(--home-inset);
+  min-height: 48px;
+  padding: 4px var(--home-inset);
 }
 
 .site .models-page .catalog-list-meta p {
@@ -833,19 +833,19 @@
 }
 
 .site .models-page .catalog-model > .term-chrome {
-  padding: 9px var(--home-inset) 0;
+  padding: 7px var(--home-inset) 0;
   border: 0;
   background: none;
 }
 
 .site .models-page .catalog-model-main {
   gap: 12px;
-  padding-block: 10px;
+  padding-block: 8px;
 }
 
 .site .models-page .catalog-model-mark {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   box-shadow: none;
 }
 

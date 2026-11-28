@@ -1,21 +1,21 @@
 /* spec/app/models.md, "Story: Filter the catalog" */
 .site .pricing-page {
-  padding-block: clamp(44px, 8vw, 112px) clamp(72px, 8.5vw, 118px);
+  padding-block: clamp(34px, 5.4vw, 72px) clamp(52px, 6.4vw, 84px);
 }
 
 .site .pricing-page .section {
   padding: 0;
-  margin-top: clamp(62px, 8vw, 112px);
+  margin-top: clamp(44px, 5.6vw, 72px);
 }
 
 .site .pricing-page .section-head {
   flex-wrap: wrap;
   gap: 12px 30px;
-  margin-bottom: clamp(20px, 2.5vw, 34px);
+  margin-bottom: clamp(16px, 2vw, 26px);
 }
 
 .site .pricing-page h2 {
-  font-size: clamp(32px, 4vw, 56px);
+  font-size: clamp(32px, 3.5vw, 44px);
   font-weight: 640;
   line-height: 1.04;
   letter-spacing: -0.04em;
@@ -44,7 +44,7 @@
 
 .site .pricing-hero h1 {
   margin: 0 auto;
-  font-size: clamp(56px, 7.2vw, 96px);
+  font-size: clamp(52px, 6vw, 76px);
   font-weight: 620;
   line-height: 0.99;
   letter-spacing: -0.04em;
@@ -59,7 +59,7 @@
 
 .site .pricing-hero-description {
   max-width: 47ch;
-  margin: 20px auto 0;
+  margin: 14px auto 0;
   color: var(--muted);
   font-size: clamp(16px, 1.5vw, 20px);
   line-height: 1.55;
@@ -68,7 +68,7 @@
 
 .site .pricing-hero .actions {
   justify-content: center;
-  margin-top: 24px;
+  margin-top: 18px;
 }
 
 .site .pricing-hero .button {
@@ -78,14 +78,14 @@
 .site .pricing-hero-facts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: clamp(38px, 6vw, 78px) 0 0;
+  margin: clamp(28px, 4vw, 44px) 0 0;
   border-block: 1px solid var(--home-divider);
   background: var(--home-panel);
   text-align: start;
 }
 
 .site .pricing-hero-facts > div {
-  padding: clamp(14px, 2vw, 24px) clamp(14px, 3vw, 36px);
+  padding: clamp(12px, 1.6vw, 16px) clamp(14px, 2.3vw, 24px);
 }
 
 .site .pricing-hero-facts > div + div {
@@ -115,13 +115,13 @@
 
 .site .pricing-estimate-inputs,
 .site .pricing-invoice {
-  padding: clamp(18px, 3.3vw, 44px);
+  padding: clamp(16px, 2.4vw, 28px);
 }
 
 .site .pricing-estimate-inputs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 14px;
+  gap: 14px 12px;
   align-content: center;
 }
 
@@ -180,7 +180,7 @@
 }
 
 .site .pricing-invoice dl {
-  margin: 20px 0 0;
+  margin: 14px 0 0;
 }
 
 .site .pricing-invoice dl > div {
@@ -236,8 +236,8 @@
 .site .pricing-terms-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(20px, 4vw, 56px);
-  margin: clamp(24px, 3.5vw, 44px) 0 0;
+  gap: clamp(18px, 3vw, 40px);
+  margin: clamp(18px, 2.5vw, 30px) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -247,7 +247,7 @@
   grid-template-rows: auto auto 1fr auto;
   justify-items: start;
   gap: 10px;
-  padding-top: 20px;
+  padding-top: 14px;
   border-top: 1px solid var(--home-divider);
 }
 

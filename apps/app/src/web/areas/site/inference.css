@@ -7,11 +7,11 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.85fr);
   align-items: center;
   gap: clamp(28px, 6vw, 90px);
-  padding-block: clamp(44px, 6vw, 88px) clamp(36px, 5vw, 72px);
+  padding-block: clamp(32px, 4.5vw, 56px) clamp(24px, 3.5vw, 40px);
 }
 
 .site .inference-hero h1 {
-  font-size: clamp(44px, 7.4vw, 6rem);
+  font-size: clamp(44px, 6.4vw, 5rem);
   font-weight: 650;
   line-height: 0.97;
   letter-spacing: -0.04em;
@@ -24,7 +24,7 @@
 
 .site .inference-hero-description {
   max-width: 47ch;
-  margin-top: 18px;
+  margin-top: 14px;
   color: var(--muted);
   font-size: clamp(1rem, 1.4vw, 1.1875rem);
   line-height: 1.55;
@@ -33,7 +33,7 @@
 .site .inference-hero .actions {
   align-items: center;
   gap: 4px 20px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .site .inference-brief,
@@ -121,7 +121,7 @@
   grid-template-columns: minmax(0, 164px) minmax(0, 1fr);
   align-items: start;
   gap: clamp(24px, 4vw, 64px);
-  padding-top: 24px;
+  padding-top: 18px;
   border-top: 1px solid var(--home-divider);
 }
 
@@ -154,19 +154,19 @@
 }
 
 .site .inference-section {
-  padding-block: 12px clamp(24px, 4vw, 56px);
+  padding-block: 10px clamp(18px, 3vw, 36px);
   scroll-margin-block-start: 16px;
 }
 
 .site .inference-section + .inference-section {
-  padding-top: clamp(24px, 4vw, 56px);
+  padding-top: clamp(18px, 3vw, 36px);
   border-top: 1px solid var(--home-divider);
 }
 
 .site .inference-section h2,
 .site .inference-closing h2 {
-  margin: 0 0 14px;
-  font-size: clamp(1.75rem, 3vw, 2.875rem);
+  margin: 0 0 10px;
+  font-size: clamp(1.75rem, 2.7vw, 2.375rem);
   font-weight: 650;
   line-height: 1.12;
   letter-spacing: -0.035em;
@@ -187,7 +187,7 @@
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   align-items: start;
-  gap: clamp(16px, 3vw, 36px);
+  gap: clamp(14px, 2.4vw, 28px);
 }
 
 .site .inference-wide {
@@ -328,9 +328,9 @@
 
 .site .inference-closing {
   gap: 16px;
-  min-height: 210px;
-  margin-block: 24px 12px;
-  padding: clamp(20px, 3vw, 44px);
+  min-height: 176px;
+  margin-block: 20px 8px;
+  padding: clamp(18px, 2.5vw, 32px);
   align-items: end;
 }
 

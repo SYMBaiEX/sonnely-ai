@@ -3730,7 +3730,7 @@ html:has(.site-header) {
   grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
   align-items: center;
   gap: clamp(24px, 4vw, 64px);
-  padding-block: clamp(36px, 6vw, 88px) clamp(32px, 4.5vw, 64px);
+  padding-block: clamp(30px, 4.6vw, 64px) clamp(26px, 3.4vw, 46px);
 }
 html[data-season="winter"] .site:has(> #content > .hero) {
   --signal-night: url("/homepage/signal-night-winter.webp");
@@ -4437,7 +4437,7 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
 }
 
 .site {
-  --home-gap: clamp(76px, 10vw, 150px);
+  --home-gap: clamp(56px, 7.2vw, 104px);
   --home-title: clamp(32px, 4.2vw, 60px);
   --home-card-title: clamp(17px, 1.7vw, 23px);
   --home-copy: clamp(0.9375rem, 1.25vw, 1.0625rem);
@@ -4455,13 +4455,13 @@ html[data-initial-theme="light"] .site:has(> #content > .hero),
   margin-top: var(--home-section-gap);
 }
 .site .home > :is(.home-workloads, .home-guides) {
-  --home-section-gap: clamp(64px, 8vw, 116px);
+  --home-section-gap: clamp(48px, 6vw, 84px);
 }
 .site .home .section-head {
   flex-wrap: nowrap;
   align-items: end;
   gap: 10px 28px;
-  margin-bottom: clamp(20px, 3vw, 36px);
+  margin-bottom: clamp(16px, 2.2vw, 28px);
 }
 .site .home :is(.section-head, .home-section-intro) h2 {
   font-size: var(--home-title);
