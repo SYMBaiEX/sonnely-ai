@@ -1,6 +1,6 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { NotFound } from "./notfound.tsx";
-import { ArrowLeft, ArrowUpRight, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ChevronDown, Terminal } from "lucide-react";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, RateUnit, Route } from "../../../../gen/app__models.ts";
 import { HighlightedCode } from "../../syntax.tsx";
@@ -22,7 +22,8 @@ import {
   workloadNames,
 } from "./data.ts";
 import { modelApiExample } from "./content.ts";
-import { buttonAccent, caption, serif, textLink, wrap } from "./ui.ts";
+import { buttonAccent, buttonQuiet, eyebrow, textLink, wrap } from "./ui.ts";
+import "./models.css";
 import { cleanModelName, groupCatalog } from "./catalog-groups.ts";
 import { availabilityStatus, useLiveAvailability, type LiveAvailability } from "./catalog-data.ts";
 
@@ -36,16 +37,9 @@ const summaryRateLabels: Record<RateUnit, string> = {
   PerSession: "session",
 };
 
-const toneClasses = {
-  ok: "border-ok/30 bg-ok/10 text-ok",
-  warn: "border-warn/30 bg-warn/10 text-warn",
-  info: "border-info/30 bg-info/10 text-info",
-  muted: "border-border bg-secondary text-muted-foreground",
-} as const;
-
 type Availability = {
   readonly label: string;
-  readonly tone: keyof typeof toneClasses;
+  readonly tone: "ok" | "warn" | "info" | "muted";
   readonly body: string;
   readonly runnable: boolean;
 };
@@ -130,62 +124,60 @@ function EndpointCard({
   const exampleTitle = runnable ? example.language + " example" : example.language + " reference example";
 
   return (
-    <article className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm" id={id}>
-      <details className="group" open={open}>
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 transition-colors hover:bg-secondary/60 sm:p-5">
-          <div className="min-w-0">
-            <h2 className="text-base font-medium text-foreground">{endpointName}</h2>
-            <p className="mt-1 truncate text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{endpoint === "Realtime" ? "WebSocket" : "POST"}</span>{" "}
-              <code>/{path}</code>
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <span className="hidden text-xs text-muted-foreground sm:block">
-              {leadRates.map((rate) => formatRate(rate.value) + " " + summaryRateLabels[rate.key]).join(" · ")}
+    <article className="term model-endpoint" id={id}>
+      <details className="model-endpoint-details" open={open}>
+        <summary>
+          <span className="model-endpoint-heading">
+            <span className="model-endpoint-method" data-method={endpoint === "Realtime" ? "ws" : "post"}>
+              {endpoint === "Realtime" ? "WebSocket" : "POST"}
             </span>
-            <ChevronDown size={16} aria-hidden="true" className="transition-transform group-open:rotate-180" />
-          </div>
+            <span className="model-endpoint-title">
+              <strong>{endpointName}</strong>
+              <code>/{path}</code>
+            </span>
+          </span>
+          <span className="model-endpoint-summary">
+            <span>{leadRates.map((rate) => formatRate(rate.value) + " " + summaryRateLabels[rate.key]).join(" · ")}</span>
+            <ChevronDown className="model-endpoint-chevron" size={16} aria-hidden="true" />
+          </span>
         </summary>
-        <div className="grid gap-4 border-t border-border p-4 sm:p-5 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]">
-          <div className="min-w-0">
-            <dl className="grid gap-0 text-sm">
-              <div className="flex flex-wrap justify-between gap-2 border-b border-border py-2.5">
-                <dt className="text-muted-foreground">API model ID</dt>
-                <dd className="min-w-0 wrap-anywhere font-mono text-xs">{modelId}</dd>
+        <div className="model-endpoint-body">
+          <div className="model-endpoint-facts">
+            <dl>
+              <div>
+                <dt>API model ID</dt>
+                <dd>{modelId}</dd>
               </div>
               {rates.map((rate) => (
-                <div key={rate.key} className="flex flex-wrap justify-between gap-2 border-b border-border py-2.5 last:border-b-0">
-                  <dt className="text-muted-foreground">{rate.label}</dt>
-                  <dd className="font-medium tabular-nums">{formatRate(rate.value)}</dd>
+                <div key={rate.key}>
+                  <dt>{rate.label}</dt>
+                  <dd>{formatRate(rate.value)}</dd>
                 </div>
               ))}
             </dl>
             {endpoint === "ChatCompletions" && (
-              <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Chat capabilities" role="list">
+              <ul aria-label="Chat capabilities" role="list">
                 {["Streaming", "Completion receipts", ...(deepseek ? ["Function calling"] : []), ...(deepseek && entry.provider === "Tinfoil" ? ["Structured outputs"] : [])].map((capability) => (
-                  <li key={capability} className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
-                    {capability}
-                  </li>
+                  <li key={capability}>{capability}</li>
                 ))}
               </ul>
             )}
-            <a className={textLink + " mt-4 inline-flex"} href={endpointDocs(endpoint)}>
+            <a className={textLink} href={endpointDocs(endpoint)}>
               Endpoint guide <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           </div>
-          <div className="min-w-0 rounded-lg border border-border bg-secondary/45 p-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-foreground">{exampleTitle}</h3>
+          <div className="model-example">
+            <div className="model-example-head">
+              <span className="model-example-title">{exampleTitle}</span>
               <CopyButton value={example.code} label={"Copy example for " + endpointName} text="Copy example" />
             </div>
             {!runnable && (
-              <p className="mt-2 text-xs text-warn">
+              <p className="model-example-warning">
                 Route health is unconfirmed; use this as request syntax rather than a currently runnable example.
               </p>
             )}
-            {example.note && <p className={caption + " mt-2"}>{example.note}</p>}
-            <pre aria-label={example.language + " request example"} className="mt-3 max-h-72 overflow-auto lg:max-h-96 border-t border-border pt-3 font-mono text-xs leading-6 whitespace-pre">
+            {example.note && <p className="model-example-note">{example.note}</p>}
+            <pre aria-label={example.language + " request example"}>
               <HighlightedCode source={example.code} language={example.language === "cURL" ? "bash" : "javascript"} />
             </pre>
           </div>
@@ -247,21 +239,16 @@ function alternatesFor(entry: CatalogEntry) {
 function AlternateCard({ entry }: { entry: CatalogEntry }) {
   const route = primaryRoute(entry);
   return (
-    <a
-      href={modelDetailHref(entry)}
-      className="group rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-secondary/60"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-sm font-medium text-foreground group-hover:underline">{cleanModelName(entry.name)}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {providerNames[entry.provider]} · {entry.context ? contextFormat.format(entry.context) + " tokens" : "context unpublished"}
-          </p>
-        </div>
-        <ArrowUpRight size={15} aria-hidden="true" className="shrink-0 text-muted-foreground" />
-      </div>
-      <p className="mt-3 text-sm font-medium text-foreground">{routePrice(route)}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{routeLabels[entry.privacy]}</p>
+    <a href={modelDetailHref(entry)} className="model-alternate">
+      <span className="model-alternate-head">
+        <strong>{cleanModelName(entry.name)}</strong>
+        <ArrowUpRight size={15} aria-hidden="true" />
+      </span>
+      <span className="model-alternate-meta">
+        {providerNames[entry.provider]} · {entry.context ? contextFormat.format(entry.context) + " tokens" : "context unpublished"}
+      </span>
+      <span className="model-alternate-price">{routePrice(route)}</span>
+      <span className="model-alternate-route">{routeLabels[entry.privacy]}</span>
     </a>
   );
 }
@@ -278,87 +265,101 @@ export function ModelPage({ provider, model }: { provider: string; model: string
   const chat = entry.routes.find((route) => route.endpoint === "ChatCompletions");
   const alternates = alternatesFor(entry);
   const endpointCount = entry.routes.length;
+  const description = entry.summary || (endpointCount
+    ? `${providerName} routes, rates and request examples.`
+    : `${providerName} catalog entry with no routed Sonnely endpoint.`);
 
   return (
-    <div className={wrap + " pb-14 pt-4 md:pt-8"}>
-      <header className="mt-4 grid gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <a href="/models" className={textLink}>
-            <ArrowLeft size={14} aria-hidden="true" /> Models
-          </a>
-          <span className={"inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-medium " + toneClasses[availability.tone]}>
-            {availability.label}
-          </span>
-        </div>
-        <section className="rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm sm:p-6">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)] xl:items-end">
-            <div className="min-w-0">
-              <h1 style={serif} className="wrap-anywhere text-[clamp(2.2rem,6vw,4.8rem)] leading-none font-normal">
-                {entry.name}
-              </h1>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-                {entry.summary || `Model details for ${providerName}.`}
-              </p>
-              <code className="mt-3 block truncate font-mono text-xs text-muted-foreground">{entry.upstreamId}</code>
-              <div className="mt-5 flex flex-wrap items-center gap-4">
-                {chat && (
-                  <a className={buttonAccent} href={modelPlaygroundHref(chat.modelId, entry.provider)}>
-                    Open in Playground <ArrowUpRight size={15} aria-hidden="true" />
-                  </a>
-                )}
-                <a className={textLink} href="/models">
-                  Compare models <ArrowUpRight size={15} aria-hidden="true" />
-                </a>
-              </div>
-            </div>
-            <dl className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4 xl:grid-cols-2">
-              <div className="rounded-lg bg-secondary/60 p-3">
-                <dt className="text-xs text-muted-foreground">Provider</dt>
-                <dd className="mt-1 font-medium">{providerName}</dd>
-              </div>
-              <div className="rounded-lg bg-secondary/60 p-3">
-                <dt className="text-xs text-muted-foreground">Context</dt>
-                <dd className="mt-1 font-medium">{entry.context ? contextFormat.format(entry.context) : "Unpublished"}</dd>
-              </div>
-              <div className="rounded-lg bg-secondary/60 p-3">
-                <dt className="text-xs text-muted-foreground">Privacy</dt>
-                <dd className="mt-1 font-medium">{routeLabels[entry.privacy]}</dd>
-              </div>
-              <div className="rounded-lg bg-secondary/60 p-3">
-                <dt className="text-xs text-muted-foreground">Sonnely endpoints</dt>
-                <dd className="mt-1 font-medium">{endpointCount || "None"}</dd>
-              </div>
-            </dl>
+    <div className={wrap + " model-page"}>
+      <nav className="model-breadcrumb" aria-label="Model navigation">
+        <a href="/models" className={textLink}>
+          <ArrowLeft size={14} aria-hidden="true" /> Models
+        </a>
+        <span className="model-availability" data-tone={availability.tone}>
+          <i aria-hidden="true" /> {availability.label}
+        </span>
+      </nav>
+
+      <header className="model-hero">
+        <div className="model-hero-copy">
+          <p className={eyebrow}>{providerName} · {routeLabels[entry.privacy]}</p>
+          <h1>{entry.name}</h1>
+          <p className="model-hero-description">{description}</p>
+          <div className="model-upstream-row">
+            <code className="model-upstream">{entry.upstreamId}</code>
+            <CopyButton value={entry.upstreamId} label={"Copy model ID " + entry.upstreamId} text="Copy ID" />
           </div>
-        </section>
+          <div className="actions">
+            {chat && (
+              <a className={buttonAccent} href={modelPlaygroundHref(chat.modelId, entry.provider)}>
+                Open in Playground <ArrowUpRight size={15} aria-hidden="true" />
+              </a>
+            )}
+            <a className={chat ? buttonQuiet : buttonAccent} href="/models">
+              Compare models <ArrowUpRight size={15} aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+        <aside className="term model-hero-index" aria-label="Model facts">
+          <div className="term-chrome">
+            <span className="term-path">
+              <Terminal size={12} aria-hidden="true" />
+              <span>~/models/{provider}</span>
+            </span>
+            <span>{endpointCount ? `${endpointCount} endpoint${endpointCount === 1 ? "" : "s"}` : "no endpoints"}</span>
+          </div>
+          <dl className="model-hero-facts">
+            <div>
+              <dt>Provider</dt>
+              <dd>{providerName}</dd>
+            </div>
+            <div>
+              <dt>Context</dt>
+              <dd>{entry.context ? contextFormat.format(entry.context) + " tokens" : "Unpublished"}</dd>
+            </div>
+            <div>
+              <dt>Privacy</dt>
+              <dd>{routeLabels[entry.privacy]}</dd>
+            </div>
+            <div>
+              <dt>Sonnely endpoints</dt>
+              <dd>{endpointCount || "None"}</dd>
+            </div>
+          </dl>
+        </aside>
       </header>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="model-availability">
-          <h2 id="model-availability" className="text-base font-medium">Availability</h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">{availability.body}</p>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+      <div className="model-signals">
+        <section className="model-signal" aria-labelledby="model-availability">
+          <span className="model-signal-kicker">live gateway</span>
+          <h2 id="model-availability">Availability</h2>
+          <p>{availability.body}</p>
+          <nav aria-label="Availability links">
             <a className={textLink} href="/status">Provider status</a>
             <a className={textLink} href="/inference#routing">How routing works</a>
             <a className={textLink} href="/console/keys">Manage API keys</a>
-          </div>
+          </nav>
         </section>
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="model-privacy">
-          <h2 id="model-privacy" className="text-base font-medium">{routeLabels[entry.privacy]}</h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">{privacyDescriptions[entry.privacy]}</p>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+        <section className="model-signal" aria-labelledby="model-privacy">
+          <span className="model-signal-kicker">privacy route</span>
+          <h2 id="model-privacy">{routeLabels[entry.privacy]}</h2>
+          <p>{privacyDescriptions[entry.privacy]}</p>
+          <nav aria-label="Privacy links">
             <a className={textLink} href="/docs/attestation#data-handling">Sonnely’s gateway boundary</a>
             <a className={textLink} href={providerSources[entry.provider]}>
               {providerName} catalog <ArrowUpRight size={14} aria-hidden="true" />
             </a>
-          </div>
+          </nav>
         </section>
       </div>
 
       {alternates.rows.length > 0 && (
-        <section className="mt-5" aria-labelledby="model-alternates">
-          <h2 id="model-alternates" className="text-lg font-medium">{alternates.title}</h2>
-          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <section className="model-alternates" aria-labelledby="model-alternates">
+          <div className="model-subhead">
+            <p className={eyebrow}>compare</p>
+            <h2 id="model-alternates">{alternates.title}</h2>
+          </div>
+          <div className="model-alternates-grid">
             {alternates.rows.map((alternate) => (
               <AlternateCard key={alternate.provider + "/" + alternate.upstreamId} entry={alternate} />
             ))}
@@ -367,29 +368,31 @@ export function ModelPage({ provider, model }: { provider: string; model: string
       )}
 
       {entry.routes.length ? (
-        <section className="mt-6" aria-labelledby="endpoint-access">
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <section className="model-endpoints" aria-labelledby="endpoint-access">
+          <div className="model-endpoints-head">
             <div>
-              <h2 id="endpoint-access" className="text-lg font-medium">Endpoint access</h2>
-              <p className={caption + " mt-1"}>
+              <p className={eyebrow}>api access</p>
+              <h2 id="endpoint-access">Endpoint access.</h2>
+              <p>
                 API examples use a funded Sonnely API key stored as <code>SONNELY_API_KEY</code>. Rates are in USD.
               </p>
             </div>
             <a className={textLink} href="/console/keys">Manage API keys</a>
           </div>
-          <div className="grid gap-3">
+          <div className="model-endpoint-list">
             {entry.routes.map((route, index) => (
               <EndpointCard key={route.endpoint} entry={entry} route={route} open={index === 0} runnable={availability.runnable} />
             ))}
           </div>
         </section>
       ) : (
-        <section className="mt-6 rounded-xl border border-border bg-card p-5 shadow-sm" aria-labelledby="catalog-only">
-          <h2 id="catalog-only" className="text-lg font-medium">Provider catalog only</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+        <section className="model-catalog-only" aria-labelledby="catalog-only">
+          <p className={eyebrow}>provider inventory</p>
+          <h2 id="catalog-only">Provider catalog only.</h2>
+          <p>
             This entry is visible in the upstream provider inventory, but it has no routed Sonnely endpoint or published Sonnely rate. Use the provider catalog for upstream terms, or choose one of the routable alternatives above.
           </p>
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+          <div className="model-catalog-actions">
             <a className={textLink} href={providerSources[entry.provider]}>
               {providerName} model catalog <ArrowUpRight size={14} aria-hidden="true" />
             </a>
