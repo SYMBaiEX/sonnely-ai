@@ -1,5 +1,5 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowRight, ArrowUpRight, Terminal } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Network } from "lucide-react";
 import { SearchField } from "../../search.tsx";
 import { useMachine } from "../../../../gen/app__models.react.ts";
 import {
@@ -29,7 +29,6 @@ import { PlatformLinks } from "./products.tsx";
 import {
   buttonAccent,
   buttonQuiet,
-  eyebrow,
   textLink,
   wrap,
 } from "./ui.ts";
@@ -62,7 +61,7 @@ function CatalogTools({
           aria-label="Find a model"
         />
         <label>
-          <span>provider</span>
+          <span>Provider</span>
           <select
             value={providerValue}
             onChange={(event) =>
@@ -83,7 +82,7 @@ function CatalogTools({
           </select>
         </label>
         <label>
-          <span>workload</span>
+          <span>Workload</span>
           <select
             value={workloadValue}
             onChange={(event) =>
@@ -104,7 +103,7 @@ function CatalogTools({
           </select>
         </label>
         <label>
-          <span>sort models</span>
+          <span>Sort by</span>
           <select
             value={filter.sort}
             onChange={(event) =>
@@ -208,15 +207,15 @@ export function ModelCatalog() {
   const filterSignature = [filter.query, providerValue, workloadValue, filter.availability, filter.sort].join("|");
 
   return (
-    <>
-      <div className="catalog-availability" aria-label="Catalog inventory">
+    <div data-models-browser>
+      <div className="catalog-availability" role="group" aria-label="Catalog inventory">
         <button
           type="button"
           aria-pressed={!inventory}
           data-active={!inventory || undefined}
           onClick={() => void send({ type: "chooseAvailability", availability: "Available" })}
         >
-          on sonnely <b>{routableCount}</b>
+          On Sonnely <b>{routableCount}</b>
         </button>
         <button
           type="button"
@@ -224,20 +223,17 @@ export function ModelCatalog() {
           data-active={inventory || undefined}
           onClick={() => void send({ type: "chooseAvailability", availability: "CatalogOnly" })}
         >
-          provider inventory <b>{inventoryCount}</b>
+          Provider inventory <b>{inventoryCount}</b>
         </button>
       </div>
       <CatalogTools filter={filter} send={send} />
-      <div className="models-ratecards">
-        <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
-      </div>
+      <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
       <aside className="catalog-note">
-        rates shown are the final sonnely rates ·{" "}
-        <a href="/pricing">how billing works</a>
-        {" · "}
-        <a href={apiBasePath + "/provider-models"}>catalog json</a>
+        <span>Rates shown are the final Sonnely rates.</span>
+        <a href="/pricing">How billing works <ArrowUpRight size={12} aria-hidden="true" /></a>
+        <a href={apiBasePath + "/provider-models"}>Catalog JSON <ArrowUpRight size={12} aria-hidden="true" /></a>
       </aside>
-    </>
+    </div>
   );
 }
 
@@ -249,8 +245,7 @@ function ModelGuide() {
   return (
     <section className="models-guide" aria-labelledby="compare-models-heading">
       <div className="models-guide-copy">
-        <p className={eyebrow}>workload notes</p>
-        <h2 id="compare-models-heading">Choose by workload.</h2>
+        <h2 id="compare-models-heading">Choose by workload</h2>
       </div>
       <dl className="models-guide-rows">
         {entries.map((model) => {
@@ -287,14 +282,22 @@ export function ModelsPage() {
     <div className={wrap + " models-page"}>
       <header className="models-hero">
         <div className="models-hero-copy">
-          <p className={eyebrow}>provider routes · final rates</p>
-          <h1>
-            {title}
-            <span>.</span>
-          </h1>
+          <h1>{title}</h1>
           <p className="models-hero-description">{description}</p>
           <nav className="actions" aria-label="Model catalog actions">
-            <a href={entry.section} className={buttonAccent}>
+            <a
+              href={entry.section}
+              className={buttonAccent}
+              onClick={(event) => {
+                if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                const section = document.getElementById(entry.section.slice(1));
+                if (!section) return;
+                event.preventDefault();
+                history.replaceState(history.state, "", entry.section);
+                section.focus({ preventScroll: true });
+                section.scrollIntoView();
+              }}
+            >
               {entry.label} <ArrowDown size={15} aria-hidden="true" />
             </a>
             <a href={entry.next} className={buttonQuiet}>
@@ -302,26 +305,19 @@ export function ModelsPage() {
             </a>
           </nav>
         </div>
-        <aside className="term models-hero-index" aria-label="Model catalog at a glance">
-          <div className="term-chrome">
-            <span className="term-path">
-              <Terminal size={12} aria-hidden="true" />
-              <span>~/models</span>
-            </span>
-            <span>provider snapshot</span>
+        <aside className="models-hero-index" aria-label="Model catalog at a glance">
+          <div>
+            <Network size={17} aria-hidden="true" />
+            {Object.values(providerNames).join(" · ")}
           </div>
           <dl className="models-hero-facts">
             <div>
-              <dt>on sonnely</dt>
+              <dt>On Sonnely</dt>
               <dd>{sonnelyModels}</dd>
             </div>
             <div>
-              <dt>provider inventory</dt>
+              <dt>Provider inventory</dt>
               <dd>{inventoryModels}</dd>
-            </div>
-            <div className="models-hero-providers">
-              <dt>providers</dt>
-              <dd>NEAR AI · Phala · Tinfoil</dd>
             </div>
           </dl>
         </aside>
@@ -330,12 +326,10 @@ export function ModelsPage() {
         className="models-catalog-section"
         id="available-models"
         aria-labelledby="model-comparison-title"
+        tabIndex={-1}
       >
         <div className="models-section-head">
-          <div>
-            <p className={eyebrow}>catalog browser</p>
-            <h2 id="model-comparison-title">Models and rates.</h2>
-          </div>
+          <h2 id="model-comparison-title">Models and rates</h2>
           <a className={textLink} href="/inference#routing">
             How routing works <ArrowUpRight size={15} aria-hidden="true" />
           </a>
