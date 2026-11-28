@@ -200,6 +200,24 @@ it("jumps between pricing sections without leaving the page", async () => {
   expect([location.pathname, location.hash, document.activeElement?.id, history.length]).toEqual([
     "/pricing", "#estimate", "estimate", historyLength,
   ]);
+  const input = el.querySelector<HTMLInputElement>("#pricing-input-tokens")!;
+  const estimate = el.querySelector("#estimate output")!;
+  const initial = estimate.textContent;
+  const setValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set?.bind(input);
+  act(() => {
+    setValue?.("-1");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+  expect(document.getElementById(input.getAttribute("aria-describedby") ?? "")?.textContent).toMatch(/whole number.*0/);
+  expect(estimate.textContent).not.toBe(initial);
+  act(() => {
+    setValue?.("10000");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  expect([input.getAttribute("aria-invalid"), input.getAttribute("aria-describedby"), estimate.textContent]).toEqual([
+    null, null, initial,
+  ]);
   act(() => {
     el.querySelector<HTMLAnchorElement>('#estimate a[href="#inference-rates"]')?.click();
   });
