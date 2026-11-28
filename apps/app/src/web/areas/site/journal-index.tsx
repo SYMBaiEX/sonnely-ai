@@ -2,10 +2,20 @@
 import { ArrowUpRight } from "lucide-react";
 import { useState } from "react";
 import { SearchField } from "../../search.tsx";
-import { articles, categoryIcons, readingMinutes } from "./journal.ts";
+import { articles, categoryIcons, readingMinutes, type Article } from "./journal.ts";
 import { ProductIcon } from "./icons.tsx";
+import "./journal.css";
 
 const topics = ["All", ...new Set(articles.map((article) => article.category))];
+
+export function JournalMeta({ article }: { article: Article }) {
+  return (
+    <span className="jrn-meta">
+      <ProductIcon name={categoryIcons[article.category] ?? "Box"} size={13} aria-hidden="true" />
+      {article.category} · {readingMinutes(article)} min read
+    </span>
+  );
+}
 
 export function JournalIndex() {
   const [topic, setTopic] = useState("All");
@@ -21,9 +31,9 @@ export function JournalIndex() {
   const featured = topic === "All" && !term ? entries[0] : undefined;
   const indexed = entries.filter((entry) => entry !== featured);
   return (
-    <section className="cor-archive" id="journal-articles" aria-label="Journal articles">
-      <div className="cor-archive-tools">
-        <div role="group" aria-label="Filter by topic">
+    <section className="jrn-index" id="journal-articles" aria-label="Journal articles">
+      <div className="jrn-tools">
+        <div className="segmented" role="group" aria-label="Filter by topic">
           {topics.map((item) => (
             <button
               key={item}
@@ -36,73 +46,58 @@ export function JournalIndex() {
           ))}
         </div>
         <SearchField
+          className="jrn-search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search the archive"
+          placeholder="Search articles"
           aria-label="Search the journal"
         />
       </div>
       {featured && (
-        <a className="cor-featured-dispatch" href={"/blog/" + featured.slug}>
-          <span className="cor-dispatch-stamp" aria-hidden="true">
-            <ProductIcon name={categoryIcons[featured.category] ?? "Box"} size={21} />
+        <a className="jrn-feature" href={"/blog/" + featured.slug} data-reveal="fade">
+          <span className="jrn-feature-top">
+            <JournalMeta article={featured} />
+            <span className="jrn-number" aria-hidden="true">01</span>
           </span>
-          <div className="cor-featured-main">
-            <span className="cor-dispatch-meta">
-              {featured.category} · {readingMinutes(featured)} min read
-            </span>
-            <h2>{featured.title}</h2>
-            <p>{featured.summary}</p>
-            <span className="cor-open-link">Open the latest dispatch <ArrowUpRight size={15} aria-hidden="true" /></span>
-          </div>
-          <span className="cor-dispatch-number" aria-hidden="true">01</span>
+          <h2>{featured.title}</h2>
+          <p>{featured.summary}</p>
+          <span className="jrn-read">
+            Read article <ArrowUpRight size={15} aria-hidden="true" />
+          </span>
         </a>
       )}
       {entries.length ? (
-        <ul className="cor-archive-list" role="list">
+        <ul className="jrn-list" role="list">
           {indexed.map((item, index) => (
             <li key={item.slug}>
-              <a href={"/blog/" + item.slug}>
-                <span className="cor-archive-number">{String(index + (featured ? 2 : 1)).padStart(2, "0")}</span>
-                <div className="cor-archive-main">
-                  <span className="cor-dispatch-meta">
-                    <ProductIcon name={categoryIcons[item.category] ?? "Box"} size={13} />
-                    {item.category} · {readingMinutes(item)} min read
-                  </span>
+              <a href={"/blog/" + item.slug} data-reveal="rise">
+                <span className="jrn-number" aria-hidden="true">
+                  {String(index + (featured ? 2 : 1)).padStart(2, "0")}
+                </span>
+                <span className="jrn-row-main">
+                  <JournalMeta article={item} />
                   <h3>{item.title}</h3>
                   <p>{item.summary}</p>
-                </div>
-                <span className="cor-open-link">Read dispatch <ArrowUpRight size={14} aria-hidden="true" /></span>
+                </span>
+                <ArrowUpRight size={17} className="jrn-row-arrow" aria-hidden="true" />
               </a>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="cor-empty" role="status">No letters match this search.</p>
+        <p className="jrn-empty" role="status">No articles match this search.</p>
       )}
     </section>
   );
 }
 
 export function JournalPage() {
-  const categories = new Set(articles.map((article) => article.category)).size;
-  const minutes = articles.reduce((total, article) => total + readingMinutes(article), 0);
   return (
-    <div className="wrap cor-page cor-journal-page">
-      <header className="cor-journal-hero">
-        <div>
-          <span>Correspondence archive</span>
-          <h1>Field notes, written plainly.</h1>
-          <p>Notes on how requests run, how you’re billed and what to check when something breaks.</p>
-        </div>
-        <aside aria-label="Archive summary">
-          <span>Archive index</span>
-          <dl>
-            <div><dt>Dispatches</dt><dd>{articles.length}</dd></div>
-            <div><dt>Desks</dt><dd>{categories}</dd></div>
-            <div><dt>Reading time</dt><dd>{minutes} min</dd></div>
-          </dl>
-        </aside>
+    <div className="wrap jrn-page">
+      <header className="jrn-hero">
+        <span className="eyebrow">Journal</span>
+        <h1>Field notes, written plainly.</h1>
+        <p>Notes on how requests run, how you’re billed and what to check when something breaks.</p>
       </header>
       <JournalIndex />
     </div>

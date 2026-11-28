@@ -1,8 +1,9 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { NotFound } from "./notfound.tsx";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, List } from "lucide-react";
 import { articles, categoryIcons, readingMinutes } from "./journal.ts";
 import { ProductIcon } from "./icons.tsx";
+import { JournalMeta } from "./journal-index.tsx";
 
 function sectionId(heading: string) {
   return heading
@@ -24,68 +25,75 @@ export function PostPage({ slug }: { slug: string }) {
     typeof item === "string" ? [] : ([[sectionId(item.heading), item.heading]] as const),
   );
   return (
-    <article className="wrap cor-page cor-post-page">
-      <nav className="cor-post-return" aria-label="Journal navigation">
-        <a href="/blog"><ArrowLeft size={14} aria-hidden="true" /> Correspondence archive</a>
+    <article className="wrap jrn-post">
+      <nav className="jrn-return" aria-label="Journal navigation">
+        <a className="text-link" href="/blog"><ArrowLeft size={14} aria-hidden="true" /> Journal</a>
       </nav>
-      <header className="cor-post-head">
-        <span className="cor-dispatch-meta">
-          <ProductIcon name={categoryIcons[article.category] ?? "Box"} size={15} />
+      <header className="jrn-post-hero">
+        <span className="jrn-meta">
+          <span className="jrn-chip" aria-hidden="true">
+            <ProductIcon name={categoryIcons[article.category] ?? "Box"} size={15} />
+          </span>
           {article.category} · {readingMinutes(article)} min read
         </span>
         <h1>{article.title}</h1>
         <p>{article.summary}</p>
       </header>
-      <div className={sections.length ? "cor-post-layout" : "cor-post-layout cor-post-layout-single"}>
-        {sections.length > 0 && (
-          <aside className="cor-contents" aria-label="Letter contents">
-            <span>Contents</span>
-            <ol>
-              {sections.map(([id, heading]) => (
-                <li key={id}><a href={"#" + id}>{heading}</a></li>
-              ))}
-            </ol>
-          </aside>
-        )}
-        <div className="cor-letter cor-post-letter">
-          <div className="cor-letter-head">
-            <span>Sonnely field notes</span>
-            <span>{article.category} desk</span>
-          </div>
-          <div className="cor-letter-body">
-            {article.body.map((item) =>
-              typeof item === "string" ? (
-                <p key={item}>{item}</p>
-              ) : (
-                <section key={item.heading}>
-                  <h2 id={sectionId(item.heading)}>{item.heading}</h2>
-                  {item.paragraphs.map((text) => (
-                    <p key={text}>{text}</p>
-                  ))}
-                </section>
-              ),
-            )}
-            {article.related && (
-              <a className="cor-letter-reference" href={article.related[0]}>
-                {article.related[1]} <ArrowUpRight size={14} aria-hidden="true" />
-              </a>
-            )}
-            <footer className="cor-letter-signoff">
-              <span>Written from the {article.category.toLowerCase()} desk</span>
-              <strong>Sonnely</strong>
-            </footer>
-            <aside className="cor-next" aria-label="More from the journal">
-              <span>Next correspondence</span>
+      <div className="jrn-post-layout">
+        <div className="jrn-prose">
+          {sections.length > 1 && (
+            <details className="jrn-minitoc">
+              <summary>
+                <List size={15} aria-hidden="true" /> On this page
+                <span className="jrn-minitoc-count">{sections.length} sections</span>
+              </summary>
+              <nav aria-label="On this page">
+                {sections.map(([id, heading]) => (
+                  <a key={id} href={"#" + id}>{heading}</a>
+                ))}
+              </nav>
+            </details>
+          )}
+          {article.body.map((item) =>
+            typeof item === "string" ? (
+              <p key={item}>{item}</p>
+            ) : (
+              <section key={item.heading}>
+                <h2 id={sectionId(item.heading)}>{item.heading}</h2>
+                {item.paragraphs.map((text) => (
+                  <p key={text}>{text}</p>
+                ))}
+              </section>
+            ),
+          )}
+          {article.related && (
+            <a className="jrn-reflink" href={article.related[0]}>
+              {article.related[1]} <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          )}
+          <footer className="jrn-more">
+            <span className="jrn-more-label">More from the journal</span>
+            <div className="jrn-more-grid">
               {related.map((entry) => (
-                <a href={"/blog/" + entry.slug} key={entry.slug}>
-                  <small>{entry.category} · {readingMinutes(entry)} min</small>
+                <a className="jrn-card" href={"/blog/" + entry.slug} key={entry.slug}>
+                  <JournalMeta article={entry} />
                   <strong>{entry.title}</strong>
-                  <ArrowUpRight size={14} aria-hidden="true" />
+                  <small>{entry.summary}</small>
                 </a>
               ))}
-            </aside>
-          </div>
+            </div>
+          </footer>
         </div>
+        {sections.length > 0 && (
+          <aside className="jrn-toc" aria-label="On this page">
+            <p className="jrn-toc-title">On this page</p>
+            <nav>
+              {sections.map(([id, heading]) => (
+                <a key={id} href={"#" + id}>{heading}</a>
+              ))}
+            </nav>
+          </aside>
+        )}
       </div>
     </article>
   );
