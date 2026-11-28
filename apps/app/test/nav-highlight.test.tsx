@@ -258,3 +258,57 @@ it("jumps between pricing sections without leaving the page", async () => {
     "/pricing", "#inference-rates", "inference-rates", historyLength,
   ]);
 });
+
+class FakeEventSource {
+  static readonly CLOSED = 2;
+  readyState = 0;
+  onmessage: ((message: { data: string }) => void) | null = null;
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  readonly url: string;
+  constructor(url: string) {
+    this.url = url;
+  }
+  close() {
+    this.readyState = FakeEventSource.CLOSED;
+  }
+}
+
+// spec/app/nav.md, "Story: Move around"
+it("opens command palette destinations through the navigator", async () => {
+  vi.stubGlobal("EventSource", FakeEventSource);
+  vi.stubGlobal("fetch", (input: unknown, init?: RequestInit) => {
+    const url = String(input);
+    if (url === "/api/session") return Promise.resolve(Response.json({ tag: "SignedOut" }));
+    if (init?.method === "POST") return Promise.resolve(Response.json({ ok: true }));
+    return Promise.resolve(new Response("not found", { status: 404 }));
+  });
+  const assign = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+  try {
+    const { runtime } = renderApp();
+    await act(async () => {
+      await navigate(runtime, { tag: "Console", section: "Chat", area: "" });
+    });
+    const trigger = document.body.querySelector<HTMLButtonElement>(".command-toggle");
+    if (!trigger) throw new Error("command palette trigger did not render");
+    act(() => trigger.click());
+    const command = await vi.waitFor(() => {
+      const found = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')]
+        .find((item) => item.textContent?.includes("Create API key"));
+      if (!found) throw new Error("Create API key command did not render");
+      return found;
+    });
+    act(() => command.click());
+    await vi.waitFor(async () => {
+      const state = await runtime.runPromise(current());
+      expect([state.page, location.pathname, assign.mock.calls.length]).toEqual([
+        { tag: "Console", section: "Keys", area: "" },
+        "/console/keys",
+        0,
+      ]);
+    });
+  } finally {
+    assign.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});

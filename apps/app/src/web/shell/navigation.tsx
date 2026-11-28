@@ -1,5 +1,16 @@
 /* eslint-disable better-tailwindcss/no-unknown-classes -- shared shell navigation uses the migrated shell class contract */
-import type { RefObject } from "react";
+// spec/app/nav.md, "Story: Move around"
+import { createContext, use, type RefObject } from "react";
+
+export type OpenPath = (path: string) => void;
+
+export const NavigationContext = createContext<OpenPath | null>(null);
+
+export function useOpenPath() {
+  const openPath = use(NavigationContext);
+  if (!openPath) throw new Error("navigation actions render inside App");
+  return openPath;
+}
 
 export function MobileMenuButton({
   open,

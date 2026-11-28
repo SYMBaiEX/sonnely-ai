@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import type { Console } from "../../../../gen/app__console.ts";
 import { Alert, Button, Dialog, DialogContent, DialogTitle, Input } from "@repo/ui";
 import { Brand } from "../../shell/brand.tsx";
+import { useOpenPath } from "../../shell/navigation.tsx";
 import { ThemeSwitch, type Theme } from "../../shell/theme.tsx";
 import { TermsAcceptance } from "./terms-acceptance.tsx";
 import { WalletControl } from "../../shell/wallet.tsx";
@@ -46,6 +47,7 @@ export function Onboarding({
   close: () => void;
 }) {
   const [screen, setScreen] = useState<"profile" | "funding" | "tour">("profile");
+  const openPath = useOpenPath();
   const [page, setPage] = useState(0);
   const [name, setName] = useState(settings?.name ?? "");
   const [busy, setBusy] = useState(false);
@@ -82,7 +84,7 @@ export function Onboarding({
       return;
     }
     close();
-    window.location.assign(href);
+    openPath(href);
   }
 
   const heading = {

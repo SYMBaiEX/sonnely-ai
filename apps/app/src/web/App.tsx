@@ -1,11 +1,12 @@
 // spec/app/nav.md, "Story: Move around"
 import { Exit, type ManagedRuntime } from "effect";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { Machine } from "../../gen/app__nav.effect.vibe";
 import { useMachine } from "../../gen/app__nav.react.ts";
 import type { Page } from "../../gen/app__nav.ts";
 import { back, open } from "./nav.vibe";
 import { pageOf, pathOf, redirectOf } from "./routes.ts";
+import { NavigationContext } from "./shell/navigation.tsx";
 import { titleOf } from "./titles.ts";
 
 export interface AreaModule {
@@ -38,6 +39,15 @@ function jumpToHash(path: string, hash: string) {
   scrollToHash(hash);
 }
 
+function openApplicationPath(runtime: ManagedRuntime.ManagedRuntime<Machine, unknown>, path: string) {
+  const url = new URL(path, location.href);
+  if (url.origin !== location.origin || url.search) {
+    window.location.assign(url.href);
+    return;
+  }
+  void navigate(runtime, pageOf(url.pathname), url.hash);
+}
+
 /**
  * The shell: every address opens a Page, links and the console's own navigation open pages through the navigator,
  * and the browser's back button speaks for its `back`. A hash rides alongside the machine's Page and scrolls
@@ -47,6 +57,7 @@ function jumpToHash(path: string, hash: string) {
 export function App({ runtime, path }: AppProps) {
   const { state } = useMachine(runtime);
   const openedHash = useRef<string | null>(location.hash);
+  const openPath = useCallback((path: string) => openApplicationPath(runtime, path), [runtime]);
 
   useEffect(() => {
     if (!state) return;
@@ -96,7 +107,7 @@ export function App({ runtime, path }: AppProps) {
       const url = new URL(anchor.href, location.href);
       if (url.origin !== location.origin || url.search) return;
       event.preventDefault();
-      void navigate(runtime, pageOf(url.pathname), url.hash);
+      openApplicationPath(runtime, anchor.href);
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
@@ -112,7 +123,7 @@ export function App({ runtime, path }: AppProps) {
     }
   }
   return (
-    <>
+    <NavigationContext value={openPath}>
       <title>{titleOf(state.page)}</title>
       {shown ?? (
         <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
@@ -120,7 +131,7 @@ export function App({ runtime, path }: AppProps) {
           <p className="text-muted-foreground">Nothing is at this address.</p>
         </main>
       )}
-    </>
+    </NavigationContext>
   );
 }
 

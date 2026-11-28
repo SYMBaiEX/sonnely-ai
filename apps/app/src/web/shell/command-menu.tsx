@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Activity, BookOpen, CreditCard, History, KeyRound, Link2, MessageSquare, SunMoon, type LucideIcon } from "lucide-react";
 import { CommandPalette, type CommandPaletteCommand } from "@repo/ui";
+import { useOpenPath } from "./navigation.tsx";
 
 const recentKey = "sonnely.palette.recent";
 type Recent = { title: string; path: string };
@@ -38,6 +39,7 @@ export function CommandMenu({
   returnFocusRef?: { readonly current: HTMLElement | null };
 }) {
   const [recents, setRecents] = useState<Recent[]>(readRecents);
+  const openPath = useOpenPath();
   const destinations = [...pages, { title: "Documentation", path: "/docs", Icon: BookOpen }];
   const titleFor = (path: string) => destinations.find((item) => item.path === path)?.title ?? path;
 
@@ -50,7 +52,7 @@ export function CommandMenu({
       return;
     } finally {
       onClose();
-      window.location.assign(path);
+      openPath(path);
     }
   }
 
