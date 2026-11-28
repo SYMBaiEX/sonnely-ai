@@ -3,18 +3,18 @@
    topic, title and summary, reading time, one ruled row per article. */
 
 .site .jrn-page {
-  padding: clamp(40px, 6vw, 88px) 0 clamp(64px, 8vw, 110px);
+  padding: clamp(30px, 4.2vw, 56px) 0 clamp(46px, 5.8vw, 76px);
 }
 
 .site .jrn-hero {
   display: grid;
-  gap: 18px;
-  margin-bottom: clamp(36px, 5vw, 64px);
+  gap: 12px;
+  margin-bottom: clamp(24px, 3.4vw, 36px);
 }
 
 .site .jrn-hero h1 {
   max-width: 14ch;
-  font-size: clamp(42px, 6vw, 76px);
+  font-size: clamp(42px, 5.2vw, 60px);
   font-weight: 660;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -32,7 +32,7 @@
 .site .jrn-index {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
+  gap: 14px;
 }
 
 .site .jrn-tools {
@@ -47,6 +47,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  min-width: 0;
 }
 
 .site .jrn-topics button {
@@ -120,7 +121,7 @@
   align-items: baseline;
   gap: 8px clamp(16px, 3vw, 40px);
   margin-inline: -14px;
-  padding: 22px 14px;
+  padding: 16px 14px;
   border-radius: 12px;
   color: var(--ink);
   text-decoration: none;
@@ -181,16 +182,16 @@
 }
 
 .site .jrn-lead a {
-  padding-block: clamp(28px, 4vw, 48px);
+  padding-block: clamp(22px, 3vw, 32px);
 }
 
 .site .jrn-lead .jrn-entry-main {
-  gap: 14px;
+  gap: 8px;
 }
 
 .site .jrn-lead h2 {
   max-width: 20ch;
-  font-size: clamp(32px, 4.4vw, 56px);
+  font-size: clamp(32px, 3.8vw, 42px);
   font-weight: 660;
   line-height: 1.04;
   letter-spacing: -0.04em;
@@ -498,6 +499,7 @@
 
   .site .jrn-topics {
     flex-wrap: nowrap;
+    width: calc(100% + 32px);
     margin-inline: -16px;
     padding-inline: 16px;
     overflow-x: auto;
@@ -510,7 +512,7 @@
 
   .site .jrn-entry a {
     margin-inline: -10px;
-    padding: 20px 10px;
+    padding: 16px 10px;
   }
 
   .site .jrn-lead a {
