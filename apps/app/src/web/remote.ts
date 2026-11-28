@@ -106,10 +106,12 @@ function openScopedStream(name: string) {
   const next = new EventSource(`${base(name)}/stream`);
   scopedSources.set(name, next);
   next.onopen = () => {
+    if (scopedSources.get(name) !== next) return;
     scopedReopenDelays.delete(name);
     updateMachine(name, { error: undefined });
   };
   next.onmessage = (message) => {
+    if (scopedSources.get(name) !== next) return;
     try {
       updateMachine(name, { state: JSON.parse(String(message.data)) });
     } catch {
@@ -132,8 +134,9 @@ function closeScopedStream(name: string) {
     clearTimeout(timer);
     scopedReopenTimers.delete(name);
   }
-  scopedSources.get(name)?.close();
+  const closing = scopedSources.get(name);
   scopedSources.delete(name);
+  closing?.close();
 }
 
 function openStream() {
@@ -141,10 +144,12 @@ function openStream() {
   const next = new EventSource("/api/machines/stream");
   source = next;
   next.onopen = () => {
+    if (source !== next) return;
     streamReopenDelay = 0;
     setStreamError(undefined);
   };
   next.onmessage = (message) => {
+    if (source !== next) return;
     const frame = parseFrame(String(message.data));
     if (frame) publish(frame);
   };
@@ -169,8 +174,9 @@ function closeStream() {
     clearTimeout(streamReopenTimer);
     streamReopenTimer = undefined;
   }
-  source?.close();
+  const closing = source;
   source = undefined;
+  closing?.close();
   streamError = undefined;
 }
 
@@ -191,9 +197,11 @@ function openStreams() {
 // so nothing one wallet saw can be served to another.
 let boundWallet: string | undefined;
 let walletBound = false;
+let walletEpoch = 0;
 
 export function bindSessionWallet(wallet: string | undefined) {
-  if (walletBound && boundWallet !== wallet) {
+  if (!walletBound || boundWallet !== wallet) {
+    walletEpoch += 1;
     closeStreams();
     machineSnapshots.clear();
     for (const listeners of machineListeners.values()) {
@@ -247,6 +255,8 @@ export function useRemote<T>(name: string): Remote<T> {
 
   const send = useCallback(
     async (input: unknown) => {
+      const epoch = walletEpoch;
+      const currentWrite = () => epoch === walletEpoch;
       try {
         const response = await fetch(base(name), {
           method: "POST",
@@ -256,13 +266,15 @@ export function useRemote<T>(name: string): Remote<T> {
         const parsed = postAnswerSchema.safeParse(await response.json().catch(() => undefined));
         const answer = parsed.success ? parsed.data : undefined;
         if (!answer?.ok) {
-          updateMachine(name, { error: answer?.error ?? `request failed (HTTP ${response.status})` });
+          if (currentWrite()) updateMachine(name, { error: answer?.error ?? `request failed (HTTP ${response.status})` });
           return false;
         }
-        updateMachine(name, writeAnswerStateVisible.has(name) && answer.state !== undefined ? { state: answer.state, error: undefined } : { error: undefined });
+        if (currentWrite()) {
+          updateMachine(name, writeAnswerStateVisible.has(name) && answer.state !== undefined ? { state: answer.state, error: undefined } : { error: undefined });
+        }
         return true;
       } catch (cause) {
-        updateMachine(name, { error: cause instanceof Error ? cause.message : "request failed" });
+        if (currentWrite()) updateMachine(name, { error: cause instanceof Error ? cause.message : "request failed" });
         return false;
       }
     },

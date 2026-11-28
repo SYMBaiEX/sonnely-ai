@@ -20,7 +20,8 @@ async function readSession(): Promise<WorkspaceSession> {
 let current: SessionSnapshot;
 const listeners = new Set<() => void>();
 let source: EventSource | undefined;
-let refreshGeneration = 0;
+let sessionEpoch = 0;
+let refreshSequence = 0;
 
 // spec/app/session.md, "Only an active session can sign out": everything the page streams is keyed
 // to the wallet the session names. When the wallet changes — sign-out, or a different wallet
@@ -30,13 +31,18 @@ let refreshGeneration = 0;
 let streamWallet: string | undefined;
 let streamBound = false;
 
+function closeStream() {
+  const closing = source;
+  source = undefined;
+  closing?.close();
+}
+
 function rekeyStream(wallet: string | undefined) {
-  const changed = streamBound && streamWallet !== wallet;
+  const changed = !streamBound || streamWallet !== wallet;
   streamWallet = wallet;
   streamBound = true;
-  if (!changed || !source) return;
-  source.close();
-  source = undefined;
+  if (!changed) return;
+  closeStream();
   if (listeners.size > 0) openStream();
 }
 
@@ -46,20 +52,24 @@ function bindWallet(wallet: string | undefined) {
 }
 
 function publish(state?: WorkspaceSession, error?: string) {
-  current = { ...current, state, error };
+  if (state !== undefined) sessionEpoch += 1;
+  current = { ...current, state: state ?? current.state, error };
   if (state !== undefined) bindWallet(state.tag === "SignedIn" ? state.wallet : undefined);
   listeners.forEach((listener) => listener());
 }
 
 async function refresh(): Promise<WorkspaceSession | undefined> {
-  const generation = ++refreshGeneration;
+  const request = ++refreshSequence;
+  const epoch = sessionEpoch;
+  const currentRefresh = () => request === refreshSequence && epoch === sessionEpoch;
   try {
     const state = await readSession();
-    if (generation === refreshGeneration) publish(state, undefined);
+    if (!currentRefresh()) return undefined;
+    publish(state, undefined);
     return state;
   } catch (cause) {
-    if (generation === refreshGeneration) {
-      publish(current.state, cause instanceof Error ? cause.message : "session request failed");
+    if (currentRefresh()) {
+      publish(undefined, cause instanceof Error ? cause.message : "session request failed");
     }
     return undefined;
   }
@@ -70,26 +80,30 @@ async function send(input: unknown) {
   try {
     const response = await fetch("/api/session/signout", { method: "POST" });
     if (!response.ok) throw new Error(`sign out failed (HTTP ${response.status})`);
-    bindWallet(undefined);
+    publish({ tag: "SignedOut" }, undefined);
     await refresh();
     return true;
   } catch (cause) {
-    publish(current.state, cause instanceof Error ? cause.message : "sign out failed");
+    publish(undefined, cause instanceof Error ? cause.message : "sign out failed");
     return false;
   }
 }
 
 function openStream() {
   void refresh();
-  source = new EventSource("/api/session/stream");
-  source.onmessage = (message) => {
+  const next = new EventSource("/api/session/stream");
+  source = next;
+  next.onmessage = (message) => {
+    if (source !== next) return;
     try {
       publish(JSON.parse(String(message.data)) as WorkspaceSession, undefined);
     } catch {
-      publish(current.state, "stream snapshot malformed");
+      publish(undefined, "stream snapshot malformed");
     }
   };
-  source.onerror = () => publish(current.state, "stream disconnected");
+  next.onerror = () => {
+    if (source === next) publish(undefined, "stream disconnected");
+  };
 }
 
 function subscribe(listener: () => void) {
@@ -97,10 +111,7 @@ function subscribe(listener: () => void) {
   if (!source) openStream();
   return () => {
     listeners.delete(listener);
-    if (listeners.size === 0) {
-      source?.close();
-      source = undefined;
-    }
+    if (listeners.size === 0) closeStream();
   };
 }
 
