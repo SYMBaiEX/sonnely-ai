@@ -4,18 +4,11 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
-  Braces,
   Check,
-  Code2,
-  FileText,
-  Fingerprint,
   KeyRound,
   Pause,
   Play,
   Plus,
-  ScanLine,
-  Server,
-  Terminal,
   Wallet,
 } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
@@ -44,12 +37,10 @@ import {
   type DemoLanguage,
 } from "./content.ts";
 import { articles } from "./journal.ts";
-import { PlatformLinks } from "./products.tsx";
 import { ProductIcon } from "./icons.tsx";
 import {
   buttonAccent,
   buttonQuiet,
-  cardLinkArrow,
   markColors,
   modelMark,
   sectionHead,
@@ -193,7 +184,7 @@ function RequestPath() {
       </div>
       <div className="request-caption">
         <div className="request-caption-heading">
-          <h2 id="request-path-title">Follow the request</h2>
+          <h2 id="request-path-title">Explore the request path</h2>
           <span className="request-step-count">
             Step {active + 1} of {requestPathSteps.length}
           </span>
@@ -248,40 +239,30 @@ function HomeDemo() {
 
   return (
     <section className="home-quickstart" id="quickstart" aria-labelledby="home-quickstart-heading">
-      <div className={sectionHead} data-reveal="rise">
-        <div>
-          <h2 id="home-quickstart-heading">Your first API request.</h2>
-        </div>
+      <div className={sectionHead}>
+        <h2 id="home-quickstart-heading">Send your first request.</h2>
         <div className="home-quickstart-aside">
           <p>
-            <a href="/console/keys">Create an API key</a> and export it as{" "}
-            <code>SONNELY_API_KEY</code>. Pick a language, then copy the example into your terminal
-            or app.
+            <a href="/console/keys">Create an API key</a> and set <code>SONNELY_API_KEY</code>.
+            Then copy the example for your language.
           </p>
           <div className="home-quickstart-links">
             <a href="/docs/quickstart" className="text-link">
               Read the quickstart <ArrowRight size={16} aria-hidden="true" />
             </a>
-            <a href="/docs/sdks" className="text-link">
-              SDKs <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
           </div>
         </div>
       </div>
-      <div className="term home-quickstart-term" data-scan data-reveal="fade">
+      <div className="term home-quickstart-term">
         <div className="term-chrome">
-          <span className="term-path">
-            <Terminal size={13} aria-hidden="true" /> ~/quickstart
-            <span className="term-caret" aria-hidden="true" />
-          </span>
           <span className="quickstart-endpoint">
-            <span className="quickstart-method">post</span>
+            <span className="quickstart-method">POST</span>
             <code>{apiBasePath}/chat/completions</code>
           </span>
         </div>
         <div className="quickstart-toolbar">
           <span className="quickstart-toolbar-label" id="home-api-example-label">
-            example
+            Sample task
           </span>
           <div
             className="home-api-segments"
@@ -305,7 +286,7 @@ function HomeDemo() {
           <div className="quickstart-request">
             <div className="quickstart-pane-head">
               <span className="quickstart-pane-label">
-                <i aria-hidden="true">→</i> request
+                Request
               </span>
               <div
                 className="home-api-segments"
@@ -341,7 +322,7 @@ function HomeDemo() {
           <div className="quickstart-response">
             <div className="quickstart-pane-head">
               <span className="quickstart-pane-label">
-                <i aria-hidden="true">←</i> response · sample
+                Sample response
               </span>
               <button
                 className="button quiet small"
@@ -349,7 +330,7 @@ function HomeDemo() {
                 aria-pressed={showJson}
                 onClick={() => setShowJson(!showJson)}
               >
-                json
+                Show JSON
               </button>
             </div>
             <div className="quickstart-result" aria-live="polite">
@@ -360,7 +341,6 @@ function HomeDemo() {
               ) : (
                 <p key={active}>
                   {example.output}
-                  <span className="term-caret" aria-hidden="true" />
                 </p>
               )}
             </div>
@@ -385,71 +365,6 @@ function HomeDemo() {
   );
 }
 
-function RouteSample() {
-  return (
-    <div className="gateway-sample gateway-route">
-      <p>Example route</p>
-      <ul>
-        <li data-selected="">
-          <Server size={15} aria-hidden="true" /> <strong>Confidential TEE</strong>
-          <span>
-            <Check size={13} aria-hidden="true" /> Selected
-          </span>
-        </li>
-      </ul>
-    </div>
-  );
-}
-
-function EndpointSample() {
-  return (
-    <div className="gateway-sample gateway-endpoint">
-      <p>Typed clients</p>
-      <dl>
-        <div>
-          <dt>typescript</dt>
-          <dd>
-            <code>new Sonnely(…)</code>
-          </dd>
-        </div>
-        <div>
-          <dt>python</dt>
-          <dd>
-            <code>Sonnely(…)</code>
-          </dd>
-        </div>
-      </dl>
-    </div>
-  );
-}
-
-function BudgetSample() {
-  return (
-    <div className="gateway-sample gateway-budget">
-      <p>Example key budget</p>
-      <dl>
-        <div>
-          <dt>Daily limit</dt>
-          <dd>$5.00</dd>
-        </div>
-        <div>
-          <dt>Lifetime limit</dt>
-          <dd>$75.00</dd>
-        </div>
-      </dl>
-    </div>
-  );
-}
-
-function FundingPath() {
-  return (
-    <div className="gateway-sample gateway-funding">
-      <span>USDC or SOL</span>
-      <ArrowRight size={16} aria-hidden="true" />
-      <span>Compute credits</span>
-    </div>
-  );
-}
 
 const traceTotal = traceStages[traceStages.length - 1].end;
 
@@ -458,7 +373,7 @@ function GatewayTrace() {
     <figure className="gateway-trace" data-reveal="fade">
       <figcaption className="gateway-trace-head">
         <span className="gateway-trace-label">
-          <i className="gateway-trace-dot" aria-hidden="true" /> example trace ·{" "}
+          Example trace ·{" "}
           {(traceTotal / 1000).toFixed(1)} s
         </span>
         <span className="gateway-trace-outcome">
@@ -476,7 +391,6 @@ function GatewayTrace() {
             }}
           />
         ))}
-        <span className="gateway-trace-scan" />
       </div>
       <ol className="gateway-trace-stages">
         {traceStages.map(({ name, start, end, icon }) => (
@@ -493,44 +407,16 @@ function GatewayTrace() {
 
 const capabilities = [
   {
-    id: "api",
-    stage: "request",
-    icon: Braces,
-    title: "Sonnely SDKs",
-    body: "Use the typed TypeScript or Python client for completions, streams, receipts, and request references.",
+    title: "Check where your request ran",
+    body: "Inspect the attestation published by the confidential environment.",
+    href: "/inference#evidence",
+    action: "Verify the evidence",
+  },
+  {
+    title: "Get a receipt in your app",
+    body: "Read request references and receipts with the TypeScript or Python SDK.",
     href: "/docs/sdks",
     action: "Install an SDK",
-    Sample: EndpointSample,
-  },
-  {
-    id: "budget",
-    stage: "limit",
-    icon: KeyRound,
-    title: "A budget for each key",
-    body: "Set daily and lifetime limits for each key. See what each request cost in Usage.",
-    href: "/docs/keys",
-    action: "Set up API keys",
-    Sample: BudgetSample,
-  },
-  {
-    id: "route",
-    stage: "execute",
-    icon: Fingerprint,
-    title: "Confidential inference",
-    body: "Run models on confidential compute and check the evidence published for each request.",
-    href: "/inference#evidence",
-    action: "Verify the attestation",
-    Sample: RouteSample,
-  },
-  {
-    id: "funding",
-    stage: "settle",
-    icon: Wallet,
-    title: "Solana sign-in and funding",
-    body: "Sign in with your Solana wallet. When checkout is available, top up with USDC or SOL.",
-    href: "/docs/billing",
-    action: "See how funding works",
-    Sample: FundingPath,
   },
 ] as const;
 
@@ -538,36 +424,22 @@ function HomeCapabilities() {
   return (
     <section className="section home-capabilities" aria-labelledby="capabilities-heading">
       <header className={sectionHead}>
-        <h2 id="capabilities-heading">From request to receipt.</h2>
-        <p>Send a request, set a limit, and see what you were charged.</p>
+        <h2 id="capabilities-heading">See what happened to a request.</h2>
       </header>
-      <GatewayTrace />
-      <ul className="gateway-grid" role="list">
-        {capabilities.map(({ id, stage, icon: Icon, title, body, href, action, Sample }, index) => (
-          <li
-            key={id}
-            className={"gateway-tile gateway-tile-" + id}
-            data-reveal={id === "route" ? "fade" : "rise"}
-          >
-            <div className="gateway-tile-copy">
-              <span className="home-feature-icon">
-                <Icon size={19} aria-hidden="true" />
-              </span>
-              <div>
-                <p className="gateway-tile-stage" aria-hidden="true">
-                  {String(index + 1).padStart(2, "0")} · {stage}
-                </p>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </div>
-            </div>
-            <Sample />
-            <a href={href} className="text-link">
-              {action} <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
-          </li>
-        ))}
-      </ul>
+      <div data-home-evidence="">
+        <GatewayTrace />
+        <ul data-home-proof-links="" role="list">
+          {capabilities.map(({ title, body, href, action }) => (
+            <li key={href}>
+              <h3>{title}</h3>
+              <p data-home-proof-description="">{body}</p>
+              <a href={href} className={textLink} data-home-proof-action="">
+                {action} <ArrowUpRight size={14} aria-hidden="true" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }
@@ -576,9 +448,9 @@ function HomeModelList() {
   return (
     <section className="section home-models" aria-labelledby="home-models-heading">
       <div className={sectionHead}>
-        <h2 id="home-models-heading">Choose your model.</h2>
+        <h2 id="home-models-heading">Compare models before you run.</h2>
         <a href="/models#available-models" className={textLink}>
-          Compare models and pricing <ArrowRight size={16} aria-hidden="true" />
+          Browse all models <ArrowRight size={16} aria-hidden="true" />
         </a>
       </div>
       <div className="home-model-catalog" data-reveal="fade">
@@ -632,70 +504,6 @@ function HomeModelList() {
   );
 }
 
-const workloads = [
-  {
-    icon: FileText,
-    slug: "notes",
-    title: "Make sense of messy notes",
-    prompt: "What did we decide, and what’s still open?",
-    model: 0,
-  },
-  {
-    icon: ScanLine,
-    slug: "handoff",
-    title: "Pull out the details",
-    prompt: "Find the owner and due date in this handoff.",
-    model: 1,
-  },
-  {
-    icon: Code2,
-    slug: "retry",
-    title: "Read unfamiliar code",
-    prompt: "Explain how this retry delay changes after each failure.",
-    model: 2,
-  },
-] as const;
-
-function HomeWorkloads() {
-  return (
-    <section className="section home-workloads" aria-labelledby="workloads-heading">
-      <div className={sectionHead}>
-        <h2 id="workloads-heading">Start with a real task.</h2>
-      </div>
-      <div className="home-workload-grid">
-        {workloads.map(({ icon: Icon, slug, title, prompt, model }, index) => {
-          const entry = featuredEntries[model];
-          const route = entry ? chatRoute(entry) : undefined;
-          return (
-            <article className="workload-card" key={title} data-reveal="rise">
-              <header className="workload-card-head">
-                <Icon size={14} aria-hidden="true" />
-                <span>
-                  task/{String(index + 1).padStart(2, "0")} · {slug}
-                </span>
-              </header>
-              <h3>{title}</h3>
-              <blockquote className="workload-prompt">
-                <span className="workload-prompt-mark" aria-hidden="true">
-                  ›
-                </span>
-                <span>
-                  {prompt}
-                  <span className="workload-caret" aria-hidden="true" />
-                </span>
-              </blockquote>
-              {entry && route && (
-                <a className="text-link" href={modelPlaygroundHref(route.modelId, entry.provider)}>
-                  Try {entry.name} <ArrowUpRight size={14} aria-hidden="true" />
-                </a>
-              )}
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
 
 function KeyPreview() {
   return (
@@ -806,9 +614,9 @@ const workspaceCards = [
     icon: Wallet,
     title: "Fund from a Solana wallet",
     description:
-      "When checkout is enabled, fund credits with USDC and verify the finalized transfer.",
+      "When checkout is enabled, top up with USDC or SOL and verify the finalized transfer.",
     link: "/docs/billing",
-    action: "See how settlement works",
+    action: "Read the funding guide",
     Preview: PaymentPreview,
   },
 ] as const;
@@ -819,10 +627,10 @@ function WorkspacePreview() {
   function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     let next: number;
     switch (event.key) {
-      case "ArrowUp":
+      case "ArrowLeft":
         next = (index + workspaceCards.length - 1) % workspaceCards.length;
         break;
-      case "ArrowDown":
+      case "ArrowRight":
         next = (index + 1) % workspaceCards.length;
         break;
       case "Home":
@@ -842,16 +650,15 @@ function WorkspacePreview() {
   return (
     <section className="section home-workspace" aria-labelledby="workspace-title">
       <div className={sectionHead}>
-        <h2 id="workspace-title">Keys, usage, and credits.</h2>
+        <h2 id="workspace-title">Control what you spend.</h2>
         <a className={textLink} href="/pricing">
           See pricing <ArrowUpRight size={16} aria-hidden="true" />
         </a>
       </div>
-      <div className="workspace-showcase" data-reveal="fade">
+      <div className="workspace-showcase">
         <div
           className="workspace-tabs"
           role="tablist"
-          aria-orientation="vertical"
           aria-label="Workspace preview"
         >
           {workspaceCards.map(({ id, label, icon: Icon }, index) => (
@@ -866,9 +673,6 @@ function WorkspacePreview() {
               onClick={() => setActive(index)}
               onKeyDown={(event) => navigate(event, index)}
             >
-              <span className="workspace-tab-index" aria-hidden="true">
-                {String(index + 1).padStart(2, "0")}
-              </span>
               <Icon size={18} aria-hidden="true" /> {label}
             </button>
           ))}
@@ -886,23 +690,23 @@ function WorkspacePreview() {
             >
               {index === active && (
                 <>
-                  <div className="workspace-visual">
-                    <figure className="preview-data">
-                      <figcaption>
-                        <Icon size={15} aria-hidden="true" /> <strong>{previewTitle}</strong>
-                        <small>example</small>
-                      </figcaption>
-                      <div className="preview-body">
-                        <Preview />
-                      </div>
-                    </figure>
-                  </div>
                   <div className="workspace-preview-copy">
                     <h3>{title}</h3>
                     <p>{description}</p>
                     <a className={textLink} href={link}>
                       {action} <ArrowUpRight size={16} aria-hidden="true" />
                     </a>
+                  </div>
+                  <div className="workspace-visual">
+                    <figure className="preview-data">
+                      <figcaption>
+                        <Icon size={15} aria-hidden="true" /> <strong>{previewTitle}</strong>
+                        <small>Sample data</small>
+                      </figcaption>
+                      <div className="preview-body">
+                        <Preview />
+                      </div>
+                    </figure>
                   </div>
                 </>
               )}
@@ -921,7 +725,7 @@ function HomeResources() {
     <>
       <section className="section home-guides" aria-labelledby="guides-heading">
         <div className={sectionHead}>
-          <h2 id="guides-heading">Practical guides.</h2>
+          <h2 id="guides-heading">Build and verify with Sonnely.</h2>
           <a className={textLink} href="/blog">
             Read the journal <ArrowRight size={16} aria-hidden="true" />
           </a>
@@ -930,7 +734,7 @@ function HomeResources() {
           {featuredArticles.map((slug) => {
             const article = articles.find((item) => item.slug === slug)!;
             return (
-              <a href={"/blog/" + slug} className="resource-row" key={slug} data-reveal="rise">
+              <a href={"/blog/" + slug} className="resource-row" key={slug}>
                 <span>{article.category}</span>
                 <div>
                   <h3>{article.title}</h3>
@@ -944,12 +748,12 @@ function HomeResources() {
       </section>
       <section className="section home-split home-faq" aria-labelledby="questions-heading">
         <div className="home-section-intro" data-reveal="rise">
-          <h2 id="questions-heading">Good to know.</h2>
+          <h2 id="questions-heading">Before you get started.</h2>
           <a className={textLink} href="/contact">
             Contact Sonnely <ArrowUpRight size={16} aria-hidden="true" />
           </a>
         </div>
-        <div className="faq">
+        <div className="faq" data-home-faq-list="">
           <details name="home-questions" data-reveal="fade">
             <summary>
               What can I try without a wallet? <Plus size={17} aria-hidden="true" />
@@ -1006,79 +810,43 @@ export function Home() {
             <span>Prove it.</span>
           </h1>
           <p className="hero-description">
-            Run AI models in hardware-isolated environments through one OpenAI-compatible API.
-            Verify the evidence for each request.
+            Run models through an OpenAI-compatible API. Check the attestation to see where your
+            request ran, and the receipt to see what it cost.
           </p>
           <div className="actions">
-            <a href="/console/chat" className={buttonAccent}>
-              Open console <ArrowUpRight size={17} aria-hidden="true" />
-            </a>
-            <a href="#quickstart" className={buttonQuiet}>
+            <a href="#quickstart" className={buttonAccent}>
               API quickstart <ArrowDown size={16} aria-hidden="true" />
+            </a>
+            <a href="/console/chat" className={buttonQuiet}>
+              Open playground <ArrowUpRight size={17} aria-hidden="true" />
             </a>
           </div>
         </div>
         <RequestPath />
       </section>
       <div className="wrap home">
-        <nav className="home-platform" data-reveal="fade" aria-label="Platform integrations">
-          <a href="/docs/billing">
-            <span className="home-platform-icon">
-              <Wallet size={18} aria-hidden="true" />
-            </span>
-            <span>
-              <strong>Solana</strong>
-              <small>Wallet sign-in and USDC funding</small>
-            </span>
-            <ArrowUpRight size={14} aria-hidden="true" className={cardLinkArrow} />
-          </a>
-          <a href="/inference#routing">
-            <span className="home-platform-icon">
-              <Fingerprint size={18} aria-hidden="true" />
-            </span>
-            <span>
-              <strong>Confidential compute</strong>
-              <small>Hardware-isolated execution</small>
-            </span>
-            <ArrowUpRight size={14} aria-hidden="true" className={cardLinkArrow} />
-          </a>
-          <a href="/docs/api">
-            <span className="home-platform-icon">
-              <Terminal size={18} aria-hidden="true" />
-            </span>
-            <span>
-              <strong>OpenAI-compatible API</strong>
-              <small>Chat Completions</small>
-            </span>
-            <ArrowUpRight size={14} aria-hidden="true" className={cardLinkArrow} />
-          </a>
-        </nav>
         <HomeDemo />
         <HomeCapabilities />
         <HomeModelList />
-        <HomeWorkloads />
         <WorkspacePreview />
-        <PlatformLinks className="home-directory" />
         <HomeResources />
         <section
-          className="closing home-closing"
+          className="home-closing"
           aria-labelledby="home-closing-heading"
           data-reveal="fade"
         >
-          <Scene />
           <div>
-            <h2 id="home-closing-heading">Start in the console.</h2>
+            <h2 id="home-closing-heading">Try an example. Then run your own.</h2>
             <p>
-              Try a sample in the playground. When you’re ready to run a live request, connect your
-              Solana wallet.
+              Open the playground for a sample, or follow the setup guide to send a live API request.
             </p>
           </div>
           <div className="actions">
             <a className={buttonAccent} href="/console/chat">
-              Open console <ArrowUpRight size={16} aria-hidden="true" />
+              Open playground <ArrowUpRight size={16} aria-hidden="true" />
             </a>
-            <a className={buttonQuiet} href="/docs/sdks">
-              SDKs <ArrowUpRight size={15} aria-hidden="true" />
+            <a className={buttonQuiet} href="/docs/quickstart">
+              Read the setup guide <ArrowUpRight size={15} aria-hidden="true" />
             </a>
           </div>
         </section>

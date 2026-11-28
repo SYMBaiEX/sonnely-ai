@@ -86,6 +86,22 @@ it('cycles the public header theme through system, light and dark (spec/app/nav.
   }
 });
 
+it('links directly to the landing API example and supports horizontal workspace tabs (spec/app/nav.md, "Story: Move around")', () => {
+  const { el } = renderApp();
+  const jump = el.querySelector<HTMLAnchorElement>('main a[href="#quickstart"]')!;
+  expect(jump.textContent).toContain("API quickstart");
+  expect(el.querySelector(jump.hash)?.getAttribute("aria-labelledby")).toBe("home-quickstart-heading");
+
+  const keys = el.querySelector<HTMLButtonElement>("#workspace-tab-keys")!;
+  const usage = el.querySelector<HTMLButtonElement>("#workspace-tab-usage")!;
+  act(() => {
+    keys.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+  });
+  expect(usage.getAttribute("aria-selected")).toBe("true");
+  expect(document.activeElement).toBe(usage);
+  expect(el.querySelector("#workspace-panel-usage")?.hasAttribute("hidden")).toBe(false);
+});
+
 // spec/app/nav.md, "Story: Move around"
 it("keeps the hash of a cross-page link and scrolls to its element", async () => {
   const { el, runtime } = renderApp();
