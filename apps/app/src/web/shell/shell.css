@@ -7,6 +7,9 @@
   --shell-art: var(--shell-art-night);
   --shell-feature-art: var(--shell-feature-night);
   --shell-brand-art: url("/brand/sonnely-crimson.svg");
+  --art: var(--shell-art);
+  --feature-art: var(--shell-feature-art);
+  --brand-art: var(--shell-brand-art);
   --shell-radius: 15px;
   --shell-control-height: 44px;
   --shell-control-height-compact: 36px;
@@ -17,11 +20,11 @@
   --effect-shadow: light-dark(color-mix(in srgb, var(--foreground) 12%, transparent), color-mix(in srgb, var(--background) 55%, transparent));
   --effect-haze: light-dark(color-mix(in srgb, var(--ring) 22%, transparent), color-mix(in srgb, var(--primary) 21%, transparent));
   --workspace-scene-tint: light-dark(var(--effect-haze), color-mix(in srgb, var(--primary) 13%, transparent));
-  --control-height: 44px;
-  --control-height-compact: 36px;
-  --control-radius: 9px;
-  --container-max: 1320px;
-  --container-gutter: 48px;
+  --control-height: var(--shell-control-height);
+  --control-height-compact: var(--shell-control-height-compact);
+  --control-radius: var(--shell-control-radius);
+  --container-max: var(--shell-container-max);
+  --container-gutter: var(--shell-container-gutter);
   --field-focus-edge: color-mix(in oklch, var(--ring) 68%, var(--input));
   --field-focus-glow: color-mix(in oklch, var(--ring) 15%, transparent);
   --home-elevation: 0 10px 25px light-dark(rgb(33 57 109 / 7%), rgb(0 0 0 / 21%));
@@ -221,10 +224,21 @@
   transition:
     background var(--duration-base) var(--ease-standard),
     border-color var(--duration-base) var(--ease-standard),
-    transform var(--transition-duration-fast) var(--ease-standard);
+    transform var(--duration-fast) var(--ease-standard);
 }
 .shell-root .button:not(:disabled):active{
   transform: translateY(1px);
+}
+.shell-root .button.accent{
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    0 6px 15px var(--effect-shadow);
+}
+.shell-root .button.accent:not(:disabled):hover{
+  background: color-mix(in oklch, var(--primary) 85%, var(--foreground));
 }
 .shell-root .button.quiet{
   background: var(--card);

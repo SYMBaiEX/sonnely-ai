@@ -31,7 +31,7 @@ import {
 } from "../../../docs.ts";
 import "../site/appearance.ts";
 import { SiteHeader } from "../site/chrome.tsx";
-import { useTheme } from "../../shell/theme.tsx";
+import { ShellSurface } from "../../shell/surface.tsx";
 import { Blocks } from "./blocks.tsx";
 
 const sidebarKey = "sonnely.docs.sidebar";
@@ -63,7 +63,6 @@ export function DocsPage({ slug }: { slug: string }) {
   const hasDesktopToc = toc.length > (slug === "index" ? 1 : 0);
   const before = docBefore(slug);
   const after = docAfter(slug);
-  const theme = useTheme();
   const kind = slug === "index" ? "overview" : slug === "api" ? "api" : "guide";
   const [collapsed, setCollapsed] = useSidebarCollapsed();
   const reopen = (focusId: string) => {
@@ -73,11 +72,9 @@ export function DocsPage({ slug }: { slug: string }) {
   };
 
   return (
-    <div className="theme-root site docs-shell" data-theme={theme} data-collapsed={collapsed ? "" : undefined}>
-      <a href="#docs-page" className="skip">
-        Skip to documentation
-      </a>
-      <SiteHeader current={slug === "index" ? "/docs" : `/docs/${slug}`} />
+    <ShellSurface area="site" skipHref="#docs-page" skipLabel="Skip to documentation" className="theme-root site">
+      <div className="docs-shell" data-collapsed={collapsed ? "" : undefined}>
+        <SiteHeader current={slug === "index" ? "/docs" : `/docs/${slug}`} />
       <div className="docs-sidebar-pill" role="group" aria-label="Sidebar actions">
         <Button type="button" variant="ghost" size="icon" aria-label="Open sidebar" onClick={() => reopen("docs-sidebar-collapse")}>
           <PanelLeftOpen size={15} aria-hidden="true" />
@@ -151,7 +148,8 @@ export function DocsPage({ slug }: { slug: string }) {
           </aside>
         )}
       </div>
-    </div>
+      </div>
+    </ShellSurface>
   );
 }
 

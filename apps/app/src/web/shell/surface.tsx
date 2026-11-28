@@ -6,17 +6,18 @@ import { useAmbientMotion, useTheme, type Theme } from "./theme.tsx";
 export interface ShellSurfaceProps {
   area: "site" | "console";
   skipHref: string;
+  skipLabel?: string;
   className?: string;
   children: ReactNode;
 }
 
-export function ShellSurface({ area, skipHref, className = "", children }: ShellSurfaceProps) {
+export function ShellSurface({ area, skipHref, skipLabel, className = "", children }: ShellSurfaceProps) {
   const theme: Theme = useTheme();
   const motion = useAmbientMotion();
   return (
     <div className={"shell-root" + (className ? " " + className : "")} data-area={area} data-theme={theme} data-motion={motion ? "on" : "off"}>
       <a href={skipHref} className="skip">
-        {area === "console" ? "Skip to workspace" : "Skip to content"}
+        {skipLabel ?? (area === "console" ? "Skip to workspace" : "Skip to content")}
       </a>
       <div className="workspace-scene" aria-hidden="true" />
       {children}
