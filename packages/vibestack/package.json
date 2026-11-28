@@ -24,8 +24,8 @@
     "ai-agents"
   ],
   "bin": {
-    "vibestack": "./dist/spec.js",
-    "spec": "./dist/spec.js"
+    "vibestack": "./src/spec.ts",
+    "spec": "./src/spec.ts"
   },
   "files": [
     "bin",
@@ -86,54 +86,18 @@
     "vitest": "5.1.0"
   },
   "exports": {
-    "./formal": {
-      "types": "./dist/formal.d.ts",
-      "default": "./dist/formal.js"
-    },
-    "./testing": {
-      "types": "./dist/testing/index.d.ts",
-      "default": "./dist/testing/index.js"
-    },
-    "./testing/vitest": {
-      "types": "./dist/testing/vitest.d.ts",
-      "default": "./dist/testing/vitest.js"
-    },
-    "./testing/generate": {
-      "types": "./dist/testing/generate.d.ts",
-      "default": "./dist/testing/generate.js"
-    },
-    "./stories": {
-      "types": "./dist/stories/meta.d.ts",
-      "default": "./dist/stories/meta.js"
-    },
-    "./stories/storybook": {
-      "types": "./dist/stories/storybook.d.ts",
-      "default": "./dist/stories/storybook.js"
-    },
-    "./design/eslint": {
-      "types": "./dist/design/eslint.d.ts",
-      "default": "./dist/design/eslint.js"
-    },
-    "./design/tokens": {
-      "types": "./dist/design/tokens.d.ts",
-      "default": "./dist/design/tokens.js"
-    },
-    "./design/project": {
-      "types": "./dist/design/project.d.ts",
-      "default": "./dist/design/project.js"
-    },
-    "./eslint": {
-      "types": "./dist/eslint.d.ts",
-      "default": "./dist/eslint.js"
-    },
-    "./chromium": {
-      "types": "./dist/chromium.d.ts",
-      "default": "./dist/chromium.js"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./dist/config.js"
-    },
+    "./formal": "./src/formal.ts",
+    "./testing": "./src/testing/index.ts",
+    "./testing/vitest": "./src/testing/vitest.ts",
+    "./testing/generate": "./src/testing/generate.ts",
+    "./stories": "./src/stories/meta.ts",
+    "./stories/storybook": "./src/stories/storybook.ts",
+    "./design/eslint": "./src/design/eslint.ts",
+    "./design/tokens": "./src/design/tokens.ts",
+    "./design/project": "./src/design/project.ts",
+    "./eslint": "./src/eslint.ts",
+    "./chromium": "./src/chromium.ts",
+    "./config": "./src/config.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {

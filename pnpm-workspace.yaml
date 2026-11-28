@@ -54,6 +54,9 @@ catalog:
 overrides:
   "@effect/platform-node-shared": 4.1.1
 
-allowBuilds:
-  esbuild: true
-  protobufjs: false
+onlyBuiltDependencies:
+  - dprint
+  - esbuild
+
+ignoredBuiltDependencies:
+  - protobufjs

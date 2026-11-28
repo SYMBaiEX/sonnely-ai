@@ -16,20 +16,20 @@
       "outputs": ["generated/**"]
     },
     "build": {
-      "dependsOn": ["gen", "//#gen", "^build"],
+      "dependsOn": ["gen", "//#gen", "@repo/design-system#build"],
       "outputs": ["dist/**", "generated/**", "storybook-static/**"]
     },
     "typecheck": {
-      "dependsOn": ["gen", "//#gen", "^build"],
+      "dependsOn": ["gen", "//#gen", "@repo/design-system#build"],
       "outputs": [".vibe/declarations/**"]
     },
     "test": {
-      "dependsOn": ["gen", "//#gen", "^build"],
+      "dependsOn": ["gen", "//#gen", "@repo/design-system#build"],
       "outputs": [".cache/test-result-*.json"],
       "env": ["VIBESTACK_QUINT_EVALUATOR"]
     },
     "test:browser": {
-      "dependsOn": ["gen", "//#gen", "^build"],
+      "dependsOn": ["gen", "//#gen", "@repo/design-system#build"],
       "outputs": [],
       "env": ["VIBESTACK_QUINT_EVALUATOR"]
     },
@@ -48,7 +48,7 @@
       "outputs": []
     },
     "//#test": {
-      "dependsOn": ["//#gen", "^build"],
+      "dependsOn": ["//#gen", "@repo/design-system#build"],
       "inputs": ["package.json", "vitest.config.ts", "spec/**", "!spec/**/*.md", "src/**", "test/**", "!**/{node_modules,dist,.vibe,.cache,.spec-cache,.turbo,generated,storybook-static}/**", "!**/.DS_Store"],
       "outputs": [".cache/test-result-*.json"],
       "env": ["VIBESTACK_QUINT_EVALUATOR"]
@@ -74,17 +74,7 @@
       "cache": false,
       "persistent": true
     },
-    "@repo/ui#build": {
-      "dependsOn": ["^build"],
-      "inputs": ["package.json", "src/**", "styles.css", "tsconfig.json"],
-      "outputs": []
-    },
-    "@repo/ui#typecheck": {
-      "dependsOn": ["^build"],
-      "outputs": [".vibe/declarations/**"]
-    },
     "@repo/design-system#build": {
-      "dependsOn": ["^build"],
       "outputs": ["generated/**", "design.md"]
     }
   }
