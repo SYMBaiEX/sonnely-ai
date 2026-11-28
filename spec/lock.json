@@ -241,14 +241,14 @@
     },
     "spec/app/billing/deposits.md": {
       "@document": [
-        "3e8f04d0edc8"
+        "560aed22b3f0"
       ],
       "## Domain": [
         "e3b0c44298fc"
       ],
       "Domain / An intent binds a transfer to the credit it buys": [
         "cc58df745bbb",
-        "3e3d1f5faea1"
+        "0a089791f764"
       ],
       "## Story: Open a payment intent": [
         "70b5021559ef"
@@ -256,63 +256,63 @@
       "Story: Open a payment intent / Every intent's reference is unique": [
         "2d35b3efaf84",
         "b7240ea3fb2c",
-        "19a4fe6bf539"
+        "3d3acd9e7941"
       ],
       "Story: Open a payment intent / References are never reused": [
         "e3b0c44298fc",
         "d7ae2ccf48ac",
-        "19a4fe6bf539"
+        "3d3acd9e7941"
       ],
       "Story: Open a payment intent / Every open intent names a wallet and positive amounts": [
         "e3b0c44298fc",
         "2529919f130e",
-        "19a4fe6bf539"
+        "3d3acd9e7941"
       ],
       "## Story: Finalize a paid intent": [
         "ff2e86621bc4"
       ],
       "Story: Finalize a paid intent / A finalized transfer is bound to wallet, asset, exact amounts and reference": [
-        "6898de617792",
-        "ec7eabef4d17",
-        "19a4fe6bf539"
+        "2f49e2488fa4",
+        "eb5299674c3b",
+        "3d3acd9e7941"
       ],
       "Story: Finalize a paid intent / A signature finalizes at most one intent": [
         "e3b0c44298fc",
         "e40b866a6276",
-        "19a4fe6bf539"
+        "3d3acd9e7941"
       ],
       "Story: Finalize a paid intent / Once opened, an intent's terms never change and it never reopens": [
         "e3b0c44298fc",
-        "e0f80b173886",
-        "19a4fe6bf539"
+        "56a17f7d267b",
+        "3d3acd9e7941"
       ],
       "Story: Finalize a paid intent / An intent can be finalized": [
         "e3b0c44298fc",
         "3c536589e501",
-        "19a4fe6bf539"
+        "3d3acd9e7941"
       ],
       "## Story: Watch an intent expire": [
         "6cb74813988a"
       ],
-      "Story: Watch an intent expire / An expired intent can never be finalized": [
-        "bc16a90c1041",
+      "Story: Watch an intent expire / An expired intent is closed to new payments, not to timely ones": [
+        "d5c280807ba2",
         "9905e8d86856",
-        "19a4fe6bf539"
+        "3d3acd9e7941"
       ],
       "Story: Watch an intent expire / An intent can expire": [
         "e3b0c44298fc",
         "f42805006275",
-        "19a4fe6bf539"
+        "3d3acd9e7941"
       ],
       "Story: Watch an intent expire / Finalizing is idempotent": [
         "e3b0c44298fc",
-        "48c4d8226aa0",
-        "e678d0578c6f"
+        "18c5fa22a560",
+        "03c66b54e8a2"
       ],
       "Story: Watch an intent expire / Expiring is idempotent": [
         "e3b0c44298fc",
         "cd61ad6d0a6f",
-        "9e7748e9f31b"
+        "259fba460478"
       ]
     },
     "spec/app/billing/index.md": {
@@ -446,31 +446,31 @@
         "e3b0c44298fc"
       ],
       "Domain / A payout binds margin to one exact treasury transfer": [
-        "660163390686",
-        "d283cd5e2d5c"
+        "f8d91e0cf391",
+        "b9ca499bd2bf"
       ],
       "## Story: Prepare a margin payout": [
         "2640b9d76f1a"
       ],
       "Story: Prepare a margin payout / A payout covers only the markup share of the revenue window": [
         "564e599da44b",
-        "30087cdf4885",
-        "3f80470acc84"
+        "02f17df09e6d",
+        "3efb13d5b0b5"
       ],
       "Story: Prepare a margin payout / References are never reused": [
         "e3b0c44298fc",
         "af31600204a2",
-        "3f80470acc84"
+        "3efb13d5b0b5"
       ],
       "Story: Prepare a margin payout / Every payout names the payout wallet and a positive margin amount": [
         "e3b0c44298fc",
-        "04757af11421",
-        "3f80470acc84"
+        "25be0a72fe78",
+        "3efb13d5b0b5"
       ],
       "Story: Prepare a margin payout / A payout can be prepared": [
         "e3b0c44298fc",
         "60096d7b4a66",
-        "3f80470acc84"
+        "3efb13d5b0b5"
       ],
       "## Story: Record and verify the external execution": [
         "889e3bb1eb4c"
@@ -478,47 +478,47 @@
       "Story: Record and verify the external execution / Execution records one signature for one prepared payout": [
         "fd51f4b4f9c4",
         "326697732189",
-        "3f80470acc84"
+        "3efb13d5b0b5"
       ],
       "Story: Record and verify the external execution / Verification requires the same signature and exact prepared terms": [
         "c6bb38156a0b",
         "ed751857b2a0",
-        "3f80470acc84"
+        "3efb13d5b0b5"
       ],
       "Story: Record and verify the external execution / A failed execution releases the reservation, but a verified payout never fails": [
         "c409d3be6855",
         "b81c49743cfa",
-        "127eca84fb03"
+        "904b30fc2228"
       ],
-      "Story: Record and verify the external execution / A prepared payout can be cancelled before execution": [
-        "a18a4d475d8f",
-        "c0aa5bd1c81c",
-        "3f80470acc84"
+      "Story: Record and verify the external execution / A prepared payout can be cancelled only once its transaction can never land": [
+        "e5f8dd1ed368",
+        "6e7a74d30bd3",
+        "3efb13d5b0b5"
       ],
       "Story: Record and verify the external execution / A signature names at most one payout": [
         "e3b0c44298fc",
         "8d3dcd29034a",
-        "3f80470acc84"
+        "3efb13d5b0b5"
       ],
       "Story: Record and verify the external execution / Once prepared, payout terms never change and terminal states never reopen": [
         "e3b0c44298fc",
-        "3ece98f05b7a",
-        "3f80470acc84"
+        "37ef517445cc",
+        "3efb13d5b0b5"
       ],
       "Story: Record and verify the external execution / A payout can be verified": [
         "e3b0c44298fc",
-        "c1f2eddd97be",
-        "3f80470acc84"
+        "22f953f1db31",
+        "3efb13d5b0b5"
       ],
       "Story: Record and verify the external execution / A prepared payout can be cancelled": [
         "e3b0c44298fc",
-        "51b42ba69ffc",
-        "3f80470acc84"
+        "126c79aba9c7",
+        "3efb13d5b0b5"
       ],
       "Story: Record and verify the external execution / Verification is idempotent": [
         "e3b0c44298fc",
         "48effd474be0",
-        "127eca84fb03"
+        "904b30fc2228"
       ]
     },
     "spec/app/console/batch.md": {
@@ -893,13 +893,13 @@
       ],
       "Domain / The catalog lists every guide in sidebar order": [
         "af50b211fbc3",
-        "764ee62aa350",
+        "17bd59a0fbfb",
         "b2644373e008"
       ],
       "Domain / The docs a slug names are found in the catalog": [
         "f6657d389203",
         "6414ed7141e9",
-        "feabff72b1aa"
+        "0f17aa7e8bea"
       ],
       "## Story: Read the documentation": [
         "857732ca033e"
@@ -907,27 +907,27 @@
       "Story: Read the documentation / Every guide is listed once": [
         "1deed32c5101",
         "07cdc09c1c1a",
-        "a3371b901239"
+        "09fa448239bf"
       ],
       "Story: Read the documentation / The sidebar leads with the overview": [
         "e3b0c44298fc",
         "641d2b553d05",
-        "a3371b901239"
+        "09fa448239bf"
       ],
       "Story: Read the documentation / Every guide sits in a named section": [
         "0baaf63e6497",
         "068e26040bf6",
-        "a3371b901239"
+        "09fa448239bf"
       ],
       "Story: Read the documentation / Each section lists its guides": [
         "bd9579bf4101",
         "2164593c4d2c",
-        "a3371b901239"
+        "09fa448239bf"
       ],
       "Story: Read the documentation / A guide is found by its slug": [
         "e3b0c44298fc",
         "1fc12c476627",
-        "a3371b901239"
+        "09fa448239bf"
       ],
       "## Story: Move between guides": [
         "7e59cb118b33"
@@ -935,17 +935,17 @@
       "Story: Move between guides / Previous and next follow the catalog order": [
         "dd17af011d87",
         "70aa77234e30",
-        "a3371b901239"
+        "09fa448239bf"
       ],
       "Story: Move between guides / The ends of the catalog have no neighbour": [
         "e3b0c44298fc",
         "9f64180365d3",
-        "feabff72b1aa"
+        "0f17aa7e8bea"
       ],
       "Story: Move between guides / A guide's neighbours are guides": [
         "e3b0c44298fc",
         "db17aa7f1252",
-        "a3371b901239"
+        "09fa448239bf"
       ],
       "## Story: Serve the documentation as markdown": [
         "ecd86e492de8"
@@ -953,17 +953,17 @@
       "Story: Serve the documentation as markdown / The catalog holds the guides the product ships": [
         "8533fbbc85bc",
         "76873d6b2826",
-        "feabff72b1aa"
+        "0f17aa7e8bea"
       ],
       "Story: Serve the documentation as markdown / Every doc a feed serves is readable": [
         "9b5bc8b27cbd",
         "75575e7bfa1c",
-        "a3371b901239"
+        "09fa448239bf"
       ],
       "Story: Serve the documentation as markdown / Every endpoint the reference lists is documented": [
         "9315137d3e66",
         "da9dc41d0c1b",
-        "a3371b901239"
+        "09fa448239bf"
       ]
     },
     "spec/app/gateway/batch.md": {
@@ -1343,7 +1343,7 @@
     },
     "spec/app/keys.md": {
       "@document": [
-        "c159febeaeea"
+        "3e63cf176b9e"
       ],
       "## Domain": [
         "e3b0c44298fc"
@@ -1357,11 +1357,15 @@
         "de924ed14d24",
         "ecb45f973a1e"
       ],
+      "Domain / Endpoint scopes form a capability matrix": [
+        "389002878f5c",
+        "17a2c86ec12b"
+      ],
       "## Story: Issue a key": [
-        "4dda0fb85d2c"
+        "7e2daf3e579c"
       ],
       "Story: Issue a key / A new key needs a name, unique credentials and valid limits": [
-        "1b8069b04567",
+        "82bf493a42cb",
         "d4eda433bb7b",
         "4b6868802766"
       ],
@@ -1371,7 +1375,7 @@
         "4b6868802766"
       ],
       "Story: Issue a key / Every key belongs to the wallet that created it": [
-        "ce4ce277693a",
+        "109e93b18f5c",
         "8b6a06b8a261",
         "4b6868802766"
       ],
@@ -1419,10 +1423,10 @@
         "ecb45f973a1e"
       ],
       "## Story: Revoke a key": [
-        "2eed66851ba4"
+        "aef9444f1d7e"
       ],
       "Story: Revoke a key / Only an active key can be revoked": [
-        "e3b0c44298fc",
+        "55d5060398fd",
         "d2c1344f3c89",
         "4b6868802766"
       ],
@@ -1593,7 +1597,7 @@
         "3d0cecf4a2b2"
       ],
       "Story: Sign in with a wallet / Only an active session can sign out": [
-        "e3b0c44298fc",
+        "fadc0505465b",
         "f0a43d1ea579",
         "3d0cecf4a2b2"
       ],
@@ -1684,6 +1688,10 @@
         "b289472b783f",
         "b66c2f33fb62"
       ],
+      "Domain / Text length is a nonnegative count": [
+        "b4e23d09cc22",
+        "74502bdc624e"
+      ],
       "Domain / The queue starts empty": [
         "e3b0c44298fc",
         "d1abd18afb38",
@@ -1692,15 +1700,20 @@
       "## Story: Open a request": [
         "522889c36e71"
       ],
-      "Story: Open a request / A request needs valid fields and a fresh id": [
-        "db7fc8799224",
-        "744e55c7b3d0",
+      "Story: Open a request / A wallet opens at most five requests in a rolling day": [
+        "2973aba9d512",
+        "a3b477276df1",
         "a5ee13f9e297"
+      ],
+      "Story: Open a request / A request needs valid fields and a fresh id": [
+        "e31f52279cca",
+        "bb8479d06336",
+        "3d45c3ff78af"
       ],
       "Story: Open a request / Every ticket stays well formed and uniquely identified": [
         "e3b0c44298fc",
-        "1a917c580d5c",
-        "a5ee13f9e297"
+        "542076b5af1b",
+        "ab2ebd7f0fb0"
       ],
       "Story: Open a request / A request can be opened": [
         "e3b0c44298fc",
@@ -1717,13 +1730,13 @@
       ],
       "Story: Converse on a request / The customer can reply on their request": [
         "724d79bd7b93",
-        "3f28edaea5ce",
-        "2cfd3a2bc38a"
+        "eca6a0d2fef3",
+        "27c08e2a4957"
       ],
       "Story: Converse on a request / The team can reply publicly or note internally": [
         "587eaee39745",
-        "95ba06e96b47",
-        "2cfd3a2bc38a"
+        "1ff7e89d816a",
+        "27c08e2a4957"
       ],
       "Story: Converse on a request / Replying reopens a resolved request": [
         "e3b0c44298fc",
@@ -1766,7 +1779,7 @@
       "Story: Move a request through its states / The lifecycle as the customer and the team run it": [
         "e3b0c44298fc",
         "0f95462e20c4",
-        "3f686486ea82"
+        "7c7d65d34d3f"
       ],
       "## Story: Assign ownership": [
         "ab31f2d2902c"
@@ -1784,7 +1797,7 @@
     },
     "spec/app/teams.md": {
       "@document": [
-        "915d4a6c2814"
+        "44655ef6544b"
       ],
       "## Domain": [
         "e3b0c44298fc"
@@ -1858,7 +1871,7 @@
         "d26024d36fdf"
       ],
       "Story: Manage members / Members can leave; an owner can remove anyone but an owner": [
-        "9c99f70644ae",
+        "c8ff21a6a686",
         "efb47d1b8632",
         "d26024d36fdf"
       ],
@@ -1873,7 +1886,7 @@
         "358e105b0556"
       ],
       "## Story: Budget a project": [
-        "9873fa2a71d0"
+        "75503e53e2b1"
       ],
       "Story: Budget a project / A manager can create a project with a valid budget": [
         "5defb86b9c5c",
@@ -1931,13 +1944,13 @@
         "5e7738f06a91"
       ],
       "Story: Meter a request / A pending request can fail or go under review": [
-        "a63f55faab84",
+        "4ecb6fd6dfc8",
         "a06f2f9c53f0",
         "5e7738f06a91"
       ],
       "Story: Meter a request / Every usage row belongs to the wallet that metered it": [
-        "e764d05e4eb3",
-        "b87fc2e92b92",
+        "7a79a840dfe3",
+        "9d7689962ed0",
         "5e7738f06a91"
       ],
       "Story: Meter a request / A pending row carries no measurements yet": [
