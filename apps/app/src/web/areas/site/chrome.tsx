@@ -7,7 +7,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
@@ -165,20 +165,41 @@ export function SiteHeader({ current }: { current: string }) {
 
 function SiteNavigation({ current }: { current: string }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const consoleAction = (
-    <a href="/console/chat" className="button accent">
-      Open console <ArrowUpRight size={15} aria-hidden="true" />
-    </a>
-  );
-
+  const menuControlRef = useRef<HTMLButtonElement>(null);
   const closeMobile = () => setMobileOpen(false);
+
+  function dismissMobile() {
+    closeMobile();
+    menuControlRef.current?.focus();
+  }
+
+  function handleEscape(event: KeyboardEvent<HTMLElement>) {
+    if (mobileOpen && event.key === "Escape") {
+      event.stopPropagation();
+      dismissMobile();
+    }
+  }
 
   return (
     <>
       {mobileOpen && (
-        <button type="button" className="nav-dismiss" aria-label="Close navigation" onClick={closeMobile} />
+        <button type="button" className="nav-dismiss" aria-label="Dismiss navigation" tabIndex={-1} onClick={dismissMobile} />
       )}
-      <nav id="site-navigation" aria-label="Main navigation" data-mobile-open={mobileOpen || undefined}>
+      <button
+        ref={menuControlRef}
+        className="mobile-menu-control"
+        type="button"
+        aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+        aria-expanded={mobileOpen}
+        aria-controls="site-navigation"
+        onClick={() => setMobileOpen(!mobileOpen)}
+        onKeyDown={handleEscape}
+      >
+        <span className="mobile-menu-glyph" aria-hidden="true">
+          <span />
+        </span>
+      </button>
+      <nav id="site-navigation" aria-label="Main navigation" data-mobile-open={mobileOpen || undefined} onKeyDown={handleEscape}>
         {headerLinks.map(([href, label]) => (
           <a
             key={href}
@@ -189,27 +210,23 @@ function SiteNavigation({ current }: { current: string }) {
             {label}
           </a>
         ))}
-        <div className="nav-mobile-console" onClick={closeMobile}>
-          {consoleAction}
+        <div className="nav-mobile-console">
+          <ConsoleLink onClick={closeMobile} />
         </div>
       </nav>
       <div className="site-actions">
         <ThemeSwitch />
-        {consoleAction}
-        <button
-          className="mobile-menu-control"
-          type="button"
-          aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-          aria-expanded={mobileOpen}
-          aria-controls="site-navigation"
-          onClick={() => setMobileOpen(!mobileOpen)}
-        >
-          <span className="mobile-menu-glyph" aria-hidden="true">
-            <span />
-          </span>
-        </button>
+        <ConsoleLink />
       </div>
     </>
+  );
+}
+
+function ConsoleLink({ onClick }: { onClick?: () => void }) {
+  return (
+    <a href="/console/chat" className="button accent" onClick={onClick}>
+      Open console <ArrowUpRight size={15} aria-hidden="true" />
+    </a>
   );
 }
 
@@ -220,17 +237,9 @@ export function SiteFooter() {
         <div className="footer-brand">
           <Brand />
           <p>Confidential AI inference on Solana.</p>
-          <a href="/verify" className="inline-flex min-h-11 items-center gap-1.5 font-medium">
-            Verify a receipt <ArrowUpRight size={13} aria-hidden="true" />
+          <a href="/docs/quickstart" className="inline-flex min-h-11 items-center gap-1.5 font-medium">
+            API quickstart <ArrowUpRight size={13} aria-hidden="true" />
           </a>
-          <div className="footer-social" aria-label="Sonnely elsewhere">
-            <a href="https://github.com/Sonnely-AI" aria-label="Sonnely on GitHub">
-              GitHub <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-            <a href="https://x.com/sonnelyai" aria-label="Sonnely on X">
-              X <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-          </div>
         </div>
         <nav className="footer-nav" aria-label="Footer">
           {footerGroups.map(({ title, links }) => (
@@ -247,9 +256,16 @@ export function SiteFooter() {
           ))}
         </nav>
         <div className="footer-meta">
-          <a href="/docs/quickstart">API quickstart <ArrowUpRight size={13} aria-hidden="true" /></a>
-          <MotionSwitch icon />
           <p>© Sonnely</p>
+          <div className="footer-social">
+            <a href="https://github.com/Sonnely-AI" aria-label="Sonnely on GitHub">
+              GitHub <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+            <a href="https://x.com/sonnelyai" aria-label="Sonnely on X">
+              X <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+            <MotionSwitch icon />
+          </div>
         </div>
       </div>
     </footer>

@@ -34,6 +34,19 @@ it("highlights the route just opened, not the one before", async () => {
   expect(current?.getAttribute("href")).toBe("/models");
 });
 
+it('returns focus to the mobile navigation trigger on Escape (spec/app/nav.md, "Story: Move around")', () => {
+  const { el } = renderApp();
+  const trigger = el.querySelector<HTMLButtonElement>(".mobile-menu-control")!;
+  const link = el.querySelector<HTMLAnchorElement>("#site-navigation a")!;
+  act(() => trigger.click());
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  link.focus();
+  act(() => {
+    link.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
+  expect([trigger.getAttribute("aria-expanded"), document.activeElement]).toEqual(["false", trigger]);
+});
+
 // spec/app/nav.md, "Story: Move around"
 it("keeps the hash of a cross-page link and scrolls to its element", async () => {
   const { el, runtime } = renderApp();
