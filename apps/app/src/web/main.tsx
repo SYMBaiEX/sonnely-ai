@@ -8,7 +8,7 @@ import "./index.css";
 import { nav } from "./nav.vibe";
 
 const runtime: ManagedRuntime.ManagedRuntime<Machine, unknown> = ManagedRuntime.make(
-  Layer.provide(nav, KeyValueStore.layerStorage(() => localStorage)),
+  Layer.provide(nav, KeyValueStore.layerStorage(() => sessionStorage)),
 );
 
 createRoot(document.getElementById("root")!).render(
