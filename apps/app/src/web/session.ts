@@ -11,6 +11,41 @@ export type WorkspaceSession =
 
 export type SessionSnapshot = Remote<WorkspaceSession> & { refresh: () => Promise<WorkspaceSession | undefined> };
 
+const referralCookie = "sonnely_referral";
+
+function readReferralCookie() {
+  const prefix = referralCookie + "=";
+  const entry = document.cookie.split("; ").find((cookie) => cookie.startsWith(prefix));
+  if (!entry) return "";
+  const value = entry.slice(prefix.length);
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return "";
+  }
+}
+
+// spec/app/admin/referrals.md, "Story: Invite a wallet"
+export function captureReferralInvite() {
+  const params = new URLSearchParams(window.location.search);
+  let code = params.get("ref") ?? "";
+  if (code) {
+    params.delete("ref");
+    const search = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (search ? "?" + search : "") + window.location.hash);
+    const secure = window.location.protocol === "https:" ? "; secure" : "";
+    document.cookie = referralCookie + "=" + encodeURIComponent(code) + "; path=/; samesite=lax" + secure;
+  }
+  if (!code) code = readReferralCookie();
+  if (!code) return;
+  void fetch("/api/session/referral", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code }),
+    cache: "no-store",
+  }).catch(() => {});
+}
+
 async function readSession(): Promise<WorkspaceSession> {
   const response = await fetch("/api/session", { cache: "no-store" });
   if (!response.ok) throw new Error(`session request failed (HTTP ${response.status})`);
@@ -90,6 +125,7 @@ async function send(input: unknown) {
 }
 
 function openStream() {
+  captureReferralInvite();
   void refresh();
   const next = new EventSource("/api/session/stream");
   source = next;

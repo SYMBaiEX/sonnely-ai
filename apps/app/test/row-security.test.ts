@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { createSignableMessage, generateKeyPairSigner } from "@solana/kit";
 import { Layer, Scheduler } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { afterEach, describe, expect, it } from "vitest";
@@ -216,6 +217,52 @@ function makeApp() {
 
 function get(handler: (request: Request) => Promise<Response>, path: string, token?: string) {
   return handler(new Request("http://localhost" + path, token ? { headers: { cookie: "sonnely_session=" + token } } : {}));
+}
+
+type TestSigner = Awaited<ReturnType<typeof generateKeyPairSigner>>;
+
+function cookieHeader(response: Response) {
+  return response.headers.getSetCookie().map((cookie) => cookie.split(";")[0]).join("; ");
+}
+
+async function verifyNewSession(handler: (request: Request) => Promise<Response>, signer: TestSigner, parkedCookie = "") {
+  const challenge = await handler(new Request("http://localhost/api/session/challenge", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ wallet: signer.address }),
+  }));
+  const body = await challenge.json() as { message?: string };
+  if (!body.message) throw new Error("session challenge failed: " + challenge.status);
+  const [signed] = await signer.signMessages([createSignableMessage(new TextEncoder().encode(body.message))]);
+  const signatureBytes = signed[signer.address];
+  if (!signatureBytes) throw new Error("test signer did not sign the challenge");
+  const cookie = [cookieHeader(challenge), parkedCookie].filter((part) => part !== "").join("; ");
+  return handler(new Request("http://localhost/api/session/verify", {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({ wallet: signer.address, signature: Array.from(signatureBytes) }),
+  }));
+}
+
+function postReferral(handler: (request: Request) => Promise<Response>, code: string, token?: string) {
+  return handler(new Request("http://localhost/api/session/referral", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { cookie: "sonnely_session=" + token } : {}),
+    },
+    body: JSON.stringify({ code }),
+  }));
+}
+
+function storedReferrals(dir: string) {
+  const parsed = Referrals.parseState(JSON.parse(readFileSync(join(dir, "admin-referrals"), "utf8")));
+  if (!parsed) throw new Error("stored referrals are not a machine state");
+  return parsed;
+}
+
+function referralCookieExpired(response: Response) {
+  return response.headers.getSetCookie().some((cookie) => cookie.startsWith("sonnely_referral=;") || cookie.startsWith("sonnely_referral= ;"));
 }
 
 const jobA = "123e4567-e89b-42d3-a456-426614174000";
@@ -714,6 +761,77 @@ describe("row-level access", () => {
       savedServerTime: savedProfile?.updatedAt !== undefined && savedProfile.updatedAt >= beforeSave && savedProfile.updatedAt <= afterSave,
       refusedLeak: refusedBody.includes("code-b") || refusedBody.includes('"state"'),
     }).toEqual({ issuedStatus: 200, issuedLeak: false, issuedOwn: true, savedStatus: 200, savedLeak: false, savedServerTime: true, refusedLeak: false });
+  });
+
+  // spec/app/admin/referrals.md, "Story: Invite a wallet"; spec/app/session.md, "Story: Sign in with a wallet"
+  it("applies an invite captured for an active session once, and keeps customer sign-up writes behind sign-in", async () => {
+    const { handler, dir } = makeAppWithDir();
+    const issued = await postMachine(handler, "admin-referrals", { type: "issueCode", code: "active-invite", wallet: walletB }, tokenB);
+    const bypass = await postMachine(handler, "admin-referrals", { type: "signup", code: "active-invite", wallet: walletA, joined: 1 }, tokenA);
+    const first = await postReferral(handler, "active-invite", tokenA);
+    const repeated = await postReferral(handler, "active-invite", tokenA);
+    const state = storedReferrals(dir);
+    expect({
+      issuedStatus: issued.status,
+      bypassStatus: bypass.status,
+      statuses: [first.status, repeated.status],
+      signups: state.signups.map((signup) => ({ wallet: signup.wallet, code: signup.code, stage: signup.stage })),
+      joinedPositive: state.signups.every((signup) => signup.joined > 0),
+      consumed: referralCookieExpired(first),
+    }).toEqual({
+      issuedStatus: 200,
+      bypassStatus: 403,
+      statuses: [204, 204],
+      signups: [{ wallet: walletA, code: "active-invite", stage: "SignedUp" }],
+      joinedPositive: true,
+      consumed: true,
+    });
+  });
+
+  // spec/app/admin/referrals.md, "Story: Invite a wallet"; spec/app/session.md, "Story: Sign in with a wallet"
+  it("consumes a parked invite when its wallet signs in, not again on later sign-in", async () => {
+    const signer = await generateKeyPairSigner();
+    const { handler, dir } = makeAppWithDir();
+    const issued = await postMachine(handler, "admin-referrals", { type: "issueCode", code: "parked-invite", wallet: walletA }, tokenA);
+    const verified = await verifyNewSession(handler, signer, "sonnely_referral=parked-invite");
+    const signedOut = await handler(new Request("http://localhost/api/session/signout", {
+      method: "POST",
+      headers: { cookie: cookieHeader(verified) },
+    }));
+    const verifiedAgain = await verifyNewSession(handler, signer);
+    const state = storedReferrals(dir);
+    expect({
+      issuedStatus: issued.status,
+      verifiedStatus: verified.status,
+      signedOutStatus: signedOut.status,
+      verifiedAgainStatus: verifiedAgain.status,
+      consumed: referralCookieExpired(verified),
+      signups: state.signups.map((signup) => ({ wallet: signup.wallet, code: signup.code, stage: signup.stage })),
+    }).toEqual({
+      issuedStatus: 200,
+      verifiedStatus: 200,
+      signedOutStatus: 200,
+      verifiedAgainStatus: 200,
+      consumed: true,
+      signups: [{ wallet: signer.address, code: "parked-invite", stage: "SignedUp" }],
+    });
+  });
+
+  // spec/app/admin/referrals.md, "A wallet cannot refer itself"; spec/app/session.md, "Story: Sign in with a wallet"
+  it("lets the referrals machine refuse the code owner while consuming the invite", async () => {
+    const signer = await generateKeyPairSigner();
+    const { handler, dir } = makeAppWithDir();
+    writeFileSync(join(dir, "admin-referrals"), JSON.stringify({
+      codes: [{ code: "own-invite", owner: signer.address }],
+      signups: [],
+    }));
+    const verified = await verifyNewSession(handler, signer, "sonnely_referral=own-invite");
+    const state = storedReferrals(dir);
+    expect({
+      verifiedStatus: verified.status,
+      consumed: referralCookieExpired(verified),
+      signups: state.signups,
+    }).toEqual({ verifiedStatus: 200, consumed: true, signups: [] });
   });
 
   // spec/app/admin/operators.md, "Operator roles": roster membership is not a capability —

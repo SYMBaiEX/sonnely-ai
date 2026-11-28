@@ -147,10 +147,8 @@ effect function postSender(m: SenderMachine) {
   return try HttpServerResponse.json(listed ? { ok: true, state: sent } : { ok: true }, { headers: noStore })
 }
 
-// Operator-only machines (CRM, referrals): a customer's own events — issuing an invite code,
-// signing up through one, saving one's own profile — bind their identity fields to the session
-// and answer with the wallet's projected rows. Every other write is the Admin role's alone, and a
-// refusal never carries state: the raw machine holds every customer's rows.
+// spec/app/session.md, "Story: Sign in with a wallet"
+// spec/app/admin/referrals.md, "Story: Invite a wallet"
 effect function postOperatorEvent(admin: Admin.Machine.Shape, m: SenderMachine, project: (state: any, wallet: string) => unknown) {
   const request = try HttpServerRequest.HttpServerRequest
   if (!request.headers["content-type"]?.startsWith("application/json")) {
@@ -168,7 +166,7 @@ effect function postOperatorEvent(admin: Admin.Machine.Shape, m: SenderMachine, 
     }
     return { body: { ok: true, state: operator != "" ? sent : project(sent, wallet) }, status: 200 }
   }
-  if (input != undefined && (input.type == "issueCode" || input.type == "signup")) {
+  if (input != undefined && input.type == "issueCode") {
     const own = { ...(input as Record<string, unknown>) } as Record<string, unknown>
     if ("owner" in own) own["owner"] = wallet
     if ("wallet" in own) own["wallet"] = wallet
