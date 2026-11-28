@@ -12,6 +12,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { Button } from "@repo/ui";
+import traceStyles from "./gateway-trace.module.css";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, Route } from "../../../../gen/app__models.ts";
 import { CopyButton, useAmbientMotion } from "./chrome.tsx";
@@ -39,8 +41,6 @@ import {
 import { articles } from "./journal.ts";
 import { ProductIcon } from "./icons.tsx";
 import {
-  buttonAccent,
-  buttonQuiet,
   markColors,
   modelMark,
   sectionHead,
@@ -207,15 +207,16 @@ function RequestPath() {
           <a href={step.link} className="text-link">
             <span>{step.action}</span> <ArrowUpRight size={15} />
           </a>
-          <button
+          <Button
             type="button"
+            variant="outline"
             className="button quiet request-tour-button"
             disabled={!motion}
             onClick={() => setPaused(!paused)}
           >
             {looping ? <Pause size={15} /> : <Play size={15} />}
             {!motion ? "Motion off" : looping ? "Pause trace" : "Resume trace"}
-          </button>
+          </Button>
         </div>
       </div>
     </section>
@@ -271,14 +272,15 @@ function HomeDemo() {
             style={{ "--segment": active } as CSSProperties}
           >
             {demoExamples.map(({ label }, index) => (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 key={label}
                 aria-pressed={active === index}
                 onClick={() => setActive(index)}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -295,14 +297,15 @@ function HomeDemo() {
                 style={{ "--segment": demoLanguages.indexOf(language) } as CSSProperties}
               >
                 {demoLanguages.map((option) => (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     key={option}
                     aria-pressed={language === option}
                     onClick={() => setLanguage(option)}
                   >
                     {option}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <CopyButton key={language + active} value={source} label="Copy request" />
@@ -324,14 +327,16 @@ function HomeDemo() {
               <span className="quickstart-pane-label">
                 Sample response
               </span>
-              <button
+              <Button
                 className="button quiet small"
+                variant="ghost"
+                size="sm"
                 type="button"
                 aria-pressed={showJson}
                 onClick={() => setShowJson(!showJson)}
               >
                 Show JSON
-              </button>
+              </Button>
             </div>
             <div className="quickstart-result" aria-live="polite">
               {showJson ? (
@@ -370,21 +375,22 @@ const traceTotal = traceStages[traceStages.length - 1].end;
 
 function GatewayTrace() {
   return (
-    <figure className="gateway-trace" data-reveal="fade">
-      <figcaption className="gateway-trace-head">
-        <span className="gateway-trace-label">
+    <figure className={traceStyles["gateway-trace"]} data-reveal="fade">
+      <figcaption className={traceStyles["gateway-trace-head"]}>
+        <span className={traceStyles["gateway-trace-label"]}>
           Example trace ·{" "}
           {(traceTotal / 1000).toFixed(1)} s
         </span>
-        <span className="gateway-trace-outcome">
+        <span className={traceStyles["gateway-trace-outcome"]}>
           <Check size={12} aria-hidden="true" /> settled
         </span>
       </figcaption>
-      <div className="gateway-trace-bar" aria-hidden="true">
+      <div className={traceStyles["gateway-trace-bar"]} aria-hidden="true">
         {traceStages.map(({ name, start, end }) => (
           <span
             key={name}
-            className={"gateway-trace-segment gateway-trace-segment-" + name.split(" ")[0].toLowerCase()}
+            className={traceStyles["gateway-trace-segment"]}
+            data-stage={name.split(" ")[0].toLowerCase()}
             style={{
               insetInlineStart: (start / traceTotal) * 100 + "%",
               width: ((end - start) / traceTotal) * 100 + "%",
@@ -392,12 +398,12 @@ function GatewayTrace() {
           />
         ))}
       </div>
-      <ol className="gateway-trace-stages">
+      <ol className={traceStyles["gateway-trace-stages"]}>
         {traceStages.map(({ name, start, end, icon }) => (
           <li key={name}>
             <ProductIcon name={icon} size={13} />
-            <span className="gateway-trace-name">{name}</span>
-            <span className="gateway-trace-ms">{end - start} ms</span>
+            <span className={traceStyles["gateway-trace-name"]}>{name}</span>
+            <span className={traceStyles["gateway-trace-ms"]}>{end - start} ms</span>
           </li>
         ))}
       </ol>
@@ -662,9 +668,10 @@ function WorkspacePreview() {
           aria-label="Workspace preview"
         >
           {workspaceCards.map(({ id, label, icon: Icon }, index) => (
-            <button
+            <Button
               id={"workspace-tab-" + id}
               type="button"
+              variant="ghost"
               role="tab"
               key={id}
               aria-selected={active === index}
@@ -674,7 +681,7 @@ function WorkspacePreview() {
               onKeyDown={(event) => navigate(event, index)}
             >
               <Icon size={18} aria-hidden="true" /> {label}
-            </button>
+            </Button>
           ))}
         </div>
         {workspaceCards.map(
@@ -814,12 +821,16 @@ export function Home() {
             request ran, and the receipt to see what it cost.
           </p>
           <div className="actions">
-            <a href="#quickstart" className={buttonAccent}>
-              API quickstart <ArrowDown size={16} aria-hidden="true" />
-            </a>
-            <a href="/console/chat" className={buttonQuiet}>
-              Open playground <ArrowUpRight size={17} aria-hidden="true" />
-            </a>
+            <Button asChild className="rounded-full">
+              <a href="#quickstart">
+                API quickstart <ArrowDown size={16} aria-hidden="true" />
+              </a>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full">
+              <a href="/console/chat">
+                Open playground <ArrowUpRight size={17} aria-hidden="true" />
+              </a>
+            </Button>
           </div>
         </div>
         <RequestPath />
@@ -842,12 +853,16 @@ export function Home() {
             </p>
           </div>
           <div className="actions">
-            <a className={buttonAccent} href="/console/chat">
-              Open playground <ArrowUpRight size={16} aria-hidden="true" />
-            </a>
-            <a className={buttonQuiet} href="/docs/quickstart">
-              Read the setup guide <ArrowUpRight size={15} aria-hidden="true" />
-            </a>
+            <Button asChild className="rounded-full">
+              <a href="/console/chat">
+                Open playground <ArrowUpRight size={16} aria-hidden="true" />
+              </a>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full">
+              <a href="/docs/quickstart">
+                Read the setup guide <ArrowUpRight size={15} aria-hidden="true" />
+              </a>
+            </Button>
           </div>
         </section>
       </div>

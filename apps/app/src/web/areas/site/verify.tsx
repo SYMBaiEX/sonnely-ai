@@ -1,7 +1,7 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { ArrowUpRight, Fingerprint, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Input, Textarea } from "@repo/ui";
+import { Button, Card, Input, Label, Textarea } from "@repo/ui";
 import type { ReceiptEnvelope } from "./receipt.ts";
 import {
   compareReceiptBytes,
@@ -11,7 +11,7 @@ import {
 } from "./receipt.ts";
 import { creditBalance, providerNames, providerOfSlug } from "./data.ts";
 import { CorrespondenceHero } from "./chrome.tsx";
-import { buttonAccent, buttonQuiet, monoSm, textLink } from "./ui.ts";
+import { monoSm, textLink } from "./ui.ts";
 
 const nearDocs = "https://docs.near.ai/cloud/verification/cloud-api/response-signatures";
 const phalaDocs = "https://phala.com/confidential-ai-models/verification";
@@ -167,21 +167,21 @@ function ReceiptInspector() {
   }
 
   return (
-    <div className="verify-grid">
-      <form className="cor-sheet verify-panel grid gap-4" onSubmit={(event) => void inspect(event)}>
-        <header className="cor-sheet-head">
+    <div className="grid items-start gap-6 lg:grid-cols-2 lg:gap-7">
+      <Card className="gap-4"><form className="grid gap-4" onSubmit={(event) => void inspect(event)}>
+        <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
-            <span>Completion receipt</span>
-            <h2>Inspect a receipt</h2>
+            <span className="font-mono text-micro uppercase tracking-micro text-primary">Completion receipt</span>
+            <h2 className="mt-1 [font-family:var(--font-serif)] text-heading font-medium tracking-tight">Inspect a receipt</h2>
           </div>
-          <span className="cor-stamp" aria-hidden="true"><Fingerprint size={20} /></span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-full border border-primary/40 text-primary" aria-hidden="true"><Fingerprint size={20} /></span>
         </header>
-        <p className="verify-panel-lede">Use a receipt, a JSON completion response, or a stream containing a receipt.</p>
+        <p className="text-ui text-muted-foreground">Use a receipt, a JSON completion response, or a stream containing a receipt.</p>
         <fieldset className="grid gap-4 disabled:opacity-60" disabled={busy}>
           <div className="grid gap-1.5">
-            <label htmlFor="receipt-json" className="text-ui font-medium">
+            <Label htmlFor="receipt-json">
               Paste receipt or response
-            </label>
+            </Label>
             <Textarea
               id="receipt-json"
               rows={7}
@@ -197,20 +197,21 @@ function ReceiptInspector() {
             />
           </div>
           <div className="grid gap-1.5">
-            <label htmlFor="receipt-file" className="text-ui font-medium">
+            <Label htmlFor="receipt-file">
               Or choose a receipt file
-            </label>
+            </Label>
             <Input
               id="receipt-file"
               type="file"
+              className="file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-ui file:text-foreground"
               onChange={(event) => {
                 setReceiptFile(event.target.files?.[0]);
                 clearResult();
               }}
             />
           </div>
-          <details className="verify-files">
-            <summary className="cursor-pointer text-ui font-medium">
+          <details className="group grid gap-3 border-y border-border py-4">
+            <summary className="flex cursor-pointer items-center gap-2 text-ui font-medium">
               Compare exact upstream files
             </summary>
             <p className="text-ui text-muted-foreground">
@@ -218,12 +219,13 @@ function ReceiptInspector() {
               rewrites API responses and stream events before returning them to you.
             </p>
             <div className="grid gap-1.5">
-              <label htmlFor="upstream-request" className="text-ui font-medium">
+              <Label htmlFor="upstream-request">
                 Upstream request body
-              </label>
+              </Label>
               <Input
                 id="upstream-request"
                 type="file"
+                className="file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-ui file:text-foreground"
                 onChange={(event) => {
                   setRequestFile(event.target.files?.[0]);
                   clearResult();
@@ -231,12 +233,13 @@ function ReceiptInspector() {
               />
             </div>
             <div className="grid gap-1.5">
-              <label htmlFor="upstream-response" className="text-ui font-medium">
+              <Label htmlFor="upstream-response">
                 Upstream response body
-              </label>
+              </Label>
               <Input
                 id="upstream-response"
                 type="file"
+                className="file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-ui file:text-foreground"
                 onChange={(event) => {
                   setResponseFile(event.target.files?.[0]);
                   clearResult();
@@ -244,12 +247,13 @@ function ReceiptInspector() {
               />
             </div>
           </details>
-          <div className="verify-actions flex flex-wrap gap-3">
-            <button className={buttonAccent} type="submit">
+          <div className="mt-1 flex flex-wrap gap-3">
+            <Button type="submit" className="rounded-full">
               {busy ? "Inspecting…" : "Inspect receipt"}
-            </button>
-            <button
-              className={buttonQuiet}
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full"
               type="reset"
               onClick={() => {
                 setReceiptText("");
@@ -260,7 +264,7 @@ function ReceiptInspector() {
               }}
             >
               Clear
-            </button>
+            </Button>
           </div>
         </fieldset>
         {error && (
@@ -271,16 +275,16 @@ function ReceiptInspector() {
         <p className="inline-flex items-center gap-1.5 text-ui text-muted-foreground">
           <ShieldCheck size={16} aria-hidden="true" /> The receipt and files stay in this browser.
         </p>
-      </form>
-      <section className="cor-sheet verify-panel grid gap-4" aria-labelledby="verification-result">
-        <header className="cor-sheet-head">
+      </form></Card>
+      <Card className="gap-4" aria-labelledby="verification-result">
+        <header className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div>
-            <span>Inspection results</span>
-            <h2 id="verification-result">What the receipt shows</h2>
+            <span className="font-mono text-micro uppercase tracking-micro text-primary">Inspection results</span>
+            <h2 id="verification-result" className="mt-1 [font-family:var(--font-serif)] text-heading font-medium tracking-tight">What the receipt shows</h2>
           </div>
-          <span className="cor-stamp" aria-hidden="true"><ShieldCheck size={20} /></span>
+          <span className="grid size-11 shrink-0 place-items-center rounded-full border border-primary/40 text-primary" aria-hidden="true"><ShieldCheck size={20} /></span>
         </header>
-        <p role="status" className="verify-panel-lede">
+        <p role="status" className="text-ui text-muted-foreground">
           {inspection
             ? "Receipt format validated."
             : busy
@@ -340,9 +344,9 @@ function ReceiptInspector() {
           </>
         ) : (
           <div className="grid gap-5">
-            <div className="verify-note">
+            <div className="border-t border-border pt-5 first:border-t-0 first:pt-0">
               <h3 className="text-ui font-medium">Get a receipt in three steps</h3>
-              <ol className="verify-steps">
+              <ol className="mt-2 grid list-decimal gap-2 pl-5 text-meta text-muted-foreground marker:text-primary">
                 <li>
                   Enable <strong className="text-foreground">Include verification receipt</strong>{" "}
                   in Playground, or send <code className={monoSm}>X-Sonnely-Receipt: v1</code>{" "}
@@ -358,9 +362,9 @@ function ReceiptInspector() {
                 Read the receipt guide <ArrowUpRight size={15} aria-hidden="true" />
               </a>
             </div>
-            <div className="verify-note">
+            <div className="border-t border-border pt-5 first:border-t-0 first:pt-0">
               <h3 className="text-ui font-medium">What inspection checks</h3>
-              <ul className="verify-checks">
+              <ul className="mt-2 grid list-disc gap-2 pl-5 text-meta text-muted-foreground marker:text-primary">
                 <li>The receipt is a supported Sonnely v1 receipt for a known provider route.</li>
                 <li>
                   NEAR AI signatures are verified locally against the declared signer and the
@@ -376,7 +380,7 @@ function ReceiptInspector() {
                 </li>
               </ul>
             </div>
-            <div className="verify-note">
+            <div className="border-t border-border pt-5 first:border-t-0 first:pt-0">
               <h3 className="text-ui font-medium">Gateway boundary</h3>
               <p className="mt-1 text-ui text-muted-foreground">
                 Sonnely reads the request at its HTTPS gateway. The provider’s trusted execution
@@ -386,14 +390,14 @@ function ReceiptInspector() {
             </div>
           </div>
         )}
-      </section>
+      </Card>
     </div>
   );
 }
 
 export function VerifyPage() {
   return (
-    <div className="wrap cor-page cor-verify-page">
+    <div className="mx-auto grid w-full max-w-[1320px] gap-8 px-4 pb-16 md:px-8 xl:px-12">
       <CorrespondenceHero
         eyebrow="Receipt verification · Sonnely"
         title="Check the evidence yourself."

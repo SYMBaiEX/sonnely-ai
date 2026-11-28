@@ -1,48 +1,53 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { ArrowDown, ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import { useState, type MouseEvent, type ReactNode } from "react";
+import { Button } from "@repo/ui";
 import { HighlightedCode } from "../../syntax.tsx";
 import { apiBasePath } from "./data.ts";
 import { entryActions, pages, platformLinks, traceStages } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
-import { buttonAccent, textLink, wrap } from "./ui.ts";
-import "./inference.css";
+import { textLink, wrap } from "./ui.ts";
+import styles from "./inference.module.css";
+import traceStyles from "./gateway-trace.module.css";
 
 export function PlatformLinks({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
   return (
     <section
-      className={(compact ? "product-related " : "section product-index ") + className}
+      className={(compact ? "mt-10 " : "border-t border-border pt-16 ") + className}
       aria-labelledby="platform-links-heading"
     >
-      <div className="product-indexIntro" data-reveal="rise">
+      <div className="mb-6 grid gap-2" data-reveal="rise">
         {compact ? (
-          <h2 id="platform-links-heading">Explore the platform</h2>
+          <h2 id="platform-links-heading" className="text-heading font-strong tracking-tight">Explore the platform</h2>
         ) : (
           <>
-            <h2 id="platform-links-heading">Inference, from API to operations.</h2>
-            <p>Choose a model route and understand each request.</p>
+            <h2 id="platform-links-heading" className="text-heading font-strong tracking-tight">Inference, from API to operations.</h2>
+            <p className="text-body text-muted-foreground">Choose a model route and understand each request.</p>
           </>
         )}
       </div>
-      <ul className={compact ? "directory-modules compact" : "directory-modules"} role="list">
+      <ul className="grid gap-4 md:grid-cols-2" role="list">
         {platformLinks.map(({ href, label, description, icon }) => {
           const brief = directoryBriefs[href];
           return (
-            <li key={href}>
-              <a href={href}>
-                <span className="directory-module-head">
-                  <span className="directory-path">
+            <li key={href} className="grid min-w-0">
+              <a
+                href={href}
+                className="group relative grid h-full content-start gap-3 overflow-hidden rounded-lg border border-border bg-card px-5 pb-5 text-foreground shadow-md transition-colors before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-primary/60 before:to-transparent hover:border-primary/50 hover:bg-secondary"
+              >
+                <span className="-mx-5 flex items-center justify-between gap-2.5 border-b border-border px-5 py-3">
+                  <span className="inline-flex min-w-0 items-center gap-1.5 font-mono text-micro font-medium tracking-micro text-muted-foreground">
                     <ProductIcon name={icon} size={14} /> ~{href}
                   </span>
-                  <ArrowUpRight size={16} aria-hidden="true" />
+                  <ArrowUpRight size={16} aria-hidden="true" className="text-muted-foreground transition-colors group-hover:text-primary" />
                 </span>
-                <strong>{label}</strong>
-                <small>{description}</small>
-                <dl className="directory-facts">
+                <strong className="text-body font-strong tracking-tight text-foreground">{label}</strong>
+                <small className="max-w-prose text-meta leading-meta text-muted-foreground">{description}</small>
+                <dl className="mt-1 grid border-t border-border/70 font-mono text-micro lowercase tracking-micro">
                   {brief.rows.map(([fact, value]) => (
-                    <div key={fact}>
-                      <dt>{fact}</dt>
-                      <dd>{value}</dd>
+                    <div key={fact} className="flex items-baseline justify-between gap-3.5 border-t border-border/45 py-1.5 first:border-t-0">
+                      <dt className="text-muted-foreground">{fact}</dt>
+                      <dd className="text-end text-foreground">{value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -90,26 +95,28 @@ function Hero() {
   const [title] = pages.inference;
   const entry = entryActions.inference;
   return (
-    <header className="inference-hero">
+    <header className={styles["inference-hero"]}>
       <div>
         <h1>
           {title}
           <span>.</span>
         </h1>
-        <p className="inference-hero-description">
+        <p className={styles["inference-hero-description"]}>
           Use an OpenAI-compatible client to run models on confidential compute, stream responses,
           and see what each request cost.
         </p>
-        <div className="actions">
-          <a href={entry.next} className={buttonAccent}>
-            {entry.action} <ArrowRight size={15} aria-hidden="true" />
-          </a>
+        <div className={styles["actions"]}>
+          <Button asChild className="rounded-full">
+            <a href={entry.next}>
+              {entry.action} <ArrowRight size={15} aria-hidden="true" />
+            </a>
+          </Button>
           <a href={entry.section} className={textLink} onClick={jumpToSection}>
             Explore routing <ArrowDown size={16} aria-hidden="true" />
           </a>
         </div>
       </div>
-      <figure className="inference-brief">
+      <figure className={styles["inference-brief"]}>
         <figcaption>
           <span>One request, end to end</span>
           <code>POST {apiBasePath}/chat/completions</code>
@@ -137,9 +144,9 @@ function CodeExample({
   label: string;
 }) {
   return (
-    <figure className="inference-term">
+    <figure className={styles["inference-term"]}>
       <figcaption>{label}</figcaption>
-      <pre className="inference-code" tabIndex={0} aria-label={label}>
+      <pre className={styles["inference-code"]} tabIndex={0} aria-label={label}>
         <HighlightedCode source={source} language={language} />
       </pre>
     </figure>
@@ -162,9 +169,9 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="inference-section" aria-labelledby={id + "-heading"} tabIndex={-1}>
-      <div className={example?.placement === "beside" ? "inference-split" : "inference-wide"}>
-        <div className="inference-copy">
+    <section id={id} className={styles["inference-section"]} aria-labelledby={id + "-heading"} tabIndex={-1}>
+      <div className={example?.placement === "beside" ? styles["inference-split"] : styles["inference-wide"]}>
+        <div className={styles["inference-copy"]}>
           <h2 id={id + "-heading"}>{title}</h2>
           {children}
           <a href={href} className={textLink}>
@@ -183,49 +190,49 @@ function TracePreview() {
   const [active, setActive] = useState(1);
   const selected = traceStages[active];
   return (
-    <figure className="inference-trace">
-      <figcaption className="gateway-trace-head">
-        <span className="gateway-trace-label">
-          <i className="gateway-trace-dot" aria-hidden="true" /> example trace ·{" "}
+    <figure className={styles["inference-trace"] + " " + traceStyles["gateway-trace"]} data-reveal="fade">
+      <figcaption className={traceStyles["gateway-trace-head"]}>
+        <span className={traceStyles["gateway-trace-label"]}>
+          <i className={traceStyles["gateway-trace-dot"]} aria-hidden="true" /> example trace ·{" "}
           {(traceTotal / 1000).toFixed(1)} s
         </span>
-        <span className="inference-trace-firsttoken">first token 780 ms</span>
-        <span className="gateway-trace-outcome">
+        <span className={styles["inference-trace-firsttoken"]}>first token 780 ms</span>
+        <span className={traceStyles["gateway-trace-outcome"]}>
           <Check size={12} aria-hidden="true" /> settled
         </span>
       </figcaption>
-      <div className="gateway-trace-bar" aria-hidden="true">
+      <div className={traceStyles["gateway-trace-bar"]} aria-hidden="true">
         {traceStages.map(({ name, start, end }) => (
           <span
             key={name}
-            className={
-              "gateway-trace-segment gateway-trace-segment-" + name.split(" ")[0].toLowerCase()
-            }
+            className={traceStyles["gateway-trace-segment"]}
+            data-stage={name.split(" ")[0].toLowerCase()}
             style={{
               insetInlineStart: (start / traceTotal) * 100 + "%",
               width: ((end - start) / traceTotal) * 100 + "%",
             }}
           />
         ))}
-        <span className="gateway-trace-scan" />
+        <span className={traceStyles["gateway-trace-scan"]} />
       </div>
-      <ol className="inference-trace-stages">
+      <ol className={styles["inference-trace-stages"]}>
         {traceStages.map(({ name, start, end, icon }, index) => (
           <li key={name}>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               aria-pressed={active === index}
               aria-controls="inference-trace-detail"
               onClick={() => setActive(index)}
             >
               <ProductIcon name={icon} size={13} aria-hidden="true" />
               <span>{name}</span>
-              <span className="inference-trace-ms">{end - start} ms</span>
-            </button>
+              <span className={styles["inference-trace-ms"]}>{end - start} ms</span>
+            </Button>
           </li>
         ))}
       </ol>
-      <div className="inference-trace-detail" id="inference-trace-detail" aria-live="polite">
+      <div className={styles["inference-trace-detail"]} id="inference-trace-detail" aria-live="polite">
         <div>
           <strong>{selected.name.toLowerCase()}</strong>{" "}
           <span>
@@ -397,10 +404,10 @@ const sections = [
 export function InferencePage() {
   const entry = entryActions.inference;
   return (
-    <div className={wrap + " inference-page"}>
+    <div className={wrap + " " + styles["inference-page"]}>
       <Hero />
       <div>
-        <nav className="inference-nav" aria-label="On this page">
+        <nav className={styles["inference-nav"]} aria-label="On this page">
           <p aria-hidden="true">On this page</p>
           {sections.map(([id, label]) => (
             <a key={id} href={"#" + id} onClick={jumpToSection}>{label}</a>
@@ -410,15 +417,17 @@ export function InferencePage() {
           <Inference />
         </div>
       </div>
-      <section className="inference-closing" aria-labelledby="inference-closing-heading">
+      <section className={styles["inference-closing"]} aria-labelledby="inference-closing-heading">
         <div>
           <h2 id="inference-closing-heading">Send your first request.</h2>
           <p>Set up your client, choose a model, and follow the call through to its charge.</p>
         </div>
-        <div className="actions">
-          <a className={buttonAccent} href={entry.next}>
-            {entry.action} <ArrowRight size={15} aria-hidden="true" />
-          </a>
+        <div className={styles["actions"]}>
+          <Button asChild className="rounded-full">
+            <a href={entry.next}>
+              {entry.action} <ArrowRight size={15} aria-hidden="true" />
+            </a>
+          </Button>
           <a className={textLink} href="/console/keys">
             Create an API key <ArrowUpRight size={16} aria-hidden="true" />
           </a>
