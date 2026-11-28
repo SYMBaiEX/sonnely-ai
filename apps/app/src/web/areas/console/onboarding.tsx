@@ -98,7 +98,7 @@ export function Onboarding({
     }}>
       <DialogContent hideClose data-onboarding-dialog className="max-w-none gap-0 overflow-auto p-0">
       <div data-onboarding-shell>
-        <aside data-onboarding-scene aria-hidden="true">
+        <aside data-onboarding-scene aria-hidden="true" inert>
           <div data-onboarding-brand>
             <Brand href="/console/chat" />
           </div>
