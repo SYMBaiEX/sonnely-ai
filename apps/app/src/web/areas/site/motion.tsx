@@ -1,6 +1,7 @@
 // spec/app/site/index.md, "Story: Check the service status"
 import { AudioLines } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
+import { Switch } from "@repo/ui";
 import { motionKey, motionChangeEvent, reducedQuery, useAmbientMotion, setMotionPaused } from "./chrome.tsx";
 import type { Theme } from "./chrome.tsx";
 
@@ -32,6 +33,7 @@ export function MotionSwitch({ icon = false }: { icon?: boolean }) {
     window.dispatchEvent(new Event(motionChangeEvent));
   }
 
+  if (!icon) return <Switch aria-label="Ambient motion" checked={motion} disabled={systemReduced} title={systemReduced ? "Disabled by your device’s reduced-motion setting" : undefined} onCheckedChange={toggle} />;
   return (
     <button
       type="button"
@@ -43,13 +45,7 @@ export function MotionSwitch({ icon = false }: { icon?: boolean }) {
       className={icon ? "button quiet small footer-motion" : "toggle"}
       onClick={toggle}
     >
-      {icon ? (
-        <>
-          <AudioLines size={16} aria-hidden="true" /> Motion
-        </>
-      ) : (
-        <span />
-      )}
+      <AudioLines size={16} aria-hidden="true" /> Motion
     </button>
   );
 }
