@@ -1,11 +1,11 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowUpRight, Fingerprint, KeyRound, Plus, Wallet } from "lucide-react";
-import { useState, type MouseEvent } from "react";
+import { ArrowDown, ArrowUpRight, Plus } from "lucide-react";
+import { useState } from "react";
 import { Input } from "@repo/ui";
 import { creditBalance, formatRate, limits, requestCharge, routeRates } from "./data.ts";
 import { canonicalGroups, chatModels, chatModelRoute, liveStatuses, useLiveAvailability } from "./catalog-data.ts";
 import { CatalogCards } from "./catalog-cards.tsx";
-import { buttonAccent, buttonQuiet, sectionHead, textLink } from "./ui.ts";
+import { sectionHead, textLink } from "./ui.ts";
 import "./pricing.css";
 
 const tokenPriced = (group: (typeof canonicalGroups)[number]) =>
@@ -26,17 +26,6 @@ function tokens(value: string, maximum: number) {
     : null;
 }
 
-function jumpToPricingSection(event: MouseEvent<HTMLAnchorElement>) {
-  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  const { hash } = event.currentTarget;
-  const section = document.getElementById(hash.slice(1));
-  if (!section) return;
-  event.preventDefault();
-  history.replaceState(history.state, "", hash);
-  section.focus({ preventScroll: true });
-  section.scrollIntoView();
-}
-
 function CostExample() {
   const [modelId, setModelId] = useState(() => chatModelRoute(chatModels[0])?.modelId ?? "");
   const [input, setInput] = useState("10000");
@@ -50,19 +39,16 @@ function CostExample() {
     inputTokens === null || outputTokens === null
       ? null
       : requestCharge(rates, inputTokens, 0, outputTokens);
+  const fields = [
+    { id: "pricing-input-tokens", label: "Input tokens", value: input, setValue: setInput, max: limits.bodyBytes, invalid: inputTokens === null },
+    { id: "pricing-output-tokens", label: "Output tokens", value: output, setValue: setOutput, max: limits.maxOutputTokens, invalid: outputTokens === null },
+  ];
 
   return (
-    <section className="section pricing-estimate-section" id="estimate" aria-labelledby="pricing-estimate-title" tabIndex={-1}>
-      <div className={sectionHead}>
-        <div>
-          <h2 id="pricing-estimate-title">Estimate a request.</h2>
-          <p>Uncached text request at final token rates.</p>
-        </div>
-        <a href="#inference-rates" className={textLink} onClick={jumpToPricingSection}>
-          Compare the full rate card <ArrowUpRight size={15} aria-hidden="true" />
-        </a>
-      </div>
-      <div className="pricing-estimate">
+    <section className="pricing-estimate" id="estimate" aria-labelledby="pricing-estimate-title" tabIndex={-1}>
+      <div className="pricing-estimate-section">
+        <h2 id="pricing-estimate-title">Request estimator</h2>
+        <p>One text request, without cached input.</p>
         <div className="pricing-estimate-inputs">
           <label>
             <span>Model</span>
@@ -77,60 +63,52 @@ function CostExample() {
               })}
             </select>
           </label>
-          <label>
-            <span>Input tokens</span>
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={limits.bodyBytes}
-              step={1}
-              invalid={inputTokens === null}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-            />
-          </label>
-          <label>
-            <span>Output tokens</span>
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={limits.maxOutputTokens}
-              step={1}
-              invalid={outputTokens === null}
-              value={output}
-              onChange={(event) => setOutput(event.target.value)}
-            />
-          </label>
+          {fields.map(({ id, label, value, setValue, max, invalid }) => (
+            <div key={id}>
+              <label htmlFor={id}>{label}</label>
+              <Input
+                id={id}
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={max}
+                step={1}
+                invalid={invalid}
+                aria-describedby={invalid ? `${id}-error` : undefined}
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+              />
+              {invalid && <p id={`${id}-error`}>Enter a whole number from 0 to {max.toLocaleString("en-US")}.</p>}
+            </div>
+          ))}
         </div>
-        <figure className="pricing-invoice">
-          <figcaption>Estimated charge</figcaption>
-          <output>
-            {estimate === null ? "Check token counts" : creditBalance(estimate)}
-          </output>
-          <p>Per request · {entry?.name ?? "uncached text"}</p>
-          <dl aria-label="Rates per million tokens">
-            <div>
-              <dt>Input / 1M tokens</dt>
-              <dd>{formatRate(rates.Input ?? 0)}</dd>
-            </div>
-            {rates.Cached !== undefined && rates.Cached >= 0 && (
-              <div>
-                <dt>Cached input / 1M tokens</dt>
-                <dd>{formatRate(rates.Cached)}</dd>
-              </div>
-            )}
-            <div>
-              <dt>Output / 1M tokens</dt>
-              <dd>{formatRate(rates.Output ?? 0)}</dd>
-            </div>
-          </dl>
-          <p>
-            Actual charges use reported usage and account for cached input.
-          </p>
-        </figure>
       </div>
+      <figure className="pricing-invoice">
+        <figcaption>Estimated charge</figcaption>
+        <output data-invalid={estimate === null}>
+          {estimate === null ? "Fix the token counts to see an estimate." : creditBalance(estimate)}
+        </output>
+        <dl aria-label="Rates per million tokens">
+          <div>
+            <dt>Input / 1M</dt>
+            <dd>{formatRate(rates.Input ?? 0)}</dd>
+          </div>
+          {rates.Cached !== undefined && rates.Cached >= 0 && (
+            <div>
+              <dt>Cached input / 1M</dt>
+              <dd>{formatRate(rates.Cached)}</dd>
+            </div>
+          )}
+          <div>
+            <dt>Output / 1M</dt>
+            <dd>{formatRate(rates.Output ?? 0)}</dd>
+          </div>
+        </dl>
+        <p>Final charges use reported token counts, including cached input.</p>
+        <a href="#inference-rates" className={textLink}>
+          Compare provider rates <ArrowDown size={14} aria-hidden="true" />
+        </a>
+      </figure>
     </section>
   );
 }
@@ -138,22 +116,19 @@ function CostExample() {
 function PricingEssentials() {
   const terms = [
     {
-      title: "Prepaid credits",
-      Icon: Wallet,
-      copy: "When checkout is available in this deployment, choose a credit amount and pay with USDC or SOL. Credits post automatically when the Solana transfer finalizes.",
+      title: "Fund credits",
+      copy: "When checkout is available, pay with USDC or SOL. Credits appear after the Solana transfer finalizes.",
       href: "/console/billing",
-      link: "Billing console",
+      link: "Open billing",
     },
     {
-      title: "Final rates",
-      Icon: Fingerprint,
-      copy: "Token endpoints are priced per million tokens. File and media endpoints use the listed per-request rate.",
+      title: "Check endpoint rates",
+      copy: "Token endpoints bill per million tokens. Other endpoints use the unit listed for that route.",
       href: "#inference-rates",
-      link: "Inference rates",
+      link: "Compare rates",
     },
     {
-      title: "Key budgets",
-      Icon: KeyRound,
+      title: "Limit key spend",
       copy: "Set daily and lifetime spend limits, choose an expiration and revoke a key immediately.",
       href: "/console/keys",
       link: "Manage keys",
@@ -161,14 +136,13 @@ function PricingEssentials() {
   ] as const;
   return (
     <section className="section pricing-terms" aria-labelledby="pricing-essentials-title">
-      <h2 id="pricing-essentials-title">Terms of account.</h2>
+      <h2 id="pricing-essentials-title">How billing works</h2>
       <ul className="pricing-terms-grid" role="list">
-        {terms.map(({ title, Icon, copy, href, link }) => (
+        {terms.map(({ title, copy, href, link }) => (
           <li key={title}>
-            <Icon size={22} aria-hidden="true" />
             <h3>{title}</h3>
             <p>{copy}</p>
-            <a href={href} className={textLink} onClick={href.startsWith("#") ? jumpToPricingSection : undefined}>
+            <a href={href} className={textLink}>
               {link} <ArrowUpRight size={14} aria-hidden="true" />
             </a>
           </li>
@@ -184,10 +158,10 @@ function InferenceRates() {
     <section className="section pricing-rates" id="inference-rates" aria-labelledby="inference-rates-title" tabIndex={-1}>
       <div className={sectionHead}>
         <div>
-          <h2 id="inference-rates-title">Inference rates.</h2>
+          <h2 id="inference-rates-title">Model rates</h2>
           <p>
-            Every rate comes from the same catalog the gateway uses. Open a model to compare
-            provider routes and endpoint-specific fees.
+            Compare rates for {pricedGroups.length} routable models. Token rates are per million tokens;
+            expand a model to see provider-specific and per-request fees.
           </p>
         </div>
         <a href="/models" className={textLink}>
@@ -202,17 +176,17 @@ function InferenceRates() {
 function PricingQuestions() {
   const questions = [
     ["What do I need to buy credits?", "Use a compatible Solana wallet with enough SOL for network fees. Sign in with the wallet that will pay, then choose SOL or USDC in Billing."],
-    ["How does a request settle?", "Sonnely reserves the estimated maximum before sending a request, records the final usage charge, and releases the unused hold. Unreported usage can leave a reservation pending reconciliation."],
-    ["What token categories are billed?", "Reported input, cached input, and output token counts determine the final token charge up to the reservation. Cached input uses the route’s cached rate when one is published."],
+    ["When is a request charged?", "Sonnely sets aside the estimated maximum before sending the request. Once usage is reported, it charges for that usage and releases the rest. If usage isn't reported, the hold may stay in place until it can be reconciled."],
+    ["Which tokens count toward the charge?", "Sonnely bills reported input, cached input, and output tokens, up to the amount set aside for the request. Cached input uses the route’s cached rate when one is published."],
     ["Where can I see what a request cost?", "Open Usage in the console to review token counts, request status, and charges. Billing lists payment receipts separately."],
-    ["Do devnet payments create credits?", "Devnet payments verify the checkout path. Spendable credits require a verified mainnet payment."],
+    ["Can I spend credits from devnet payments?", "No. Devnet payments test checkout. Spendable credits require a verified mainnet payment."],
   ] as const;
   return (
     <section className="section home-split home-faq pricing-faq" aria-labelledby="pricing-questions-title">
       <div className="home-section-intro">
-        <h2 id="pricing-questions-title">Pricing questions.</h2>
+        <h2 id="pricing-questions-title">Billing questions</h2>
         <a className={textLink} href="/docs/billing">
-          Credits and checkout <ArrowUpRight size={16} aria-hidden="true" />
+          Read the billing guide <ArrowUpRight size={16} aria-hidden="true" />
         </a>
       </div>
       <div className="faq">
@@ -232,42 +206,23 @@ function PricingQuestions() {
 export function PricingPage() {
   return (
     <div className="wrap pricing-page">
-      <header className="pricing-hero">
-        <h1>
-          Pay for what <em>you use.</em>
-        </h1>
-        <p className="pricing-hero-description">
-          Prepaid Solana credits, final inference rates and request charges that settle against
-          real usage.
-        </p>
-        <div className="actions">
-          <a href="#estimate" className={buttonAccent} onClick={jumpToPricingSection}>
-            Estimate a request <ArrowDown size={15} aria-hidden="true" />
-          </a>
-          <a href="#inference-rates" className={buttonQuiet} onClick={jumpToPricingSection}>
-            Browse rates <ArrowDown size={15} aria-hidden="true" />
-          </a>
-        </div>
-        <dl className="pricing-hero-facts" aria-label="Pricing at a glance">
-          <div>
-            <dt>Routable models</dt>
-            <dd>{pricedGroups.length}</dd>
+      <div className="pricing-hero">
+        <header>
+          <h1>Pay for <span>what you use.</span></h1>
+          <p className="pricing-hero-description">
+            Fund credits in USDC or SOL. Each request is charged from your balance based on reported usage.
+          </p>
+          <div className="actions">
+            <a href="#estimate" className={textLink}>
+              Estimate a request <ArrowDown size={15} aria-hidden="true" />
+            </a>
+            <a href="#inference-rates" className={textLink}>
+              Browse model rates <ArrowDown size={15} aria-hidden="true" />
+            </a>
           </div>
-          <div>
-            <dt>Token rates</dt>
-            <dd>Per 1M tokens</dd>
-          </div>
-          <div>
-            <dt>Billing</dt>
-            <dd>USDC or SOL</dd>
-          </div>
-          <div>
-            <dt>Settlement</dt>
-            <dd>Reported usage</dd>
-          </div>
-        </dl>
-      </header>
-      <CostExample />
+        </header>
+        <CostExample />
+      </div>
       <InferenceRates />
       <PricingEssentials />
       <PricingQuestions />
