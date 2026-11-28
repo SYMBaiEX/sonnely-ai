@@ -102,7 +102,7 @@ function scheduleScopedReopen(name: string) {
 }
 
 function openScopedStream(name: string) {
-  if (scopedSources.has(name)) return;
+  if (scopedSources.has(name) || boundWallet === undefined) return;
   const next = new EventSource(`${base(name)}/stream`);
   scopedSources.set(name, next);
   next.onopen = () => {
