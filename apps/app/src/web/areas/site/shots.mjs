@@ -301,10 +301,11 @@ async function interactions() {
   {
     const { context, page, errors } = await openPage(browser, { width: 390, height: 844 }, "light");
     await settle(page, "/");
-    const before = await page.locator(".theme-switch").getAttribute("aria-checked");
-    await page.click(".theme-switch");
+    const switcher = page.locator(".site-header button[data-theme-pos]");
+    const before = await switcher.getAttribute("data-theme-pos");
+    await switcher.click();
     await page.waitForTimeout(180);
-    const after = await page.locator(".theme-switch").getAttribute("aria-checked");
+    const after = await switcher.getAttribute("data-theme-pos");
     results.themeToggle = { before, after, errors: [...errors], ...(await measure(page)) };
     await page.screenshot({ path: `${out}/${phase}/interaction-theme-toggle-mobile.png` });
     await context.close();

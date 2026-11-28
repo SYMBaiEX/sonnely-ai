@@ -7,7 +7,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { footerGroups, headerLinks } from "./content.ts";
 import "./appearance.ts";
 import { AmbientVisualizer, MotionSwitch } from "./motion.tsx";
@@ -143,9 +143,9 @@ export function ShellRules() {
   return <style>{shellRules}</style>;
 }
 
-export function Brand({ href = "/" }: { href?: string }) {
+export function Brand({ href = "/", onClick }: { href?: string; onClick?: () => void }) {
   return (
-    <a href={href} className="brand" aria-label="Sonnely">
+    <a href={href} className="brand" aria-label="Sonnely" onClick={onClick}>
       <span className="brand-icon" aria-hidden="true" />
       <span className="brand-wordmark" aria-hidden="true" />
     </a>
@@ -155,29 +155,49 @@ export function Brand({ href = "/" }: { href?: string }) {
 export function SiteHeader({ current }: { current: string }) {
   return (
     <header className="site-header" aria-label="Sonnely">
-      <div className="wrap site-nav">
-        <Brand />
-        <SiteNavigation current={current} />
-      </div>
+      <SiteNavigation current={current} />
     </header>
   );
 }
 
 function SiteNavigation({ current }: { current: string }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const consoleAction = (
-    <a href="/console/chat" className="button accent">
-      Open console <ArrowUpRight size={15} aria-hidden="true" />
-    </a>
-  );
+  const [openRoute, setOpenRoute] = useState<string | null>(null);
+  const mobileOpen = openRoute === current;
+  const menuControlRef = useRef<HTMLButtonElement>(null);
+  const closeMobile = () => setOpenRoute(null);
+  if (openRoute !== null && !mobileOpen) setOpenRoute(null);
 
-  const closeMobile = () => setMobileOpen(false);
+  function dismissMobile() {
+    closeMobile();
+    menuControlRef.current?.focus();
+  }
+
+  function handleEscape(event: KeyboardEvent<HTMLElement>) {
+    if (mobileOpen && event.key === "Escape") {
+      event.stopPropagation();
+      dismissMobile();
+    }
+  }
 
   return (
-    <>
+    <div className="wrap site-nav" onKeyDown={handleEscape}>
+      <Brand onClick={closeMobile} />
       {mobileOpen && (
-        <button type="button" className="nav-dismiss" aria-label="Close navigation" onClick={closeMobile} />
+        <button type="button" className="nav-dismiss" aria-label="Dismiss navigation" tabIndex={-1} onClick={dismissMobile} />
       )}
+      <button
+        ref={menuControlRef}
+        className="mobile-menu-control"
+        type="button"
+        aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+        aria-expanded={mobileOpen}
+        aria-controls="site-navigation"
+        onClick={() => setOpenRoute(mobileOpen ? null : current)}
+      >
+        <span className="mobile-menu-glyph" aria-hidden="true">
+          <span />
+        </span>
+      </button>
       <nav id="site-navigation" aria-label="Main navigation" data-mobile-open={mobileOpen || undefined}>
         {headerLinks.map(([href, label]) => (
           <a
@@ -189,27 +209,42 @@ function SiteNavigation({ current }: { current: string }) {
             {label}
           </a>
         ))}
-        <div className="nav-mobile-console" onClick={closeMobile}>
-          {consoleAction}
+        <div className="nav-mobile-console">
+          <ConsoleLink onClick={closeMobile} />
         </div>
       </nav>
       <div className="site-actions">
-        <ThemeSwitch />
-        {consoleAction}
-        <button
-          className="mobile-menu-control"
-          type="button"
-          aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-          aria-expanded={mobileOpen}
-          aria-controls="site-navigation"
-          onClick={() => setMobileOpen(!mobileOpen)}
-        >
-          <span className="mobile-menu-glyph" aria-hidden="true">
-            <span />
-          </span>
-        </button>
+        <HeaderThemeButton />
+        <ConsoleLink />
       </div>
-    </>
+    </div>
+  );
+}
+
+function HeaderThemeButton() {
+  const theme = useTheme();
+  const next = nextTheme[theme];
+  const Icon = theme === "dark" ? Moon : theme === "system" ? MonitorSmartphone : Sun;
+
+  return (
+    <button
+      type="button"
+      className="inline-flex h-11 w-[88px] items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 hover:border-ring"
+      aria-label={`Color theme: ${theme}. Activate for ${next}.`}
+      data-theme-pos={theme}
+      onClick={() => setTheme(next)}
+    >
+      <Icon size={16} aria-hidden="true" />
+      <span className="text-sm font-medium capitalize">{theme}</span>
+    </button>
+  );
+}
+
+function ConsoleLink({ onClick }: { onClick?: () => void }) {
+  return (
+    <a href="/console/chat" className="button accent" onClick={onClick}>
+      Open console <ArrowUpRight size={15} aria-hidden="true" />
+    </a>
   );
 }
 
@@ -220,17 +255,9 @@ export function SiteFooter() {
         <div className="footer-brand">
           <Brand />
           <p>Confidential AI inference on Solana.</p>
-          <a href="/verify" className="inline-flex min-h-11 items-center gap-1.5 font-medium">
-            Verify a receipt <ArrowUpRight size={13} aria-hidden="true" />
+          <a href="/docs/quickstart" className="inline-flex min-h-11 items-center gap-1.5 font-medium">
+            API quickstart <ArrowUpRight size={13} aria-hidden="true" />
           </a>
-          <div className="footer-social" aria-label="Sonnely elsewhere">
-            <a href="https://github.com/Sonnely-AI" aria-label="Sonnely on GitHub">
-              GitHub <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-            <a href="https://x.com/sonnelyai" aria-label="Sonnely on X">
-              X <ArrowUpRight size={13} aria-hidden="true" />
-            </a>
-          </div>
         </div>
         <nav className="footer-nav" aria-label="Footer">
           {footerGroups.map(({ title, links }) => (
@@ -247,9 +274,16 @@ export function SiteFooter() {
           ))}
         </nav>
         <div className="footer-meta">
-          <a href="/docs/quickstart">API quickstart <ArrowUpRight size={13} aria-hidden="true" /></a>
-          <MotionSwitch icon />
           <p>© Sonnely</p>
+          <div className="footer-social">
+            <a href="https://github.com/Sonnely-AI" aria-label="Sonnely on GitHub">
+              GitHub <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+            <a href="https://x.com/sonnelyai" aria-label="Sonnely on X">
+              X <ArrowUpRight size={13} aria-hidden="true" />
+            </a>
+            <MotionSwitch icon />
+          </div>
         </div>
       </div>
     </footer>
