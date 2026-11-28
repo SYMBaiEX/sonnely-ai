@@ -40,7 +40,7 @@ export function AdminOperators({ join }: { join: AdminJoin }) {
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
       <Panel title="Operator roster">
         {roster.length === 0 ? <Empty title="No operators listed" /> : (
           <TableFrame>
@@ -55,12 +55,12 @@ export function AdminOperators({ join }: { join: AdminJoin }) {
                     <TableCell label="Role"><StatusMark tone={operator.role === "Admin" ? "info" : "muted"}>{operator.role}</StatusMark></TableCell>
                     <TableCell label="Open tickets">{tickets}</TableCell>
                     <TableCell label="Open follow-ups">{tasks}</TableCell>
-                    <TableCell label="Actions">
-                      <span className="flex flex-wrap gap-2">
+                    <TableCell label="Actions" wide>
+                      <span className="flex w-full flex-wrap gap-2">
                         {roles.filter((choice) => choice.value !== operator.role).map((choice) => (
-                          <Button key={choice.value} type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void run(async () => postMachine("admin", { type: "grant", wallet: operator.wallet, role: choice.value, at: Date.now() }))}>{choice.label}</Button>
+                          <Button key={choice.value} type="button" size="sm" variant="ghost" className="px-2" disabled={busy} onClick={() => void run(async () => postMachine("admin", { type: "grant", wallet: operator.wallet, role: choice.value, at: Date.now() }))}>{choice.label}</Button>
                         ))}
-                        <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => void run(async () => postMachine("admin", { type: "revoke", wallet: operator.wallet, at: Date.now() }))}>Revoke</Button>
+                        <Button type="button" size="sm" variant="destructive" className="px-2" disabled={busy} onClick={() => void run(async () => postMachine("admin", { type: "revoke", wallet: operator.wallet, at: Date.now() }))}>Revoke</Button>
                       </span>
                     </TableCell>
                   </TableRow>
