@@ -1,79 +1,74 @@
-/* spec/app/models.md, "Story: Filter the catalog" — the pricing page's scoped
-   layout in the terminal register shared with the home page and docs. */
+/* spec/app/models.md, "Story: Filter the catalog" */
 .site .pricing-page {
-  --pricing-section-gap: clamp(64px, 8vw, 112px);
-
-  padding-block: clamp(30px, 4.4vw, 64px) clamp(72px, 8.5vw, 118px);
+  padding-block: clamp(44px, 8vw, 112px) clamp(72px, 8.5vw, 118px);
 }
 
 .site .pricing-page .section {
   padding: 0;
-  margin-top: var(--pricing-section-gap);
+  margin-top: clamp(62px, 8vw, 112px);
 }
 
 .site .pricing-page .section-head {
   flex-wrap: wrap;
   gap: 12px 30px;
-  margin-bottom: clamp(24px, 3.4vw, 44px);
+  margin-bottom: clamp(20px, 2.5vw, 34px);
 }
 
-.site .pricing-page .section-head h2,
-.site .pricing-page .home-section-intro h2 {
-  font-size: var(--home-title);
-  font-weight: 660;
+.site .pricing-page h2 {
+  font-size: clamp(32px, 4vw, 56px);
+  font-weight: 640;
   line-height: 1.04;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.04em;
   text-wrap: balance;
 }
 
-.site .pricing-page .section-head > .text-link {
-  min-height: 36px;
-  align-self: end;
-  color: var(--accent);
-}
-
-/* ---- hero: display copy beside the account summary data panel ---- */
-.site .pricing-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 390px);
-  align-items: end;
-  gap: 26px clamp(24px, 4.5vw, 70px);
-}
-
-.site .pricing-hero-copy {
-  display: grid;
-  justify-items: start;
-  min-width: 0;
-}
-
-.site .pricing-hero .eyebrow {
-  margin-bottom: 14px;
-  color: var(--accent);
-}
-
-.site .pricing-hero h1 {
-  max-width: 12ch;
-  font-size: clamp(46px, 6.2vw, 88px);
-  font-weight: 660;
-  line-height: 0.96;
-  letter-spacing: -0.06em;
-  text-wrap: balance;
-}
-
-.site .pricing-hero h1 span {
-  color: var(--accent);
-}
-
-.site .pricing-hero-description {
-  max-width: 44ch;
-  margin-top: 16px;
+.site :where(.pricing-page) .section-head p {
+  max-width: 62ch;
+  margin: 10px 0 0;
   color: var(--muted);
-  font-size: clamp(15px, 1.35vw, 18px);
   line-height: 1.55;
 }
 
+.site .pricing-page .text-link {
+  min-height: 44px;
+  color: var(--accent);
+}
+
+.site .pricing-page .section-head > .text-link {
+  align-self: end;
+}
+
+.site .pricing-hero {
+  text-align: center;
+}
+
+.site .pricing-hero h1 {
+  margin: 0 auto;
+  font-size: clamp(56px, 7.2vw, 96px);
+  font-weight: 620;
+  line-height: 0.99;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.site .pricing-hero h1 em {
+  font-family: var(--serif);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.site .pricing-hero-description {
+  max-width: 47ch;
+  margin: 20px auto 0;
+  color: var(--muted);
+  font-size: clamp(16px, 1.5vw, 20px);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
 .site .pricing-hero .actions {
-  margin-top: 22px;
+  justify-content: center;
+  margin-top: 24px;
 }
 
 .site .pricing-hero .button {
@@ -81,97 +76,81 @@
 }
 
 .site .pricing-hero-facts {
-  align-self: end;
-}
-
-/* the workspace preview splits .preview-body into two columns for its
-   number-plus-facts composition; the summary here is one column of facts */
-.site .pricing-hero-facts .preview-body {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-/* ---- terms tiles reuse the gateway tile; without a sample row the link
-   settles at the foot of the card ---- */
-.site .pricing-terms-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--home-collection-gap);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: clamp(38px, 6vw, 78px) 0 0;
+  border-block: 1px solid var(--home-divider);
+  background: var(--home-panel);
+  text-align: start;
 }
 
-.site .pricing-terms-grid .gateway-tile {
-  grid-template-rows: auto 1fr;
+.site .pricing-hero-facts > div {
+  padding: clamp(14px, 2vw, 24px) clamp(14px, 3vw, 36px);
 }
 
-.site .pricing-terms-grid .gateway-tile .text-link {
-  align-self: end;
+.site .pricing-hero-facts > div + div {
+  border-inline-start: 1px solid var(--home-divider);
 }
 
-/* ---- estimate: one terminal window, inputs beside the charge readout ---- */
-.site .pricing-estimate-note {
-  margin-inline-start: auto;
+.site .pricing-hero-facts dt {
+  margin-bottom: 6px;
   color: var(--muted);
+  font-size: 0.8125rem;
 }
 
-.site .pricing-estimate-grid {
+.site .pricing-hero-facts dd {
+  margin: 0;
+  font: 550 clamp(13px, 1.4vw, 17px) var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.site .pricing-estimate {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(290px, 0.95fr);
-  gap: clamp(18px, 2.6vw, 34px);
-  padding: clamp(16px, 2.2vw, 26px) var(--home-inset);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--home-divider);
+  border-radius: 14px;
+  background: var(--home-panel);
+}
+
+.site .pricing-estimate-inputs,
+.site .pricing-invoice {
+  padding: clamp(18px, 3.3vw, 44px);
 }
 
 .site .pricing-estimate-inputs {
   display: grid;
-  gap: 15px;
-  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 14px;
+  align-content: center;
 }
 
 .site .pricing-estimate-inputs label {
   display: grid;
-  gap: 7px;
+  min-width: 0;
+  gap: 8px;
 }
 
-.site .pricing-estimate-inputs label > span {
-  color: var(--muted);
-  font: 550 11px var(--mono);
-  letter-spacing: 0.05em;
+.site .pricing-estimate-inputs label:first-child {
+  grid-column: 1 / -1;
+}
+
+.site .pricing-estimate-inputs label > span,
+.site .pricing-invoice figcaption {
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .site .pricing-estimate-inputs :is(input, select) {
-  width: 100%;
-  min-height: 42px;
-  padding-inline: 12px;
-  border: 1px solid var(--home-divider);
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--surface) 62%, var(--home-panel));
+  min-width: 0;
+  min-height: 46px;
   color: var(--ink);
-  font-size: 14px;
-  box-shadow: inset 0 1px 0 var(--rim);
+  font-size: 1rem;
 }
 
-.site .pricing-estimate-inputs input[type="number"] {
+.site .pricing-estimate-inputs input {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-}
-
-.site .pricing-estimate-inputs select {
-  appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position:
-      calc(100% - 17px) 55%,
-      calc(100% - 12px) 55%;
-  background-size: 5px 5px;
-  background-repeat: no-repeat;
-  padding-inline-end: 34px;
-}
-
-.site .pricing-estimate-inputs :is(input, select):focus-visible {
-  outline: none;
-  border-color: var(--field-focus-edge);
-  box-shadow: 0 0 0 3px var(--field-focus-glow);
 }
 
 .site .pricing-estimate-inputs input[aria-invalid="true"] {
@@ -179,56 +158,147 @@
 }
 
 .site .pricing-invoice {
-  align-self: start;
+  min-width: 0;
+  margin: 0;
+  border-inline-start: 1px solid var(--home-divider);
+  background: color-mix(in oklch, var(--accent) 7%, var(--home-panel));
 }
 
 .site .pricing-invoice output {
-  font: inherit;
+  display: block;
+  margin-top: 8px;
+  font: 550 clamp(25px, 4vw, 48px) / 1.12 var(--mono);
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
 }
 
-.site .pricing-invoice-note {
-  margin: 0;
+.site .pricing-invoice p {
+  margin: 8px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.875rem;
   line-height: 1.5;
 }
 
-/* ---- rates: the catalog list already carries the terminal register ---- */
-.site .pricing-rates-copy {
-  max-width: 62ch;
-  margin-top: 10px;
+.site .pricing-invoice dl {
+  margin: 20px 0 0;
+}
+
+.site .pricing-invoice dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-block: 8px;
+  border-top: 1px solid var(--home-divider);
+  font-size: 0.8125rem;
+}
+
+.site .pricing-invoice dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.site .pricing-rates .catalog-list-grid {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--home-divider);
+  border-radius: 14px;
+  background: var(--home-panel);
+}
+
+.site .pricing-rates .catalog-model {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.site .pricing-rates .catalog-model + .catalog-model {
+  border-top: 1px solid var(--home-divider);
+}
+
+.site .pricing-rates .catalog-model .term-chrome {
+  border-bottom: 0;
+  background: transparent;
+}
+
+.site .pricing-rates .catalog-model-metrics {
+  border: 0;
+  background: transparent;
+}
+
+.site .pricing-rates .catalog-model-routes > summary,
+.site .pricing-rates .catalog-pages button {
+  min-height: 44px;
+}
+
+.site .pricing-terms-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 4vw, 56px);
+  margin: clamp(24px, 3.5vw, 44px) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site .pricing-terms-grid li {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  justify-items: start;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--home-divider);
+}
+
+.site .pricing-terms-grid li > svg {
+  color: var(--accent);
+}
+
+.site .pricing-terms-grid h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.site .pricing-terms-grid p {
+  margin: 0;
   color: var(--muted);
-  font-size: 0.9375rem;
   line-height: 1.55;
 }
 
-/* ---- questions reuse the home faq composition ---- */
-.site .pricing-faq {
-  margin-bottom: 0;
+.site .pricing-faq .faq details {
+  border: 0;
+  border-top: 1px solid var(--home-divider);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-@media (width <= 900px) {
+.site .pricing-faq .faq details:last-child {
+  border-bottom: 1px solid var(--home-divider);
+}
+
+@media (width <= 720px) {
+  .site .pricing-hero-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site .pricing-hero-facts > div:nth-child(odd) {
+    border-inline-start: 0;
+  }
+
+  .site .pricing-hero-facts > div:nth-child(n + 3) {
+    border-top: 1px solid var(--home-divider);
+  }
+
+  .site .pricing-estimate,
   .site .pricing-terms-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .site .pricing-estimate-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (width <= 780px) {
-  .site .pricing-hero {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    gap: 24px;
-  }
-
-  .site .pricing-hero h1 {
-    font-size: clamp(40px, 11.5vw, 64px);
-  }
-
-  .site .pricing-hero-facts {
-    width: 100%;
+  .site .pricing-invoice {
+    border-top: 1px solid var(--home-divider);
+    border-inline-start: 0;
   }
 }
