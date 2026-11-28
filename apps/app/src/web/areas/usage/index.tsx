@@ -320,8 +320,8 @@ function UsageConsole() {
                 label: "Request", header: true, value: (row) => (
                   <span className="grid gap-1 whitespace-normal">
                     {usageModelName(row.model)}
-                    <span className="flex flex-wrap items-center gap-2 text-meta font-regular text-muted-foreground">{date(row.time)} · {providerNames[providerIdsByMachine[row.provider]]} · <CopyButton value={row.id} label="Copy request reference" /></span>
-                    <a className="inline-flex items-center gap-1 text-ui text-primary hover:underline" href={"/console/logs?request=" + encodeURIComponent(row.id)}>View request details</a>
+                    <span className="text-meta font-regular text-muted-foreground">{date(row.time)} · {providerNames[providerIdsByMachine[row.provider]]}</span>
+                    <span className="flex flex-wrap items-center gap-2"><CopyButton value={row.id} label="Copy request reference" /><a className="inline-flex items-center gap-1 text-ui text-primary hover:underline" href={"/console/logs?request=" + encodeURIComponent(row.id)}>View request details</a></span>
                   </span>
                 ),
               },

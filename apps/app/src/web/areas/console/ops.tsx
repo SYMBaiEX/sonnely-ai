@@ -54,7 +54,7 @@ export function DataTable<Row>({
           <thead>
             <tr>
               {columns.map((column) => (
-                <th scope="col" key={column.label} data-ops-cell className="border-b border-border px-3 py-2.5 whitespace-nowrap text-micro font-medium uppercase tracking-micro text-muted-foreground">
+                <th scope="col" key={column.label} data-ops-cell className="border-b border-border px-3 py-2.5 text-left whitespace-nowrap text-micro font-medium uppercase tracking-micro text-muted-foreground">
                   {column.label}
                 </th>
               ))}
@@ -66,7 +66,7 @@ export function DataTable<Row>({
                 {columns.map((column) => {
                   const content = column.value(row);
                   const classes = cn(
-                    "border-b border-border px-3 py-2.5 align-middle whitespace-nowrap",
+                    "border-b border-border px-3 py-2.5 text-left align-middle whitespace-nowrap",
                     column.header && "font-medium",
                     column.className,
                   );
