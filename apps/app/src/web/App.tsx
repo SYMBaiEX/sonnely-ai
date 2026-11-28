@@ -62,6 +62,14 @@ export function App({ runtime, path }: AppProps) {
 
   useEffect(() => {
     const onPop = () => {
+      if (state && pathOf(state.page) === pathOf(pageOf(location.pathname))) {
+        if (location.hash) {
+          scrollToHash(location.hash);
+        } else {
+          scrollTo(0, 0);
+        }
+        return;
+      }
       if (location.hash) {
         pendingScrollHash = location.hash;
       } else {
@@ -71,7 +79,7 @@ export function App({ runtime, path }: AppProps) {
     };
     addEventListener("popstate", onPop);
     return () => removeEventListener("popstate", onPop);
-  }, [runtime]);
+  }, [runtime, state]);
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
