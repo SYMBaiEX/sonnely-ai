@@ -5,7 +5,7 @@ import { cn, focusRing } from "../lib/cn.ts";
 import { Spinner } from "./Spinner.tsx";
 
 const buttonVariants = cva(
-  [focusRing, "inline-flex items-center justify-center gap-2 rounded-md text-ui font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:bg-secondary disabled:text-muted-foreground aria-disabled:pointer-events-none aria-disabled:bg-secondary aria-disabled:text-muted-foreground"],
+  [focusRing, "inline-flex items-center justify-center gap-2 rounded-md text-ui font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:bg-secondary disabled:text-muted-foreground! aria-disabled:pointer-events-none aria-disabled:bg-secondary aria-disabled:text-muted-foreground!"],
   {
     variants: {
       variant: {
