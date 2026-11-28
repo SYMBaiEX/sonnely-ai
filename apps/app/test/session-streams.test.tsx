@@ -43,7 +43,7 @@ async function settle() {
   });
 }
 
-async function renderProbe() {
+async function renderProbe(machine: "teams" | "admin-referrals" = "teams") {
   vi.resetModules();
   FakeEventSource.instances = [];
   const remote = await import("../src/web/remote.ts");
@@ -52,7 +52,7 @@ async function renderProbe() {
   let teams: Remote<{ teams?: unknown[] }> | undefined;
   function Probe() {
     session = sessionModule.useSession();
-    teams = remote.useRemote("teams");
+    teams = remote.useRemote(machine);
     return null;
   }
   const el = document.createElement("div");
@@ -78,8 +78,8 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
     document.body.innerHTML = "";
   });
 
-  function stubTransport() {
-    sessionState = signedIn(walletA);
+  function stubTransport(initial: WorkspaceSession = signedIn(walletA)) {
+    sessionState = initial;
     vi.stubGlobal("EventSource", FakeEventSource);
     vi.stubGlobal("fetch", (input: unknown, init?: RequestInit) => {
       const url = String(input);
@@ -92,6 +92,33 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
       return Promise.resolve(new Response("not found", { status: 404 }));
     });
   }
+
+  // spec/app/session.md, "Only an active session can sign out"
+  it("waits for a session wallet before opening a scoped machine stream", async () => {
+    stubTransport({ tag: "SignedOut" });
+    const probe = await renderProbe("admin-referrals");
+    const scopedUrl = "/api/machines/admin-referrals/stream";
+    expect(machineSources(scopedUrl).length).toBe(0);
+
+    sessionState = signedIn(walletA);
+    await act(async () => {
+      await probe.session().refresh();
+    });
+    await settle();
+
+    const opened = machineSources(scopedUrl);
+    expect(opened.length).toBe(1);
+
+    await act(async () => {
+      await probe.session().send({ type: "signOut" });
+    });
+    await settle();
+
+    expect({
+      closed: opened[0]?.closed,
+      openStreams: machineSources(scopedUrl).filter((instance) => !instance.closed).length,
+    }).toEqual({ closed: true, openStreams: 0 });
+  });
 
   // spec/app/session.md, "Only an active session can sign out"
   it("closes every machine stream and drops machine state on sign-out", async () => {
