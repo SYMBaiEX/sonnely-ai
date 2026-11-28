@@ -12,7 +12,10 @@ it('makes the search result clickable across its width (spec/app/docs/index.md, 
   const root = createRoot(container);
   try {
     root.render(<DocsPage slug="index" />);
-    await page.getByRole("searchbox", { name: "Search documentation" }).fill("Teams and projects");
+    const search = page.getByRole("searchbox", { name: "Search documentation" });
+    await search.fill("nonexistent-guide-123");
+    await expect.element(page.getByRole("status")).toMatchTextContent(/Try a guide title or a shorter term\./);
+    await search.fill("Teams and projects");
     const result = page.getByRole("option").first();
     await expect.element(result).toHaveAttribute("href", "/docs/teams");
     const link = result.element();
