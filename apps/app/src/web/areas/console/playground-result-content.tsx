@@ -1,6 +1,6 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes -- playground migration preserves the original form markup, class names and screen structure */
 import { Download } from "lucide-react";
 import { z } from "zod";
+import { Button } from "@repo/ui";
 import { HighlightedCode, MarkdownContent } from "../../syntax.tsx";
 import type { Workload } from "./playground-inference.tsx";
 
@@ -25,30 +25,34 @@ export function PlaygroundResultContent({
 }) {
   if (imageUrl)
     return (
-      <figure className="playground-artifact">
+      <figure data-playground-artifact>
         <img src={imageUrl} alt="Generated output" />
         <figcaption>
           <span>PNG preview</span>
-          <a className="button quiet small" download="sonnely-image.png" href={imageUrl}>
-            <Download size={16} aria-hidden="true" /> Download image
-          </a>
+          <Button asChild variant="outline" size="sm">
+            <a download="sonnely-image.png" href={imageUrl}>
+              <Download size={16} aria-hidden="true" /> Download image
+            </a>
+          </Button>
         </figcaption>
       </figure>
     );
 
   if (audioUrl)
     return (
-      <div className="playground-audio-output">
+      <div data-playground-audio-output>
         <audio controls src={audioUrl} aria-label="Synthesized speech" />
-        <a className="button quiet small" download="sonnely-speech.wav" href={audioUrl}>
-          <Download size={16} aria-hidden="true" /> Download WAV
-        </a>
+        <Button asChild variant="outline" size="sm">
+          <a download="sonnely-speech.wav" href={audioUrl}>
+            <Download size={16} aria-hidden="true" /> Download WAV
+          </a>
+        </Button>
       </div>
     );
 
   if (endpoint === "responses" || endpoint === "convert/file")
     return (
-      <div className="playground-markdown">
+      <div data-playground-markdown>
         <MarkdownContent mode="static" disallowedElements={["img", "video", "audio", "source", "iframe"]} controls={false}>
           {text ?? ""}
         </MarkdownContent>
@@ -62,7 +66,7 @@ export function PlaygroundResultContent({
     return (
       <>
         {ranks?.success && (
-          <ol className="playground-result-list" aria-label="Ranked documents">
+          <ol data-playground-result-list aria-label="Ranked documents">
             {ranks.data.map(({ index, relevance_score }) => (
               <li key={index}>
                 <span>{documents?.[index] ?? `Document ${index + 1}`}</span>
@@ -72,7 +76,7 @@ export function PlaygroundResultContent({
           </ol>
         )}
         {embeddings?.success && (
-          <ul className="playground-result-list" aria-label="Embedding vectors">
+          <ul data-playground-result-list aria-label="Embedding vectors">
             {embeddings.data.map(({ index, embedding }) => (
               <li key={index}>
                 <span>Input {index + 1}</span>
@@ -82,7 +86,7 @@ export function PlaygroundResultContent({
           </ul>
         )}
         {answers?.success && (
-          <dl className="playground-result-list">
+          <dl data-playground-result-list>
             {Object.entries(answers.data).map(([key, value]) => (
               <div key={key}>
                 <dt>{key === "decision" ? "Decision score" : key}</dt>
@@ -92,7 +96,7 @@ export function PlaygroundResultContent({
           </dl>
         )}
         {text && (
-          <details className="playground-raw-result">
+          <details data-playground-raw-result>
             <summary>View raw JSON</summary>
             <pre tabIndex={0} aria-label="Raw response">
               <HighlightedCode source={text} language="json" />
@@ -103,5 +107,5 @@ export function PlaygroundResultContent({
     );
   }
 
-  return text ? <div className="playground-plain-result">{text}</div> : null;
+  return text ? <div data-playground-plain-result>{text}</div> : null;
 }

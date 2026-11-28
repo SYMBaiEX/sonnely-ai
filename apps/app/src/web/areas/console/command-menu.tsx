@@ -1,10 +1,9 @@
 // spec/app/nav.md, "Story: Move around"
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Activity,
   ArrowRight,
   BookOpen,
-  Check,
   CreditCard,
   History,
   KeyRound,
@@ -12,13 +11,29 @@ import {
   MessageSquare,
   Search,
   SunMoon,
-  X,
   type LucideIcon,
 } from "lucide-react";
+import { Button, Dialog, DialogContent, DialogTitle, Input } from "@repo/ui";
 
 const recentKey = "sonnely.palette.recent";
 type Recent = { title: string; path: string };
-type CommandAction = { title: string; Icon: LucideIcon; done?: boolean; run: () => void };
+type CommandAction = { title: string; Icon: LucideIcon; run: () => void };
+
+function isRecent(item: unknown): item is Recent {
+  if (typeof item !== "object" || item === null) return false;
+  const candidate = item as Record<"title" | "path", unknown>;
+  return typeof candidate.title === "string" && typeof candidate.path === "string";
+}
+
+function readRecents(): Recent[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(recentKey) ?? "[]");
+    if (!Array.isArray(saved)) return [];
+    return saved.filter(isRecent).slice(0, 5);
+  } catch {
+    return [];
+  }
+}
 
 export function CommandMenu({
   open,
@@ -33,48 +48,37 @@ export function CommandMenu({
   onToggleTheme?: () => void;
   inviteUrl?: string;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const input = useRef<HTMLInputElement>(null);
-  const results = useRef<HTMLDivElement>(null);
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [recents, setRecents] = useState<Recent[]>([]);
+  const [recents, setRecents] = useState<Recent[]>(readRecents);
   const destinations = [...pages, { title: "Documentation", path: "/docs", Icon: BookOpen }];
   const trimmed = query.trim().toLowerCase();
   const match = (title: string) => title.toLowerCase().includes(trimmed);
   const pageItems = pages.filter(({ title }) => match(title));
   const recentItems = trimmed ? [] : recents;
-  const titleFor = (path: string) =>
-    destinations.find((item) => item.path === path)?.title ?? path;
+  const titleFor = (path: string) => destinations.find((item) => item.path === path)?.title ?? path;
 
   function go(path: string) {
     try {
-      const next = [
-        { title: titleFor(path), path },
-        ...recents.filter((item) => item.path !== path),
-      ].slice(0, 5);
+      const next = [{ title: titleFor(path), path }, ...recents.filter((item) => item.path !== path)].slice(0, 5);
       setRecents(next);
       localStorage.setItem(recentKey, JSON.stringify(next));
     } catch {
-      /* Navigation still works when browser storage is unavailable. */
+      return;
+    } finally {
+      onClose();
+      window.location.assign(path);
     }
-    onClose();
-    window.location.assign(path);
   }
 
   async function copyInvite() {
     if (!inviteUrl) return;
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setCopied(true);
-      clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => {
-        setCopied(false);
-        onClose();
-      }, 900);
+      onClose();
     } catch {
-      setCopied(false);
+      return;
     }
   }
 
@@ -98,127 +102,87 @@ export function CommandMenu({
           },
         ]
       : []),
-    ...(inviteUrl ? [{ title: "Copy invite link", Icon: Link2, done: copied, run: copyInvite }] : []),
+    ...(inviteUrl ? [{ title: "Copy invite link", Icon: Link2, run: copyInvite }] : []),
   ];
   const actionItems = actions.filter(({ title }) => match(title));
-  const choices = [
-    ...recentItems.map((item) => () => go(item.path)),
-    ...pageItems.map((item) => () => go(item.path)),
-    ...actionItems.map((item) => item.run),
-  ];
+  const choices = [...recentItems.map((item) => () => go(item.path)), ...pageItems.map((item) => () => go(item.path)), ...actionItems.map((item) => item.run)];
 
-  useEffect(() => () => clearTimeout(copyTimer.current), []);
-
-  useEffect(() => {
-    if (!open) return;
-    try {
-      const saved: unknown = JSON.parse(localStorage.getItem(recentKey) ?? "[]");
-      if (Array.isArray(saved))
-        setRecents(
-          (saved as Recent[])
-            .filter(
-              (item) => item && typeof item.title === "string" && typeof item.path === "string",
-            )
-            .slice(0, 5),
-        );
-    } catch {
-      /* Recent pages are optional when browser storage is unavailable. */
-    }
-  }, [open]);
-
-  useEffect(() => {
-    const element = dialog.current;
-    if (open && element && !element.open) {
-      element.showModal();
-      input.current?.focus();
-    }
-    if (!open && element?.open) element.close();
-  }, [open]);
-
-  const group = (
-    label: string,
-    items: { title: string; path?: string; Icon: LucideIcon; done?: boolean; run: () => void }[],
-  ) => (
-    <div className="command-group" role="group" aria-label={label} key={label}>
-      <p className="command-heading">{label}</p>
-      {items.map(({ title, path, Icon, done, run }) => (
-        <button type="button" className="command-result" key={path ?? title} onClick={run}>
-          {done ? <Check size={17} aria-hidden /> : <Icon size={17} aria-hidden />}
-          <span>{done ? "Copied" : title}</span>
-          <ArrowRight size={15} aria-hidden />
-        </button>
+  const group = (label: string, items: { title: string; path?: string; Icon: LucideIcon; run: () => void }[]) => (
+    <div className="border-t border-border pt-2 first:border-t-0 first:pt-0" role="group" aria-label={label} key={label}>
+      <p className="px-3 pt-1 pb-1.5 text-micro font-medium tracking-micro text-muted-foreground uppercase">{label}</p>
+      {items.map(({ title, path, Icon, run }) => (
+        <Button type="button" variant="ghost" key={path ?? title} onClick={run} className="h-11 w-full justify-start rounded-md px-3">
+          <Icon size={17} aria-hidden />
+          <span className="flex-1 text-left">{title}</span>
+          <ArrowRight size={15} aria-hidden className="text-muted-foreground" />
+        </Button>
       ))}
     </div>
   );
 
   return (
-    <dialog
-      ref={dialog}
-      className="panel command-dialog"
-      aria-label="Quick navigation"
-      onClose={() => {
-        setQuery("");
-        setCopied(false);
-        onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect();
-          if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom)
-            onClose();
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setQuery("");
+          onClose();
         }
       }}
-      onKeyDown={(event) => {
-        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-        const buttons = Array.from(results.current?.querySelectorAll("button") ?? []);
-        if (buttons.length === 0) return;
-        event.preventDefault();
-        const index = buttons.findIndex((button) => button === document.activeElement);
-        const next = event.key === "ArrowDown" ? index + 1 : index - 1;
-        if (next < 0 || next >= buttons.length) input.current?.focus();
-        else buttons[next]?.focus();
-      }}
     >
-      <div className="command-search">
-        <Search size={20} aria-hidden />
-        <input
-          ref={input}
-          type="search"
-          aria-label="Find a workspace page"
-          placeholder="Go to page…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") choices[0]?.();
-          }}
-        />
-        <button type="button" aria-label="Close" className="icon-button" onClick={onClose}>
-          <X size={17} />
-        </button>
-      </div>
-      <div ref={results} className="command-results">
-        {!!recentItems.length &&
-          group(
-            "Recent",
-            recentItems.map(({ title, path }) => ({
-              title,
-              path,
-              Icon: destinations.find((item) => item.path === path)?.Icon ?? History,
-              run: () => go(path),
-            })),
+      <DialogContent
+        className="max-w-lg gap-0 overflow-hidden p-2"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          inputRef.current?.focus();
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          const buttons = Array.from(resultsRef.current?.querySelectorAll("button") ?? []);
+          if (buttons.length === 0) return;
+          event.preventDefault();
+          const index = buttons.findIndex((button) => button === document.activeElement);
+          const next = event.key === "ArrowDown" ? index + 1 : index - 1;
+          if (next < 0 || next >= buttons.length) inputRef.current?.focus();
+          else buttons[next]?.focus();
+        }}
+      >
+        <DialogTitle className="sr-only">Quick navigation</DialogTitle>
+        <div className="flex items-center gap-3 border-b border-border px-3 pb-2 text-muted-foreground">
+          <Search size={20} aria-hidden />
+          <Input
+            ref={inputRef}
+            type="search"
+            aria-label="Find a workspace page"
+            placeholder="Go to page…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") choices[0]?.();
+            }}
+            className="border-0 bg-transparent px-0 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+          />
+        </div>
+        <div ref={resultsRef} className="max-h-96 overflow-y-auto pt-2">
+          {!!recentItems.length &&
+            group(
+              "Recent",
+              recentItems.map(({ title, path }) => ({
+                title,
+                path,
+                Icon: destinations.find((item) => item.path === path)?.Icon ?? History,
+                run: () => go(path),
+              })),
+            )}
+          {!!pageItems.length && group("Pages", pageItems.map(({ title, path, Icon }) => ({ title, path, Icon, run: () => go(path) })))}
+          {!!actionItems.length && group("Actions", actionItems)}
+          {!choices.length && (
+            <p className="px-3 py-4 text-meta text-muted-foreground" role="status">
+              No matching pages or actions.
+            </p>
           )}
-        {!!pageItems.length &&
-          group(
-            "Pages",
-            pageItems.map(({ title, path, Icon }) => ({ title, path, Icon, run: () => go(path) })),
-          )}
-        {!!actionItems.length && group("Actions", actionItems)}
-        {!choices.length && (
-          <p className="command-empty caption" role="status">
-            No matching pages or actions.
-          </p>
-        )}
-      </div>
-    </dialog>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

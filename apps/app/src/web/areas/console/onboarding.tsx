@@ -2,7 +2,8 @@
 import { Activity, ArrowLeft, ArrowRight, Check, KeyRound, MessageSquare, Wallet, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { Console } from "../../../../gen/app__console.ts";
-import { ThemeSwitch, type Theme } from "../site/chrome.tsx";
+import { Alert, Button, Dialog, DialogContent, DialogTitle, Input } from "@repo/ui";
+import { Brand, ThemeSwitch, type Theme } from "../site/chrome.tsx";
 import { TermsAcceptance } from "./terms-acceptance.tsx";
 import { WalletControl } from "./wallet.tsx";
 
@@ -92,30 +93,22 @@ export function Onboarding({
   }[step];
 
   return (
-    <dialog
-      ref={(element) => {
-        if (element && !element.open) element.showModal();
-      }}
-      className="onboarding-dialog"
-      aria-labelledby="onboarding-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) close();
-      }}
-    >
-      <div className="onboarding-shell">
-        <aside className="onboarding-scene" aria-hidden="true">
-          <div className="onboarding-brand">
-            <span className="brand-icon" />
-            <span className="brand-wordmark" />
+    <Dialog open onOpenChange={(open) => {
+      if (!open && !busy) close();
+    }}>
+      <DialogContent hideClose data-onboarding-dialog className="max-w-none gap-0 overflow-auto p-0">
+      <div data-onboarding-shell>
+        <aside data-onboarding-scene aria-hidden="true">
+          <div data-onboarding-brand>
+            <Brand href="/console/chat" />
           </div>
-          <div className="onboarding-stage">
-            <div className="onboarding-orbit">
-              <div className="onboarding-orbit-core">
+          <div data-onboarding-stage>
+            <div data-onboarding-orbit>
+              <div data-onboarding-orbit-core>
                 <ActiveIcon size={36} strokeWidth={1.4} />
               </div>
             </div>
-            <div className="onboarding-nodes">
+            <div data-onboarding-nodes>
               {tour.map(({ name, Icon }, index) => (
                 <div key={name} data-current={index === page}>
                   <Icon size={15} />
@@ -125,9 +118,9 @@ export function Onboarding({
             </div>
           </div>
         </aside>
-        <div className="onboarding-content">
-          <header className="onboarding-toolbar">
-            <ol aria-label="Setup progress" className="onboarding-progress">
+        <div data-onboarding-content>
+          <header data-onboarding-toolbar>
+            <ol aria-label="Setup progress" data-onboarding-progress>
               {["Connect", "Profile", "Get started"].map((label, index) => (
                 <li key={label} aria-current={index === progress ? "step" : undefined} data-done={index < progress}>
                   {index < progress && <Check size={12} aria-hidden />}
@@ -135,21 +128,17 @@ export function Onboarding({
                 </li>
               ))}
             </ol>
-            <div className="onboarding-toolbar-controls">
+            <div data-onboarding-toolbar-controls>
               <ThemeSwitch choose={(next) => void onChooseTheme(next)} />
-              <button className="onboarding-close" type="button" onClick={close} disabled={busy} aria-label="Close setup">
+              <Button data-onboarding-close variant="ghost" size="icon" type="button" onClick={close} disabled={busy} aria-label="Close setup">
                 <X size={19} />
-              </button>
+              </Button>
             </div>
           </header>
-          <div className="onboarding-step" key={step}>
-            <h2
-              id="onboarding-title"
-              tabIndex={-1}
-              ref={focusHeading}
-            >
+          <div data-onboarding-step key={step}>
+            <DialogTitle tabIndex={-1} ref={focusHeading}>
               {heading}
-            </h2>
+            </DialogTitle>
             {step === "wallet" && (
               <>
                 <p>A Solana wallet signs you in. You can try a sample before buying credits.</p>
@@ -163,15 +152,15 @@ export function Onboarding({
               </>
             )}
             {step === "profile" && (
-              <form className="onboarding-form" onSubmit={saveProfile}>
+              <form data-onboarding-form onSubmit={(event) => void saveProfile(event)}>
                 <p>Give your console a personal touch. You can change this anytime in Settings.</p>
                 <label>
-                  Display name <span className="caption">Optional</span>
-                  <input value={name} onChange={(event) => setName(event.target.value)} maxLength={60} autoComplete="nickname" placeholder="Your name" />
+                  Display name <span className="text-meta text-muted-foreground">Optional</span>
+                  <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={60} autoComplete="nickname" placeholder="Your name" />
                 </label>
-                <button className="button accent" disabled={busy}>
+                <Button disabled={busy}>
                   {busy ? "Saving…" : "Continue"} <ArrowRight size={16} aria-hidden />
-                </button>
+                </Button>
               </form>
             )}
             {step === "funding" && (
@@ -181,50 +170,51 @@ export function Onboarding({
                     ? "Choose a credit amount in Billing. You’ll review the asset, amount, and network before signing in your wallet."
                     : "Open the Playground to try a model, then create a budgeted key when you’re ready to build."}
                 </p>
-                <div className="onboarding-actions">
+                <div data-onboarding-actions>
                   {canFund && (
-                    <button className="button accent" type="button" disabled={busy} onClick={() => void finish("fund", "/console/billing#buy-credits")}>
+                    <Button type="button" disabled={busy} onClick={() => void finish("fund", "/console/billing#buy-credits")}>
                       <Wallet size={16} aria-hidden /> Add credits
-                    </button>
+                    </Button>
                   )}
-                  <button className={`button ${canFund ? "quiet" : "accent"}`} type="button" disabled={busy} onClick={() => setScreen("tour")}>
+                  <Button variant={canFund ? "outline" : "primary"} type="button" disabled={busy} onClick={() => setScreen("tour")}>
                     {canFund ? "Explore first" : "Take the tour"} <ArrowRight size={16} aria-hidden />
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
             {step === "tour" && (
               <>
-                <p key={page} className="onboarding-tour-note">
+                <p key={page} data-onboarding-tour-note>
                   {active.detail}
                 </p>
-                <div className="onboarding-tour-nav" aria-label="Tour stops">
+                <div data-onboarding-tour-nav aria-label="Tour stops">
                   {tour.map(({ name, Icon }, index) => (
-                    <button key={name} type="button" aria-pressed={index === page} onClick={() => setPage(index)}>
+                    <Button key={name} variant="ghost" type="button" aria-pressed={index === page} onClick={() => setPage(index)}>
                       <Icon size={16} aria-hidden /> {name}
-                    </button>
+                    </Button>
                   ))}
                 </div>
-                <div className="onboarding-actions">
-                  <button className="button accent" type="button" disabled={busy} onClick={() => void finish("later", active.href)}>
+                <div data-onboarding-actions>
+                  <Button type="button" disabled={busy} onClick={() => void finish("later", active.href)}>
                     Open {active.name} <ArrowRight size={16} aria-hidden />
-                  </button>
+                  </Button>
                   {canFund && (
-                    <button className="button quiet" type="button" onClick={() => setScreen("funding")}>
+                    <Button variant="outline" type="button" onClick={() => setScreen("funding")}>
                       <ArrowLeft size={16} aria-hidden /> Back
-                    </button>
+                    </Button>
                   )}
                 </div>
               </>
             )}
             {error && (
-              <p className="error" role="alert">
+              <Alert variant="destructive">
                 {error}
-              </p>
+              </Alert>
             )}
           </div>
         </div>
       </div>
-    </dialog>
+      </DialogContent>
+    </Dialog>
   );
 }

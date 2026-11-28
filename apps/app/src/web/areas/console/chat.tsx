@@ -1,4 +1,4 @@
-/* eslint-disable better-tailwindcss/no-unknown-classes, no-restricted-syntax, max-lines-per-function, react-hooks/refs, @eslint-react/no-use-context, @eslint-react/naming-convention-ref-name, @eslint-react/no-array-index-key -- playground migration preserves the original form markup, class names and screen structure */
+/* eslint-disable max-lines-per-function, react-hooks/refs, @eslint-react/no-use-context, @eslint-react/naming-convention-ref-name, @eslint-react/no-array-index-key -- the chat runner keeps machine state, streaming state and message rendering together */
 import { createPortal } from "react-dom";
 import { useCallback, useContext, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import {
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { enabled, initial as chatInitial, parseEvent, step, type Chat, type Thread } from "../../../../gen/app__console__chat.ts";
 import type { Console as ConsoleSettings } from "../../../../gen/app__console.ts";
+import { Alert, Button, Checkbox, cn, Textarea } from "@repo/ui";
 import { MarkdownContent } from "../../syntax.tsx";
 import { SearchField } from "../../search.tsx";
 import { useRemote, type Remote } from "../../remote.ts";
@@ -82,12 +83,12 @@ function useEphemeralChat(): Remote<Chat> {
     };
   }, []);
   const state = useSyncExternalStore(subscribe, () => ephemeralState, () => chatInitial);
-  const send = useCallback(async (input: unknown) => {
+  const send = useCallback((input: unknown) => {
     const event = parseEvent(input);
-    if (event == undefined || !enabled(ephemeralState, event)) return false;
+    if (event == undefined || !enabled(ephemeralState, event)) return Promise.resolve(false);
     ephemeralState = step(ephemeralState, event);
     for (const notify of ephemeralListeners) notify();
-    return true;
+    return Promise.resolve(true);
   }, []);
   return { state, send, error: undefined };
 }
@@ -391,10 +392,10 @@ function ChatPlayground() {
   }
 
   return (
-    <div ref={noteModelHandoff} className={"chat-layout" + (showHistory ? " show-sessions" : "")}>
+    <div ref={noteModelHandoff} data-chat-layout data-show-sessions={showHistory || undefined}>
       <aside
         id="playground-history"
-        className="sessions"
+        data-sessions
         aria-label="Conversation history"
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -404,11 +405,11 @@ function ChatPlayground() {
           }
         }}
       >
-        <div className="between">
+        <div className="flex items-center justify-between">
           <strong>Conversations</strong>
-          <button type="button" className="icon-button" aria-label="New chat" onClick={start} disabled={busy}>
+          <Button type="button" variant="ghost" size="icon" aria-label="New chat" onClick={start} disabled={busy}>
             <Plus size={18} />
-          </button>
+          </Button>
         </div>
         <SearchField
           aria-label="Search conversations"
@@ -422,10 +423,11 @@ function ChatPlayground() {
             .map((thread) => {
               const title = thread.messages[0]?.content || "Untitled chat";
               return (
-                <div className="thread-item" key={thread.id}>
-                  <button
+                <div data-thread-item key={thread.id}>
+                  <Button
                     type="button"
-                    className={thread.id === state?.active ? "selected" : ""}
+                    variant="ghost"
+                    className={cn("h-auto w-full justify-start px-2 py-1.5 text-left", thread.id === state?.active && "bg-accent")}
                     disabled={busy}
                     aria-label={title}
                     aria-current={thread.id === state?.active ? "true" : undefined}
@@ -440,43 +442,45 @@ function ChatPlayground() {
                     }}
                   >
                     <span>{title}</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="icon-button"
+                    variant="ghost" size="icon"
                     aria-label={"Delete " + title}
                     disabled={busy}
                     onClick={() => void chat.send({ type: "remove", id: thread.id })}
                   >
                     <Trash2 size={14} />
-                  </button>
+                  </Button>
                 </div>
               );
             })
         ) : (
-          <p className="caption">
+          <p className="text-meta text-muted-foreground">
             {historyOn
               ? "Your conversations appear here. History is kept server-side in this workspace."
               : "Your conversations appear here. With chat history off they last only for this browser session."}
           </p>
         )}
         {!activeSample && !!current?.messages.length && (
-          <div className="playground-history-actions">
-            <button className="button quiet small" type="button" onClick={downloadTranscript} disabled={busy}>
+          <div data-playground-history-actions>
+            <Button variant="outline" size="sm" type="button" onClick={downloadTranscript} disabled={busy}>
               <Download size={16} aria-hidden="true" /> Export
-            </button>
+            </Button>
             <PlaygroundCopyButton value={transcript(current, "txt")} label="Copy transcript" />
           </div>
         )}
-        <a className="text-link" href="/console/keys">
-          <KeyRound size={15} /> Set up API access
-        </a>
+        <Button asChild variant="ghost" size="sm" className="justify-start text-primary">
+          <a href="/console/keys">
+            <KeyRound size={15} /> Set up API access
+          </a>
+        </Button>
       </aside>
-      <section className="chat-main">
+      <section data-chat-main>
         {controls.chat &&
           controls.mount &&
           createPortal(
-            <div className="playground-chat-controls">
+            <div data-playground-chat-controls>
               <PlaygroundRoute
                 model={model}
                 provider={provider}
@@ -491,9 +495,9 @@ function ChatPlayground() {
                   setError("");
                 }}
               />
-              <div className="chat-tools">
-                <button
-                  className="button quiet small"
+              <div data-chat-tools>
+                <Button
+                  variant="outline" size="sm"
                   type="button"
                   onClick={() => setShowHistory(!showHistory)}
                   ref={historyButton}
@@ -502,29 +506,29 @@ function ChatPlayground() {
                   aria-controls="playground-history"
                 >
                   <History size={16} aria-hidden="true" /> <span>History</span>
-                </button>
-                <button className="button quiet small" type="button" aria-label="New chat" onClick={start} disabled={busy}>
+                </Button>
+                <Button variant="outline" size="sm" type="button" aria-label="New chat" onClick={start} disabled={busy}>
                   <Plus size={16} aria-hidden="true" /> <span>New chat</span>
-                </button>
+                </Button>
               </div>
             </div>,
             controls.mount,
           )}
         {!messages.length && (
-          <div className="playground-editor-title">
+          <div data-playground-editor-title>
             <h2>What are you working on?</h2>
           </div>
         )}
         {!!messages.length && (
-          <section className="messages" aria-label="Messages">
-            {activeSample && <p className="playground-sample-note">Sample transcript</p>}
+          <section data-messages aria-label="Messages">
+            {activeSample && <p data-playground-sample-note>Sample transcript</p>}
             {messages.map((message, index) => (
-              <article className={"message " + message.role.toLowerCase()} key={index}>
-                <div className="mono">
+              <article data-message data-message-role={message.role.toLowerCase()} key={index}>
+                <div className="font-mono">
                   {message.role === "User" ? "You" : activeSample ? "Sonnely sample" : nameOf(message.model || current?.model || model)}
                 </div>
                 {message.role === "Assistant" ? (
-                  <div className="playground-markdown">
+                  <div data-playground-markdown>
                     <MarkdownContent mode="static" disallowedElements={["img", "video", "audio", "source", "iframe"]} controls={false}>
                       {message.content}
                     </MarkdownContent>
@@ -534,34 +538,36 @@ function ChatPlayground() {
                 )}
                 {activeSample && message.role === "Assistant" && <PlaygroundCopyButton value={message.content} label="Copy response" />}
                 {!activeSample && (
-                  <div className="message-footer">
-                    <span className="message-stamp">
+                  <div data-message-footer>
+                    <span data-message-stamp>
                       {stoppedThread === current?.id && index === messages.length - 1 ? "Stopped · " : ""}
                       {providerNames[provider]}
                     </span>
-                    <span className="message-actions">
+                    <span data-message-actions>
                       {message.role === "Assistant" && !(busy && index === messages.length - 1) && (
                         <PlaygroundCopyButton value={message.content} label="Copy response" />
                       )}
                       {message.role === "Assistant" && lastReceipt && lastReceipt.thread === current?.id && index === messages.length - 1 && (
                         <>
-                          <button className="button quiet small" type="button" onClick={() => downloadReceipt(lastReceipt.envelope)}>
+                          <Button variant="outline" size="sm" type="button" onClick={() => downloadReceipt(lastReceipt.envelope)}>
                             <Download size={14} aria-hidden="true" /> Download receipt
-                          </button>
-                          <a className="button quiet small" href="/verify">
-                            Inspect receipt <ArrowUpRight size={13} aria-hidden="true" />
-                          </a>
+                          </Button>
+                          <Button asChild variant="outline" size="sm">
+                            <a href="/verify">
+                              Inspect receipt <ArrowUpRight size={13} aria-hidden="true" />
+                            </a>
+                          </Button>
                         </>
                       )}
                       {message.role === "User" && (
-                        <button type="button" className="button quiet small" disabled={busy} onClick={() => edit(index)}>
+                        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => edit(index)}>
                           <Pencil size={13} aria-hidden="true" /> Edit
-                        </button>
+                        </Button>
                       )}
                       {index === messages.length - 1 && ready && (
-                        <button type="button" className="button quiet small" disabled={busy} onClick={() => void retry()}>
+                        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void retry()}>
                           <RotateCcw size={13} aria-hidden="true" /> Retry
-                        </button>
+                        </Button>
                       )}
                     </span>
                   </div>
@@ -569,26 +575,26 @@ function ChatPlayground() {
               </article>
             ))}
             {busy && (
-              <p className="playground-stream-state" aria-hidden="true">
+              <p data-playground-stream-state aria-hidden="true">
                 <span /> {messages.at(-1)?.role === "Assistant" ? "Streaming response…" : "Waiting for model…"}
               </p>
             )}
           </section>
         )}
-        <div role="status" className="visually-hidden">
+        <div role="status" className="sr-only">
           {announcement}
         </div>
-        <div className="playground-entry">
+        <div data-playground-entry>
           {editIndex !== null && (
-            <p className="playground-editing" role="status">
+            <p data-playground-editing role="status">
               <span>Editing an earlier message. Sending replaces it and anything after it.</span>
-              <button type="button" className="playground-history-save" onClick={() => setEditIndex(null)}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setEditIndex(null)}>
                 Cancel
-              </button>
+              </Button>
             </p>
           )}
-          <form id="playground-message-form" className="composer" onSubmit={(event) => void sendMessage(event)}>
-            <textarea
+          <form id="playground-message-form" data-composer onSubmit={(event) => void sendMessage(event)}>
+            <Textarea
               ref={composerRef}
               rows={3}
               value={text}
@@ -613,10 +619,10 @@ function ChatPlayground() {
               }}
             />
           </form>
-          <div className="composer-controls">
+          <div data-composer-controls>
             {busy ? (
-              <button
-                className="button quiet playground-send"
+              <Button
+                variant="outline" data-playground-send
                 type="button"
                 onClick={() => {
                   composerRef.current?.focus();
@@ -626,10 +632,10 @@ function ChatPlayground() {
               >
                 <span>Stop</span>
                 <Square size={13} aria-hidden="true" />
-              </button>
+              </Button>
             ) : (
-              <button
-                className="button accent playground-send"
+              <Button
+                data-playground-send
                 type="submit"
                 form="playground-message-form"
                 aria-label="Send message"
@@ -637,16 +643,16 @@ function ChatPlayground() {
               >
                 <span>Send</span>
                 <ArrowUp size={17} aria-hidden="true" />
-              </button>
+              </Button>
             )}
           </div>
         </div>
         {error && (
-          <p role="alert" className="error">
+          <Alert variant="destructive">
             {error}
-          </p>
+          </Alert>
         )}
-        <p className="chat-note">
+        <p data-chat-note>
           <BadgeCheck size={15} />
           {!signedIn
             ? "Connect a wallet to run live inference."
@@ -655,40 +661,40 @@ function ChatPlayground() {
               : "Chat history is off: this conversation lives in this browser session only and is never written to the server."}
         </p>
         {ready && (
-          <label className="playground-receipt-opt-in">
-            <input
-              type="checkbox"
+          <label data-playground-receipt-opt-in className="flex items-center gap-2 text-ui text-foreground">
+            <Checkbox
               checked={includeReceipt}
               disabled={busy}
-              onChange={(event) => {
-                setIncludeReceipt(event.target.checked);
-                rememberSelection(provider, fallbacks, event.target.checked);
+              onCheckedChange={(checked) => {
+                const enabled = checked === true;
+                setIncludeReceipt(enabled);
+                rememberSelection(provider, fallbacks, enabled);
               }}
             />
             Include verification receipt
           </label>
         )}
         {!messages.length && ready && (
-          <div className="playground-workload-shortcuts" aria-label="Other inference tasks" role="group">
-            <button type="button" className="button quiet" onClick={() => controls.select("audio/transcriptions")}>
+          <div data-playground-workload-shortcuts aria-label="Other inference tasks" role="group">
+            <Button type="button" variant="outline" onClick={() => controls.select("audio/transcriptions")}>
               <AudioLines size={17} aria-hidden="true" /> Transcribe audio
-            </button>
-            <button type="button" className="button quiet" onClick={() => controls.select("convert/file")}>
+            </Button>
+            <Button type="button" variant="outline" onClick={() => controls.select("convert/file")}>
               <FileText size={17} aria-hidden="true" /> Convert a PDF
-            </button>
-            <button type="button" className="button quiet" onClick={() => controls.select("redact")}>
+            </Button>
+            <Button type="button" variant="outline" onClick={() => controls.select("redact")}>
               <ShieldCheck size={17} aria-hidden="true" /> Redact text
-            </button>
+            </Button>
           </div>
         )}
         {!messages.length && !ready && (
-          <section className="playground-starters" aria-labelledby="playground-starters-title">
+          <section data-playground-starters aria-labelledby="playground-starters-title">
             <h2 id="playground-starters-title">Try a sample</h2>
-            <div className="prompts">
+            <div data-prompts>
               {samples.map(({ prompt, title, icon: Icon }, index) => (
-                <button
+                <Button
                   type="button"
-                  className="button prompt"
+                  variant="outline" data-prompt
                   key={prompt}
                   aria-description={prompt}
                   onClick={() => {
@@ -697,10 +703,10 @@ function ChatPlayground() {
                     setEditIndex(null);
                   }}
                 >
-                  <Icon size={17} className="prompt-icon" aria-hidden="true" />
+                  <Icon size={17} data-prompt-icon aria-hidden="true" />
                   <strong>{title}</strong>
                   <ArrowUpRight size={14} aria-hidden="true" />
-                </button>
+                </Button>
               ))}
             </div>
           </section>
@@ -713,7 +719,7 @@ function ChatPlayground() {
 export function ChatSection() {
   const session = useWorkspaceSession();
   return (
-    <div className="console-playground">
+    <div data-console-playground>
       <Playground signedIn={session.state?.tag === "SignedIn"}>
         <ChatPlayground />
       </Playground>

@@ -125,8 +125,12 @@ for (const viewport of [desktop, mobile]) {
       pick(name) ? capture(browser, name, path, actions, viewport, colorScheme) : Promise.resolve();
     await run("chat", "/console/chat");
     await run("chat-model-picker", "/console/chat", async (page) => {
-      await page.locator(".playground-route-trigger").first().click();
+      await page.locator('button[aria-description="Choose model and provider."]').first().click();
       await page.waitForTimeout(400);
+    });
+    await run("chat-history", "/console/chat", async (page) => {
+      await page.getByRole("button", { name: "History" }).first().click();
+      await page.waitForTimeout(300);
     });
     await run("models", "/console/models");
     await run("support", "/console/support");
