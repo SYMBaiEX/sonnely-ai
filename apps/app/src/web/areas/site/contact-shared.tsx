@@ -295,7 +295,7 @@ export function SupportFeedback({ request }: { request: SupportRequestController
       <div role="alert" className={styles.error}>
         <p>{request.submission.message}</p>
         <div className={styles["error-actions"]}>
-          <button type="button" className={styles["error-action"]} onClick={() => void request.submit()}>Try again</button>
+          <Button type="button" variant="outline" size="sm" className={styles["error-action"]} onClick={() => void request.submit()}>Try again</Button>
           <a className={styles["error-action"]} href={mailtoFor(request.destination)}>Email instead</a>
         </div>
       </div>

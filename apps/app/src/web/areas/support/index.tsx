@@ -1,7 +1,7 @@
 // spec/app/support.md, "Story: Open a request"; spec/app/support.md, "Story: Converse on a request"
 import { LifeBuoy } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Button, Card, EmptyState, Input, Label, Textarea } from "@repo/ui";
+import { Button, Card, EmptyState, Field, Input, Select, Textarea } from "@repo/ui";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { useSession } from "../../session.ts";
 import type { Ticket, TicketState, Tickets } from "../../../../gen/app__support.ts";
@@ -12,8 +12,6 @@ import { WorkspaceHeading, dateTime } from "../console/bits.tsx";
 const ticketStates: Record<TicketState, string> = { Open: "Open", InProgress: "In progress", Resolved: "Resolved" };
 const seenKey = "sonnely.supportSeen";
 const topics = ["Workspace support", "Infrastructure partnership", "Billing", "Product feedback"];
-const fieldClass = "grid gap-2 text-ui font-medium text-foreground";
-const controlClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-ui text-foreground disabled:cursor-not-allowed disabled:opacity-50";
 const metaClass = "text-meta text-muted-foreground";
 const pillClass = "inline-flex items-center rounded-xl border px-2 py-0.5 text-micro font-medium";
 
@@ -86,10 +84,10 @@ function SupportThread({ ticket, send }: { ticket: Ticket; send: (input: unknown
         ))}
       </ul>
       <form className="grid gap-3" onSubmit={(event) => void sendReply(event)}>
-        <Label className={fieldClass}>
-          Reply
-          <Textarea name="body" rows={3} maxLength={4000} required placeholder="Add details or follow up on this request." />
-        </Label>
+        <Field
+          label="Reply"
+          control={(props) => <Textarea {...props} className="min-h-20" name="body" rows={3} maxLength={4000} required placeholder="Add details or follow up on this request." />}
+        />
         {ticket.state === "Resolved" && <p className={metaClass}>Replying reopens this request.</p>}
         <div>
           <Button type="submit" variant="outline" loading={busy}>
@@ -145,31 +143,39 @@ function NewRequest({ email, wallet, send }: { email?: string; wallet: string; s
         New request
       </h2>
       <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
-        <Label className={fieldClass}>
-          Email
-          <Input
-            key={email ?? "new"}
-            name="email"
-            type="email"
-            defaultValue={email}
-            maxLength={254}
-            autoComplete="email"
-            required
-            placeholder="you@example.com"
-          />
-        </Label>
-        <Label className={fieldClass}>
-          Topic
-          <select name="topic" defaultValue="Workspace support" className={controlClass}>
-            {topics.map((topic) => (
-              <option key={topic}>{topic}</option>
-            ))}
-          </select>
-        </Label>
-        <Label className={fieldClass}>
-          Message
-          <Textarea name="message" rows={5} maxLength={3000} required placeholder="How can we help?" />
-        </Label>
+        <Field
+          className="max-w-md"
+          label="Email"
+          control={(props) => (
+            <Input
+              key={email ?? "new"}
+              {...props}
+              name="email"
+              type="email"
+              defaultValue={email}
+              maxLength={254}
+              autoComplete="email"
+              required
+              placeholder="you@example.com"
+            />
+          )}
+        />
+        <Field
+          className="max-w-md"
+          label="Topic"
+          control={(props) => (
+            <Select {...props} name="topic" defaultValue="Workspace support">
+              {topics.map((topic) => (
+                <option key={topic}>{topic}</option>
+              ))}
+            </Select>
+          )}
+        />
+        <Field
+          className="max-w-md"
+          label="Message"
+          control={(props) => <Textarea {...props} className="min-h-24" name="message" rows={5} maxLength={3000} required placeholder="How can we help?" />}
+        />
         <div>
           <Button type="submit" loading={busy}>
             Submit request
