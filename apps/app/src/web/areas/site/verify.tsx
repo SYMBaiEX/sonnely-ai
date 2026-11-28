@@ -27,7 +27,7 @@ function Details({ rows }: { rows: [string, ReactNode][] }) {
   return (
     <dl className="grid gap-2.5 rounded-md border border-border bg-secondary p-4">
       {rows.map(([label, value]) => (
-        <div key={label} className="flex justify-between gap-4 text-sm">
+        <div key={label} className="flex justify-between gap-4 text-ui">
           <dt className="text-muted-foreground">{label}</dt>
           <dd className={monoSm + " break-all text-end"}>{value}</dd>
         </div>
@@ -97,8 +97,8 @@ function EvidenceSummary({ receipt, evidence }: Pick<Inspection, "receipt" | "ev
       <div className="flex gap-3">
         <Fingerprint size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-primary" />
         <div>
-          <strong className="text-sm font-medium">{label}</strong>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          <strong className="text-ui font-medium">{label}</strong>
+          <p className="mt-1 text-ui text-muted-foreground">{description}</p>
         </div>
       </div>
       {details.length > 0 && <Details rows={details} />}
@@ -114,12 +114,12 @@ function Comparison({ name, digest, match }: { name: string; digest: string; mat
   return (
     <div className="grid gap-2 rounded-md border border-border p-4">
       <div className="flex items-center justify-between">
-        <strong className="text-sm font-medium">{name}</strong>
+        <strong className="text-ui font-medium">{name}</strong>
         <span className={monoSm + " text-muted-foreground"}>SHA-256</span>
       </div>
       <code className={monoSm + " break-all text-muted-foreground"}>{digest}</code>
       {match !== undefined && (
-        <p data-result={match ? "match" : "mismatch"} className={match ? "text-ok text-sm" : "text-warn text-sm"}>
+        <p data-result={match ? "match" : "mismatch"} className={match ? "text-ok text-ui" : "text-warn text-ui"}>
           {match ? "File matches the receipt hash" : "File does not match the receipt hash"}
         </p>
       )}
@@ -179,7 +179,7 @@ function ReceiptInspector() {
         <p className="verify-panel-lede">Use a receipt, a JSON completion response, or a stream containing a receipt.</p>
         <fieldset className="grid gap-4 disabled:opacity-60" disabled={busy}>
           <div className="grid gap-1.5">
-            <label htmlFor="receipt-json" className="text-sm font-medium">
+            <label htmlFor="receipt-json" className="text-ui font-medium">
               Paste receipt or response
             </label>
             <Textarea
@@ -197,7 +197,7 @@ function ReceiptInspector() {
             />
           </div>
           <div className="grid gap-1.5">
-            <label htmlFor="receipt-file" className="text-sm font-medium">
+            <label htmlFor="receipt-file" className="text-ui font-medium">
               Or choose a receipt file
             </label>
             <Input
@@ -210,15 +210,15 @@ function ReceiptInspector() {
             />
           </div>
           <details className="verify-files">
-            <summary className="cursor-pointer text-sm font-medium">
+            <summary className="cursor-pointer text-ui font-medium">
               Compare exact upstream files
             </summary>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-ui text-muted-foreground">
               Use the original bytes exchanged between Sonnely and the provider. The gateway
               rewrites API responses and stream events before returning them to you.
             </p>
             <div className="grid gap-1.5">
-              <label htmlFor="upstream-request" className="text-sm font-medium">
+              <label htmlFor="upstream-request" className="text-ui font-medium">
                 Upstream request body
               </label>
               <Input
@@ -231,7 +231,7 @@ function ReceiptInspector() {
               />
             </div>
             <div className="grid gap-1.5">
-              <label htmlFor="upstream-response" className="text-sm font-medium">
+              <label htmlFor="upstream-response" className="text-ui font-medium">
                 Upstream response body
               </label>
               <Input
@@ -264,11 +264,11 @@ function ReceiptInspector() {
           </div>
         </fieldset>
         {error && (
-          <p className="rounded-md border border-warn/40 bg-warn/10 p-3.5 text-sm text-warn" role="alert">
+          <p className="rounded-md border border-warn/40 bg-warn/10 p-3.5 text-ui text-warn" role="alert">
             {error}
           </p>
         )}
-        <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+        <p className="inline-flex items-center gap-1.5 text-ui text-muted-foreground">
           <ShieldCheck size={16} aria-hidden="true" /> The receipt and files stay in this browser.
         </p>
       </form>
@@ -341,7 +341,7 @@ function ReceiptInspector() {
         ) : (
           <div className="grid gap-5">
             <div className="verify-note">
-              <h3 className="text-sm font-medium">Get a receipt in three steps</h3>
+              <h3 className="text-ui font-medium">Get a receipt in three steps</h3>
               <ol className="verify-steps">
                 <li>
                   Enable <strong className="text-foreground">Include verification receipt</strong>{" "}
@@ -359,7 +359,7 @@ function ReceiptInspector() {
               </a>
             </div>
             <div className="verify-note">
-              <h3 className="text-sm font-medium">What inspection checks</h3>
+              <h3 className="text-ui font-medium">What inspection checks</h3>
               <ul className="verify-checks">
                 <li>The receipt is a supported Sonnely v1 receipt for a known provider route.</li>
                 <li>
@@ -377,8 +377,8 @@ function ReceiptInspector() {
               </ul>
             </div>
             <div className="verify-note">
-              <h3 className="text-sm font-medium">Gateway boundary</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h3 className="text-ui font-medium">Gateway boundary</h3>
+              <p className="mt-1 text-ui text-muted-foreground">
                 Sonnely reads the request at its HTTPS gateway. The provider’s trusted execution
                 environment serves the model. A receipt is evidence about the route, not proof of
                 end-to-end encryption.

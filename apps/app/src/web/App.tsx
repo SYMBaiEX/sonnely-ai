@@ -116,7 +116,7 @@ export function App({ runtime, path }: AppProps) {
       <title>{titleOf(state.page)}</title>
       {shown ?? (
         <main className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-          <h1 className="text-2xl font-semibold">Page not found</h1>
+          <h1 className="text-heading font-strong">Page not found</h1>
           <p className="text-muted-foreground">Nothing is at this address.</p>
         </main>
       )}

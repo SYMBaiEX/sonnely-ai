@@ -192,7 +192,7 @@ export function CatalogSection() {
   const filterSignature = [filter, sort, provider, workload, availability].join("|");
   const activeSurface = "border-primary bg-primary text-primary-foreground";
   const inactiveSurface = "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground";
-  const selectClass = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground";
+  const selectClass = "h-9 w-full rounded-md border border-input bg-background px-2 text-ui text-foreground";
 
   return (
     <div className="flex flex-col gap-3">
@@ -202,7 +202,7 @@ export function CatalogSection() {
           type="button"
           aria-pressed={!inventory}
           onClick={() => setAvailability("available")}
-          className={"min-h-9 rounded-full border px-3 text-sm font-medium transition-colors " + (inventory ? inactiveSurface : activeSurface)}
+          className={"min-h-9 rounded-full border px-3 text-ui font-medium transition-colors " + (inventory ? inactiveSurface : activeSurface)}
         >
           On Sonnely · {routableCount}
         </button>
@@ -210,7 +210,7 @@ export function CatalogSection() {
           type="button"
           aria-pressed={inventory}
           onClick={() => setAvailability("catalog")}
-          className={"min-h-9 rounded-full border px-3 text-sm font-medium transition-colors " + (inventory ? activeSurface : inactiveSurface)}
+          className={"min-h-9 rounded-full border px-3 text-ui font-medium transition-colors " + (inventory ? activeSurface : inactiveSurface)}
         >
           Provider inventory · {inventoryCount}
         </button>
@@ -223,7 +223,7 @@ export function CatalogSection() {
           placeholder="Find a model"
           aria-label="Find a model"
         />
-        <label className="grid gap-1 text-xs text-muted-foreground">
+        <label className="grid gap-1 text-micro text-muted-foreground">
           <span>Provider</span>
           <select className={selectClass} value={provider} onChange={(event) => setProvider(event.target.value)}>
             <option value="all">All providers</option>
@@ -234,7 +234,7 @@ export function CatalogSection() {
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-muted-foreground">
+        <label className="grid gap-1 text-micro text-muted-foreground">
           <span>Workload</span>
           <select className={selectClass} value={workload} onChange={(event) => setWorkload(event.target.value)}>
             <option value="all">All workloads</option>
@@ -245,7 +245,7 @@ export function CatalogSection() {
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-muted-foreground">
+        <label className="grid gap-1 text-micro text-muted-foreground">
           <span>Sort models</span>
           <select className={selectClass} value={sort} onChange={(event) => setSort(event.target.value)}>
             <option value="default">Catalog order</option>
@@ -256,7 +256,7 @@ export function CatalogSection() {
         </label>
       </div>
       <CatalogCards groups={displayed} filterSignature={filterSignature} />
-      <aside className="rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
+      <aside className="rounded-lg border border-border bg-card p-3 text-ui text-muted-foreground">
         Rates shown are the final Sonnely rates.{" "}
         <a href="/pricing" className="text-primary hover:underline">How billing works</a>
         {" · "}

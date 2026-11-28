@@ -16,7 +16,7 @@ export function Card({ asChild = false, className, ...props }: CardProps) {
 
 /** The name of what a `Card` holds. */
 export function CardTitle({ className, ...props }: CardTitleProps) {
-  return <h3 className={cn("text-base leading-none font-semibold", className)} {...props} />;
+  return <h3 className={cn("text-body leading-tight font-strong", className)} {...props} />;
 }
 
 /** The actions of a `Card`, in a row at its end. */
