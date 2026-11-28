@@ -6,7 +6,7 @@ export const EMITTED = ["Event", "opaque", "inv", "enabled", "step", "parseEvent
 /** Prefixes reserved for the helpers a module may carry for itself, each named `<helper>_<module>`, and for local bindings. */
 export const HELPERS = ["quotient", "remainder", "exact", "equal", "nth", "get", "lookup\\d+", "typed\\d+", "snapshot", "local"];
 export function typescript({ header, typedefs, vals, funs, sig, typeOf, doc, local: L, source }, roles, types, print, helper) {
-    const { tsType, declaration, validators, copy } = types;
+    const { tsType, declaration, parsers } = types;
     const { transitions, always, steps, laws, opaques, sender, output, refines } = roles;
     const state = roles.stateType && tsType(roles.stateType);
     // Where some transition has output, `step` returns it beside the state, and a transition without output outputs nothing.
@@ -55,26 +55,38 @@ export function typescript({ header, typedefs, vals, funs, sig, typeOf, doc, loc
     const admits = (t) => call(t.guard, t.guardParams);
     const applies = (t) => call(t.name, t.params.map((p) => p.name));
     const when = (t) => `event.type === ${JSON.stringify(t.name)}`;
-    // A copy through JSON drops what JSON cannot hold; a value it cannot copy at all is not one the program accepts.
-    const cloned = [`  let raw: any;`, `  try {`, `    raw = JSON.parse(JSON.stringify(x));`, `  } catch {`, `    return undefined;`, `  }`];
-    const parsed = (t) => `{ ${[`type: ${JSON.stringify(t.name)}`, ...carried(t).map((p) => `${p.name}: ${copy(`raw.${p.name}`, p.type)}`)].join(", ")} }`;
-    // An event may carry more than its type names, which `parsed` drops; a state or a sender is exactly its type.
-    const carries = validators();
-    const events = transitions.map((t) => `  if (raw.type === ${JSON.stringify(t.name)}${carried(t).map((p) => ` && ${carries.test(`raw.${p.name}`, p.type)}`).join("")}) return ${parsed(t)};`);
+    // An event may carry more than its type names, which `parseEvent` drops; a state or a sender is exactly its type.
+    const carries = parsers();
+    const events = transitions.map((t) => {
+        const ps = carried(t);
+        if (!ps.length)
+            return `    if (type === ${JSON.stringify(t.name)}) return { type: ${JSON.stringify(t.name)} };`;
+        const steps = ps.flatMap((p, i) => {
+            const keyLit = JSON.stringify(p.name);
+            return [
+                `const r${i} = Object.hasOwn(raw, ${keyLit}) ? raw[${keyLit}] : undefined;`,
+                `const p${i} = ${carries.parse(`r${i}`, p.type)};`,
+                `if (p${i} === undefined) return undefined;`,
+            ];
+        });
+        return `    if (type === ${JSON.stringify(t.name)}) { ${steps.join(" ")} return { ${[`type: ${JSON.stringify(t.name)}`, ...ps.map((p, i) => `${p.name}: p${i}`)].join(", ")} }; }`;
+    });
     const whole = (t) => {
-        const exactly = validators(true);
-        const is = `  if (!(${exactly.test("raw", t)})) return undefined;`;
-        return [...exactly.lines(), is];
+        const exactly = parsers(true);
+        const expr = exactly.parse("x", t);
+        return { lines: exactly.lines().map((l) => `  ${l}`), expr };
     };
+    const stateParser = state ? whole(roles.stateType) : undefined;
+    const senderParser = sender ? whole(sender) : undefined;
     if (state)
         out.push(``, `/** Do the rules allow this event${sender ? `, from this sender,` : ""} in this state? */`, `//@ pure`, `export function ${L("enabled")}(current: ${state}, event: ${L("Event")}${by}): boolean {`, ...transitions.map((t) => `  if (${when(t)}) return ${t.guard ? admits(t) : "true"};`), `  return false;`, `}`, ``, `/** Apply an event${sender ? ` from \`${SENDER}\`, whom the program knows from what it trusts, never from the event` : ""}. An event the rules do not allow leaves the state unchanged${output ? "; the result holds the state and what the event output" : ""}. */`, `//@ pure`, `export function ${L("step")}(current: ${state}, event: ${L("Event")}${by}): ${output ? tsType(output.type) : state} {`, `  //@ requires ${L("inv")}(current)`, `  //@ ensures ${L("inv")}(\\result${output ? ".state" : ""})`, ...transitions.map((t) => {
             const condition = when(t);
             const guard = t.guard ? admits(t) : undefined;
             const result = t.emits ? applies(t) : outputs(applies(t));
             return `  if (${condition}) return ${guard ? `${guard} ? ${result} : ${outputs("current")}` : result};`;
-        }), `  return ${outputs("current")};`, `}`, ``, `/**`, ` * Turn an untrusted value into an event, or undefined if it is not one. Use it wherever events enter the program:`, ` * the proofs assume whole numbers and plain data, and this is what makes that true. The result is a fresh copy`, ` * with exactly the fields the event has, so nothing the caller keeps can change it afterwards.`, ` */`, `//@ skip`, `export function ${L("parseEvent")}(x: unknown): ${L("Event")} | undefined {`, ...cloned, ...carries.lines(), `  if (typeof raw !== "object" || raw === null) return undefined;`, ...events, `  return undefined;`, `}`, ``, `/**`, ` * Turn an untrusted value, such as a state loaded from storage, into a state, or undefined if it is not one. It must`, ` * have exactly the state's shape (no other fields, whole numbers that are safe integers, sets that hold nothing`, ` * twice, maps as records whose keys carry the "$" every key carries here) and satisfy every \`always\` rule. The`, ` * result is a fresh copy, so nothing the caller keeps can change it afterwards.`, ` */`, `//@ skip`, `export function ${L("parseState")}(x: unknown): ${state} | undefined {`, ...cloned, ...whole(roles.stateType), `  const parsed: ${state} = ${copy("raw", roles.stateType)};`, `  return ${L("inv")}(parsed) ? parsed : undefined;`, `}`, ``, `/** Proof obligation: the initial state satisfies every \`always\` rule. */`, `export function ${L("initialHolds")}(): ${state} {`, `  //@ ensures ${L("inv")}(\\result)`, ...(refines ? [`  //@ ensures ${L(refines.fn)}(\\result) === ${abstract("initial")}`] : []), `  return ${L("initial")};`, `}`);
+        }), `  return ${outputs("current")};`, `}`, ``, `/**`, ` * Turn an untrusted value into an event, or undefined if it is not one. Use it wherever events enter the program:`, ` * the proofs assume whole numbers and plain data, and this is what makes that true. The result is a fresh copy`, ` * with exactly the fields the event has, so nothing the caller keeps can change it afterwards.`, ` */`, `//@ skip`, `export function ${L("parseEvent")}(x: unknown): ${L("Event")} | undefined {`, `  try {`, `    if (typeof x !== "object" || x === null || Array.isArray(x)) return undefined;`, `    const raw = x as Record<string, unknown>;`, `    const type = Object.hasOwn(raw, "type") ? raw.type : undefined;`, ...carries.lines().map((l) => `  ${l}`), ...events, `    return undefined;`, `  } catch {`, `    return undefined;`, `  }`, `}`, ``, `/**`, ` * Turn an untrusted value, such as a state loaded from storage, into a state, or undefined if it is not one. It must`, ` * have exactly the state's shape (no other fields, whole numbers that are safe integers, sets that hold nothing`, ` * twice, maps as records whose keys carry the "$" every key carries here) and satisfy every \`always\` rule. The`, ` * result is a fresh copy, so nothing the caller keeps can change it afterwards.`, ` */`, `//@ skip`, `export function ${L("parseState")}(x: unknown): ${state} | undefined {`, `  try {`, ...stateParser.lines, `    const parsed: ${state} | undefined = ${stateParser.expr};`, `    return parsed !== undefined && ${L("inv")}(parsed) ? parsed : undefined;`, `  } catch {`, `    return undefined;`, `  }`, `}`, ``, `/** Proof obligation: the initial state satisfies every \`always\` rule. */`, `export function ${L("initialHolds")}(): ${state} {`, `  //@ ensures ${L("inv")}(\\result)`, ...(refines ? [`  //@ ensures ${L(refines.fn)}(\\result) === ${abstract("initial")}`] : []), `  return ${L("initial")};`, `}`);
     if (sender)
-        out.push(``, `/** Validate and copy the trusted sender supplied beside an event. */`, `//@ skip`, `export function ${L("parseSender")}(x: unknown): ${tsType(sender)} | undefined {`, ...cloned, ...whole(sender), `  return ${copy("raw", sender)};`, `}`);
+        out.push(``, `/** Validate and copy the trusted sender supplied beside an event. */`, `//@ skip`, `export function ${L("parseSender")}(x: unknown): ${tsType(sender)} | undefined {`, `  try {`, ...senderParser.lines, `    return ${senderParser.expr};`, `  } catch {`, `    return undefined;`, `  }`, `}`);
     // The helpers come last: which are needed is known only once every definition has been printed.
     print.lookups.forEach(({ map, key, of, stored }, i) => out.push(``, `/** What a map holds for a key, or \`otherwise\` if it holds nothing for it. */`, `//@ pure`, `export function ${helper(`lookup${i}`)}(m: ${map}, k: ${key}, otherwise: ${of}): ${of} {`, `  const key = ${stored};`, `  return key in m ? m[key] : otherwise;`, `}`));
     // Only in the prover's code, which states a type where LemmaScript would not know it (Expected in print.ts).

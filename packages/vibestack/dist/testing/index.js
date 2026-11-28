@@ -2,5 +2,6 @@
 // properties. Effect has the rest: `Layer.mock(Service, partial)` for a service from a partial implementation,
 // `Random.withSeed(seed)` for fixed randomness, and the TestClock that `it.effect` provides.
 export * from "./conformance.js";
+export * from "./mbt.js";
 export * from "./properties.js";
 export * from "./profile.js";

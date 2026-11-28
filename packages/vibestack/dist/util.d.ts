@@ -17,16 +17,30 @@ export declare function allDone<const T extends readonly unknown[]>(promises: T)
 }>;
 /** Files and symbolic links below a project directory, excluding directory entries. */
 export declare const filesUnder: (root: string, dir: string) => string[];
+/** SHA-256 hex digest of a file, cached in memory while its stat stamp (dev, ino, size, mtimeNs, ctimeNs) is unchanged. */
+export declare function fileDigest(file: string): string;
+/** SHA-256 hex digest of a file if it exists, or "" if absent. */
+export declare function fileDigestIfExists(file: string): string;
 export declare function pruneSidecars(dir: string): void;
-/** What a package's tsconfig.json names: itself, the configurations it extends and the files it includes, VibeLang's among them. */
-export declare function configured(dir: string): string[];
+export interface WatchedPath {
+    path: string;
+    shallow: boolean;
+}
+export interface ConfiguredSnapshot {
+    files: string[];
+    safeSkip: boolean;
+    watched: WatchedPath[];
+}
+export declare function watchStamp(target: string, shallow?: boolean): string;
+/** What a package's tsconfig.json names: itself, the configurations it extends and the files it includes, VibeLang's among them, plus the paths whose stat stamps guard skipping `tsconfig` parsing on warm checks. */
+export declare function configuredSnapshot(dir: string): ConfiguredSnapshot;
 /** Resolve a project folder before a command reads or writes its files. */
 export declare function projectRoot(directory: string, base?: string): string;
 /** The directories a spec area may map to: an entry in `vibestack.json` `spec.owners` or `package.json` `specOwners`, or conventional `apps/<name>` and `packages/<name>`. */
 export declare function specOwnerPaths(root: string, name: string): string[];
 /**
- * The workspace package a spec belongs to by name, as a path from the root: `spec/<name>/…` is `apps/<name>` or
- * `packages/<name>`, if that is a package with no `spec/` of its own. The root's check generates into its `gen/` and
+ * The workspace package a spec belongs to by name, as a path from the root: `<specDir>/<name>/…` is `apps/<name>` or
+ * `packages/<name>`, if that is a package with no `<specDir>/` of its own. The root's check generates into its `gen/` and
  * checks its code (SPEC.md, "One spec tree").
  */
 export declare function owner(root: string, spec: string, observe?: (file: string) => void): string | undefined;
@@ -80,6 +94,8 @@ export declare function workspacePackages(root: string): {
 export declare function testInputs(root: string, mode?: TestProfile, read?: Inputs): string | undefined;
 /** A successful complete Node test run, also restored by the Turbo test task. */
 export declare const testReceipt: (root: string, mode?: TestProfile) => string;
+export declare const withSpecDir: <T>(specDir: string, run: () => T) => T;
+/** Where code cites a story or rule (AGENTS.md, "Tests"). */
 export declare const HAS_CITATION: RegExp;
 /** A citation of `heading` in `spec`; `at` is `file:line`, a path from the checking root. */
 export interface Citation {
@@ -87,7 +103,7 @@ export interface Citation {
     spec: string;
     heading: string;
 }
-export declare function fileCitations(file: string, text: string): Citation[];
+export declare function fileCitations(file: string, text: string, specDir?: string): Citation[];
 /** Every citation in the code of `dirs`, which are `codeDirs` (all of them unless given): an owner cites as the root does. */
 export declare const citations: (root: string, dirs?: string[]) => Citation[];
 export declare function missingCitations(specs: Spec[], found: Citation[]): string[];
@@ -117,7 +133,7 @@ interface Token {
     fresh: boolean;
 }
 /** A script's tokens, or nothing if its brackets do not balance; TypeScript's scanner reads VibeLang's too. */
-export declare function tokenize(text: string): Token[] | undefined;
+export declare function tokenize(text: string, file?: string): Token[] | undefined;
 /** The package manager a package declares, or whose lock file sits in it or a directory above it, up to the repository or workspace root. */
 export declare function packageManager(root: string): {
     name: string;

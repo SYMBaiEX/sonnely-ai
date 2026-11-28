@@ -8,10 +8,26 @@ import { GENERATED_AGENT_IGNORES, linkProjectAgents, resolvePackageAssets, setup
 import { VITEST_CONFIG } from "./testing/check.js";
 export { linkProjectAgents as linkAgents };
 export const MANIFEST_PATH = ".agents/.vibestack-manifest.json";
+export const GITHUB_RELEASES_BASE = "https://github.com/lalalune/vibestack/releases";
 const MIN_NODE = 26;
+export function latestReleaseTarballUrl(pkg) {
+    return `${GITHUB_RELEASES_BASE}/latest/download/${pkg}.tgz`;
+}
+export function versionedReleaseTarballUrl(pkg, version) {
+    const bare = version.startsWith("v") ? version.slice(1) : version;
+    return `${GITHUB_RELEASES_BASE}/download/v${bare}/${pkg}-${bare}.tgz`;
+}
+export function resolveReleaseSpec(version) {
+    if (!version || version === "latest")
+        return latestReleaseTarballUrl("vibestack");
+    if (/^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+        return versionedReleaseTarballUrl("vibestack", version);
+    }
+    return version;
+}
 const VIBELANG_DEPS = ["effect", "@effect/platform-node", "vibelang-runtime"];
 const VIBELANG_DEV_DEPS = ["vibelang", "vibelang-vite", "vite", "vitest", "@effect/vitest", "@types/node", "@antithesishq/bombadil"];
-const ALIGNED_PINS = ["effect", "@effect/platform-node", "@effect/vitest", "vibelang", "vibelang-runtime", "vibelang-vite", "vite", "vitest"];
+const ALIGNED_PINS = ["effect", "@effect/platform-node", "@effect/vitest", "@antithesishq/bombadil", "vibelang", "vibelang-runtime", "vibelang-vite", "vite", "vitest"];
 const GITIGNORE_ENTRIES = [
     "gen/",
     ".spec-cache/",
@@ -143,7 +159,7 @@ function updatePostinstall(scripts) {
     }
     return { changed: true, value: current ? `${current} && vibestack link` : "vibestack link" };
 }
-function addMissingScripts(json, mode) {
+function addMissingScripts(json, mode, isWorkspace) {
     const scripts = { ...(json.scripts ?? {}) };
     const added = [];
     const coreScripts = [
@@ -165,7 +181,10 @@ function addMissingScripts(json, mode) {
         }
     }
     if (mode === "vibelang") {
-        for (const [name, cmd] of [["dev", "spec studio"], ["build", "vibelang"], ["test", "vitest run"]]) {
+        const modeScripts = isWorkspace
+            ? [["dev", "spec studio"], ["test", "vitest run"]]
+            : [["dev", "spec studio"], ["build", "vibelang"], ["test", "vitest run"]];
+        for (const [name, cmd] of modeScripts) {
             if (!scripts[name] || (name === "test" && /no test specified/.test(scripts[name]))) {
                 scripts[name] = cmd;
                 added.push(name);
@@ -254,7 +273,7 @@ export function initProject(root, options = {}) {
         addIfMissing("spec/index.md", () => "");
     const pkgFile = path.join(root, "package.json");
     const json = fs.existsSync(pkgFile) ? JSON.parse(fs.readFileSync(pkgFile, "utf8")) : {};
-    const addedScripts = addMissingScripts(json, mode);
+    const addedScripts = addMissingScripts(json, mode, isWorkspace);
     let manifestChanged = addedScripts.length > 0;
     if (addedScripts.length)
         done.push(`package.json scripts: ${addedScripts.join(", ")}`);
@@ -309,10 +328,18 @@ function resolveLocalPackage(root, fromPath) {
     const rel = path.relative(root, pkgDir).split(path.sep).join("/");
     return { spec: `file:${rel.startsWith(".") ? rel : `./${rel}`}`, dir: pkgDir };
 }
+function isCatalogAllowedVersion(spec) {
+    return !/^(?:file:|link:|workspace:|https?:|git\+|git:|github:)/i.test(spec);
+}
+function formatYamlScalar(value) {
+    return /[:\s#"'{}[\],&*?|>!%@`]/.test(value) ? JSON.stringify(value) : value;
+}
 function replaceYamlPin(content, section, pkg, nextValue) {
-    const lines = content.split("\n");
+    const eol = content.includes("\r\n") ? "\r\n" : "\n";
+    const lines = content.split(/\r?\n/);
     let inSection = false;
     let changed = false;
+    let found = false;
     const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const keyPattern = new RegExp(`^(\\s+)(["']?${escaped}["']?):\\s*(.+?)\\s*$`);
     for (let i = 0; i < lines.length; i++) {
@@ -326,45 +353,102 @@ function replaceYamlPin(content, section, pkg, nextValue) {
         const match = keyPattern.exec(line);
         if (!match)
             continue;
-        if (match[3].replace(/^["']|["']$/g, "") !== nextValue) {
-            lines[i] = `${match[1]}${match[2]}: ${nextValue}`;
+        found = true;
+        if (nextValue === undefined) {
+            lines.splice(i, 1);
             changed = true;
+        }
+        else {
+            const current = match[3].replace(/\s+#.*$/, "").replace(/^["']|["']$/g, "");
+            if (current !== nextValue) {
+                lines[i] = `${match[1]}${match[2]}: ${formatYamlScalar(nextValue)}`;
+                changed = true;
+            }
         }
         break;
     }
-    return { text: lines.join("\n"), changed };
+    return { text: lines.join(eol), changed, found };
+}
+function rewriteMemberVibestackSpecs(root, targetSpec, dryRun, bumped) {
+    for (const container of ["apps", "packages"]) {
+        const containerDir = path.join(root, container);
+        if (!fs.existsSync(containerDir))
+            continue;
+        for (const entry of fs.readdirSync(containerDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+            if (!entry.isDirectory())
+                continue;
+            const pkgFile = path.join(containerDir, entry.name, "package.json");
+            if (!fs.existsSync(pkgFile))
+                continue;
+            const json = JSON.parse(fs.readFileSync(pkgFile, "utf8"));
+            let changed = false;
+            for (const field of ["devDependencies", "dependencies"]) {
+                if (json[field] && "vibestack" in json[field] && json[field].vibestack !== targetSpec) {
+                    json[field].vibestack = targetSpec;
+                    changed = true;
+                    bumped.push(`${container}/${entry.name}/package.json ${field}.vibestack -> ${targetSpec}`);
+                }
+            }
+            if (changed && !dryRun)
+                writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
+        }
+    }
 }
 function bumpVibestackSpec(root, targetSpec, dryRun) {
     const bumped = [];
+    const allowCatalog = isCatalogAllowedVersion(targetSpec);
     const wsFile = path.join(root, "pnpm-workspace.yaml");
     if (fs.existsSync(wsFile)) {
         const raw = fs.readFileSync(wsFile, "utf8");
-        const updated = replaceYamlPin(raw, "catalog", "vibestack", targetSpec);
-        if (updated.changed) {
-            if (!dryRun)
-                writeWhole(wsFile, updated.text);
-            bumped.push(`pnpm-workspace.yaml catalog.vibestack -> ${targetSpec}`);
-            return bumped;
+        if (allowCatalog) {
+            const updated = replaceYamlPin(raw, "catalog", "vibestack", targetSpec);
+            if (updated.found) {
+                if (updated.changed) {
+                    if (!dryRun)
+                        writeWhole(wsFile, updated.text);
+                    bumped.push(`pnpm-workspace.yaml catalog.vibestack -> ${targetSpec}`);
+                }
+                return bumped;
+            }
+        }
+        else {
+            const removed = replaceYamlPin(raw, "catalog", "vibestack", undefined);
+            if (removed.changed) {
+                if (!dryRun)
+                    writeWhole(wsFile, removed.text);
+                bumped.push("pnpm-workspace.yaml catalog.vibestack removed");
+            }
         }
     }
     const pkgFile = path.join(root, "package.json");
     if (fs.existsSync(pkgFile)) {
         const json = JSON.parse(fs.readFileSync(pkgFile, "utf8"));
+        let updatedRoot = false;
         for (const field of ["devDependencies", "dependencies"]) {
-            if (json[field] && "vibestack" in json[field] && json[field].vibestack !== "catalog:") {
-                if (json[field].vibestack !== targetSpec) {
-                    json[field].vibestack = targetSpec;
-                    if (!dryRun)
-                        writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
-                    bumped.push(`package.json ${field}.vibestack -> ${targetSpec}`);
+            if (json[field] && "vibestack" in json[field]) {
+                if (!allowCatalog || json[field].vibestack !== "catalog:") {
+                    if (json[field].vibestack !== targetSpec) {
+                        json[field].vibestack = targetSpec;
+                        if (!dryRun)
+                            writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
+                        bumped.push(`package.json ${field}.vibestack -> ${targetSpec}`);
+                    }
+                    updatedRoot = true;
+                    break;
                 }
-                return bumped;
+                updatedRoot = true;
+                break;
             }
         }
-        json.devDependencies = { ...(json.devDependencies ?? {}), vibestack: targetSpec };
-        if (!dryRun)
-            writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
-        bumped.push(`package.json devDependencies.vibestack -> ${targetSpec}`);
+        if (!updatedRoot) {
+            json.devDependencies = { ...(json.devDependencies ?? {}), vibestack: targetSpec };
+            if (!dryRun)
+                writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
+            bumped.push(`package.json devDependencies.vibestack -> ${targetSpec}`);
+        }
+    }
+    if (!allowCatalog && fs.existsSync(wsFile)) {
+        rewriteMemberVibestackSpecs(root, targetSpec, dryRun, bumped);
     }
     return bumped;
 }
@@ -420,7 +504,7 @@ function alignToolchainPins(root, assets, dryRun) {
 function pruneEmptyDirs(root, startDir) {
     let dir = startDir;
     const stop = path.join(root, ".agents");
-    while (dir.startsWith(stop) && dir !== stop) {
+    while (dir.startsWith(stop + path.sep)) {
         try {
             if (fs.readdirSync(dir).length > 0)
                 break;
@@ -444,11 +528,8 @@ export async function upgradeProject(root, options = {}) {
         localSourceDir = local.dir;
         bumped.push(...bumpVibestackSpec(root, local.spec, dryRun));
     }
-    else if (options.version) {
-        bumped.push(...bumpVibestackSpec(root, options.version, dryRun));
-    }
     else {
-        bumped.push(...bumpVibestackSpec(root, "latest", dryRun));
+        bumped.push(...bumpVibestackSpec(root, resolveReleaseSpec(options.version), dryRun));
     }
     if (!dryRun && bumped.length > 0) {
         const installed = await exec("pnpm", ["install"], root);

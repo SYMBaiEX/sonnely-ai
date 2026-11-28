@@ -271,7 +271,7 @@ export function generate(ir, name, source, origin, deps) {
         const helper = (which) => local(`${which}_${name}`);
         // A definition from another module is spelled <module>_<name>, however it was imported.
         const ref = (n) => (localNames.has(n) ? local(n) : cameFrom.has(n) ? `${cameFrom.get(n)}_${n.split("::").pop()}` : n);
-        const scoped = typeWalks(typedefs, name, prefix);
+        const scoped = prefix === "" ? types : typeWalks(typedefs, name, prefix);
         const print = printer({ types: scoped, inferred, importedConstantType, ref, helper, bind, variants, definitions: new Set([...localNames, ...cameFrom.keys()]), simulatorOnly, proof });
         return typescript({ header: proof ? bundleHeader : header, typedefs: localTypedefs, vals, funs, sig, typeOf, doc: docs ? doc : () => "", local, source }, roles, scoped, print, helper);
     };

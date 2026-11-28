@@ -24,6 +24,8 @@
     "lint": "spec tasks //#lint:js //#lint:css",
     "lint:js": "eslint . --max-warnings 0",
     "lint:css": "stylelint \"**/*.css\" --allow-empty-input",
+    "lint:design": "node scripts/design-eslint-baseline.mjs",
+    "lint:design:write": "node scripts/design-eslint-baseline.mjs --write",
     "quick": "spec tasks typecheck test //#lint:js //#lint:css",
     "verify": "spec tasks build typecheck test test:browser check //#lint:js //#lint:css",
     "all": "spec tasks"

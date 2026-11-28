@@ -31,8 +31,8 @@
 }
 
 .workspace-surface .teams-panel h3 {
-  color: var(--muted);
-  font: 620 0.72rem var(--mono);
+  color: var(--muted-foreground);
+  font: 620 0.72rem var(--font-mono);
   letter-spacing: 0.075em;
   text-transform: uppercase;
 }
@@ -41,7 +41,7 @@
   display: grid;
   min-width: 0;
   gap: 0.42rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: var(--console-caption);
   font-weight: 560;
 }
@@ -50,7 +50,7 @@
 .workspace-surface .teams-panel select {
   width: 100%;
   min-width: 0;
-  color: var(--ink);
+  color: var(--foreground);
 }
 
 .workspace-surface .teams-overview-panel label {
@@ -71,9 +71,9 @@
 .workspace-surface .teams-disclosure {
   min-width: 0;
   overflow: clip;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: calc(var(--radius) - 4px);
-  background: color-mix(in srgb, var(--raised) 38%, var(--card));
+  background: color-mix(in srgb, var(--secondary) 38%, var(--card));
 }
 
 .workspace-surface .teams-overview-empty .teams-disclosure {
@@ -97,12 +97,12 @@
 .workspace-surface .teams-disclosure > summary::after {
   content: "+";
   margin-left: auto;
-  color: var(--accent);
-  font: 620 1rem/1 var(--mono);
+  color: var(--ring);
+  font: 620 1rem/1 var(--font-mono);
 }
 
 .workspace-surface .teams-disclosure[open] > summary {
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .workspace-surface .teams-disclosure[open] > summary::after {
@@ -172,7 +172,7 @@
 .workspace-surface .teams-list li {
   justify-content: space-between;
   padding: 0.78rem 0.15rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .workspace-surface .teams-list li:last-child {
@@ -185,9 +185,9 @@
   gap: 0.35rem;
   min-width: 0;
   padding: 0.9rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: calc(var(--radius) - 5px);
-  background: color-mix(in srgb, var(--raised) 36%, var(--card));
+  background: color-mix(in srgb, var(--secondary) 36%, var(--card));
 }
 
 .workspace-surface .teams-list li > div {
@@ -204,14 +204,14 @@
 }
 
 .workspace-surface .teams-wallet {
-  font: 620 0.83rem var(--mono);
+  font: 620 0.83rem var(--font-mono);
   letter-spacing: -0.015em;
 }
 
 .workspace-surface .teams-self {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
-  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  color: var(--ring);
+  border-color: color-mix(in srgb, var(--ring) 38%, var(--border));
+  background: color-mix(in srgb, var(--ring) 8%, var(--card));
 }
 
 .workspace-surface .teams-metrics {
@@ -221,8 +221,8 @@
 }
 
 .workspace-surface .teams-metrics dt {
-  color: var(--muted);
-  font: 610 0.67rem/1.4 var(--mono);
+  color: var(--muted-foreground);
+  font: 610 0.67rem/1.4 var(--font-mono);
   letter-spacing: 0.075em;
   text-transform: uppercase;
 }
@@ -238,16 +238,16 @@
 .workspace-surface .teams-budget-meter {
   height: 0.55rem;
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--raised);
+  background: var(--secondary);
 }
 
 .workspace-surface .teams-budget-meter span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--accent);
+  background: var(--ring);
 }
 
 .workspace-surface .teams-budget-meter[data-state="warning"] span {
@@ -280,7 +280,7 @@
 }
 
 .workspace-surface .teams-panel tbody tr:hover {
-  background: color-mix(in srgb, var(--active-fill) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .workspace-surface .teams-key-title {
@@ -294,21 +294,21 @@
 
 .workspace-surface .teams-key-title code,
 .workspace-surface .teams-reference {
-  color: var(--muted);
-  font: 500 0.72rem var(--mono);
+  color: var(--muted-foreground);
+  font: 500 0.72rem var(--font-mono);
   overflow-wrap: anywhere;
 }
 
 .workspace-surface .teams-key-limits {
   display: grid;
   gap: 0.25rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.78rem;
   white-space: normal;
 }
 
 .workspace-surface .teams-key-limits div:first-child {
-  color: var(--ink);
+  color: var(--foreground);
 }
 
 .workspace-surface .teams-number {
@@ -344,26 +344,26 @@
 
 .workspace-surface .teams-status[data-status="Complete"] {
   color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--border));
   background: color-mix(in srgb, var(--ok) 9%, var(--card));
 }
 
 .workspace-surface .teams-status[data-status="Failed"] {
   color: var(--destructive);
-  border-color: color-mix(in srgb, var(--destructive) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--destructive) 42%, var(--border));
   background: color-mix(in srgb, var(--destructive) 9%, var(--card));
 }
 
 .workspace-surface .teams-status[data-status="Pending"] {
   color: var(--info);
-  border-color: color-mix(in srgb, var(--info) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--info) 42%, var(--border));
   background: color-mix(in srgb, var(--info) 9%, var(--card));
 }
 
 .workspace-surface .teams-status[data-status="Unreported"],
 .workspace-surface .teams-status[data-status="Archived"] {
   color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 48%, var(--line));
+  border-color: color-mix(in srgb, var(--warn) 48%, var(--border));
   background: color-mix(in srgb, var(--warn) 10%, var(--card));
 }
 
@@ -371,11 +371,11 @@
   display: grid;
   gap: 0.72rem;
   padding: 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--ring) 36%, var(--border));
   border-radius: calc(var(--radius) - 4px);
   background: linear-gradient(
     145deg,
-    color-mix(in srgb, var(--accent) 9%, var(--card)),
+    color-mix(in srgb, var(--ring) 9%, var(--card)),
     var(--card) 70%
   );
 }
@@ -387,16 +387,16 @@
 .workspace-surface .teams-new-key code {
   display: block;
   padding: 0.78rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: calc(var(--radius) - 6px);
-  background: var(--raised);
-  font: 500 0.78rem/1.55 var(--mono);
+  background: var(--secondary);
+  font: 500 0.78rem/1.55 var(--font-mono);
   overflow-wrap: anywhere;
 }
 
 .workspace-surface .teams-dialog p {
   margin-block: 0.7rem 1rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .workspace-surface .teams-panel .empty {
@@ -407,9 +407,9 @@
 .workspace-surface .teams-panel .empty-icon {
   width: 2.55rem;
   height: 2.55rem;
-  color: var(--accent);
+  color: var(--ring);
   border-radius: calc(var(--radius) - 5px);
-  background: var(--active-fill);
+  background: var(--accent);
 }
 
 .workspace-surface .teams-panel .empty h2 {
@@ -438,8 +438,8 @@
   margin: auto;
   padding: 1.15rem;
   overflow: auto;
-  border-color: color-mix(in srgb, var(--line) 78%, var(--accent));
-  box-shadow: 0 24px 70px var(--shadow);
+  border-color: color-mix(in srgb, var(--border) 78%, var(--ring));
+  box-shadow: 0 24px 70px var(--effect-shadow);
   inset: 0;
 }
 
@@ -450,7 +450,7 @@
 
 .workspace-surface .teams-dialog h3 {
   margin: 0;
-  color: var(--ink);
+  color: var(--foreground);
   font-size: 1.08rem;
   letter-spacing: -0.015em;
   text-transform: none;
@@ -485,9 +485,9 @@
   .workspace-surface .teams-list li {
     align-items: stretch;
     padding: 0.75rem 0.8rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border);
     border-radius: calc(var(--radius) - 5px);
-    background: color-mix(in srgb, var(--raised) 42%, var(--card));
+    background: color-mix(in srgb, var(--secondary) 42%, var(--card));
   }
 
   .workspace-surface .teams-list li .teams-row {

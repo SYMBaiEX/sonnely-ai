@@ -6,104 +6,187 @@ var __rewriteRelativeImportExtension = (this && this.__rewriteRelativeImportExte
     }
     return path;
 };
-// Writes transient Vitest files to <package>/.cache/generated/tests from the package's declared contracts, never
-// from what its code does today: schemas (`src/**/*.schema.{ts,vibe}`), contracts (`src/**/*.contract.{ts,vibe}`,
-// properties.ts). `project()` (vitest.ts) runs `main` before each test run of a package with a schema or contract.
-// Conformance is not a test of these: the traces stage of `pnpm check` runs each `test/drivers/<name>.ts` (conform.ts).
-import { Arbitrary, Effect, Schema } from "effect";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { writeWhole } from "../util.js";
-/** In every header: a change to what is generated rewrites every file. */
+import { manifest as readManifest, packageFiles, packageManager, workspacePackages, writeWhole } from "../util.js";
 export const VERSION = 1;
 const OUT = ".cache/generated/tests";
 const posix = (file) => file.split(path.sep).join("/");
 const sha = (...texts) => createHash("sha256").update(texts.join("\0")).digest("hex").slice(0, 16);
-/**
- * Bring `<packageDir>/.cache/generated/tests` up to date. Modules are imported to read their exports, a `.vibe` one
- * through the package's `vibelang/register`, so a schema or contract module must load without side effects, and one
- * that throws is skipped.
- */
+const isFixture = (file) => /(?:^|\/)test\/fixtures?\//.test(file);
+function resolveTestingSpecifier(root) {
+    try {
+        createRequire(path.join(root, "package.json")).resolve("vibestack/testing");
+        return "vibestack/testing";
+    }
+    catch {
+        return undefined;
+    }
+}
+function generationFingerprint(root, testingPackage, testingEntry) {
+    const hash = createHash("sha256").update(JSON.stringify([
+        "gen-tests-v1", VERSION, process.versions.node, testingPackage ?? testingEntry,
+    ]));
+    let hasVibe = false;
+    let linkFound = false;
+    const updateFile = (abs, label) => {
+        const bytes = fs.readFileSync(abs);
+        hash.update(`${label}\0${bytes.length}\0`).update(bytes);
+    };
+    for (const { directory: from, name } of workspacePackages(root)) {
+        const pkg = readManifest(from);
+        if ([pkg.dependencies, pkg.devDependencies, pkg.optionalDependencies, pkg.peerDependencies].some((deps) => Object.values(deps ?? {}).some((version) => typeof version === "string" && version.startsWith("link:")))) {
+            linkFound = true;
+        }
+        hash.update(JSON.stringify(name));
+        const own = name === ".";
+        const keep = (file) => /\.(?:[cm]?[jt]sx?|vibex?|json)$/.test(file) && !/(?:^|\/)\.|\.d(?:\.vibe)?\.[cm]?ts$/.test(file) && (own
+            ? (file === "package.json" || file === "tsconfig.json" || (file.startsWith("src/") && !isFixture(file)))
+            : (!file.startsWith("test/") && !file.startsWith("spec/") && !file.startsWith("gen/")));
+        for (const file of packageFiles(from, keep, "", false)) {
+            if (/\.vibex?$/.test(file))
+                hasVibe = true;
+            if (!linkFound)
+                updateFile(path.join(from, file), file);
+        }
+        const genDir = path.join(from, "gen");
+        if (fs.existsSync(genDir)) {
+            const top = fs.readdirSync(genDir, { withFileTypes: true })
+                .filter((e) => e.isFile() && !e.name.endsWith(".qnt"))
+                .map((e) => `gen/${e.name}`)
+                .sort();
+            for (const file of top) {
+                if (/\.vibex?$/.test(file))
+                    hasVibe = true;
+                if (!linkFound)
+                    updateFile(path.join(from, file), file);
+            }
+        }
+    }
+    if (!linkFound) {
+        const { lock } = packageManager(root);
+        if (lock)
+            updateFile(lock, "__lock__");
+    }
+    return { hash: linkFound ? undefined : hash.digest("hex"), hasVibe };
+}
+function readCachedResult(out, manifestFile, inputHash) {
+    if (!inputHash || !fs.existsSync(manifestFile))
+        return undefined;
+    let saved;
+    try {
+        saved = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+    }
+    catch {
+        return undefined;
+    }
+    if (saved.generator !== VERSION || saved.inputHash !== inputHash || !saved.files || !Array.isArray(saved.skipped))
+        return undefined;
+    if (saved.skipped.some((entry) => entry.export === "*"))
+        return undefined;
+    const expected = Object.keys(saved.files).sort();
+    const actual = fs.globSync("**/*.test.ts", { cwd: out }).map(posix).sort();
+    if (actual.length !== expected.length || actual.some((file, index) => file !== expected[index]))
+        return undefined;
+    for (const file of expected) {
+        const stat = fs.statSync(path.join(out, file), { throwIfNoEntry: false });
+        const entry = saved.files[file];
+        if (!stat?.isFile() || (entry.size !== undefined && stat.size !== entry.size))
+            return undefined;
+    }
+    return { written: [], unchanged: expected, removed: [], skipped: saved.skipped };
+}
 export async function generateTests(packageDir) {
     const root = path.resolve(packageDir), out = path.join(root, OUT);
+    const manifestFile = path.join(out, "manifest.json");
+    const testingPackage = resolveTestingSpecifier(root);
+    const testingEntry = path.join(import.meta.dirname, `index${path.extname(import.meta.filename)}`);
+    const { hash: inputHash, hasVibe } = generationFingerprint(root, testingPackage, testingEntry);
+    const cached = readCachedResult(out, manifestFile, inputHash);
+    if (cached)
+        return cached;
     const result = { written: [], unchanged: [], removed: [], skipped: [] };
-    const glob = (pattern) => fs.globSync(pattern, { cwd: root }).map(posix).filter((file) => !/(?:^|\/)test\/fixtures?\//.test(file)).sort();
+    const glob = (pattern) => fs.globSync(pattern, { cwd: root }).map(posix).filter((file) => !isFixture(file)).sort();
     const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
     const files = new Map();
-    /** The generated `file` of `source`: `lines(from)` are its imports and tests, `from` giving a path as the file imports it. */
     const emit = (file, source, hash, tests, lines) => {
         const target = path.join(out, file);
         const from = (to) => posix(path.relative(path.dirname(target), to));
         const text = [`// Generated by vibestack/testing/generate.ts v${VERSION} from ${source} (sha256 ${hash}); do not edit.`, ...lines(from), ""].join("\n");
-        files.set(file, { source, hash, tests });
+        files.set(file, { source, hash, tests, size: Buffer.byteLength(text, "utf8") });
         if (fs.existsSync(target) && fs.readFileSync(target, "utf8") === text)
             return void result.unchanged.push(file);
         writeWhole(target, text);
         result.written.push(file);
     };
     const importing = (from, what, file) => `import ${what} from ${JSON.stringify(from(file))};`;
-    const resolveTestingSpecifier = () => {
-        try {
-            createRequire(path.join(root, "package.json")).resolve("vibestack/testing");
-            return "vibestack/testing";
-        }
-        catch {
-            return undefined;
-        }
-    };
-    const testingPackage = resolveTestingSpecifier();
-    const testingEntry = path.join(import.meta.dirname, `index${path.extname(import.meta.filename)}`);
     const importingTesting = (from, what) => testingPackage ? `import ${what} from ${JSON.stringify(testingPackage)};` : importing(from, what, testingEntry);
     const sources = glob("src/**/*.{schema,contract}.{ts,vibe}");
     if (sources.length) {
-        let register;
-        try {
-            register = createRequire(path.join(root, "package.json")).resolve("vibelang/register");
+        if (hasVibe) {
+            let register;
+            try {
+                register = createRequire(path.join(root, "package.json")).resolve("vibelang/register");
+            }
+            catch (error) {
+                if (!(error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND"))
+                    throw error;
+            }
+            if (register)
+                await import(__rewriteRelativeImportExtension(pathToFileURL(register).href));
         }
-        catch (error) {
-            if (!(error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND"))
-                throw error;
-        }
-        if (register)
-            await import(__rewriteRelativeImportExtension(pathToFileURL(register).href));
-    }
-    for (const source of sources) {
-        const hash = sha(read(source));
-        const skip = (name, reason) => void result.skipped.push({ file: source, export: name, reason });
-        const module = await import(__rewriteRelativeImportExtension(`${pathToFileURL(path.join(root, source)).href}?${hash}`)).catch((error) => skip("*", `the module does not load: ${error instanceof Error ? error.message : String(error)}`));
-        if (!module)
-            continue;
-        const names = Object.keys(module).sort(), testFile = `${source.replace(/\.\w+$/, "")}.test.ts`;
-        const subject = (from) => importing(from, "* as subject", path.join(root, source));
-        if (/\.schema\.\w+$/.test(source)) {
-            const schemas = names.filter((name) => Schema.isSchema(module[name]) && arbitraryOf(module[name], (reason) => skip(name, reason)));
-            if (!schemas.length)
-                skip("*", names.some((name) => Schema.isSchema(module[name])) ? "no value can be generated for any schema it exports" : "the module exports no Effect Schema");
-            else
-                emit(testFile, source, hash, schemas.length * 2, (from) => [
-                    `import { describe } from "vitest";`, importingTesting(from, "{ schemaTests }"), subject(from), "",
-                    `describe(${JSON.stringify(source)}, () => {`, ...schemas.map((name) => `  schemaTests(${JSON.stringify(name)}, subject[${JSON.stringify(name)}]);`), "});",
-                ]);
-        }
-        else {
-            const { declared, isContract } = await import("./properties.js");
-            const contracts = names.filter((name) => isContract(module[name]));
-            const tests = contracts.flatMap((name) => {
-                const properties = Object.entries(declared(module[name])).flatMap(([property, check]) => check ? [property] : []);
-                if (!properties.length)
-                    skip(name, "the contract declares no property: deterministic, idempotent, invariant or inverse");
-                return properties.map((property) => `  contractTest(${JSON.stringify(name)}, subject[${JSON.stringify(name)}], ${JSON.stringify(property)});`);
-            });
-            if (!tests.length)
-                skip("*", contracts.length ? "no contract it exports declares a property" : "the module exports no contract({ … })");
-            else
-                emit(testFile, source, hash, tests.length, (from) => [
-                    `import { describe } from "vitest";`, importingTesting(from, "{ contractTest }"), subject(from), "",
-                    `describe(${JSON.stringify(source)}, () => {`, ...tests, "});",
-                ]);
+        const { Arbitrary, Effect, Schema: EffectSchema } = await import("effect");
+        let propertiesModule;
+        const arbitraryOf = (schema, skip) => {
+            try {
+                Effect.runSync(Arbitrary.sampleEffect(Arbitrary.schema(schema), { count: 1, seed: 1 }).pipe(Effect.mapError((refused) => new Error(`its filters refused all ${refused.discards} values tried`))));
+                return true;
+            }
+            catch (error) {
+                skip(`no value can be generated for it: ${error instanceof Error ? error.message : String(error)}`);
+                return false;
+            }
+        };
+        const cacheBust = inputHash ?? String(Date.now());
+        for (const source of sources) {
+            const hash = sha(read(source));
+            const skip = (name, reason) => void result.skipped.push({ file: source, export: name, reason });
+            const module = await import(__rewriteRelativeImportExtension(`${pathToFileURL(path.join(root, source)).href}?${cacheBust}`)).catch((error) => skip("*", `the module does not load: ${error instanceof Error ? error.message : String(error)}`));
+            if (!module)
+                continue;
+            const names = Object.keys(module).sort(), testFile = `${source.replace(/\.\w+$/, "")}.test.ts`;
+            const subject = (from) => importing(from, "* as subject", path.join(root, source));
+            if (/\.schema\.\w+$/.test(source)) {
+                const schemas = names.filter((name) => EffectSchema.isSchema(module[name]) && arbitraryOf(module[name], (reason) => skip(name, reason)));
+                if (!schemas.length)
+                    skip("*", names.some((name) => EffectSchema.isSchema(module[name])) ? "no value can be generated for any schema it exports" : "the module exports no Effect Schema");
+                else
+                    emit(testFile, source, hash, schemas.length * 2, (from) => [
+                        `import { describe } from "vitest";`, importingTesting(from, "{ schemaTests }"), subject(from), "",
+                        `describe(${JSON.stringify(source)}, () => {`, ...schemas.map((name) => `  schemaTests(${JSON.stringify(name)}, subject[${JSON.stringify(name)}]);`), "});",
+                    ]);
+            }
+            else {
+                propertiesModule ??= await import("./properties.js");
+                const { declared, isContract } = propertiesModule;
+                const contracts = names.filter((name) => isContract(module[name]));
+                const tests = contracts.flatMap((name) => {
+                    const properties = Object.entries(declared(module[name])).flatMap(([property, check]) => check ? [property] : []);
+                    if (!properties.length)
+                        skip(name, "the contract declares no property: deterministic, idempotent, invariant or inverse");
+                    return properties.map((property) => `  contractTest(${JSON.stringify(name)}, subject[${JSON.stringify(name)}], ${JSON.stringify(property)});`);
+                });
+                if (!tests.length)
+                    skip("*", contracts.length ? "no contract it exports declares a property" : "the module exports no contract({ … })");
+                else
+                    emit(testFile, source, hash, tests.length, (from) => [
+                        `import { describe } from "vitest";`, importingTesting(from, "{ contractTest }"), subject(from), "",
+                        `describe(${JSON.stringify(source)}, () => {`, ...tests, "});",
+                    ]);
+            }
         }
     }
     if (fs.existsSync(out))
@@ -115,27 +198,11 @@ export async function generateTests(packageDir) {
         }
     for (const list of [result.written, result.unchanged])
         list.sort();
-    const manifest = `${JSON.stringify({ generator: VERSION, files: Object.fromEntries([...files].sort(([a], [b]) => a < b ? -1 : 1)), skipped: result.skipped }, null, 2)}\n`;
-    const manifestFile = path.join(out, "manifest.json");
+    const manifest = `${JSON.stringify({ generator: VERSION, ...(inputHash ? { inputHash } : {}), files: Object.fromEntries([...files].sort(([a], [b]) => a < b ? -1 : 1)), skipped: result.skipped }, null, 2)}\n`;
     if (!fs.existsSync(manifestFile) || fs.readFileSync(manifestFile, "utf8") !== manifest)
         writeWhole(manifestFile, manifest);
     return result;
 }
-/** Whether values of `schema` can be generated; if not, `skip` hears why. */
-function arbitraryOf(schema, skip) {
-    try {
-        Effect.runSync(Arbitrary.sampleEffect(Arbitrary.schema(schema), { count: 1, seed: 1 }).pipe(Effect.mapError((refused) => new Error(`its filters refused all ${refused.discards} values tried`))));
-        return true;
-    }
-    catch (error) {
-        skip(`no value can be generated for it: ${error instanceof Error ? error.message : String(error)}`);
-        return false;
-    }
-}
-/**
- * `spec tests [<directory>]` (vibestack/spec.ts) and `project()` (vitest.ts): generate, say what was skipped, and
- * throw, listing them, when a whole module gets no test, so that a package's tests fail rather than miss it.
- */
 export async function main(packageDir = ".") {
     const { written, unchanged, removed, skipped } = await generateTests(packageDir);
     const said = (s) => `  ${s.file}${s.export === "*" ? "" : `, ${s.export}`}: ${s.reason}`;

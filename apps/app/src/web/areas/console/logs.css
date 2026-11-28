@@ -1,6 +1,6 @@
 .telemetry-legacy {
-  color: var(--ink);
-  font-family: var(--font);
+  color: var(--foreground);
+  font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.5;
 }
@@ -61,21 +61,21 @@
 }
 
 .telemetry-legacy :focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: 2px solid var(--ring);
   outline-offset: 4px;
 }
 
 .telemetry-legacy code,
 .telemetry-legacy pre,
 .telemetry-legacy .mono {
-  font-family: var(--mono);
+  font-family: var(--font-mono);
 }
 
 .telemetry-legacy input,
 .telemetry-legacy textarea,
 .telemetry-legacy select {
   width: 100%;
-  border: 1px solid var(--control-edge);
+  border: 1px solid var(--input);
   background: var(--card);
   border-radius: 9px;
   padding: 10px 12px;
@@ -83,7 +83,7 @@
 }
 
 .telemetry-legacy ::placeholder {
-  color: var(--muted);
+  color: var(--muted-foreground);
   opacity: 1;
 }
 
@@ -118,23 +118,23 @@
 }
 
 .telemetry-legacy .button.accent {
-  background: var(--action);
-  color: var(--accent-ink);
+  background: var(--primary);
+  color: var(--primary-foreground);
   border-color: transparent;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 6px 15px var(--shadow);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 6px 15px var(--effect-shadow);
 }
 
 .telemetry-legacy .button.accent:not(:disabled):hover {
-  background: var(--action-hover);
+  background: color-mix(in oklch, var(--primary) 85%, var(--foreground));
 }
 
 .telemetry-legacy .button.quiet {
   background: var(--card);
-  border-color: var(--line);
+  border-color: var(--border);
 }
 
 .telemetry-legacy .button.quiet:hover {
-  background: var(--raised);
+  background: var(--secondary);
 }
 
 .telemetry-legacy .button.small {
@@ -154,13 +154,13 @@
   width: 34px;
   height: 34px;
   background: transparent;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  color: var(--ink);
+  color: var(--foreground);
 }
 
 .telemetry-legacy .icon-button:hover {
-  background: var(--raised);
+  background: var(--secondary);
 }
 
 .telemetry-legacy .actions {
@@ -191,13 +191,13 @@
 }
 
 .telemetry-legacy .caption {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: var(--console-caption);
 }
 
 .telemetry-legacy .panel {
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
@@ -206,7 +206,7 @@
   flex-wrap: wrap;
   gap: 3px;
   padding: 3px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--card);
 }
@@ -216,14 +216,14 @@
   background: transparent;
   padding: 6px 9px;
   border-radius: 6px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
   white-space: nowrap;
   line-height: 1.45;
 }
 
 .telemetry-legacy .segmented button[aria-pressed="true"] {
-  background: var(--raised);
+  background: var(--secondary);
   color: inherit;
   font-weight: 600;
 }
@@ -236,7 +236,7 @@
   gap: 12px 18px;
   margin-block: 0 5px;
   padding: 0 0 clamp(12px, 1.6vw, 21px);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .telemetry-legacy .console-title-identity,
@@ -258,10 +258,10 @@
   height: 40px;
   flex: none;
   align-self: start;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  color: var(--accent);
-  background: var(--active-fill);
+  color: var(--ring);
+  background: var(--accent);
 }
 
 .telemetry-legacy .console-title h1 {
@@ -274,7 +274,7 @@
 
 .telemetry-legacy .console-title p {
   max-width: 65ch;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: var(--console-text);
 }
 
@@ -295,10 +295,10 @@
   place-items: center;
   width: 52px;
   height: 52px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 15px;
-  color: var(--ink);
-  background: var(--raised);
+  color: var(--foreground);
+  background: var(--secondary);
 }
 
 .telemetry-legacy .empty h2,
@@ -311,7 +311,7 @@
 
 .telemetry-legacy .empty p,
 .telemetry-legacy .callout p {
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-bottom: 8px;
 }
 
@@ -330,15 +330,15 @@
 }
 
 .telemetry-legacy .status {
-  color: var(--ink);
-  background: var(--active-fill);
-  border-color: var(--line);
+  color: var(--foreground);
+  background: var(--accent);
+  border-color: var(--border);
 }
 
 .telemetry-legacy .secret-code {
   display: block;
   overflow-wrap: anywhere;
-  background: var(--raised);
+  background: var(--secondary);
   padding: 10px 12px;
   border-radius: 6px;
   margin-top: 10px;
@@ -403,12 +403,12 @@
 .telemetry-legacy td {
   padding: 13px 11px;
   white-space: nowrap;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .telemetry-legacy thead th {
-  color: var(--muted);
-  font: 540 11px var(--mono);
+  color: var(--muted-foreground);
+  font: 540 11px var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
@@ -420,18 +420,18 @@
 .telemetry-legacy .pill {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--line);
-  background: var(--raised);
+  border: 1px solid var(--border);
+  background: var(--secondary);
   padding: 4px 9px;
   border-radius: 999px;
-  color: var(--muted);
-  font: 500 11px var(--mono);
+  color: var(--muted-foreground);
+  font: 500 11px var(--font-mono);
   white-space: nowrap;
 }
 
 .telemetry-legacy .bars span {
   flex: 1;
-  background: var(--accent);
+  background: var(--ring);
   border-radius: 3px 3px 0 0;
   min-width: 1px;
 }
@@ -451,14 +451,14 @@
 }
 
 .telemetry-legacy .stat > span:first-child {
-  font: 610 0.7rem/1.4 var(--mono);
+  font: 610 0.7rem/1.4 var(--font-mono);
   letter-spacing: 0.075em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .telemetry-legacy .stat strong {
-  font-family: var(--font);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   font-weight: 630;
   letter-spacing: -0.042em;
@@ -467,13 +467,13 @@
 }
 
 .telemetry-legacy .stat small {
-  color: var(--muted);
+  color: var(--muted-foreground);
   overflow-wrap: anywhere;
 }
 
 .telemetry-legacy .control-label {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .telemetry-legacy .chart-empty {
@@ -483,9 +483,9 @@
   justify-content: center;
   flex-direction: column;
   gap: 12px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   text-align: center;
-  background: repeating-linear-gradient(to top, transparent 0 47px, var(--line) 48px 49px, transparent 50px);
+  background: repeating-linear-gradient(to top, transparent 0 47px, var(--border) 48px 49px, transparent 50px);
 }
 
 .telemetry-legacy .chart-empty p,
@@ -505,7 +505,7 @@
   gap: 2px;
   align-items: end;
   margin-bottom: 10px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .telemetry-legacy .compact-table {
@@ -627,25 +627,25 @@
 
 .logs-legacy .log-status[data-status="Complete"] {
   color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--ok) 42%, var(--border));
   background: color-mix(in srgb, var(--ok) 9%, var(--card));
 }
 
 .logs-legacy .log-status[data-status="Failed"] {
   color: var(--destructive);
-  border-color: color-mix(in srgb, var(--destructive) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--destructive) 42%, var(--border));
   background: color-mix(in srgb, var(--destructive) 9%, var(--card));
 }
 
 .logs-legacy .log-status[data-status="Pending"] {
   color: var(--info);
-  border-color: color-mix(in srgb, var(--info) 42%, var(--line));
+  border-color: color-mix(in srgb, var(--info) 42%, var(--border));
   background: color-mix(in srgb, var(--info) 9%, var(--card));
 }
 
 .logs-legacy .log-status[data-status="Unreported"] {
   color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 48%, var(--line));
+  border-color: color-mix(in srgb, var(--warn) 48%, var(--border));
   background: color-mix(in srgb, var(--warn) 10%, var(--card));
 }
 
@@ -683,9 +683,9 @@
   padding: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  color: var(--ink);
+  color: var(--foreground);
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
 }
 
@@ -703,7 +703,7 @@
   gap: 12px;
   padding: 16px 20px;
   background: var(--card);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .logs-legacy .log-drawer header h2 {
@@ -737,11 +737,11 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
   gap: 10px;
   padding-block: 9px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border);
 }
 
 .logs-legacy .log-details dt {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .logs-legacy .log-details dd {
@@ -767,7 +767,7 @@
   gap: 5px;
   padding-inline-start: 22px;
   margin-block: 8px 12px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 @media (width <= 460px) {

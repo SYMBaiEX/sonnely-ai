@@ -43,5 +43,7 @@ declare const TOOLS: {
  * is remembered, and not when the program was installed again during the run; a process that outlives a reinstall
  * names the program installed now.
  */
-export declare function act(memory: Memory, tool: keyof typeof TOOLS, args: string[], dir: string, files: Record<string, Input>): Promise<Ran>;
+export declare function act(memory: Memory, tool: keyof typeof TOOLS, args: string[], dir: string | {
+    tempPrefix: string;
+}, files: Record<string, Input>): Promise<Ran>;
 export {};

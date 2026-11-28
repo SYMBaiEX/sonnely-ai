@@ -3,6 +3,11 @@ import { type DoctorReport } from "./doctor.ts";
 import { linkProjectAgents } from "./skill-links.ts";
 export { linkProjectAgents as linkAgents };
 export declare const MANIFEST_PATH = ".agents/.vibestack-manifest.json";
+export declare const GITHUB_RELEASES_BASE = "https://github.com/lalalune/vibestack/releases";
+export type ReleasePackage = "vibestack" | "vibestack-studio" | "create-vibestack";
+export declare function latestReleaseTarballUrl(pkg: ReleasePackage): string;
+export declare function versionedReleaseTarballUrl(pkg: ReleasePackage, version: string): string;
+export declare function resolveReleaseSpec(version?: string): string;
 export interface ManagedManifest {
     version: string;
     files: Record<string, string>;

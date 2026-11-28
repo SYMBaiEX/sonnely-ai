@@ -6,22 +6,33 @@ export const GENERATED_AGENT_IGNORES = ["/.claude/", "/CLAUDE.md", ...GENERATED_
 /** Locate bundled Vibestack assets, checking `assets/` in the package first and falling back to the monorepo root in dev. */
 export function resolvePackageAssets(basePkgDir = path.resolve(import.meta.dirname, "..")) {
     const pkgRoot = fs.existsSync(path.join(basePkgDir, "package.json")) ? basePkgDir : path.resolve(import.meta.dirname, "..");
-    const repoRoot = path.resolve(pkgRoot, "../..");
     const assetsDir = path.join(pkgRoot, "assets");
+    const hasAssets = fs.existsSync(assetsDir);
+    const repoRoot = !hasAssets && path.basename(path.dirname(pkgRoot)) === "packages" ? path.resolve(pkgRoot, "../..") : undefined;
     const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgRoot, "package.json"), "utf8"));
-    const pickFile = (inAssets, inRepo) => fs.existsSync(path.join(assetsDir, inAssets)) ? path.join(assetsDir, inAssets)
-        : fs.existsSync(path.join(pkgRoot, inRepo)) ? path.join(pkgRoot, inRepo)
-            : path.join(repoRoot, inRepo);
+    const pickFile = (inAssets, inRepo) => {
+        const inAssetsPath = path.join(assetsDir, inAssets);
+        if (fs.existsSync(inAssetsPath))
+            return inAssetsPath;
+        const inPkgPath = path.join(pkgRoot, inRepo);
+        if (fs.existsSync(inPkgPath))
+            return inPkgPath;
+        return repoRoot ? path.join(repoRoot, inRepo) : inAssetsPath;
+    };
     const assetSkills = path.join(assetsDir, "skills");
-    const repoSkills = path.join(repoRoot, SKILL_ROOT);
     const pkgSkills = path.join(pkgRoot, SKILL_ROOT);
+    const repoSkills = repoRoot ? path.join(repoRoot, SKILL_ROOT) : undefined;
     const skillsDirs = [];
-    if (fs.existsSync(repoSkills) && repoRoot !== pkgRoot)
-        skillsDirs.push(repoSkills);
-    if (fs.existsSync(pkgSkills))
-        skillsDirs.push(pkgSkills);
-    if (fs.existsSync(assetSkills))
-        skillsDirs.push(assetSkills);
+    if (hasAssets) {
+        if (fs.existsSync(assetSkills))
+            skillsDirs.push(assetSkills);
+    }
+    else {
+        if (repoSkills && fs.existsSync(repoSkills) && repoRoot !== pkgRoot)
+            skillsDirs.push(repoSkills);
+        if (fs.existsSync(pkgSkills))
+            skillsDirs.push(pkgSkills);
+    }
     return {
         pkgRoot,
         version: typeof pkgJson.version === "string" ? pkgJson.version : "0.0.0",

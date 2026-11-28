@@ -9,12 +9,13 @@ import { cacheDirectory } from "./config.ts";
 import { conformance, type Machine } from "./conform.ts";
 import { explore } from "./explore.ts";
 import { readSpecs } from "./parse.ts";
-import { entry, remembered, steady, type Memory } from "./cache.ts";
+import { entry, remembered, withStableInstallation, type Memory } from "./cache.ts";
 import { findBin, onPath, startAttached } from "./run.ts";
-import { simulation } from "./simulate.ts";
+import { simulation, type Simulation } from "./simulate.ts";
 import { profile, type TestProfile } from "./testing/profile.ts";
 import { generated, mirrorGen, typecheckAll } from "./units.ts";
-import { codeDirs, packageScripts, type Reported } from "./util.ts";
+import { latestReleaseTarballUrl } from "./upgrade.ts";
+import { allDone, codeDirs, packageScripts, type Reported } from "./util.ts";
 import type { Model } from "./gen.ts";
 import type { Spec } from "./parse.ts";
 
@@ -76,20 +77,39 @@ export function startPhaseTimings(): () => string {
   };
 }
 
-export async function runConformanceCommand(root: string, moduleName?: string, mode: TestProfile = "normal"): Promise<boolean> {
-  const specs = readSpecs(root);
-  const { seed } = profile(mode);
-  const memory: Memory = { root, fresh: mode === "nightly", used: new Set() };
-  const machines = new Map<string, Machine>();
+async function runLockedCommand(
+  root: string,
+  mode: TestProfile,
+  lockProject: ((root: string, cache?: string) => () => void) | undefined,
+  run: (memory: Memory, cache: string) => Promise<CommandResult[]>,
+): Promise<CommandResult[]> {
   const cache = cacheDirectory(root);
   fs.mkdirSync(cache, { recursive: true });
-  const loaded = fs.mkdtempSync(path.join(cache, "conformance-"));
-  const results: CommandResult[] = [];
-
+  const release = lockProject ? lockProject(root, cache) : () => {};
   try {
-    await steady(async () => {
+    return await withStableInstallation(() => run({ root, fresh: mode === "nightly", used: new Set() }, cache));
+  } finally {
+    release();
+  }
+}
+
+async function mapCodeDirs(root: string, run: (dir: string) => Promise<Reported[]>): Promise<CommandResult[]> {
+  const dirs = codeDirs(root);
+  const allRows = await allDone(dirs.map(run));
+  return dirs.flatMap((dir, i) => allRows[i].map((r) => toCommandResult(dir, r)));
+}
+
+export async function runConformanceCommand(root: string, moduleName?: string, mode: TestProfile = "normal", lockProject?: (root: string, cache?: string) => () => void): Promise<boolean> {
+  const specs = readSpecs(root);
+  const { seed } = profile(mode);
+  const results = await runLockedCommand(root, mode, lockProject, async (memory, cache) => {
+    const machines = new Map<string, Machine>();
+    const attemptResults: CommandResult[] = [];
+    const loaded = fs.mkdtempSync(path.join(cache, "conformance-"));
+    try {
       const models = new Map<string, Model>();
       const typed = typecheckAll(memory, specs, root);
+      const started: { model: Model; domain: any; simulated: Promise<Simulation> }[] = [];
       fs.writeFileSync(path.join(loaded, "package.json"), '{"type":"module"}\n');
       for (const spec of specs) {
         const ir = await typed.get(spec.name)!;
@@ -100,54 +120,51 @@ export async function runConformanceCommand(root: string, moduleName?: string, m
         if (moduleName && spec.name !== moduleName) continue;
         if (!model.stateType || !model.transitions.length) continue;
         const domain = await import(pathToFileURL(file).href);
-        const sim = await simulation(memory, spec, specs, model, domain, seed);
-        if (sim.tested) machines.set(model.name, { domain, model, found: sim.tested });
-        for (const row of sim.said) {
-          if (!row.ok) results.push(row);
-        }
+        const simulated = simulation(memory, spec, specs, model, domain, seed);
+        simulated.catch(() => {});
+        started.push({ model, domain, simulated });
       }
       mirrorGen(root, specs);
+      const settled = await allDone(started.map((s) => s.simulated));
+      for (let i = 0; i < started.length; i++) {
+        const { model, domain } = started[i];
+        const sim = settled[i];
+        if (sim.tested) machines.set(model.name, { domain, model, found: sim.tested });
+        for (const row of sim.said) {
+          if (!row.ok) attemptResults.push(row);
+        }
+      }
       if (moduleName && !machines.has(moduleName)) {
         const known = [...models.keys()].join(", ");
         throw new Error(`no simulatable state machine named "${moduleName}" (available: ${known || "none"})`);
       }
       const wrote = new Map<string, string>();
-      for (const dir of codeDirs(root)) {
-        const scripts = packageScripts(path.join(root, dir));
-        const rows = await conformance(
-          path.join(root, dir),
-          machines,
-          scripts,
-          (key, ran, keep) => remembered(memory, entry(root, "traces", [dir, key]), ran, keep),
-          wrote,
-          mode,
-        );
-        for (const r of rows) results.push(toCommandResult(dir, r));
-      }
-    });
-  } finally {
-    fs.rmSync(loaded, { recursive: true, force: true });
-  }
+      attemptResults.push(...await mapCodeDirs(root, (dir) => conformance(
+        path.join(root, dir),
+        machines,
+        packageScripts(path.join(root, dir)),
+        (key, ran, keep) => remembered(memory, entry(root, "traces", [dir, key]), ran, keep),
+        wrote,
+        mode,
+      )));
+      return attemptResults;
+    } finally {
+      fs.rmSync(loaded, { recursive: true, force: true });
+    }
+  });
 
   for (const r of results) console.log(formatResult(r));
   return results.every((r) => r.ok);
 }
 
-export async function runExploreCommand(root: string, mode: TestProfile = "normal"): Promise<boolean> {
-  const memory: Memory = { root, fresh: mode === "nightly", used: new Set() };
-  const results: CommandResult[] = [];
-
-  await steady(async () => {
-    for (const dir of codeDirs(root)) {
-      const rows = await explore(
-        path.join(root, dir),
-        (key, ran, keep) => remembered(memory, entry(root, "explore", [dir, key]), ran, keep),
-        mode,
-        root,
-      );
-      for (const r of rows) results.push(toCommandResult(dir, r));
-    }
-  });
+export async function runExploreCommand(root: string, mode: TestProfile = "normal", lockProject?: (root: string, cache?: string) => () => void): Promise<boolean> {
+  const results = await runLockedCommand(root, mode, lockProject, (memory) =>
+    mapCodeDirs(root, (dir) => explore(
+      path.join(root, dir),
+      (key, ran, keep) => remembered(memory, entry(root, "explore", [dir, key]), ran, keep),
+      mode,
+      root,
+    )));
 
   if (!results.length) {
     console.log("- explore   no explorable pages found");
@@ -159,10 +176,74 @@ export async function runExploreCommand(root: string, mode: TestProfile = "norma
 
 function readFlag(args: string[], flag: string): string | undefined {
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === flag && args[i + 1] && !args[i + 1].startsWith("-")) return args[i + 1];
-    if (args[i].startsWith(`${flag}=`)) return args[i].slice(flag.length + 1);
+    if (args[i] === flag) {
+      const next = args[i + 1];
+      if (next === undefined || (next.startsWith("--") && next.length > 2)) {
+        throw new Error(`flag ${flag} requires a value`);
+      }
+      return next;
+    }
+    if (args[i].startsWith(`${flag}=`)) {
+      const value = args[i].slice(flag.length + 1);
+      if (!value) throw new Error(`flag ${flag} requires a value`);
+      return value;
+    }
   }
   return undefined;
+}
+
+function parseShardWeights(file: string): Record<string, number> {
+  const raw: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new Error(`${file}: shard weights must be a JSON object mapping spec names or paths to positive numbers`);
+  }
+  const weights: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+      throw new Error(`${file}: weight for "${key}" must be a positive finite number`);
+    }
+    weights[key] = value;
+  }
+  return weights;
+}
+
+function isLikelySimulatable(spec: Spec): boolean {
+  return spec.rules.some((r) => /\b(?:pure\s+def|def|pure\s+val\s+initial|val\s+initial)\b/.test(r.code));
+}
+
+function specShardWeight(spec: Spec, weights?: Readonly<Record<string, number>>): number {
+  const configured = weights?.[spec.name] ?? weights?.[spec.file];
+  if (configured !== undefined) return configured;
+  if (!isLikelySimulatable(spec)) return 0;
+  return Math.max(1, spec.rules.length * 2 + spec.imports.length + Math.ceil(spec.qnt.split("\n").length / 40));
+}
+
+function assignSimulationShard(
+  specs: readonly Spec[],
+  shard: number,
+  shards: number,
+  weights?: Readonly<Record<string, number>>,
+): { readonly modules: string[]; readonly estimatedWeight: number } {
+  const bins = Array.from({ length: shards }, () => ({ weight: 0, specs: [] as Spec[] }));
+  const weightOf = new Map(specs.map((spec) => [spec, specShardWeight(spec, weights)]));
+  const ordered = [...specs].sort(
+    (a, b) => (weightOf.get(b)! - weightOf.get(a)!)
+      || a.file.localeCompare(b.file, "en")
+      || a.name.localeCompare(b.name, "en"),
+  );
+  for (const spec of ordered) {
+    let target = bins[0]!;
+    for (let i = 1; i < bins.length; i++) {
+      if (bins[i]!.weight < target.weight) target = bins[i]!;
+    }
+    target.weight += weightOf.get(spec)!;
+    target.specs.push(spec);
+  }
+  const chosen = bins[shard - 1]!;
+  return {
+    modules: chosen.specs.map(({ name }) => name),
+    estimatedWeight: Number(chosen.weight.toFixed(2)),
+  };
 }
 
 async function runCiPrecomputeSimulations(root: string, args: string[], prepareSimulationReceipts: SimulationPrepFn): Promise<number> {
@@ -171,6 +252,16 @@ async function runCiPrecomputeSimulations(root: string, args: string[], prepareS
   if (!Number.isInteger(shard) || !Number.isInteger(shards) || shard < 1 || shards < 1 || shard > shards) {
     throw new Error(`invalid shard parameters: shard=${shard}, shards=${shards}`);
   }
+  const weightsArg = readFlag(args, "--weights");
+  const weights = weightsArg ? parseShardWeights(path.resolve(root, weightsArg)) : undefined;
+  const listOnly = args.includes("--list");
+  const specs = readSpecs(root);
+  const assignment = assignSimulationShard(specs, shard, shards, weights);
+  if (listOnly) {
+    console.log(JSON.stringify({ shard, shards, totalSpecs: specs.length, estimatedWeight: assignment.estimatedWeight, modules: assignment.modules }));
+    return 0;
+  }
+
   const outParent = path.resolve(root, readFlag(args, "--out") ?? process.env.RUNNER_TEMP ?? os.tmpdir());
   const githubOutput = readFlag(args, "--github-output") ?? process.env.GITHUB_OUTPUT;
   const cacheDir = cacheDirectory(root);
@@ -186,10 +277,7 @@ async function runCiPrecomputeSimulations(root: string, args: string[], prepareS
     try { restored.set(name, fileDigest(path.join(cacheDir, name))); } catch { /* ignore unreadable */ }
   }
 
-  const specs = readSpecs(root);
-  const inShard = ({ file }: { file: string }) =>
-    parseInt(createHash("sha256").update(file).digest("hex").slice(0, 8), 16) % shards === shard - 1;
-  const names = specs.filter(inShard).map(({ name }) => name);
+  const names = assignment.modules;
   fs.mkdirSync(outParent, { recursive: true });
   const { results, seedDirectory, partialDirectory } = await prepareSimulationReceipts(root, specs, names, outParent);
   const checkpoint = seedDirectory ?? partialDirectory;
@@ -210,6 +298,7 @@ async function runCiPrecomputeSimulations(root: string, args: string[], prepareS
         try {
           fs.rmSync(staged, { recursive: true, force: true });
           fs.renameSync(checkpoint, staged);
+          if (path.basename(checkpoint) === "seed") fs.rmSync(path.dirname(checkpoint), { recursive: true, force: true });
           transfer = staged;
           fs.appendFileSync(githubOutput, `cache-key=${key}\ncache-prefix=${prefix}\n`);
         } catch (error) {
@@ -288,10 +377,11 @@ export function launchStudio(root: string, args: string[]) {
     return;
   }
 
+  const studioPkg = latestReleaseTarballUrl("vibestack-studio");
   if (onPath("pnpm")) {
-    attachAndPropagateExit("pnpm", ["dlx", "vibestack-studio@latest", ...args], root, "studio");
+    attachAndPropagateExit("pnpm", ["dlx", `--package=${studioPkg}`, "vibestack-studio", ...args], root, "studio");
   } else {
-    attachAndPropagateExit("npx", ["--yes", "vibestack-studio@latest", ...args], root, "studio");
+    attachAndPropagateExit("npx", ["--yes", `--package=${studioPkg}`, "vibestack-studio", ...args], root, "studio");
   }
 }
 
@@ -319,9 +409,10 @@ export function launchCreate(root: string, args: string[]) {
     return;
   }
 
+  const createPkg = latestReleaseTarballUrl("create-vibestack");
   if (onPath("pnpm")) {
-    attachAndPropagateExit("pnpm", ["dlx", "create-vibestack@latest", ...args], root, "create-vibestack");
+    attachAndPropagateExit("pnpm", ["dlx", `--package=${createPkg}`, "create-vibestack", ...args], root, "create-vibestack");
   } else {
-    attachAndPropagateExit("npx", ["--yes", "create-vibestack@latest", ...args], root, "create-vibestack");
+    attachAndPropagateExit("npx", ["--yes", `--package=${createPkg}`, "create-vibestack", ...args], root, "create-vibestack");
   }
 }

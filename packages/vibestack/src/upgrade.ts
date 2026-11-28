@@ -10,11 +10,31 @@ import { VITEST_CONFIG } from "./testing/check.ts";
 export { linkProjectAgents as linkAgents };
 
 export const MANIFEST_PATH = ".agents/.vibestack-manifest.json";
+export const GITHUB_RELEASES_BASE = "https://github.com/lalalune/vibestack/releases";
 const MIN_NODE = 26;
+
+export type ReleasePackage = "vibestack" | "vibestack-studio" | "create-vibestack";
+
+export function latestReleaseTarballUrl(pkg: ReleasePackage): string {
+  return `${GITHUB_RELEASES_BASE}/latest/download/${pkg}.tgz`;
+}
+
+export function versionedReleaseTarballUrl(pkg: ReleasePackage, version: string): string {
+  const bare = version.startsWith("v") ? version.slice(1) : version;
+  return `${GITHUB_RELEASES_BASE}/download/v${bare}/${pkg}-${bare}.tgz`;
+}
+
+export function resolveReleaseSpec(version?: string): string {
+  if (!version || version === "latest") return latestReleaseTarballUrl("vibestack");
+  if (/^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+    return versionedReleaseTarballUrl("vibestack", version);
+  }
+  return version;
+}
 
 const VIBELANG_DEPS = ["effect", "@effect/platform-node", "vibelang-runtime"] as const;
 const VIBELANG_DEV_DEPS = ["vibelang", "vibelang-vite", "vite", "vitest", "@effect/vitest", "@types/node", "@antithesishq/bombadil"] as const;
-const ALIGNED_PINS = ["effect", "@effect/platform-node", "@effect/vitest", "vibelang", "vibelang-runtime", "vibelang-vite", "vite", "vitest"] as const;
+const ALIGNED_PINS = ["effect", "@effect/platform-node", "@effect/vitest", "@antithesishq/bombadil", "vibelang", "vibelang-runtime", "vibelang-vite", "vite", "vitest"] as const;
 
 const GITIGNORE_ENTRIES = [
   "gen/",
@@ -187,7 +207,7 @@ function updatePostinstall(scripts: Record<string, string>): { changed: boolean;
   return { changed: true, value: current ? `${current} && vibestack link` : "vibestack link" };
 }
 
-function addMissingScripts(json: Record<string, any>, mode: VibestackMode): string[] {
+function addMissingScripts(json: Record<string, any>, mode: VibestackMode, isWorkspace: boolean): string[] {
   const scripts: Record<string, string> = { ...(json.scripts ?? {}) };
   const added: string[] = [];
   const coreScripts: [string, string][] = [
@@ -208,7 +228,10 @@ function addMissingScripts(json: Record<string, any>, mode: VibestackMode): stri
     }
   }
   if (mode === "vibelang") {
-    for (const [name, cmd] of [["dev", "spec studio"], ["build", "vibelang"], ["test", "vitest run"]] as const) {
+    const modeScripts = isWorkspace
+      ? ([["dev", "spec studio"], ["test", "vitest run"]] as const)
+      : ([["dev", "spec studio"], ["build", "vibelang"], ["test", "vitest run"]] as const);
+    for (const [name, cmd] of modeScripts) {
       if (!scripts[name] || (name === "test" && /no test specified/.test(scripts[name]))) {
         scripts[name] = cmd;
         added.push(name);
@@ -298,7 +321,7 @@ export function initProject(root: string, options: InitOptions = {}): string[] {
 
   const pkgFile = path.join(root, "package.json");
   const json: Record<string, any> = fs.existsSync(pkgFile) ? JSON.parse(fs.readFileSync(pkgFile, "utf8")) : {};
-  const addedScripts = addMissingScripts(json, mode);
+  const addedScripts = addMissingScripts(json, mode, isWorkspace);
   let manifestChanged = addedScripts.length > 0;
   if (addedScripts.length) done.push(`package.json scripts: ${addedScripts.join(", ")}`);
 
@@ -341,10 +364,20 @@ function resolveLocalPackage(root: string, fromPath: string): { spec: string; di
   return { spec: `file:${rel.startsWith(".") ? rel : `./${rel}`}`, dir: pkgDir };
 }
 
-function replaceYamlPin(content: string, section: "catalog" | "overrides", pkg: string, nextValue: string): { text: string; changed: boolean } {
-  const lines = content.split("\n");
+function isCatalogAllowedVersion(spec: string): boolean {
+  return !/^(?:file:|link:|workspace:|https?:|git\+|git:|github:)/i.test(spec);
+}
+
+function formatYamlScalar(value: string): string {
+  return /[:\s#"'{}[\],&*?|>!%@`]/.test(value) ? JSON.stringify(value) : value;
+}
+
+function replaceYamlPin(content: string, section: "catalog" | "overrides", pkg: string, nextValue: string | undefined): { text: string; changed: boolean; found: boolean } {
+  const eol = content.includes("\r\n") ? "\r\n" : "\n";
+  const lines = content.split(/\r?\n/);
   let inSection = false;
   let changed = false;
+  let found = false;
   const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const keyPattern = new RegExp(`^(\\s+)(["']?${escaped}["']?):\\s*(.+?)\\s*$`);
   for (let i = 0; i < lines.length; i++) {
@@ -356,43 +389,94 @@ function replaceYamlPin(content: string, section: "catalog" | "overrides", pkg: 
     if (!inSection || !line.startsWith(" ")) continue;
     const match = keyPattern.exec(line);
     if (!match) continue;
-    if (match[3].replace(/^["']|["']$/g, "") !== nextValue) {
-      lines[i] = `${match[1]}${match[2]}: ${nextValue}`;
+    found = true;
+    if (nextValue === undefined) {
+      lines.splice(i, 1);
       changed = true;
+    } else {
+      const current = match[3].replace(/\s+#.*$/, "").replace(/^["']|["']$/g, "");
+      if (current !== nextValue) {
+        lines[i] = `${match[1]}${match[2]}: ${formatYamlScalar(nextValue)}`;
+        changed = true;
+      }
     }
     break;
   }
-  return { text: lines.join("\n"), changed };
+  return { text: lines.join(eol), changed, found };
+}
+
+function rewriteMemberVibestackSpecs(root: string, targetSpec: string, dryRun: boolean, bumped: string[]) {
+  for (const container of ["apps", "packages"]) {
+    const containerDir = path.join(root, container);
+    if (!fs.existsSync(containerDir)) continue;
+    for (const entry of fs.readdirSync(containerDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (!entry.isDirectory()) continue;
+      const pkgFile = path.join(containerDir, entry.name, "package.json");
+      if (!fs.existsSync(pkgFile)) continue;
+      const json = JSON.parse(fs.readFileSync(pkgFile, "utf8")) as Record<string, Record<string, string> | undefined>;
+      let changed = false;
+      for (const field of ["devDependencies", "dependencies"] as const) {
+        if (json[field] && "vibestack" in json[field] && json[field].vibestack !== targetSpec) {
+          json[field].vibestack = targetSpec;
+          changed = true;
+          bumped.push(`${container}/${entry.name}/package.json ${field}.vibestack -> ${targetSpec}`);
+        }
+      }
+      if (changed && !dryRun) writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
+    }
+  }
 }
 
 function bumpVibestackSpec(root: string, targetSpec: string, dryRun: boolean): string[] {
   const bumped: string[] = [];
+  const allowCatalog = isCatalogAllowedVersion(targetSpec);
   const wsFile = path.join(root, "pnpm-workspace.yaml");
   if (fs.existsSync(wsFile)) {
     const raw = fs.readFileSync(wsFile, "utf8");
-    const updated = replaceYamlPin(raw, "catalog", "vibestack", targetSpec);
-    if (updated.changed) {
-      if (!dryRun) writeWhole(wsFile, updated.text);
-      bumped.push(`pnpm-workspace.yaml catalog.vibestack -> ${targetSpec}`);
-      return bumped;
+    if (allowCatalog) {
+      const updated = replaceYamlPin(raw, "catalog", "vibestack", targetSpec);
+      if (updated.found) {
+        if (updated.changed) {
+          if (!dryRun) writeWhole(wsFile, updated.text);
+          bumped.push(`pnpm-workspace.yaml catalog.vibestack -> ${targetSpec}`);
+        }
+        return bumped;
+      }
+    } else {
+      const removed = replaceYamlPin(raw, "catalog", "vibestack", undefined);
+      if (removed.changed) {
+        if (!dryRun) writeWhole(wsFile, removed.text);
+        bumped.push("pnpm-workspace.yaml catalog.vibestack removed");
+      }
     }
   }
   const pkgFile = path.join(root, "package.json");
   if (fs.existsSync(pkgFile)) {
     const json = JSON.parse(fs.readFileSync(pkgFile, "utf8")) as Record<string, Record<string, string> | undefined>;
+    let updatedRoot = false;
     for (const field of ["devDependencies", "dependencies"] as const) {
-      if (json[field] && "vibestack" in json[field] && json[field].vibestack !== "catalog:") {
-        if (json[field].vibestack !== targetSpec) {
-          json[field].vibestack = targetSpec;
-          if (!dryRun) writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
-          bumped.push(`package.json ${field}.vibestack -> ${targetSpec}`);
+      if (json[field] && "vibestack" in json[field]) {
+        if (!allowCatalog || json[field].vibestack !== "catalog:") {
+          if (json[field].vibestack !== targetSpec) {
+            json[field].vibestack = targetSpec;
+            if (!dryRun) writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
+            bumped.push(`package.json ${field}.vibestack -> ${targetSpec}`);
+          }
+          updatedRoot = true;
+          break;
         }
-        return bumped;
+        updatedRoot = true;
+        break;
       }
     }
-    json.devDependencies = { ...(json.devDependencies ?? {}), vibestack: targetSpec };
-    if (!dryRun) writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
-    bumped.push(`package.json devDependencies.vibestack -> ${targetSpec}`);
+    if (!updatedRoot) {
+      json.devDependencies = { ...(json.devDependencies ?? {}), vibestack: targetSpec };
+      if (!dryRun) writeWhole(pkgFile, JSON.stringify(json, null, 2) + "\n");
+      bumped.push(`package.json devDependencies.vibestack -> ${targetSpec}`);
+    }
+  }
+  if (!allowCatalog && fs.existsSync(wsFile)) {
+    rewriteMemberVibestackSpecs(root, targetSpec, dryRun, bumped);
   }
   return bumped;
 }
@@ -446,7 +530,7 @@ function alignToolchainPins(root: string, assets: PackageAssets, dryRun: boolean
 function pruneEmptyDirs(root: string, startDir: string) {
   let dir = startDir;
   const stop = path.join(root, ".agents");
-  while (dir.startsWith(stop) && dir !== stop) {
+  while (dir.startsWith(stop + path.sep)) {
     try {
       if (fs.readdirSync(dir).length > 0) break;
       fs.rmdirSync(dir);
@@ -467,10 +551,8 @@ export async function upgradeProject(root: string, options: UpgradeOptions = {})
     const local = resolveLocalPackage(root, options.from);
     localSourceDir = local.dir;
     bumped.push(...bumpVibestackSpec(root, local.spec, dryRun));
-  } else if (options.version) {
-    bumped.push(...bumpVibestackSpec(root, options.version, dryRun));
   } else {
-    bumped.push(...bumpVibestackSpec(root, "latest", dryRun));
+    bumped.push(...bumpVibestackSpec(root, resolveReleaseSpec(options.version), dryRun));
   }
 
   if (!dryRun && bumped.length > 0) {

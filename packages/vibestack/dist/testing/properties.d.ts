@@ -1,5 +1,4 @@
 import { Arbitrary, Effect, Schema } from "effect";
-/** The fixed profile selected by `vitest run`, or by `vitest run --mode nightly`. */
 export declare const fuzz: Readonly<{
     runs: 1000;
     seed: 1;
@@ -9,12 +8,7 @@ export declare const fuzz: Readonly<{
     seed: 2;
     explore: 300;
 }>;
-/** Where a property's values come from. */
 export type Source<A> = Schema.Schema<A> | Arbitrary.Arbitrary<A>;
-/**
- * Check `property` on `fuzz.runs` values of `source`, in an `it.effect`; `options` replace what they name of `fuzz`.
- * A failure carries the shrunk counterexample, the seed and the command that repeats it.
- */
 export declare const holds: <A>(source: Source<A>, property: (value: A) => boolean, options?: Arbitrary.CheckOptions) => Effect.Effect<void, never, never>;
 /** Decoding what was encoded gives the value back. */
 export declare function roundTrips<A, I>(schema: Schema.Codec<A, I>): (value: A) => boolean;

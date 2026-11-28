@@ -1,11 +1,8 @@
-// Reads React components with the TypeScript checker: what each takes, what its metadata file gives, and
-// the spec model it shows. One Program serves every file, and the next run reuses it.
 import { createHash } from "node:crypto";
 import { existsSync, globSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import ts from "typescript";
 import { formatStamp } from "../run.js";
-import { owner } from "../util.js";
+import { fileCitations, owner, tsApi } from "../util.js";
 /** A value in a metadata file that only running it would give, such as JSX or a function. */
 const dynamic = Symbol("dynamic");
 /** The package a directory belongs to: the nearest `package.json` above it. */
@@ -60,6 +57,7 @@ export function beside(abs, names) {
     return [...names.flatMap((name) => [...sibling(abs, name, "meta"), ...sibling(abs, name, "stories")]), ...(model ? [model] : [])];
 }
 export function programs(root, configs, configLookups) {
+    const ts = tsApi();
     const rel = (file) => relative(root, file).replaceAll("\\", "/");
     const fail = (problem) => {
         throw new Error(ts.flattenDiagnosticMessageText(problem.messageText, "\n"));
@@ -193,20 +191,20 @@ export function programs(root, configs, configLookups) {
         return { program: last, imports };
     };
 }
-const key = (name) => (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name) ? name.text : undefined);
-const declared = (file, name) => file.statements.flatMap((s) => (ts.isVariableStatement(s) ? [...s.declarationList.declarations] : [])).find((d) => d.name.getText() === name);
-const exported = (s) => ts.canHaveModifiers(s) && ts.getModifiers(s)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
-/** An expression without its parentheses, `as`, `satisfies` and `!`. */
-function bare(node) {
+const key = (ts, name) => (ts.isIdentifier(name) || ts.isStringLiteralLike(name) || ts.isNumericLiteral(name) ? name.text : undefined);
+const declared = (ts, file, name) => file.statements.flatMap((s) => (ts.isVariableStatement(s) ? [...s.declarationList.declarations] : [])).find((d) => d.name.getText() === name);
+const exported = (ts, s) => ts.canHaveModifiers(s) && ts.getModifiers(s)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+function bare(ts, node) {
     while (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node))
         node = node.expression;
     return node;
 }
-/** The value an expression writes out, following names declared at the top of its file; `dynamic` where it has to run. */
-function literal(given) {
+function literal(ts, given, seen = new Set()) {
     if (!given)
         return undefined;
-    const node = bare(given);
+    const node = bare(ts, given);
+    if (seen.has(node))
+        return dynamic;
     if (ts.isStringLiteralLike(node))
         return node.text;
     if (ts.isNumericLiteral(node))
@@ -216,35 +214,46 @@ function literal(given) {
     if (node.kind === ts.SyntaxKind.NullKeyword)
         return null;
     if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.MinusToken) {
-        const n = literal(node.operand);
+        seen.add(node);
+        const n = literal(ts, node.operand, seen);
+        seen.delete(node);
         return typeof n === "number" ? -n : dynamic;
     }
     if (ts.isArrayLiteralExpression(node)) {
-        const items = node.elements.map(literal);
+        seen.add(node);
+        const items = node.elements.map((el) => literal(ts, el, seen));
+        seen.delete(node);
         return items.includes(dynamic) ? dynamic : items;
     }
-    if (ts.isObjectLiteralExpression(node))
-        return Object.fromEntries(node.properties.flatMap((p) => {
-            const name = p.name && key(p.name);
-            // A spread or a computed name is marked, under a key no listing or JSON shows.
-            return name === undefined ? [[dynamic, true]] : [[name, ts.isPropertyAssignment(p) ? literal(p.initializer) : ts.isShorthandPropertyAssignment(p) ? literal(p.name) : dynamic]];
+    if (ts.isObjectLiteralExpression(node)) {
+        seen.add(node);
+        const result = Object.fromEntries(node.properties.flatMap((p) => {
+            const name = p.name && key(ts, p.name);
+            return name === undefined ? [[dynamic, true]] : [[name, ts.isPropertyAssignment(p) ? literal(ts, p.initializer, seen) : ts.isShorthandPropertyAssignment(p) ? literal(ts, p.name, seen) : dynamic]];
         }));
+        seen.delete(node);
+        return result;
+    }
     if (!ts.isIdentifier(node))
         return dynamic;
-    const named = declared(node.getSourceFile(), node.text)?.initializer;
-    return named ? literal(named) : node.text === "undefined" ? undefined : dynamic;
+    const named = declared(ts, node.getSourceFile(), node.text)?.initializer;
+    if (!named)
+        return node.text === "undefined" ? undefined : dynamic;
+    seen.add(node);
+    const resolved = literal(ts, named, seen);
+    seen.delete(node);
+    return resolved;
 }
 const record = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : {});
 const records = (value) => Object.fromEntries(Object.entries(record(value)).map(([name, v]) => [name, record(v)]));
-/** The fields of `ComponentMeta` (meta.ts). */
 const FIELDS = ["args", "examples", "states", "bounds", "schema", "decorator", "play"];
-function readMeta(checker, file) {
-    const node = declared(file, "meta")?.initializer;
-    const object = node && bare(node);
+function readMeta(ts, checker, file) {
+    const node = declared(ts, file, "meta")?.initializer;
+    const object = node && bare(ts, node);
     if (!object || !ts.isObjectLiteralExpression(object))
         return undefined;
-    const meta = record(literal(object));
-    const schema = object.properties.find((p) => p.name && key(p.name) === "schema");
+    const meta = record(literal(ts, object));
+    const schema = object.properties.find((p) => p.name && key(ts, p.name) === "schema");
     const covered = schema && checker.getTypeAtLocation(schema).getProperty("Type");
     return {
         file: file.fileName,
@@ -259,14 +268,13 @@ function readMeta(checker, file) {
         extra: Object.keys(meta).filter((name) => !FIELDS.includes(name)),
     };
 }
-function readManual(file) {
+function readManual(ts, file) {
     const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
-    const main = record(literal(source.statements.find(ts.isExportAssignment)?.expression));
-    const names = source.statements.flatMap((s) => (!exported(s) ? [] : ts.isVariableStatement(s) ? s.declarationList.declarations.map((d) => d.name.getText()) : ts.isFunctionDeclaration(s) && s.name ? [s.name.text] : []));
+    const main = record(literal(ts, source.statements.find(ts.isExportAssignment)?.expression));
+    const names = source.statements.flatMap((s) => (!exported(ts, s) ? [] : ts.isVariableStatement(s) ? s.declarationList.declarations.map((d) => d.name.getText()) : ts.isFunctionDeclaration(s) && s.name ? [s.name.text] : []));
     return { file, id: typeof main.id === "string" ? main.id : undefined, title: typeof main.title === "string" ? main.title : undefined, exports: names };
 }
-/** A generated module as a model: its state is the type of `initial`, its events the `type`s of `Event`. */
-function readModel(checker, file, spec) {
+function readModel(ts, checker, file, spec) {
     const namespace = checker.getSymbolAtLocation(file);
     if (!namespace)
         return;
@@ -282,10 +290,9 @@ function readModel(checker, file, spec) {
         const of = tag && checker.getTypeOfSymbol(tag);
         return of?.isStringLiteral() ? [of.value] : [];
     });
-    return { model: { spec, module: moduleOf(spec), state: checker.typeToString(state), events: names, file: file.fileName, initial: literal(declared(file, "initial")?.initializer) }, state };
+    return { model: { spec, module: moduleOf(spec), state: checker.typeToString(state), events: names, file: file.fileName, initial: literal(ts, declared(ts, file, "initial")?.initializer) }, state };
 }
-/** What a prop takes. A union's options come in the order its declaration writes them, whatever order the checker made them in. */
-function shape(checker, type, text) {
+function shape(ts, checker, type, text) {
     const whole = checker.getNonNullableType(type);
     const parts = whole.isUnion() ? whole.types : [whole];
     const all = (flags) => parts.every((t) => t.flags & flags);
@@ -309,16 +316,14 @@ function shape(checker, type, text) {
     }
     if (all(ts.TypeFlags.NumberLike))
         return { kind: "number" };
-    // Text or a number, such as an input's `value`, is given as text.
     if (all(ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike))
         return { kind: "string" };
     return { kind: all(ts.TypeFlags.Object | ts.TypeFlags.Intersection) ? "object" : "unknown" };
 }
-/** The function a component is, through `forwardRef(…)` and `memo(…)`. */
-function body(decl) {
+function body(ts, decl) {
     let node = ts.isVariableDeclaration(decl) ? decl.initializer : decl;
     while (node && ts.isExpression(node)) {
-        const unwrapped = bare(node);
+        const unwrapped = bare(ts, node);
         if (!ts.isCallExpression(unwrapped)) {
             node = unwrapped;
             break;
@@ -327,27 +332,20 @@ function body(decl) {
     }
     return node && (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)) ? node : undefined;
 }
-const CITATION = /(?<![\w/.-])(spec\/(?:[A-Za-z0-9]+\/)*[A-Za-z0-9]+\.md), "([^"]+)"/g;
 const GEN_MODULE = /(?:^|\/)gen\/[^/]+\.(?:ts|effect\.vibe)$/;
 function readCitations(text) {
-    if (!text.includes("spec/"))
-        return [];
     const seen = new Set();
     const out = [];
-    for (const line of text.split("\n")) {
-        if (!line.includes("spec/"))
+    for (const { spec, heading } of fileCitations("", text)) {
+        const id = `${spec}\0${heading}`;
+        if (seen.has(id))
             continue;
-        for (const [, spec, heading] of line.matchAll(CITATION)) {
-            const id = `${spec}\0${heading}`;
-            if (seen.has(id))
-                continue;
-            seen.add(id);
-            out.push({ spec, heading });
-        }
+        seen.add(id);
+        out.push({ spec, heading });
     }
     return out;
 }
-function genUses(file) {
+function genUses(ts, file) {
     const names = new Set();
     for (const statement of file.statements) {
         if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
@@ -371,8 +369,8 @@ function genUses(file) {
     }
     return [...names].sort(compare);
 }
-function jsxChildren(decl, self) {
-    const root = body(decl)?.body;
+function jsxChildren(ts, decl, self) {
+    const root = body(ts, decl)?.body;
     if (!root)
         return [];
     const names = new Set();
@@ -388,15 +386,13 @@ function jsxChildren(decl, self) {
     visit(root);
     return [...names].sort(compare);
 }
-/** `defaultVariants` of the `cva(…)` call a variant prop was declared in. */
-function variantDefaults(decl) {
+function variantDefaults(ts, decl) {
     const call = decl && ts.findAncestor(decl, (n) => ts.isCallExpression(n) && n.expression.getText() === "cva");
-    return record(record(literal(call?.arguments[1])).defaultVariants);
+    return record(record(literal(ts, call?.arguments[1])).defaultVariants);
 }
-/** A prop a state story needs even when the component only passes it through to its element. */
 export const STATE = /^(disabled|loading|error|invalid)$/;
-/** Every exported component of one file: a capitalized export that is a function returning an element. */
 export function analyze(built, abs) {
+    const ts = tsApi();
     const checker = built.getTypeChecker();
     const file = built.getSourceFile(abs);
     const module = file && checker.getSymbolAtLocation(file);
@@ -407,7 +403,7 @@ export function analyze(built, abs) {
     const model = spec && modelFile(abs, spec);
     const gen = model && built.getSourceFile(model);
     const citations = readCitations(file.text);
-    const uses = genUses(file);
+    const uses = genUses(ts, file);
     const found = checker.getExportsOfModule(module).flatMap((exportOf) => {
         const symbol = exportOf.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exportOf) : exportOf;
         const decl = symbol.valueDeclaration;
@@ -418,15 +414,14 @@ export function analyze(built, abs) {
             return [];
         const tags = (name) => symbol.getJsDocTags(checker).filter((t) => t.name === name).map((t) => ts.displayPartsToString(t.text).trim());
         const metaSource = sibling(abs, exportOf.name, "meta").map((path) => built.getSourceFile(path)).find(Boolean);
-        const meta = metaSource && readMeta(checker, metaSource);
+        const meta = metaSource && readMeta(ts, checker, metaSource);
         const manual = sibling(abs, exportOf.name, "stories").find(existsSync);
-        const { model, state } = (gen && tags("model").length ? readModel(checker, gen, spec) : undefined) ?? {};
-        const binding = body(decl)?.parameters[0]?.name;
+        const { model, state } = (gen && tags("model").length ? readModel(ts, checker, gen, spec) : undefined) ?? {};
+        const binding = body(ts, decl)?.parameters[0]?.name;
         const taken = new Map((binding && ts.isObjectBindingPattern(binding) ? binding.elements : []).filter((e) => !e.dotDotDotToken).map((e) => [(e.propertyName ?? e.name).getText(), e.initializer]));
         const mentioned = new Set([...Object.keys(meta?.args ?? {}), ...Object.values(meta?.examples ?? {}).flatMap((example) => Object.keys(example)), ...Object.keys(meta?.bounds ?? {}), ...(meta?.schema ?? [])]);
         const first = signature.parameters[0];
         const symbols = (first ? checker.getPropertiesOfType(checker.getTypeOfSymbolAtLocation(first, decl)) : [])
-            // `children` is kept even when the component only passes it on with the rest: it is what most of them show.
             .filter((p) => p.name === "children" || taken.has(p.name) || mentioned.has(p.name) || STATE.test(p.name) || p.declarations?.some(own));
         symbols.sort((a, b) => {
             const left = a.valueDeclaration ?? a.declarations?.[0];
@@ -438,19 +433,19 @@ export function analyze(built, abs) {
             const type = checker.getTypeOfSymbolAtLocation(p, decl);
             const at = p.declarations?.find(own);
             const written = at && ts.isPropertySignature(at) && at.type ? checker.getTypeFromTypeNode(at.type).aliasSymbol?.declarations?.[0] : undefined;
-            const preset = taken.get(p.name) ? literal(taken.get(p.name)) : variantDefaults(at)[p.name];
+            const preset = taken.get(p.name) ? literal(ts, taken.get(p.name)) : variantDefaults(ts, at)[p.name];
             if (model && checker.getNonNullableType(type) === state)
                 model.prop ??= p.name;
             const description = ts.displayPartsToString(p.getDocumentationComment(checker));
             return {
                 name: p.name,
-                ...shape(checker, type, (written ?? at)?.getText() ?? ""),
+                ...shape(ts, checker, type, (written ?? at)?.getText() ?? ""),
                 required: !(p.flags & ts.SymbolFlags.Optional),
                 ...(preset !== undefined && preset !== dynamic ? { default: preset } : {}),
                 ...(description ? { description } : {}),
             };
         });
-        const children = jsxChildren(decl, exportOf.name);
+        const children = jsxChildren(ts, decl, exportOf.name);
         return [{
                 name: exportOf.name,
                 file: abs,
@@ -459,9 +454,8 @@ export function analyze(built, abs) {
                 package: packageOf(dirname(abs)).name,
                 props,
                 meta,
-                manual: manual ? readManual(manual) : undefined,
+                manual: manual ? readManual(ts, manual) : undefined,
                 model,
-                // A module not generated yet is not stateless: its spec's `gen` may simply not have run.
                 ...(gen && tags("model").length && !model ? { unlinked: `@model ${spec} has no state to show: ${moduleOf(spec)}.ts exports no \`initial\`; name the spec whose model holds what it shows` } : {}),
                 design: tags("design"),
                 inherited: symbols.filter((p) => !p.declarations?.some(own)).map((p) => p.name),

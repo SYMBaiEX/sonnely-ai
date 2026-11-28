@@ -1,6 +1,6 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { isExcludedSpecPath, loadConfig } from "./config.js";
 import { generate } from "./gen.js";
 import { writeConformance } from "./conform.js";
 import { refusalFile, simulated, witnessFile } from "./gen/harness.js";
@@ -137,14 +137,29 @@ export function generated(root, spec, ir, models, staged) {
     models.set(spec.name, model);
     return model;
 }
+const faceInfoCache = new Map();
+function packageFaceInfo(dir) {
+    const pkgPath = path.join(dir, "package.json");
+    const stat = fs.statSync(pkgPath, { bigint: true, throwIfNoEntry: false });
+    const at = stat ? `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}` : "";
+    const cached = faceInfoCache.get(dir);
+    if (cached && cached.stamp === at)
+        return cached.info;
+    const pkg = manifest(dir);
+    const hasReact = ["dependencies", "devDependencies", "peerDependencies"].some((kind) => pkg[kind]?.react);
+    const info = { pkg, ns: namespace(dir, pkg.name), hasReact };
+    if (!faceInfoCache.has(dir) && faceInfoCache.size >= 64)
+        faceInfoCache.clear();
+    faceInfoCache.set(dir, { stamp: at, info });
+    return info;
+}
 /**
  * Into `to`, the gen/ of the package in `dir`, what gen/<name>.ts (`text`) is for its shell: the Effect adapter, whose
  * `Machine` key carries the package's name, and the React hook where the package depends on react.
  */
-function writeFaces(root, dir, to, spec, text, staged) {
-    const pkg = manifest(dir);
-    put(root, path.join(to, `${spec.name}.effect.vibe`), effectAdapter(spec.name, spec.file, text, namespace(dir, pkg.name)), staged);
-    const hook = ["dependencies", "devDependencies", "peerDependencies"].some((kind) => pkg[kind]?.react) && reactHook(spec.name, spec.file, text);
+function writeFaces(root, dir, to, spec, text, staged, info = packageFaceInfo(dir)) {
+    put(root, path.join(to, `${spec.name}.effect.vibe`), effectAdapter(spec.name, spec.file, text, info.ns), staged);
+    const hook = info.hasReact && reactHook(spec.name, spec.file, text);
     if (hook)
         put(root, path.join(to, `${spec.name}.react.ts`), hook, staged);
 }
@@ -205,14 +220,22 @@ export function mirrorGen(root, specs, scope) {
             need(name);
         const to = path.join(root, dir, "gen");
         const files = fs.existsSync(from) ? fs.readdirSync(from).filter((f) => needed.has(f.match(/^(\w+)\.(?:ts|conformance\.ts)$/)?.[1] ?? "")) : [];
+        const copied = new Map();
         if (files.length) {
             fs.mkdirSync(to, { recursive: true });
-            for (const f of [...files, "package.json", ...files.some((f) => f.endsWith(".conformance.ts")) ? ["_conformance.ts"] : []])
-                put(output, path.join(to, f), fs.readFileSync(path.join(from, f), "utf8"));
+            for (const f of [...files, "package.json", ...files.some((f) => f.endsWith(".conformance.ts")) ? ["_conformance.ts"] : []]) {
+                const text = fs.readFileSync(path.join(from, f), "utf8");
+                copied.set(f, text);
+                put(output, path.join(to, f), text);
+            }
         }
-        for (const spec of specs)
-            if (files.includes(`${spec.name}.ts`))
-                writeFaces(output, path.join(root, dir), to, spec, fs.readFileSync(path.join(from, `${spec.name}.ts`), "utf8"));
+        const ownerDir = path.join(root, dir);
+        const info = files.length ? packageFaceInfo(ownerDir) : undefined;
+        for (const spec of specs) {
+            const tsText = copied.get(`${spec.name}.ts`);
+            if (tsText !== undefined)
+                writeFaces(output, ownerDir, to, spec, tsText, undefined, info);
+        }
         sweep(to);
     }
     generations.delete(output);
@@ -249,7 +272,7 @@ export function typecheckAll(memory, specs, output = memory.root, staged) {
                 decoded = readIr(value.files["ir.json"]);
                 if (!Array.isArray(decoded?.modules) || !decoded.types || typeof decoded.types !== "object" || decoded.errors?.length)
                     return undefined;
-                const module = decoded.modules.find((entry) => entry === null || (typeof entry === "object" && "name" in entry && entry.name === spec.name));
+                const module = decoded.modules.find((entry) => entry !== null && typeof entry === "object" && "name" in entry && entry.name === spec.name);
                 if (!Array.isArray(module?.declarations))
                     return undefined;
                 const types = new Map();
@@ -268,10 +291,8 @@ export function typecheckAll(memory, specs, output = memory.root, staged) {
                 decoded = { modules: [module], types: Object.fromEntries(types) };
                 return { ...value, files: { ...value.files, "ir.json": JSON.stringify(decoded) } };
             };
-            const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "vibestack-typecheck-"));
             const actionProjection = { version: "model-module-v1", encode };
-            const typed = await act({ ...memory, actionProjection }, "quint", ["typecheck", "--out", "ir.json", `${spec.name}.qnt`], scratch, modules(spec, specs))
-                .finally(() => fs.rmSync(scratch, { recursive: true, force: true }));
+            const typed = await act({ ...memory, actionProjection }, "quint", ["typecheck", "--out", "ir.json", `${spec.name}.qnt`], { tempPrefix: "vibestack-typecheck-" }, modules(spec, specs));
             const ir = decoded ?? readIr(typed.files["ir.json"]);
             if (!typed.ok || !ir || ir.errors?.length)
                 throw typeErrors(spec, ir, typed.out, specs);
@@ -301,9 +322,8 @@ const definesAnything = (m) => m.exports.types.length > 0 || m.exports.values.le
  */
 export function proofUnits(root, models, srcFiles = readSrc(root)) {
     const byName = new Map(models.map((m) => [m.name, m]));
-    const withoutImports = (text) => {
+    const withoutImports = (text, file) => {
         const ts = tsApi();
-        const file = ts.createSourceFile("unit.ts", text, ts.ScriptTarget.Latest, true);
         // `export … from` loads a module as surely as `import` does.
         const imports = file.statements.filter((d) => ts.isImportDeclaration(d) || (ts.isExportDeclaration(d) && !!d.moduleSpecifier));
         const kept = imports.reduceRight((rest, d) => rest.slice(0, d.getFullStart()) + rest.slice(d.getEnd()), text);
@@ -366,8 +386,8 @@ export function proofUnits(root, models, srcFiles = readSrc(root)) {
             throw new Error(`${f}: \`//@ ${refused}\` is not allowed; verified code may only use ${ANNOTATIONS.join(", ")}`);
         if (/\bimport\s*\(|\brequire\s*\(/.test(code))
             throw new Error(`${f}: verified code may not load other code with import() or require()`);
-        checkVerifiedSource(f, code);
-        const { kept, from } = withoutImports(code);
+        const sf = checkVerifiedSource(f, code);
+        const { kept, from } = withoutImports(code, sf);
         const deps = from.map((spec) => {
             // The gen/ of the file's own package: the root's, or the one an owner is given (mirrorGen).
             const target = path.resolve(root, path.dirname(f), spec);
@@ -447,9 +467,15 @@ export function checkVerifiedSource(file, code) {
     for (const m of code.matchAll(/\/\/@/g))
         if (!lineComments.some(([from, to]) => from <= m.index && m.index < to))
             refuse(m.index, "`//@` here is not in a `//` comment (it is in a block comment or a string), so it is not an annotation; remove it or make it one");
+    return sf;
 }
 /** Every proof file of the project. */
-export const proofFiles = (root) => ["spec", ...codeDirs(root).map((dir) => `${dir}src`)].flatMap((dir) => filesUnder(root, dir)).filter((f) => f.endsWith(".proof.dfy"));
+export const proofFiles = (root) => {
+    const { spec: specConfig } = loadConfig(root);
+    return [specConfig.dir, ...codeDirs(root).map((dir) => `${dir}src`)]
+        .flatMap((dir) => filesUnder(root, dir))
+        .filter((f) => f.endsWith(".proof.dfy") && !isExcludedSpecPath(f, specConfig));
+};
 /**
  * Proof files that belong to no unit: a typo, a source file that is no longer proved, or the proof file of a spec that
  * defines nothing, which is `emptySpec`.

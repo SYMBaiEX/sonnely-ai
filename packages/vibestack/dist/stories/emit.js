@@ -1,10 +1,6 @@
-// Writes what the analysis found: a CSF file per component, the catalog Studio reads (`ComponentIndex`), and two
-// Vitest files that run every story: one for a simulated DOM and one for a real browser.
-// A component whose inputs hash as they did last time is not analyzed or written again.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, unwatchFile, watch, watchFile } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, unwatchFile, watch, watchFile } from "node:fs";
 import { basename, dirname, isAbsolute, join, matchesGlob, relative, resolve, sep } from "node:path";
-import ts from "typescript";
 import { writeWhole } from "../run.js";
 import { analyze, beside, compare, isComponentSource, modelFile, modelTag, packageOf, programs, sources } from "./analyze.js";
 import { plan } from "./variants.js";
@@ -251,6 +247,7 @@ const browser = (files, preview) => suite(files, [
 ]);
 /** A generator for one project. Each call brings the output up to date and says what it changed. */
 export function generator({ root, out = outOf(root), cap = 12 }) {
+    root = resolve(root);
     out = resolve(root, out);
     let configured = new Map();
     let configLookups = [];
@@ -259,8 +256,23 @@ export function generator({ root, out = outOf(root), cap = 12 }) {
     let built;
     const rel = (file) => relative(root, file).replaceAll("\\", "/");
     const from = (file) => JSON.stringify(relative(out, file).replaceAll("\\", "/").replace(/^(?!\.)/, "./"));
-    // A file the Program read is hashed as the Program read it, so an edit made while it ran is seen by the next run.
-    const text = (file) => built?.program.getSourceFile(file)?.text ?? (built && configured.has(file) ? configured.get(file) : existsSync(file) ? ts.sys.readFile(file) : undefined);
+    const safeRealpath = (file) => {
+        try {
+            return realpathSync(file);
+        }
+        catch {
+            return file;
+        }
+    };
+    const readDisk = (file) => {
+        try {
+            return readFileSync(file, "utf8");
+        }
+        catch {
+            return undefined;
+        }
+    };
+    const text = (file) => built?.program.getSourceFile(file)?.text ?? (built && configured.has(file) ? configured.get(file) : readDisk(file));
     const hash = (component, inputs, observe, read = text) => {
         const sum = createHash("sha1").update(`${VERSION}:${cap}:${rel(out)}`);
         for (const file of inputs) {
@@ -300,7 +312,17 @@ export function generator({ root, out = outOf(root), cap = 12 }) {
         built = undefined;
         const manifest = join(out, MANIFEST);
         const saved = existsSync(manifest) ? readFileSync(manifest, "utf8") : undefined;
-        const known = saved === undefined ? {} : JSON.parse(saved);
+        let known = {};
+        if (saved !== undefined) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+                    known = parsed;
+            }
+            catch {
+                known = {};
+            }
+        }
         const written = [];
         const write = (name, text) => {
             if (existsSync(join(out, name)) && readFileSync(join(out, name), "utf8") === text)
@@ -323,13 +345,13 @@ export function generator({ root, out = outOf(root), cap = 12 }) {
                 observe?.(absolute);
                 switch (kind) {
                     case "file":
-                        states.set(key, ts.sys.fileExists(absolute));
+                        states.set(key, statSync(absolute, { throwIfNoEntry: false })?.isFile() === true);
                         break;
                     case "directory":
-                        states.set(key, ts.sys.directoryExists(absolute));
+                        states.set(key, statSync(absolute, { throwIfNoEntry: false })?.isDirectory() === true);
                         break;
                     case "realpath":
-                        states.set(key, rel(ts.sys.realpath(absolute)));
+                        states.set(key, rel(safeRealpath(absolute)));
                         break;
                     case "manifest": {
                         const content = read(absolute);
@@ -340,12 +362,6 @@ export function generator({ root, out = outOf(root), cap = 12 }) {
             }
             return states.get(key) === (before ?? false);
         };
-        if (!build || !configLookups.every(valid) || [...configured].some(([file, before]) => before !== read(file))) {
-            const configs = new Map();
-            configLookups = [];
-            build = programs(root, configs, configLookups);
-            configured = configs;
-        }
         let reset = false;
         const fresh = (file, entry) => {
             if (!entry?.lookups || !entry.lookups.every(valid)) {
@@ -355,11 +371,19 @@ export function generator({ root, out = outOf(root), cap = 12 }) {
             return entry.hash === hash(file, entry.inputs, observe, read) && entry.outputs.every((name) => existsSync(join(out, name)));
         };
         const stale = files.filter((file) => !fresh(rel(file), known[rel(file)]));
-        if (stale.length)
+        const staleSet = new Set(stale);
+        if (stale.length) {
+            if (!build || !configLookups.every(valid) || [...configured].some(([file, before]) => before !== read(file))) {
+                const configs = new Map();
+                configLookups = [];
+                build = programs(root, configs, configLookups);
+                configured = configs;
+            }
             built = build(files, reset);
+        }
         const entries = {};
         for (const file of files) {
-            if (!stale.includes(file)) {
+            if (!staleSet.has(file)) {
                 entries[rel(file)] = known[rel(file)];
                 continue;
             }
@@ -417,7 +441,8 @@ export function generator({ root, out = outOf(root), cap = 12 }) {
         write("stories.test.tsx", previous.smoke);
         write("stories.browser.test.tsx", previous.browser);
         write(MANIFEST, previous.manifest);
-        const removed = (existsSync(out) ? readdirSync(out) : []).filter((name) => name.endsWith(".stories.tsx") && !outputs.includes(name));
+        const outputSet = new Set(outputs);
+        const removed = (existsSync(out) ? readdirSync(out) : []).filter((name) => name.endsWith(".stories.tsx") && !outputSet.has(name));
         for (const name of removed)
             rmSync(join(out, name));
         return { index, written, removed, analyzed: stale.length, diagnostics: index.components.flatMap((c) => c.diagnostics) };

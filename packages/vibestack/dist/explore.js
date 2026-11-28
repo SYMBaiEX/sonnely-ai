@@ -16,8 +16,9 @@ const SAVED = "test/__traces__/bombadil";
 const PLATFORMS = ["linux-x64", "linux-arm64", "darwin-arm64"];
 /** How long an app script may take to print the address it serves at: some build before they serve. */
 const SAYS_WHERE_WITHIN = 300_000;
-/** The package's page: an index.html at its top or under src/. */
-const pageOf = (root) => ["index.html", ...filesUnder(root, "src")].find((f) => /(?:^|\/)index\.html$/.test(f) && fs.existsSync(path.join(root, f)));
+const pageOf = (root) => fs.existsSync(path.join(root, "index.html"))
+    ? "index.html"
+    : filesUnder(root, "src").find((f) => /(?:^|\/)index\.html$/.test(f) && fs.existsSync(path.join(root, f)));
 /** A package's files that only its checks read: its tests and their configuration, drivers, traces, counterexamples, contracts, proofs and spec/. */
 const checkedOnly = (file) => isTestFile(file) || /^vitest\.(?:config|workspace)\.[^/]+$|\.contract\.[^/.]+$|\.proof\.dfy$/.test(file)
     || [DRIVERS, TRACES, COUNTEREXAMPLES, "spec"].some((dir) => file.startsWith(`${dir}/`));
@@ -185,11 +186,18 @@ export function pageInputs(root, mode = "normal") {
             offer(dir);
     }
     const tools = new Set(toolScripts().map((tool) => fs.realpathSync(tool)));
+    const contentCache = new Map();
+    const readBytes = (file) => {
+        let bytes = contentCache.get(file);
+        if (!bytes)
+            contentCache.set(file, bytes = fs.readFileSync(file));
+        return bytes;
+    };
     let next = 0;
     const walk = () => {
         for (; complete && next < queue.length; next++)
             if (!tools.has(queue[next]) && CODE.test(queue[next]) && path.basename(queue[next]) !== "package.json")
-                for (const match of fs.readFileSync(queue[next], "utf8").matchAll(QUOTED))
+                for (const match of readBytes(queue[next]).toString("utf8").matchAll(QUOTED))
                     follow(queue[next], match[2], match);
     };
     walk();
@@ -206,8 +214,8 @@ export function pageInputs(root, mode = "normal") {
         return undefined;
     const runsTools = [...tools].some((tool) => reads.has(tool));
     const hash = createHash("sha256").update(JSON.stringify(["page-v1", process.versions.node, process.platform, process.arch, profile(mode), runsTools && toolsCode()]));
-    for (const [name, file] of [...reads.keys()].filter((file) => !tools.has(file)).map((file) => [path.relative(base, file).split(path.sep).join("/"), file]).sort(([a], [b]) => a.localeCompare(b))) {
-        const bytes = fs.readFileSync(file);
+    for (const [name, file] of [...reads.keys()].filter((file) => !tools.has(file)).map((file) => [path.relative(base, file).split(path.sep).join("/"), file]).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+        const bytes = readBytes(file);
         hash.update(`${name}\0${bytes.length}\0`).update(bytes);
     }
     const { lock } = packageManager(root);
@@ -264,12 +272,15 @@ async function served(root, script, checking, explore) {
     app.child.stdin.end();
     const said = [];
     let error;
+    const readers = [];
     try {
         const origin = await new Promise((resolve) => {
             const timer = setTimeout(() => resolve(undefined), SAYS_WHERE_WITHIN);
             app.child.on("error", (e) => { error = e; });
-            for (const stream of [app.child.stdout, app.child.stderr])
-                readline.createInterface({ input: stream }).on("line", (line) => {
+            for (const stream of [app.child.stdout, app.child.stderr]) {
+                const reader = readline.createInterface({ input: stream });
+                readers.push(reader);
+                reader.on("line", (line) => {
                     if (line.trim() && said.push(line) > 40)
                         said.shift();
                     const at = servedAt(line);
@@ -278,6 +289,7 @@ async function served(root, script, checking, explore) {
                         resolve(at);
                     }
                 });
+            }
             void app.closed.then(() => { clearTimeout(timer); resolve(undefined); });
         });
         if (!origin)
@@ -285,6 +297,8 @@ async function served(root, script, checking, explore) {
         return await explore(origin);
     }
     finally {
+        for (const reader of readers)
+            reader.close();
         await app.stop();
     }
 }
@@ -333,10 +347,14 @@ export async function explore(directory, remember, mode = "normal", checking = d
         const { explore: seconds } = profile(mode);
         const fingerprint = pageInputs(root, mode);
         const run = async () => {
-            fs.mkdirSync(path.dirname(saved), { recursive: true });
-            const fresh = await served(root, script, resolved, (origin) => bombadil(root, origin, { seconds }, saved));
-            if (fresh.kind !== "broke")
-                drop();
+            const output = path.join(scratch, "run");
+            const fresh = await served(root, script, resolved, (origin) => bombadil(root, origin, { seconds }, output));
+            if (fresh.kind === "broke") {
+                fs.rmSync(saved, { recursive: true, force: true });
+                fs.mkdirSync(path.dirname(saved), { recursive: true });
+                if (fs.existsSync(output))
+                    fs.cpSync(output, saved, { recursive: true });
+            }
             return fresh.kind === "held" ? [true, "explore", `${page}: ${fresh.actions} actions in ${seconds} s broke no property of ${specification} (${command})`, "", page]
                 : fresh.kind === "broke" ? broke(fresh, "breaks")
                     : failed(fresh.kind === "failed" ? fresh : { kind: "failed", why: "Bombadil could not explore the page", output: fresh.output });

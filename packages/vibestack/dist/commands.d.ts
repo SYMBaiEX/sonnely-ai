@@ -15,8 +15,8 @@ export interface SimulationPrepFn {
     }>;
 }
 export declare function startPhaseTimings(): () => string;
-export declare function runConformanceCommand(root: string, moduleName?: string, mode?: TestProfile): Promise<boolean>;
-export declare function runExploreCommand(root: string, mode?: TestProfile): Promise<boolean>;
+export declare function runConformanceCommand(root: string, moduleName?: string, mode?: TestProfile, lockProject?: (root: string, cache?: string) => () => void): Promise<boolean>;
+export declare function runExploreCommand(root: string, mode?: TestProfile, lockProject?: (root: string, cache?: string) => () => void): Promise<boolean>;
 export declare function runCiCommand(root: string, args: string[], prepareSimulationReceipts: SimulationPrepFn): Promise<number>;
 export declare function launchStudio(root: string, args: string[]): void;
 export declare function launchCreate(root: string, args: string[]): void;

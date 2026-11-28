@@ -7,100 +7,10 @@ import { gunzipSync, zstdCompressSync, zstdDecompressSync } from "node:zlib";
 import { cacheDirectory } from "./config.js";
 import { sha, tokenize } from "./util.js";
 import { installedEvaluator, executableDigest, InstallationChanged, LASTING, lasting, packageLocation, packageRoots } from "./installed.js";
-import { NEEDS_DAFNY, findBin, findDafny, formatStamp, exec, onPath, stamp, writeWhole } from "./run.js";
-export { executableDigest };
-/** Load an operator's publishing credential only for the exact cache endpoint it belongs to. */
-export function cacheCredentials(env, args, declared, credentials) {
-    const options = args.slice(0, args.includes("--") ? args.indexOf("--") : args.length);
-    const supplied = (name) => options.some((arg) => arg === name || arg.startsWith(`${name}=`));
-    let endpoint = env.TURBO_API ?? declared;
-    for (const [index, arg] of options.entries()) {
-        if (arg === "--api")
-            endpoint = options[index + 1];
-        else if (arg.startsWith("--api="))
-            endpoint = arg.slice("--api=".length);
-    }
-    return { ...env, ...env.TURBO_TOKEN === undefined && !supplied("--token") && endpoint === credentials.apiUrl
-            ? { TURBO_API: credentials.apiUrl, TURBO_TOKEN: credentials.writeToken } : {} };
-}
-const packageVersions = new Map();
-const packageVersion = (dep) => {
-    const known = packageVersions.get(dep);
-    if (known) {
-        try {
-            if (stamp([known.file]) === known.stamp)
-                return known.version;
-        }
-        catch { /* search again below */ }
-    }
-    for (let dir = import.meta.dirname; dir !== path.dirname(dir); dir = path.dirname(dir)) {
-        const file = path.join(dir, "node_modules", dep, "package.json");
-        if (fs.existsSync(file)) {
-            const version = `${dep}@${JSON.parse(fs.readFileSync(file, "utf8")).version}`;
-            packageVersions.set(dep, { file, stamp: stamp([file]), version });
-            return version;
-        }
-    }
-    return dep;
-};
+import { findBin, findDafny, formatStamp, writeWhole } from "./run.js";
+import { cacheCredentials, fileStamp, findVibelangBinary, packageVersion, parseStamps, readDafnyIdentity, readDafnyInstallation, readDafnyVersion, resolveSolver, sameFiles, sameParsed, solverCandidates, solverStamp, } from "./toolchain.js";
+export { cacheCredentials, executableDigest };
 const hashFileBytes = (file) => createHash("sha256").update(fs.readFileSync(file)).digest("hex");
-function treeFiles(directory, layout) {
-    if (layout) {
-        const real = fs.realpathSync(directory);
-        layout.set(directory, fileStamp(directory, false));
-        if (real !== directory)
-            layout.set(real, fileStamp(real, false));
-    }
-    return fs.readdirSync(directory, { recursive: true, withFileTypes: true }).flatMap((entry) => {
-        const file = path.join(entry.parentPath, entry.name);
-        if (entry.isDirectory() || entry.isSymbolicLink())
-            layout?.set(file, fileStamp(file, false));
-        const linked = entry.isSymbolicLink() && fs.statSync(file, { bigint: true });
-        if (linked && linked.isDirectory())
-            layout?.set(fs.realpathSync(file), formatStamp(linked));
-        return entry.isFile() || (linked && linked.isFile()) ? [path.relative(directory, file).split(path.sep).join("/")] : [];
-    }).sort();
-}
-/** Runtime files are keyed by relative name and bytes, never their installation directory. */
-const treeDigest = (directory, files = treeFiles(directory), stamps) => sha(...files.map((file) => {
-    const full = path.join(directory, file);
-    return `${file}\0${executableDigest(full, stamps?.get(full))}`;
-}));
-/** Where the verifier runs from: its launcher and the runtime launchers it starts, its managed assemblies, and any separately installed .NET host. */
-function dafnyInstallation() {
-    const launcher = findDafny();
-    if (!launcher)
-        throw new Error("Dafny is not on PATH or in ~/.cache/vibestack/dafny/4.11; the task cache needs its toolchain fingerprint");
-    const real = fs.realpathSync(launcher);
-    const locations = [path.dirname(real), path.resolve(path.dirname(real), "../libexec")];
-    const selectedFiles = [launcher, ...locations.map((dir) => path.join(dir, "Dafny.dll"))];
-    const assemblies = locations.find((dir) => fs.existsSync(path.join(dir, "Dafny.dll")));
-    if (!assemblies)
-        throw new Error("Dafny.dll is not beside Dafny or in ../libexec; the task cache cannot fingerprint this installation");
-    const launchers = [real];
-    for (;;) {
-        const bytes = fs.readFileSync(launchers[launchers.length - 1]);
-        const next = bytes.subarray(0, 2).toString() === "#!" ? bytes.toString().match(/\bexec\s+"([^"\n]*[\\/]dotnet(?:\.exe)?)"/)?.[1] : undefined;
-        if (!next)
-            break;
-        selectedFiles.push(next);
-        launchers.push(fs.realpathSync(next));
-        fs.accessSync(launchers[launchers.length - 1], fs.constants.X_OK);
-        if (launchers.length > 5)
-            throw new Error("Dafny's runtime launcher chain does not terminate");
-    }
-    const runtimeDirs = ["host", "shared"].map((dir) => path.join(path.dirname(launchers[launchers.length - 1]), dir));
-    selectedFiles.push(...runtimeDirs);
-    const runtime = runtimeDirs.filter((dir) => fs.existsSync(dir));
-    if (!runtime.length && !fs.existsSync(path.join(assemblies, "System.Private.CoreLib.dll")))
-        throw new Error("Dafny's external .NET runtime cannot be fingerprinted; use a self-contained release or an explicit dotnet launcher");
-    return { launcher, launchers, assemblies, runtime, selectedFiles };
-}
-const dafnySaid = (version, stopped, out = "") => {
-    const problem = !version ? `Dafny could not be run (${out.trim().split("\n")[0] || "it printed no version"})`
-        : !version.startsWith("4.11.") ? `this is Dafny ${version}, and LemmaScript targets Dafny 4.11.x` : undefined;
-    return { version, problem: stopped ?? (problem && `${problem}: ${NEEDS_DAFNY}`) };
-};
 const checking = new AsyncLocalStorage();
 export const inSteadyCheck = () => !!checking.getStore();
 const MAX_PENDING_ENTRIES = 64;
@@ -174,41 +84,12 @@ export function certifyInstallation() {
     check.certified = true;
 }
 function installation() {
-    const now = () => {
-        try {
-            const { launcher, launchers, assemblies, runtime, selectedFiles } = dafnyInstallation();
-            const layout = new Map();
-            for (const file of selectedFiles) {
-                layout.set(file, fileStamp(file, false));
-                for (let dir = path.dirname(file); dir !== path.dirname(dir); dir = path.dirname(dir)) {
-                    const stat = fs.lstatSync(dir, { bigint: true, throwIfNoEntry: false });
-                    if (stat?.isSymbolicLink())
-                        layout.set(dir, formatStamp(stat));
-                }
-            }
-            const trees = new Map([assemblies, ...runtime].map((dir) => [dir, treeFiles(dir, layout)]));
-            const files = [...launchers, ...[...trees.entries()].flatMap(([dir, entries]) => entries.map((f) => path.join(dir, f)))];
-            const stamps = new Map();
-            try {
-                for (const file of files)
-                    stamps.set(file, formatStamp(fs.statSync(file, { bigint: true })));
-                return { launchers, assemblies, runtime, trees, files, stamps, at: JSON.stringify([...layout, ...stamps]),
-                    unchanged: () => findDafny() === launcher && sameFiles(stamps, layout) };
-            }
-            catch (e) {
-                return { at: e.message };
-            }
-        }
-        catch {
-            return { at: "" };
-        }
-    };
     const scope = checking.getStore();
-    return scope ? (scope.installation ??= now()) : now();
+    return scope ? (scope.installation ??= readDafnyInstallation()) : readDafnyInstallation();
 }
 /** Run a check, which reads Dafny's installation once: its final certification checks that installation even after a wholly warm run. */
 export const steady = (run) => {
-    const check = { programs: new Map(), evaluators: new Map(), pending: new Map(), pendingDafny: new Map(), verify: new Set(), touched: new Set(), bytes: 0, dafnyBytes: 0, lastPublished: -Infinity };
+    const check = { programs: new Map(), evaluators: new Map(), cacheDirs: new Map(), pending: new Map(), pendingDafny: new Map(), verify: new Set(), touched: new Set(), bytes: 0, dafnyBytes: 0, lastPublished: -Infinity };
     return checking.run(check, async () => {
         try {
             const result = await run();
@@ -222,6 +103,17 @@ export const steady = (run) => {
         }
     });
 };
+export async function withStableInstallation(attempt) {
+    for (let retries = 0;; retries++) {
+        try {
+            return await steady(attempt);
+        }
+        catch (error) {
+            if (!(error instanceof InstallationChanged) || retries === 2)
+                throw error;
+        }
+    }
+}
 function perCheck(read) {
     const known = new WeakMap();
     return () => {
@@ -386,39 +278,30 @@ function launcherInputs(exe, packageDir, exists) {
     }
     return { digest: sha(...lines), entry };
 }
-const fileStamp = (file, follow = true) => {
-    try {
-        const stat = (follow ? fs.statSync : fs.lstatSync)(file, { bigint: true, throwIfNoEntry: false });
-        return stat ? formatStamp(stat) : "";
-    }
-    catch {
-        return "";
-    }
-};
-const sameFiles = (files, links) => {
-    for (const [file, expected] of files)
-        if (fileStamp(file, true) !== expected)
-            return false;
-    for (const [file, expected] of links)
-        if (fileStamp(file, false) !== expected)
-            return false;
-    return true;
-};
 const isStamps = (value) => Array.isArray(value) && value.every((entry) => Array.isArray(entry) && entry.length === 2 && typeof entry[0] === "string" && typeof entry[1] === "string");
 function readProgram(index, key) {
     try {
         const data = JSON.parse(zstdDecompressSync(fs.readFileSync(index)).toString("utf8"));
         if (!Array.isArray(data))
             return undefined;
-        const [saved, id, files, links, isolated] = data;
-        if (saved !== key || typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id) || !isStamps(files) || !files.length || !isStamps(links))
+        const [saved, id, sourceFiles, sourceLinks, isolated, isolatedFiles, isolatedLinks] = data;
+        if (saved !== key || typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id) || !isStamps(sourceFiles) || !sourceFiles.length || !isStamps(sourceLinks))
             return undefined;
+        if (!isStamps(isolatedFiles) || !isStamps(isolatedLinks))
+            return undefined;
+        const programsRoot = path.join(path.dirname(LASTING), "programs") + path.sep;
         if (typeof isolated !== "object" || !isolated || typeof isolated.entry !== "string" || typeof isolated.script !== "string"
-            || ![isolated.entry, isolated.script].every((file) => file.startsWith(path.join(path.dirname(LASTING), "programs") + path.sep) && files.some(([observed]) => observed === file)))
+            || ![isolated.entry, isolated.script].every((file) => file.startsWith(programsRoot) && isolatedFiles.some(([observed]) => observed === file)))
             return undefined;
-        const unchanged = () => sameFiles(files, links);
-        if (unchanged())
-            return { id, isolated: { entry: isolated.entry, script: isolated.script }, unchanged };
+        const parsedSourceFiles = parseStamps(sourceFiles);
+        const parsedSourceLinks = parseStamps(sourceLinks);
+        const unchangedSource = () => sameParsed(parsedSourceFiles, true) && sameParsed(parsedSourceLinks, false);
+        if (!unchangedSource() || !fs.existsSync(isolated.entry) || !fs.existsSync(isolated.script))
+            return undefined;
+        let parsedIsolatedFiles;
+        let parsedIsolatedLinks;
+        const unchangedIsolated = () => sameParsed(parsedIsolatedFiles ??= parseStamps(isolatedFiles), true) && sameParsed(parsedIsolatedLinks ??= parseStamps(isolatedLinks), false);
+        return { id, isolated: { entry: isolated.entry, script: isolated.script }, unchangedSource, unchangedIsolated };
     }
     catch {
         return undefined;
@@ -627,6 +510,7 @@ function packageGraph(exe, name) {
 export const installedPackages = (exe, name) => packageGraph(exe, name).graph.map((p) => p.version).sort();
 const MAX_LATEST_PROGRAMS = 8;
 const MAX_CACHED_VIEWS = 8;
+const MAX_CACHED_INSTALLATIONS = 24;
 let prunedViews = false;
 function resolvedNodeForShim(exe) {
     const commandPath = process.env.PATH ?? "";
@@ -698,6 +582,7 @@ function prunePrograms(programsDir, keepViews, cacheDir) {
     }
 }
 let programSource;
+const programMeta = new WeakMap();
 export function installedProgram(root, tool) {
     const scope = checking.getStore();
     const key = `${tool}\0${path.resolve(root)}`;
@@ -715,12 +600,12 @@ export function installedProgram(root, tool) {
         const commandPath = process.env.PATH;
         const resolvedNode = resolvedNodeForShim(exe);
         const nodeOptions = nodeFlags();
-        const indexKey = sha(programSource ??= code(closure("cache")), import.meta.dirname, path.resolve(exe), searchPath ?? "", resolvedNode, nodeOptions ?? "", process.execPath, process.version, process.platform, process.arch);
+        const indexKey = sha("install-v2", programSource ??= code([`cache${ext}`, `installed${ext}`, `run${ext}`]), import.meta.dirname, path.resolve(exe), searchPath ?? "", resolvedNode, nodeOptions ?? "", process.execPath, process.version, process.platform, process.arch);
         const name = `installed-${indexKey.slice(0, 24)}.json.zst`;
         const cacheDir = path.dirname(LASTING);
         const directory = path.join(cacheDir, "installations");
         const index = path.join(directory, name);
-        let installed = unsure || previous ? undefined : readProgram(index, indexKey);
+        let installed = isUnsure() || previous ? undefined : readProgram(index, indexKey);
         const rememberLatest = (entry) => {
             if (!latest.has(latestKey) && latest.size >= MAX_LATEST_PROGRAMS)
                 latest.delete(latest.keys().next().value);
@@ -742,7 +627,7 @@ export function installedProgram(root, tool) {
                 return;
             prunedViews = true;
             try {
-                pruneCache(directory, new Set([name]), (file) => /^installed-[a-f0-9]{24}\.json\.zst$/.test(file));
+                pruneCache(directory, new Set([name]), (file) => /^installed-[a-f0-9]{24}\.json\.zst$/.test(file), MAX_CACHED_INSTALLATIONS);
                 prunePrograms(path.join(cacheDir, "programs", "1"), keepViews, cacheDir);
             }
             catch { /* optional cache cleanup */ }
@@ -754,13 +639,27 @@ export function installedProgram(root, tool) {
                 const launcher = launcherInputs(exe, main, observeLocation);
                 if (launcher) {
                     const expected = graph.map(({ dir }) => contents(dir));
+                    const sourceFilesSnapshot = [...files];
+                    const sourceLinksSnapshot = [...links];
+                    const sourceFileKeys = new Set(sourceFilesSnapshot.map(([f]) => f));
+                    const sourceLinkKeys = new Set(sourceLinksSnapshot.map(([f]) => f));
                     const id = sha(launcher.digest, JSON.stringify([roots, graph.map(({ version, dependencies }, index) => [version, expected[index], dependencies])]), `node@${process.versions.node}:${process.platform}:${process.arch}`);
                     const isolated = isolate(id, launcher.entry, expected);
-                    installed = { id, isolated, unchanged };
-                    if (!unsure) {
+                    const isolatedFiles = [...files].filter(([f]) => !sourceFileKeys.has(f));
+                    const isolatedLinks = [...links].filter(([f]) => !sourceLinkKeys.has(f));
+                    const parsedSourceFiles = parseStamps(sourceFilesSnapshot);
+                    const parsedSourceLinks = parseStamps(sourceLinksSnapshot);
+                    const parsedIsolatedFiles = parseStamps(isolatedFiles);
+                    const parsedIsolatedLinks = parseStamps(isolatedLinks);
+                    installed = {
+                        id,
+                        isolated,
+                        unchangedSource: () => sameParsed(parsedSourceFiles, true) && sameParsed(parsedSourceLinks, false),
+                        unchangedIsolated: () => sameParsed(parsedIsolatedFiles, true) && sameParsed(parsedIsolatedLinks, false),
+                    };
+                    if (!isUnsure()) {
                         try {
-                            writeWhole(index, zstdCompressSync(JSON.stringify([indexKey, id, [...files], [...links], isolated])));
-                            prunedViews = false;
+                            writeWhole(index, zstdCompressSync(JSON.stringify([indexKey, id, sourceFilesSnapshot, sourceLinksSnapshot, isolated, isolatedFiles, isolatedLinks])));
                             cleanup(isolated);
                         }
                         catch { /* optional cache */ }
@@ -771,19 +670,53 @@ export function installedProgram(root, tool) {
                 if (error instanceof InstallationChanged)
                     throw error;
             }
-            const stable = () => process.env.NODE_PATH === searchPath && nodeFlags() === nodeOptions
-                && (installed ? resolvedNodeForShim(exe) === resolvedNode : process.env.PATH === commandPath) && unchanged();
-            previous = rememberLatest(installed ? { exe, ...installed, unchanged: stable } : { exe, id: undefined, unchanged: stable });
+            if (installed) {
+                let isolatedChecked = false;
+                const { unchangedSource, unchangedIsolated } = installed;
+                const stable = () => process.env.NODE_PATH === searchPath && nodeFlags() === nodeOptions && resolvedNodeForShim(exe) === resolvedNode
+                    && unchangedSource() && (!isolatedChecked || unchangedIsolated());
+                const verifyIsolated = () => { isolatedChecked = true; return unchangedIsolated(); };
+                previous = rememberLatest({ exe, id: installed.id, isolated: installed.isolated, unchanged: stable, verifyIsolated });
+                programMeta.set(previous, { index, latestKey, unchangedSource });
+            }
+            else {
+                const stable = () => process.env.NODE_PATH === searchPath && nodeFlags() === nodeOptions && process.env.PATH === commandPath && unchanged();
+                previous = rememberLatest({ exe, id: undefined, unchanged: stable });
+            }
         }
         else {
             cleanup(installed.isolated);
-            const stable = installed.unchanged;
-            previous = rememberLatest({ exe, ...installed, unchanged: () => process.env.NODE_PATH === searchPath && resolvedNodeForShim(exe) === resolvedNode && nodeFlags() === nodeOptions && stable() });
+            let isolatedChecked = false;
+            const { unchangedSource, unchangedIsolated } = installed;
+            const verifyIsolated = () => { isolatedChecked = true; return unchangedIsolated(); };
+            previous = rememberLatest({
+                exe,
+                id: installed.id,
+                isolated: installed.isolated,
+                unchanged: () => process.env.NODE_PATH === searchPath && resolvedNodeForShim(exe) === resolvedNode && nodeFlags() === nodeOptions
+                    && unchangedSource() && (!isolatedChecked || unchangedIsolated()),
+                verifyIsolated,
+            });
+            programMeta.set(previous, { index, latestKey, unchangedSource });
         }
     }
     const program = { ...previous, unchanged: () => findBin(tool, root) === exe && previous.unchanged() };
+    const meta = programMeta.get(previous);
+    if (meta)
+        programMeta.set(program, meta);
     scope?.programs.set(key, program);
     return program;
+}
+export function recoverIsolatedProgram(root, tool, current) {
+    const meta = programMeta.get(current);
+    if (!meta || findBin(tool, root) !== current.exe || !meta.unchangedSource()) {
+        stableInstallation(false);
+        throw new InstallationChanged();
+    }
+    fs.rmSync(meta.index, { force: true });
+    latest.delete(meta.latestKey);
+    checking.getStore()?.programs.delete(`${tool}\0${path.resolve(root)}`);
+    return installedProgram(root, tool);
 }
 export function evaluatorForCheck(root) {
     const scope = checking.getStore();
@@ -818,33 +751,10 @@ function perDafny(read, kept = () => true) {
         return value;
     };
 }
-async function readDafnyVersion(inst) {
-    try {
-        const installed = inst && lasting(`dafny --version ${inst.files[0]}`, inst.files, inst.files.map((f) => inst.stamps.get(f)).join(" "));
-        if (installed?.value)
-            return dafnySaid(installed.value);
-        const r = await exec(inst?.launchers[0] ?? findDafny() ?? "dafny", ["--version"], process.cwd());
-        const version = r.status === 0 ? r.stdout.match(/\d+\.\d+\.\d+/)?.[0] : undefined;
-        if (version && !r.stopped)
-            installed?.keep(version);
-        return dafnySaid(version, r.stopped, `${r.stdout}${r.stderr}`);
-    }
-    catch (e) {
-        return { problem: `Dafny could not be run (${e.message}): ${NEEDS_DAFNY}` };
-    }
-}
 /** The version of Dafny on the PATH, or why it could not be read: asked of Dafny only when its installation changed. */
 export const dafnyVersion = perDafny(readDafnyVersion, (r) => !r.problem);
 /** The verifier's launchers, managed assemblies, and any separately installed .NET host, by their bytes. */
-export const dafnyIdentity = perDafny(async (inst) => {
-    const { launchers, assemblies, runtime } = inst ?? dafnyInstallation();
-    return {
-        version: (await readDafnyVersion(inst)).version,
-        launchers: launchers.map((file) => executableDigest(file, inst?.stamps.get(file))),
-        assemblies: treeDigest(assemblies, inst?.trees.get(assemblies), inst?.stamps),
-        runtime: runtime.map((dir) => [path.basename(dir), treeDigest(dir, inst?.trees.get(dir), inst?.stamps)]),
-    };
-});
+export const dafnyIdentity = perDafny(readDafnyIdentity);
 /** Dafny, told apart by its installation and the solver it is given. */
 export const verifierIdentity = perCheck(async () => {
     const [dafny, z3] = await Promise.all([dafnyIdentity(), solver()]);
@@ -854,83 +764,11 @@ export function dafnyLauncher() {
     const now = installation();
     return now.files ? now.launchers[0] : (findDafny() ?? "dafny");
 }
-class SolverUnavailable extends Error {
-}
-/**
- * The solver selected by Dafny's installation, pinned for every proof and recorded in its cache key; selected again once
- * per check from the bundled candidates and Z3 on the PATH. A candidate's version is asked of it only once it changed.
- */
-function solverCandidates() {
-    const dafny = findDafny();
-    const z3 = onPath("z3");
-    const candidates = [];
-    if (dafny) {
-        const real = fs.realpathSync(dafny);
-        for (const dir of [path.dirname(real), path.join(path.dirname(real), "..", "libexec")]) {
-            const bundled = path.join(dir, "z3", "bin");
-            if (!fs.existsSync(bundled))
-                continue;
-            const preferred = (name) => name.includes("4.12.1") ? 0 : name.includes("4.8.5") ? 1 : 2;
-            candidates.push(...fs.readdirSync(bundled).filter((name) => /^z3(-\d+(\.\d+)*)?(\.exe)?$/.test(name))
-                .sort((a, b) => preferred(a) - preferred(b) || a.localeCompare(b)).map((name) => path.join(bundled, name)));
-        }
-    }
-    if (z3)
-        candidates.push(z3);
-    return candidates;
-}
-const solverStamp = (candidates) => JSON.stringify(candidates.map((file) => [file, fileStamp(file), fileStamp(file, false)]));
-export const solver = perCheck(async () => {
-    const candidates = solverCandidates();
+export const solver = perCheck(() => resolveSolver((at) => {
     const check = checking.getStore();
     if (check)
-        check.solverAt = solverStamp(candidates);
-    for (const candidate of candidates) {
-        try {
-            const real = fs.realpathSync(candidate);
-            const { value, keep } = lasting(`z3 --version ${candidate}`, [candidate, real]);
-            if (value)
-                return { path: real, version: value };
-            const result = await exec(candidate, ["--version"], path.dirname(candidate));
-            const version = result.status === 0 && !result.stopped && result.stdout.match(/Z3 version (\d+\.\d+\.\d+)/)?.[1];
-            if (version)
-                return { path: real, version: keep(version) };
-        }
-        catch { /* try the next solver supplied by this installation */ }
-    }
-    throw new SolverUnavailable("the proof stage needs the Z3 solver bundled with Dafny or on the PATH");
-});
-async function findVibelangBinary() {
-    try {
-        const { findBinary } = await import("vibelang/binary");
-        return findBinary();
-    }
-    catch {
-        return null;
-    }
-}
-/** The native toolchain that a Turbo task's inputs cannot read from the repository. */
-export async function toolchainFingerprint() {
-    const z3 = await solver().catch((error) => {
-        if (error instanceof SolverUnavailable)
-            return null;
-        throw error;
-    });
-    const compiler = await findVibelangBinary();
-    fs.accessSync(process.execPath, fs.constants.X_OK);
-    if (compiler)
-        fs.accessSync(compiler, fs.constants.X_OK);
-    if (z3)
-        fs.accessSync(z3.path, fs.constants.X_OK);
-    return {
-        platform: process.platform, arch: process.arch,
-        node: { version: process.versions.node, digest: executableDigest(process.execPath) },
-        dafny: findDafny() ? await dafnyIdentity() : null,
-        z3: z3 && { version: z3.version, digest: executableDigest(z3.path) },
-        vibelang: compiler ? { version: packageVersion("vibelang"), digest: executableDigest(compiler) } : null,
-        packages: ["@informalsystems/quint", "lemmascript", "vibelang-runtime", "vibelang-vite", "typescript", "vitest", "effect", "@effect/platform-node", "@effect/vitest"].map(packageVersion),
-    };
-}
+        check.solverAt = at;
+}));
 const ext = path.extname(import.meta.filename);
 /** A tool's imports of other tools that run with it, as it starts or once it asks for them: `import type` and `export type` load nothing. */
 const IMPORT = /(?:^(?:import\s+(?!type\b)(?:[^;"]*?\bfrom\s+)?|export\s+(?!type\b)[^;"]*?\bfrom\s+)|\bimport\(\s*)"(\.\.?\/[^"$]+)"/gm;
@@ -946,11 +784,15 @@ const TOOL_DIRS = ["", "gen", "testing", "stories", "design"];
  */
 function loadTools() {
     const tools = new Map();
+    let unsure = false;
     const load = (f) => {
         if (tools.has(f))
             return;
         const file = path.join(import.meta.dirname, f);
-        const { value, keep } = lasting(`tool-meta ${file}`, [file]);
+        const stat = fs.statSync(file, { bigint: true });
+        if (Number(stat.ctimeNs) / 1e6 >= performance.timeOrigin)
+            unsure = true;
+        const { value, keep } = lasting(`tool-meta ${file}`, [file], formatStamp(stat));
         if (value !== undefined) {
             try {
                 const parsed = JSON.parse(value);
@@ -970,17 +812,18 @@ function loadTools() {
         tools.set(f, { code: codeHash, imports });
         imports.forEach(load);
     };
-    TOOL_DIRS.flatMap((dir) => fs.readdirSync(path.join(import.meta.dirname, dir)).map((f) => path.join(dir, f)))
-        .filter((f) => f.endsWith(ext) && f !== `selftest${ext}` && f !== `remote-cache${ext}`).sort().forEach(load);
-    /**
-     * Whether a tool, or the set of them, changed between the start of this process and the reading above: then the code it
-     * runs may not be the code its keys name, and it remembers nothing. The change time, which a copy or an archive cannot
-     * set back, never the modification time.
-     */
-    const unsure = [...TOOL_DIRS, ...tools.keys()].some((f) => fs.statSync(path.join(import.meta.dirname, f)).ctimeMs >= performance.timeOrigin);
+    for (const dir of TOOL_DIRS) {
+        const full = path.join(import.meta.dirname, dir);
+        if (fs.statSync(full).ctimeMs >= performance.timeOrigin)
+            unsure = true;
+        for (const f of fs.readdirSync(full).map((name) => path.join(dir, name))
+            .filter((name) => name.endsWith(ext) && name !== `selftest${ext}` && name !== `remote-cache${ext}`).sort())
+            load(f);
+    }
     return { tools, unsure };
 }
 const { tools, unsure } = loadTools();
+const isUnsure = () => unsure;
 /** The code of these scripts, by their names and tokens. */
 const code = (files) => sha(...files.sort().map((f) => `${f}\0${tools.get(f)?.code}`)).slice(0, 12);
 /** Every tool's script, where it is: a page that runs one of them may run any (explore.ts, `pageInputs`). */
@@ -1048,7 +891,17 @@ async function toolchainId(root, stage) {
 }
 const formats = [["zst", zstdDecompressSync], ["gz", gunzipSync]];
 const primaryExtension = `.${formats[0][0]}`;
-const localCache = (root) => cacheDirectory(root);
+const localCache = (root) => {
+    const scope = checking.getStore();
+    if (!scope)
+        return cacheDirectory(root);
+    let dir = scope.cacheDirs.get(root);
+    if (dir === undefined) {
+        dir = cacheDirectory(root);
+        scope.cacheDirs.set(root, dir);
+    }
+    return dir;
+};
 const formalCache = new AsyncLocalStorage();
 const sharedCache = (name) => isActionEntry(name) ? formalCache.getStore() : undefined;
 const cacheFile = (root, name) => path.join(sharedCache(name)?.directory ?? localCache(root), name);
@@ -1141,7 +994,7 @@ export function store(memory, raw, value, source) {
     if (!projected)
         memory.used.add(raw.name);
     const check = checking.getStore();
-    if (unsure || check?.changed || check?.closed || !reusable)
+    if (isUnsure() || check?.changed || check?.closed || !reusable)
         return;
     if (evaluator) {
         if (check)
@@ -1150,12 +1003,23 @@ export function store(memory, raw, value, source) {
             return;
     }
     const action = source === "dafny" ? undefined : source;
-    if (action && !check && !action.program.unchanged())
-        return;
+    if (action) {
+        if (!check && !action.program.unchanged())
+            return;
+        if (action.program.verifyIsolated && !action.program.verifyIsolated()) {
+            if (check) {
+                check.changed = true;
+                resetPending(check);
+                throw new InstallationChanged();
+            }
+            return;
+        }
+    }
     const compact = projected && memory.actionProjection?.encode(value);
     const { name, file } = projected && compact !== undefined ? projected : raw;
     const bytes = zstdCompressSync(JSON.stringify(compact === undefined ? value : compact));
     memory.used.add(name);
+    memory.wrote = true;
     sharedCache(name)?.used.add(name);
     if (check && (source === "dafny" || /^(?:prove|tests|traces|explore)-/.test(raw.name))) {
         check.dafnyBytes += bytes.length - (check.pendingDafny.get(file)?.length ?? 0);
@@ -1178,7 +1042,8 @@ export function store(memory, raw, value, source) {
         check.bytes += bytes.length - (check.pending.get(file)?.length ?? 0);
         check.pending.set(file, bytes);
         if (!action || pendingLimit(check)
-            || performance.now() - Math.min(check.lastPublished, action.began) >= PUBLISH_INTERVAL_MS)
+            || performance.now() - check.lastPublished >= PUBLISH_INTERVAL_MS
+            || performance.now() - action.began >= PUBLISH_INTERVAL_MS)
             publishChecked();
     }
     memory.captureReceipt?.({ name, bytes });
@@ -1200,10 +1065,12 @@ export async function remembered(memory, at, produce, keep, schedule) {
         return known.result;
     }
     const compute = async () => {
-        const own = { ...memory, used: new Set() };
+        const own = { ...memory, used: new Set(), wrote: false };
         const result = await produce(own);
         for (const name of own.used)
             memory.used.add(name);
+        if (own.wrote)
+            memory.wrote = true;
         if (keep(result))
             store(memory, e, { result, used: [...own.used] });
         return result;
@@ -1216,10 +1083,12 @@ export const isActionEntry = (name) => name.startsWith("action-") && ENTRY.test(
 export function collectGarbage(memory) {
     pruneCache(localCache(memory.root), memory.used);
 }
-function pruneCache(directory, inUse, owns) {
+function pruneCache(directory, inUse, owns, maxEntries) {
     if (!fs.existsSync(directory))
         return;
-    const expired = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const expired = now - 30 * 24 * 60 * 60 * 1000;
+    const recentGrace = now - 60 * 60 * 1000;
     const retained = [];
     for (const name of fs.readdirSync(directory)) {
         if (name === "lock" || (owns && !owns(name)))
@@ -1235,10 +1104,14 @@ function pruneCache(directory, inUse, owns) {
             retained.push({ file, size: stat.size, touched: stat.mtimeMs, used });
     }
     let bytes = retained.reduce((total, entry) => total + entry.size, 0);
+    let count = retained.length;
     for (const entry of retained.filter((entry) => !entry.used).sort((a, b) => a.touched - b.touched || a.file.localeCompare(b.file))) {
-        if (bytes <= 256 * 2 ** 20)
+        const overBytes = bytes > 256 * 2 ** 20;
+        const overCount = maxEntries !== undefined && count > maxEntries && entry.touched < recentGrace;
+        if (!overBytes && !overCount)
             break;
         fs.rmSync(entry.file, { force: true });
         bytes -= entry.size;
+        count--;
     }
 }

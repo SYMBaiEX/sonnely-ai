@@ -1,23 +1,27 @@
 import fs from "node:fs";
 import path from "node:path";
+import { loadConfig } from "./config.js";
 import { readSpecs, isStd, bareQuint as bare, heading } from "./parse.js";
 import { short, readSrc, indent, writeWhole, citations, tsApi } from "./util.js";
 import { DECLASSIFY } from "./gen/secrecy.js";
-export const ledgerFile = (root) => path.join(root, "spec/lock.json");
+export const ledgerFile = (root) => path.join(root, loadConfig(root).spec.dir, "lock.json");
 const emptyLock = () => ({ version: 1, specs: {}, contracts: {}, unproved: {} });
 /** One versioned ledger owns review and proof acceptance for the entire spec tree. A check reads it once and passes it on. */
 export function readReviewLock(root) {
-    const file = ledgerFile(root);
+    const specDir = loadConfig(root).spec.dir;
+    const file = path.join(root, specDir, "lock.json");
     if (!fs.existsSync(file))
         return emptyLock();
     const data = JSON.parse(fs.readFileSync(file, "utf8"));
     const object = (v) => !!v && typeof v === "object" && !Array.isArray(v);
     const strings = (v) => Array.isArray(v) && v.every((x) => typeof x === "string");
+    const specPrefix = `${specDir}/`;
+    const validSpecKey = (key) => key.startsWith(specPrefix) && key.endsWith(".md") && key.length > specPrefix.length + 3;
     if (!object(data) || data.version !== 1 || !object(data.specs) || !object(data.contracts) || !object(data.unproved)
-        || Object.entries(data.specs).some(([file, rules]) => !/^spec\/.+\.md$/.test(file) || !object(rules) || Object.values(rules).some((v) => !strings(v)))
+        || Object.entries(data.specs).some(([specFile, rules]) => !validSpecKey(specFile) || !object(rules) || Object.values(rules).some((v) => !strings(v)))
         || Object.values(data.contracts).some((v) => typeof v !== "string")
         || Object.values(data.unproved).some((v) => !object(v) || typeof v.text !== "string" || !strings(v.unproved)))
-        throw new Error("spec/lock.json has an unsupported version or invalid review records");
+        throw new Error(`${specDir}/lock.json has an unsupported version or invalid review records`);
     return data;
 }
 /** Publish all sections together; an interrupted write cannot leave half a ledger. */
@@ -63,6 +67,24 @@ function namesOf(spec) {
     }
     return names;
 }
+const mentionsCache = new WeakMap();
+function ruleMentions(rule) {
+    let found = mentionsCache.get(rule);
+    if (!found) {
+        found = mentions(rule.code);
+        mentionsCache.set(rule, found);
+    }
+    return found;
+}
+const specsByNameCache = new WeakMap();
+function specsByName(specs) {
+    let index = specsByNameCache.get(specs);
+    if (!index) {
+        index = new Map(specs.map((spec) => [spec.name, spec]));
+        specsByNameCache.set(specs, index);
+    }
+    return index;
+}
 /**
  * The rules whose Quint `rule` relies on, directly or through others, in its own spec and in the specs it imports.
  * A bare name is looked up first in the spec that mentions it, then in the specs that one imports with `.*` or by that
@@ -70,13 +92,14 @@ function namesOf(spec) {
  * conservative: an identifier that happens to share a definition's name counts as a use of it.
  */
 export function dependencies(spec, rule, specs) {
+    const byName = specsByName(specs);
     const found = new Map();
     const homes = (from, n) => from.flatMap((u) => {
-        const d = specs.find((x) => x.name === u.module);
+        const d = byName.get(u.module);
         return d ? (namesOf(d).get(n) ?? []).map((x) => [d, x]) : [];
     });
     const visit = (s, r) => {
-        const { bare: names, qualified } = mentions(r.code);
+        const { bare: names, qualified } = ruleMentions(r);
         const unqualified = (n) => {
             const own = namesOf(s).get(n);
             return own ? own.map((x) => [s, x]) : homes(s.uses.filter((u) => u.star || u.names.includes(n)), n);
@@ -121,15 +144,20 @@ const ASKS = {
     "contract removed": "confirm the file is no longer meant to be proved",
 };
 export const showPending = (p) => `${p.where}\n      ${p.status}${p.note ?? ""}: ${ASKS[p.status]}${p.cited?.length ? `\n      cited by ${p.cited.join(", ")}: read them again against it` : ""}`;
+const loadedLocks = new WeakSet();
 /** A spec's ledger. `locks` remembers the ones read, for a caller that reads many in a row while none of them changes. */
 const readLock = (root, file, locks) => {
     const known = locks.get(file);
     if (known)
         return known;
-    const all = readReviewLock(root).specs;
-    for (const [file, value] of Object.entries(all))
-        locks.set(file, value);
-    const lock = all[file] ?? {};
+    if (!loadedLocks.has(locks)) {
+        loadedLocks.add(locks);
+        const all = readReviewLock(root).specs;
+        for (const [k, value] of Object.entries(all))
+            if (!locks.has(k))
+                locks.set(k, value);
+    }
+    const lock = locks.get(file) ?? {};
     locks.set(file, lock);
     return lock;
 };

@@ -1,14 +1,11 @@
 import { type Evaluator, executableDigest } from "./installed.ts";
-export { executableDigest };
-/** Load an operator's publishing credential only for the exact cache endpoint it belongs to. */
-export declare function cacheCredentials(env: NodeJS.ProcessEnv, args: string[], declared: string | undefined, credentials: {
-    apiUrl: string;
-    writeToken: string;
-}): NodeJS.ProcessEnv;
+import { cacheCredentials } from "./toolchain.ts";
+export { cacheCredentials, executableDigest };
 export declare const inSteadyCheck: () => boolean;
 export declare function certifyInstallation(): void;
 /** Run a check, which reads Dafny's installation once: its final certification checks that installation even after a wholly warm run. */
 export declare const steady: <T>(run: () => Promise<T>) => Promise<T>;
+export declare function withStableInstallation<T>(attempt: () => Promise<T>): Promise<T>;
 declare const TOOL_PACKAGES: {
     readonly quint: "@informalsystems/quint";
     readonly lsc: "lemmascript";
@@ -20,6 +17,7 @@ type Isolated = {
 type Program = {
     exe: string;
     unchanged: () => boolean;
+    verifyIsolated?: () => boolean;
 } & ({
     id: string;
     isolated: Isolated;
@@ -29,6 +27,7 @@ type Program = {
 });
 export declare const installedPackages: (exe: string, name: string) => string[];
 export declare function installedProgram(root: string, tool: keyof typeof TOOL_PACKAGES): Program | undefined;
+export declare function recoverIsolatedProgram(root: string, tool: keyof typeof TOOL_PACKAGES, current: Program): Program | undefined;
 export declare function evaluatorForCheck(root: string): Evaluator | undefined;
 export declare function stableInstallation(same: boolean): boolean;
 /** The version of Dafny on the PATH, or why it could not be read: asked of Dafny only when its installation changed. */
@@ -50,30 +49,6 @@ export declare const solver: () => Promise<{
     path: string;
     version: string;
 }>;
-/** The native toolchain that a Turbo task's inputs cannot read from the repository. */
-export declare function toolchainFingerprint(): Promise<{
-    platform: NodeJS.Platform;
-    arch: NodeJS.Architecture;
-    node: {
-        version: string;
-        digest: string;
-    };
-    dafny: {
-        version: string | undefined;
-        launchers: string[];
-        assemblies: string;
-        runtime: string[][];
-    } | null;
-    z3: {
-        version: string;
-        digest: string;
-    } | null;
-    vibelang: {
-        version: string;
-        digest: string;
-    } | null;
-    packages: string[];
-}>;
 /** Every tool's script, where it is: a page that runs one of them may run any (explore.ts, `pageInputs`). */
 export declare const toolScripts: () => string[];
 /** The code of every tool, which such a page reads. */
@@ -86,6 +61,7 @@ export interface Memory {
     root: string;
     fresh: boolean;
     used: Set<string>;
+    wrote?: boolean;
     actionSignal?: AbortSignal;
     actionProjection?: {
         version: string;

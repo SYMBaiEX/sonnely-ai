@@ -1,3 +1,4 @@
+import type * as TS from "typescript";
 import { type Model } from "./gen.ts";
 import type { Unit } from "./prove.ts";
 import { type Spec } from "./parse.ts";
@@ -50,7 +51,7 @@ export declare function proofUnits(root: string, models: Model[], srcFiles?: Src
  * comment (one in a block comment or a string is not an annotation, though it looks like one), and the names `Std` and
  * `ProofLib`, which the proof gives to Dafny's libraries. And NUL, which no source needs.
  */
-export declare function checkVerifiedSource(file: string, code: string): void;
+export declare function checkVerifiedSource(file: string, code: string): TS.SourceFile;
 /** Every proof file of the project. */
 export declare const proofFiles: (root: string) => string[];
 /**

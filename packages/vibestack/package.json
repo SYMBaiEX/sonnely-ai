@@ -1,6 +1,6 @@
 {
   "name": "vibestack",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Stories, rules and Quint in a Markdown spec tree; verified TypeScript out.",
   "license": "MIT",
   "type": "module",
@@ -24,8 +24,8 @@
     "ai-agents"
   ],
   "bin": {
-    "vibestack": "./bin/spec.js",
-    "spec": "./bin/spec.js"
+    "vibestack": "./dist/spec.js",
+    "spec": "./dist/spec.js"
   },
   "files": [
     "bin",
@@ -34,12 +34,6 @@
     "README.md",
     "LICENSE"
   ],
-  "scripts": {
-    "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "prepack": "node scripts/build.mjs",
-    "test": "vitest run"
-  },
   "dependencies": {
     "@antithesishq/bombadil": "0.7.10",
     "@informalsystems/quint": "^0.33.1",
@@ -143,61 +137,11 @@
     "./package.json": "./package.json"
   },
   "publishConfig": {
-    "access": "public",
-    "bin": {
-      "vibestack": "./dist/spec.js",
-      "spec": "./dist/spec.js"
-    },
-    "exports": {
-      "./formal": {
-        "types": "./dist/formal.d.ts",
-        "default": "./dist/formal.js"
-      },
-      "./testing": {
-        "types": "./dist/testing/index.d.ts",
-        "default": "./dist/testing/index.js"
-      },
-      "./testing/vitest": {
-        "types": "./dist/testing/vitest.d.ts",
-        "default": "./dist/testing/vitest.js"
-      },
-      "./testing/generate": {
-        "types": "./dist/testing/generate.d.ts",
-        "default": "./dist/testing/generate.js"
-      },
-      "./stories": {
-        "types": "./dist/stories/meta.d.ts",
-        "default": "./dist/stories/meta.js"
-      },
-      "./stories/storybook": {
-        "types": "./dist/stories/storybook.d.ts",
-        "default": "./dist/stories/storybook.js"
-      },
-      "./design/eslint": {
-        "types": "./dist/design/eslint.d.ts",
-        "default": "./dist/design/eslint.js"
-      },
-      "./design/tokens": {
-        "types": "./dist/design/tokens.d.ts",
-        "default": "./dist/design/tokens.js"
-      },
-      "./design/project": {
-        "types": "./dist/design/project.d.ts",
-        "default": "./dist/design/project.js"
-      },
-      "./eslint": {
-        "types": "./dist/eslint.d.ts",
-        "default": "./dist/eslint.js"
-      },
-      "./chromium": {
-        "types": "./dist/chromium.d.ts",
-        "default": "./dist/chromium.js"
-      },
-      "./config": {
-        "types": "./dist/config.d.ts",
-        "default": "./dist/config.js"
-      },
-      "./package.json": "./package.json"
-    }
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
   }
 }
