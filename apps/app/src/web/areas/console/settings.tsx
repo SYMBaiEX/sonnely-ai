@@ -1,6 +1,7 @@
 // spec/app/console/index.md, "Story: Set up the workspace profile"; spec/app/console/index.md, "Story: Choose how this device shows the console"; spec/app/console/index.md, "Story: Choose whether the workspace keeps chat history"; spec/app/console/chat.md, "Story: Erase what the workspace keeps"; spec/app/session.md, "Story: Sign in with a wallet"
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { CircleHelp, Code2, FileText, MonitorSmartphone, Settings, Shield, Trash2 } from "lucide-react";
+import { Button, Card, CardTitle, Checkbox, Input, Label } from "@repo/ui";
 import type { Console, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
 import type { Chat } from "../../../../gen/app__console__chat.ts";
 import { useRemote, type Remote } from "../../remote.ts";
@@ -16,77 +17,107 @@ const themes: { id: ConsoleTheme; label: string }[] = [
   { id: "Dark", label: "dark" },
 ];
 const browserThemes: Record<ConsoleTheme, BrowserTheme> = { System: "system", Light: "light", Dark: "dark" };
+const rowClass = "flex flex-wrap items-center justify-between gap-4 border-t border-border py-3 first:border-t-0";
+const rowTextClass = "max-w-2xl";
+const rowTitleClass = "text-ui font-medium text-foreground";
+const metaClass = "mt-1 text-meta text-muted-foreground";
+const panelIconClass = "text-primary";
+const fieldClass = "grid gap-2 text-ui font-medium text-foreground";
+const noticeClass = "rounded-md border px-3 py-2 text-ui";
+const currentPillClass = "inline-flex items-center rounded-xl border border-info/40 bg-info/10 px-2 py-0.5 text-micro font-medium text-info";
+
+function formText(data: FormData, name: string) {
+  const value = data.get(name);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function Panel({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <Card className="gap-3 p-4 shadow-none">
+      <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+        <CardTitle className="text-lead tracking-heading">{title}</CardTitle>
+        <span className={panelIconClass}>{icon}</span>
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+function PreferenceRow({ title, children, control }: { title: string; children: ReactNode; control: ReactNode }) {
+  return (
+    <div className={rowClass}>
+      <div className={rowTextClass}>
+        <strong className={rowTitleClass}>{title}</strong>
+        <p className={metaClass}>{children}</p>
+      </div>
+      {control}
+    </div>
+  );
+}
 
 function PreferencesPanel({ settings, state }: { settings: Remote<Console>; state?: Console }) {
   const shell = useConsoleShell();
+  const send = (input: unknown) => settings.send(input);
   return (
-    <section className="panel stack-panel settings-panel">
-      <div className="between">
-        <h2>Preferences</h2>
-        <Code2 size={20} />
-      </div>
-      <div className="settings-row">
-        <div>
-          <strong>Appearance</strong>
-          <p>Choose the console theme.</p>
-        </div>
-        <div className="segmented">
-          {themes.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={shell.theme === browserThemes[id]}
-              onClick={() => void shell.chooseTheme(browserThemes[id])}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="settings-row">
-        <div>
-          <strong>Ambient motion</strong>
-          <p>Animate the background and the homepage request trace.</p>
-        </div>
-        <MotionSwitch />
-      </div>
-      <div className="settings-row">
-        <div>
-          <strong>Plain writing</strong>
-          <p>Ask the chat model for concise, clear language.</p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          className="toggle"
-          aria-label="Plain writing"
-          aria-checked={state?.plain ?? true}
-          onClick={() => void settings.send({ type: "setPlain", on: !(state?.plain ?? true) })}
-        >
-          <span />
-        </button>
-      </div>
-      <div className="settings-row">
-        <div>
-          <strong>Chat history</strong>
-          <p>
-            Keep playground conversations server-side under your wallet, so they reopen on any device. Off, new
-            conversations live in the browser session only and are never written to the server. Already-kept
-            conversations stay until you clear them below.
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          className="toggle"
-          aria-label="Chat history"
-          aria-checked={state?.history ?? true}
-          onClick={() => void settings.send({ type: "setHistory", on: !(state?.history ?? true) })}
-        >
-          <span />
-        </button>
-      </div>
-    </section>
+    <Panel title="Preferences" icon={<Code2 size={20} aria-hidden />}>
+      <PreferenceRow
+        title="Appearance"
+        control={
+          <div className="flex rounded-lg border border-border bg-background p-1" role="group" aria-label="Console theme">
+            {themes.map(({ id, label }) => {
+              const active = shell.theme === browserThemes[id];
+              return (
+                <Button
+                  key={id}
+                  variant={active ? "secondary" : "ghost"}
+                  size="sm"
+                  aria-pressed={active}
+                  className="rounded-md"
+                  onClick={() => void shell.chooseTheme(browserThemes[id])}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+        }
+      >
+        Choose the console theme.
+      </PreferenceRow>
+      <PreferenceRow title="Ambient motion" control={<MotionSwitch />}>
+        Animate the background and the homepage request trace.
+      </PreferenceRow>
+      <PreferenceRow
+        title="Plain writing"
+        control={
+          <Label className="flex items-center gap-2 text-meta font-regular text-muted-foreground">
+            <Checkbox
+              aria-label="Plain writing"
+              checked={state?.plain ?? true}
+              onCheckedChange={(checked) => void send({ type: "setPlain", on: checked === true })}
+            />
+            Enabled
+          </Label>
+        }
+      >
+        Ask the chat model for concise, clear language.
+      </PreferenceRow>
+      <PreferenceRow
+        title="Chat history"
+        control={
+          <Label className="flex items-center gap-2 text-meta font-regular text-muted-foreground">
+            <Checkbox
+              aria-label="Chat history"
+              checked={state?.history ?? true}
+              onCheckedChange={(checked) => void send({ type: "setHistory", on: checked === true })}
+            />
+            Enabled
+          </Label>
+        }
+      >
+        Keep playground conversations server-side under your wallet, so they reopen on any device. Off, new conversations live in the browser session only and are never written to the server. Already-kept conversations stay until you clear them below.
+      </PreferenceRow>
+    </Panel>
   );
 }
 
@@ -110,48 +141,41 @@ function ClearHistoryPanel() {
   }
 
   return (
-    <section className="panel stack-panel settings-panel">
-      <div className="between">
-        <h2>Chat history</h2>
-        <Trash2 size={20} />
-      </div>
-      <div className="settings-row">
-        <div>
-          <strong>Clear chat history</strong>
-          <p>
-            Erase every playground conversation the server keeps for this wallet
-            {threads ? ` — currently ${threads}` : ""}. Export any transcript you want to keep first; clearing
-            cannot be undone.
-          </p>
-        </div>
-        {!confirming && (
-          <button className="button quiet" type="button" disabled={busy || !threads} onClick={() => setConfirming(true)}>
-            Clear history
-          </button>
-        )}
-      </div>
+    <Panel title="Chat history" icon={<Trash2 size={20} aria-hidden />}>
+      <PreferenceRow
+        title="Clear chat history"
+        control={
+          !confirming ? (
+            <Button variant="outline" disabled={busy || !threads} onClick={() => setConfirming(true)}>
+              Clear history
+            </Button>
+          ) : undefined
+        }
+      >
+        Erase every playground conversation the server keeps for this wallet{threads ? ` — currently ${threads}` : ""}. Export any transcript you want to keep first; clearing cannot be undone.
+      </PreferenceRow>
       {confirming && (
-        <div className="settings-row">
-          <div>
-            <strong>Erase {threads === 1 ? "this conversation" : `all ${threads} conversations`}?</strong>
-            <p>The server forgets every prompt and answer it keeps for this wallet.</p>
+        <div className={rowClass}>
+          <div className={rowTextClass}>
+            <strong className={rowTitleClass}>Erase {threads === 1 ? "this conversation" : `all ${threads} conversations`}?</strong>
+            <p className={metaClass}>The server forgets every prompt and answer it keeps for this wallet.</p>
           </div>
-          <div className="batch-actions">
-            <button className="button quiet" type="button" disabled={busy} onClick={() => setConfirming(false)}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" disabled={busy} onClick={() => setConfirming(false)}>
               Keep history
-            </button>
-            <button className="button accent" type="button" disabled={busy} onClick={() => void clear()}>
+            </Button>
+            <Button loading={busy} onClick={() => void clear()}>
               Clear everything
-            </button>
+            </Button>
           </div>
         </div>
       )}
       {message && (
-        <p className="caption" role="status">
+        <p className={`${noticeClass} border-info/40 bg-info/10 text-info`} role="status">
           {message}
         </p>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -160,28 +184,24 @@ function SessionsPanel({ session }: { session: WorkspaceSessionRemote }) {
   const sessions = session.state?.tag === "SignedIn" ? (session.state.sessions ?? []).filter((item) => item.state === "LoginActive") : [];
 
   return (
-    <section className="panel stack-panel settings-panel">
-      <div className="between">
-        <h2>Active sessions</h2>
-        <MonitorSmartphone size={20} />
-      </div>
+    <Panel title="Active sessions" icon={<MonitorSmartphone size={20} aria-hidden />}>
       {wallet && sessions.length ? (
         sessions.map((item) => (
-          <div className="settings-row" key={item.digest}>
-            <div>
-              <strong>{item.current ? "This session" : "Signed in " + date(item.createdAt)}</strong>
-              <p>Expires {date(item.expiresAt)} UTC</p>
+          <div className={rowClass} key={item.digest}>
+            <div className={rowTextClass}>
+              <strong className={rowTitleClass}>{item.current ? "This session" : "Signed in " + date(item.createdAt)}</strong>
+              <p className={metaClass}>Expires {date(item.expiresAt)} UTC</p>
             </div>
-            {item.current && <span className="pill">Current</span>}
+            {item.current && <span className={currentPillClass}>Current</span>}
           </div>
         ))
       ) : (
-        <p className="caption" role="status">
+        <p className={metaClass} role="status">
           {!wallet ? "Connect a wallet to see active sessions." : "No active sessions."}
         </p>
       )}
-      <p className="caption">Sign out this device from the wallet control in the console header.</p>
-    </section>
+      <p className={metaClass}>Sign out this device from the wallet control in the console header.</p>
+    </Panel>
   );
 }
 
@@ -202,7 +222,7 @@ function SettingsContent() {
     setError("");
     setNotice("");
     try {
-      const ok = await shell.saveProfile(String(fields.get("name") ?? ""), String(fields.get("username") ?? ""));
+      const ok = await shell.saveProfile(formText(fields, "name"), formText(fields, "username"));
       if (ok) setNotice("Profile saved.");
       else setError("The profile could not be saved.");
     } finally {
@@ -212,36 +232,28 @@ function SettingsContent() {
 
   return (
     <>
-      <WorkspaceHeading
-        icon={Settings}
-        title="Settings"
-        description="Manage your profile and console preferences."
-      />
+      <WorkspaceHeading icon={Settings} title="Settings" description="Manage your profile and console preferences." />
       <Failure message={error || settings.error || session.error || ""} />
-      <p role="status" className={notice ? "status" : "visually-hidden"}>
+      <p role="status" className={notice ? `${noticeClass} border-ok/40 bg-ok/10 text-ok` : "sr-only"}>
         {notice}
       </p>
-      <section className="panel stack-panel settings-panel">
-        <div className="between">
-          <h2>Workspace identity</h2>
-          <Shield size={20} />
-        </div>
-        <div className="settings-row">
-          <div>
-            <strong>Solana wallet</strong>
-            <p>{wallet ? shorten(wallet) : "Connect a wallet to manage your account."}</p>
-          </div>
-          {wallet && <CopyButton value={wallet} label="Copy address" />}
-        </div>
+      <Panel title="Workspace identity" icon={<Shield size={20} aria-hidden />}>
+        <PreferenceRow title="Solana wallet" control={wallet ? <CopyButton value={wallet} label="Copy address" /> : undefined}>
+          {wallet ? shorten(wallet) : "Connect a wallet to manage your account."}
+        </PreferenceRow>
         {wallet && (
-          <form className="settings-profile-form" onSubmit={(event) => void rename(event)} key={wallet + (state?.name ?? "") + (state?.username ?? "")}>
-            <label>
+          <form
+            className="grid items-start gap-4 border-t border-border py-4 sm:grid-cols-2"
+            onSubmit={(event) => void rename(event)}
+            key={wallet + (state?.name ?? "") + (state?.username ?? "")}
+          >
+            <Label className={fieldClass}>
               Display name
-              <input name="name" maxLength={60} defaultValue={state?.name ?? ""} placeholder="Your name" />
-            </label>
-            <label>
+              <Input name="name" maxLength={60} defaultValue={state?.name ?? ""} placeholder="Your name" />
+            </Label>
+            <Label className={fieldClass}>
               Username
-              <input
+              <Input
                 name="username"
                 aria-describedby="username-help"
                 maxLength={24}
@@ -252,26 +264,32 @@ function SettingsContent() {
                 autoCapitalize="none"
                 spellCheck={false}
               />
-              <span id="username-help" className="caption">
+              <span id="username-help" className={metaClass}>
                 {usernameHelp} Shown in referral activity.
               </span>
-            </label>
-            <button className="button quiet" type="submit" disabled={busy}>
-              Save profile
-            </button>
+            </Label>
+            <div className="sm:col-span-2">
+              <Button type="submit" variant="outline" loading={busy}>
+                Save profile
+              </Button>
+            </div>
           </form>
         )}
-      </section>
+      </Panel>
       <PreferencesPanel settings={settings} state={state} />
       {wallet && <ClearHistoryPanel />}
       <SessionsPanel session={session} />
-      <div className="actions">
-        <a className="button quiet" href="/docs/attestation#data-handling">
-          <FileText size={17} /> Data handling
-        </a>
-        <a className="button quiet" href="/contact">
-          <CircleHelp size={17} /> Account support
-        </a>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" asChild>
+          <a href="/docs/attestation#data-handling">
+            <FileText size={17} aria-hidden /> Data handling
+          </a>
+        </Button>
+        <Button variant="outline" asChild>
+          <a href="/contact">
+            <CircleHelp size={17} aria-hidden /> Account support
+          </a>
+        </Button>
       </div>
     </>
   );
@@ -279,7 +297,7 @@ function SettingsContent() {
 
 export function SettingsSection() {
   return (
-    <div className="workspace-surface">
+    <div className="grid min-w-0 gap-3 text-foreground">
       <SettingsContent />
     </div>
   );

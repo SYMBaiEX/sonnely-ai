@@ -1,7 +1,7 @@
-// spec/app/support.md, "Story: Open a request" and "Story: Converse on a request": the customer request list,
-// its expandable public threads, replies and the new-request form.
+// spec/app/support.md, "Story: Open a request"; spec/app/support.md, "Story: Converse on a request"
 import { LifeBuoy } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
+import { Button, Card, EmptyState, Input, Label, Textarea } from "@repo/ui";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { useSession } from "../../session.ts";
 import type { Ticket, TicketState, Tickets } from "../../../../gen/app__support.ts";
@@ -12,6 +12,10 @@ import { WorkspaceHeading, dateTime } from "../console/bits.tsx";
 const ticketStates: Record<TicketState, string> = { Open: "Open", InProgress: "In progress", Resolved: "Resolved" };
 const seenKey = "sonnely.supportSeen";
 const topics = ["Workspace support", "Infrastructure partnership", "Billing", "Product feedback"];
+const fieldClass = "grid gap-2 text-ui font-medium text-foreground";
+const controlClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-ui text-foreground disabled:cursor-not-allowed disabled:opacity-50";
+const metaClass = "text-meta text-muted-foreground";
+const pillClass = "inline-flex items-center rounded-xl border px-2 py-0.5 text-micro font-medium";
 
 export function render(page: Page): ReactNode {
   if (page.tag !== "Console" || page.section !== "Support") return null;
@@ -34,6 +38,17 @@ function readSeen() {
   }
 }
 
+function formText(data: FormData, name: string) {
+  const value = data.get(name);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function stateTone(state: TicketState) {
+  if (state === "Resolved") return "border-ok/40 bg-ok/10 text-ok";
+  if (state === "InProgress") return "border-warn/40 bg-warn/10 text-warn";
+  return "border-info/40 bg-info/10 text-info";
+}
+
 function SupportThread({ ticket, send }: { ticket: Ticket; send: (input: unknown) => Promise<boolean> }) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
@@ -42,7 +57,7 @@ function SupportThread({ ticket, send }: { ticket: Ticket; send: (input: unknown
   async function sendReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
-    const body = String(new FormData(form).get("body") ?? "").trim();
+    const body = formText(new FormData(form), "body");
     setBusy(true);
     setFailure("");
     try {
@@ -55,32 +70,34 @@ function SupportThread({ ticket, send }: { ticket: Ticket; send: (input: unknown
   }
 
   return (
-    <div className="crm-thread">
-      <ul className="crm-activity">
-        <li>
-          <p className="crm-note">{ticket.message}</p>
-          <p className="caption">{dateTime(ticket.openedAt)} · You</p>
+    <div className="grid gap-4 border-t border-border px-4 py-4">
+      <ul className="grid gap-3">
+        <li className="grid gap-1">
+          <p className="text-ui text-foreground">{ticket.message}</p>
+          <p className={metaClass}>{dateTime(ticket.openedAt)} · You</p>
         </li>
-        {replies.map((item, index) => (
-          <li key={item.time + ":" + index}>
-            <p className="crm-note">{item.body}</p>
-            <p className="caption">
+        {replies.map((item) => (
+          <li key={`${item.time}:${item.author}:${item.body.slice(0, 24)}`} className="grid gap-1">
+            <p className="text-ui text-foreground">{item.body}</p>
+            <p className={metaClass}>
               {dateTime(item.time)} · {item.author === "Customer" ? "You" : "Support"}
             </p>
           </li>
         ))}
       </ul>
-      <form className="recovery-form" onSubmit={(event) => void sendReply(event)}>
-        <label>
+      <form className="grid gap-3" onSubmit={(event) => void sendReply(event)}>
+        <Label className={fieldClass}>
           Reply
-          <textarea name="body" rows={3} maxLength={4000} required placeholder="Add details or follow up on this request." />
-        </label>
-        {ticket.state === "Resolved" && <p className="caption">Replying reopens this request.</p>}
-        <button className="button quiet" disabled={busy}>
-          {busy ? "Sending…" : "Send reply"}
-        </button>
+          <Textarea name="body" rows={3} maxLength={4000} required placeholder="Add details or follow up on this request." />
+        </Label>
+        {ticket.state === "Resolved" && <p className={metaClass}>Replying reopens this request.</p>}
+        <div>
+          <Button type="submit" variant="outline" loading={busy}>
+            Send reply
+          </Button>
+        </div>
         {failure && (
-          <p role="alert" className="error">
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive">
             {failure}
           </p>
         )}
@@ -105,9 +122,9 @@ function NewRequest({ email, wallet, send }: { email?: string; wallet: string; s
       const ok = await send({
         type: "open",
         id: crypto.randomUUID(),
-        email: String(fields.get("email") ?? "").trim(),
-        topic: String(fields.get("topic") ?? "").trim(),
-        message: String(fields.get("message") ?? "").trim(),
+        email: formText(fields, "email"),
+        topic: formText(fields, "topic"),
+        message: formText(fields, "message"),
         wallet,
         now: Date.now(),
       });
@@ -123,12 +140,14 @@ function NewRequest({ email, wallet, send }: { email?: string; wallet: string; s
   }
 
   return (
-    <section className="panel stack-panel" aria-labelledby="new-request">
-      <h2 id="new-request">New request</h2>
-      <form className="recovery-form" onSubmit={(event) => void submit(event)}>
-        <label>
+    <Card aria-labelledby="new-request" className="gap-4 p-4 shadow-none">
+      <h2 id="new-request" className="text-lead font-strong tracking-heading">
+        New request
+      </h2>
+      <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
+        <Label className={fieldClass}>
           Email
-          <input
+          <Input
             key={email ?? "new"}
             name="email"
             type="email"
@@ -138,32 +157,34 @@ function NewRequest({ email, wallet, send }: { email?: string; wallet: string; s
             required
             placeholder="you@example.com"
           />
-        </label>
-        <label>
+        </Label>
+        <Label className={fieldClass}>
           Topic
-          <select name="topic" defaultValue="Workspace support">
+          <select name="topic" defaultValue="Workspace support" className={controlClass}>
             {topics.map((topic) => (
               <option key={topic}>{topic}</option>
             ))}
           </select>
-        </label>
-        <label>
+        </Label>
+        <Label className={fieldClass}>
           Message
-          <textarea name="message" rows={5} maxLength={3000} required placeholder="How can we help?" />
-        </label>
-        <button type="submit" className="button accent" disabled={busy}>
-          {busy ? "Submitting…" : "Submit request"}
-        </button>
+          <Textarea name="message" rows={5} maxLength={3000} required placeholder="How can we help?" />
+        </Label>
+        <div>
+          <Button type="submit" loading={busy}>
+            Submit request
+          </Button>
+        </div>
         {failure && (
-          <p role="alert" className="error">
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive">
             {failure}
           </p>
         )}
-        <p role="status" className={notice ? "status" : "visually-hidden"}>
+        <p role="status" className={notice ? "rounded-md border border-ok/40 bg-ok/10 px-3 py-2 text-ui text-ok" : "sr-only"}>
           {notice}
         </p>
       </form>
-    </section>
+    </Card>
   );
 }
 
@@ -171,6 +192,7 @@ function SignedInSupport({ wallet, reload }: { wallet: string; reload: () => voi
   const support = useRemote<Tickets>("support");
   const [seen, setSeen] = useState<Record<string, number>>(readSeen);
   const tickets = [...(support.state?.tickets ?? [])].filter((row) => row.wallet === wallet).reverse();
+  const send = (input: unknown) => support.send(input);
 
   function markSeen(id: string, time?: number) {
     if (!time) return;
@@ -189,25 +211,27 @@ function SignedInSupport({ wallet, reload }: { wallet: string; reload: () => voi
   return (
     <>
       {support.error && (
-        <p role="alert" className="error">
+        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive">
           {support.error}
         </p>
       )}
-      <section className="panel stack-panel" aria-labelledby="support-requests">
-        <div className="between">
-          <h2 id="support-requests">Your requests</h2>
-          <button type="button" className="button quiet small" onClick={reload}>
+      <Card aria-labelledby="support-requests" className="gap-4 p-4 shadow-none">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="support-requests" className="text-lead font-strong tracking-heading">
+            Your requests
+          </h2>
+          <Button type="button" variant="outline" size="sm" onClick={reload}>
             Refresh
-          </button>
+          </Button>
         </div>
         {!support.state && !support.error ? (
-          <p className="caption" role="status">
+          <p className={metaClass} role="status">
             Loading requests…
           </p>
         ) : !tickets.length ? (
-          <p className="caption">No support requests yet.</p>
+          <EmptyState title="No support requests yet." icon={<LifeBuoy size={22} aria-hidden />} />
         ) : (
-          <div className="crm-records">
+          <div className="grid gap-3">
             {tickets.map((row) => {
               const visible = row.replies.filter((item) => item.visibility === "Public");
               const staffTimes = visible.filter((item) => item.author === "Staff").map((item) => item.time);
@@ -216,32 +240,32 @@ function SignedInSupport({ wallet, reload }: { wallet: string; reload: () => voi
               return (
                 <details
                   key={row.id}
-                  className="crm-record"
+                  className="group rounded-lg border border-border bg-background open:bg-card"
                   onToggle={(event) => {
                     if (event.currentTarget.open) markSeen(row.id, lastReplyAt);
                   }}
                 >
-                  <summary>
-                    <span>
-                      <strong>{row.topic}</strong>
-                      <span className="caption">
+                  <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 rounded-lg px-4 py-3 outline-none focus-visible:outline-2 focus-visible:outline-ring">
+                    <span className="grid gap-1">
+                      <strong className="text-ui font-medium">{row.topic}</strong>
+                      <span className={metaClass}>
                         {dateTime(lastReplyAt ?? row.updatedAt ?? row.openedAt)}
                         {visible.length ? " · " + visible.length + (visible.length === 1 ? " reply" : " replies") : ""}
                       </span>
                     </span>
-                    <span className="crm-summary-meta">
-                      {unread && <span className="crm-state" data-tone="accent">New reply</span>}
-                      <span className="crm-state" data-status={row.state}>{ticketStates[row.state]}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      {unread && <span className={`${pillClass} border-info/40 bg-info/10 text-info`}>New reply</span>}
+                      <span className={`${pillClass} ${stateTone(row.state)}`}>{ticketStates[row.state]}</span>
                     </span>
                   </summary>
-                  <SupportThread ticket={row} send={support.send} />
+                  <SupportThread ticket={row} send={send} />
                 </details>
               );
             })}
           </div>
         )}
-      </section>
-      <NewRequest email={tickets[0]?.email} wallet={wallet} send={support.send} />
+      </Card>
+      <NewRequest email={tickets[0]?.email} wallet={wallet} send={send} />
     </>
   );
 }
@@ -252,17 +276,13 @@ function SupportSession() {
   const signedIn = session.state?.tag === "SignedIn";
   return (
     <>
-      <WorkspaceHeading
-        icon={LifeBuoy}
-        title="Support"
-        description="Open a request and follow replies from the team."
-      />
+      <WorkspaceHeading icon={LifeBuoy} title="Support" description="Open a request and follow replies from the team." />
       {!signedIn ? (
-        <section className="panel stack-panel admin-access">
-          <LifeBuoy size={21} aria-hidden="true" />
-          <h2>Sign in to view support requests</h2>
-          <p>Connect a Solana wallet to open a request and follow replies here.</p>
-        </section>
+        <Card className="items-center gap-3 p-6 text-center shadow-none">
+          <LifeBuoy size={21} aria-hidden="true" className="text-primary" />
+          <h2 className="text-lead font-strong tracking-heading">Sign in to view support requests</h2>
+          <p className={metaClass}>Connect a Solana wallet to open a request and follow replies here.</p>
+        </Card>
       ) : (
         <SignedInSupport key={revision} wallet={session.state?.tag === "SignedIn" ? session.state.wallet : ""} reload={() => setRevision((current) => current + 1)} />
       )}
@@ -272,7 +292,7 @@ function SupportSession() {
 
 export function SupportWorkspace() {
   return (
-    <div className="workspace-surface">
+    <div className="grid min-w-0 gap-3 text-foreground">
       <SupportSession />
     </div>
   );

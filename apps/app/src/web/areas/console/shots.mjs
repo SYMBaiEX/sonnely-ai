@@ -131,7 +131,7 @@ for (const viewport of [desktop, mobile]) {
     await run("models", "/console/models");
     await run("support", "/console/support");
     await run("support-thread", "/console/support", async (page) => {
-      await page.locator(".crm-record summary").first().click();
+      await page.locator("details summary").first().click();
       await page.waitForTimeout(300);
     });
     await run("settings", "/console/settings");

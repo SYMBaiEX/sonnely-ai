@@ -1,16 +1,15 @@
-// spec/app/teams.md, "Story: Form a team"; spec/app/keys.md, "Story: Issue a key": teams, members and roles,
-// invitations, project budgets, project-scoped keys and the project request table.
+// spec/app/teams.md, "Story: Form a team"; spec/app/keys.md, "Story: Issue a key"
 import { Activity, KeyRound, UsersRound } from "lucide-react";
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import type { Page } from "../../../../gen/app__nav.ts";
 import { useSession } from "../../session.ts";
 import type { Project, Role, Team, Teams } from "../../../../gen/app__teams.ts";
 import type { Key, Keys } from "../../../../gen/app__keys.ts";
 import type { Row, Status, Usage } from "../../../../gen/app__usage.ts";
 import { reconnectMachine, useRemote } from "../../remote.ts";
+import { Button, Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger, Input, Label } from "@repo/ui";
 import { ConsoleFrame } from "../console/frame.tsx";
 import { CopyButton, Empty, WorkspaceHeading, creditBalance, creditDecimal, date, dateTime, day, parseCreditAmount, shorten } from "../console/bits.tsx";
-import "./teams.css";
 
 const roles: Record<Role, string> = { Owner: "Owner", Admin: "Admin", Member: "Member" };
 const usageStatuses: Record<Status, string> = {
@@ -21,6 +20,8 @@ const usageStatuses: Record<Status, string> = {
 };
 const sevenDays = 7 * 86_400_000;
 const budgetWarningRatio = 0.8;
+const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-ui text-foreground disabled:cursor-not-allowed disabled:opacity-50";
+const summaryClass = "cursor-pointer px-4 py-3 text-ui font-medium outline-none focus-visible:outline-2 focus-visible:outline-ring";
 
 type SendEvent = (input: unknown) => Promise<boolean>;
 type RunAction = (send: SendEvent, event: object, success?: () => void, message?: string) => void;
@@ -62,8 +63,8 @@ async function sha256(text: string) {
 
 function Section({ title, aside, className = "", children }: { title: string; aside?: ReactNode; className?: string; children: ReactNode }) {
   return (
-    <section className={`panel teams-panel ${className}`} aria-label={title}>
-      <div className="teams-panel-head">
+    <section className={`flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm ${className}`} aria-label={title}>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <h2>{title}</h2>
         {aside}
       </div>
@@ -88,13 +89,13 @@ function FieldForm({
     submit(new FormData(event.currentTarget));
   }
   return (
-    <form className="teams-form" onSubmit={handle}>
+    <form className="grid gap-3" onSubmit={handle}>
       <fieldset disabled={pending}>
-        <legend className="visually-hidden">{label}</legend>
+        <legend className="sr-only">{label}</legend>
         {children}
-        <button className="button accent" type="submit">
+        <Button type="submit">
           {label}
-        </button>
+        </Button>
       </fieldset>
     </form>
   );
@@ -113,40 +114,28 @@ function ConfirmAction({
   pending: boolean;
   danger?: boolean;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
   return (
-    <>
-      <button
-        ref={trigger}
-        className="button quiet"
-        type="button"
-        disabled={pending}
-        onClick={() => dialog.current?.showModal()}
-      >
-        {label}
-      </button>
-      <dialog ref={dialog} className="panel teams-dialog" aria-label={label} onClose={() => trigger.current?.focus()}>
-        <h3>{label}</h3>
-        <p>{message}</p>
-        <div className="teams-row">
-          <button className="button quiet" type="button" autoFocus onClick={() => dialog.current?.close()}>
-            Cancel
-          </button>
-          <button
-            className={danger ? "button danger" : "button accent"}
-            type="button"
-            disabled={pending}
-            onClick={() => {
-              dialog.current?.close();
-              action();
-            }}
-          >
-            {label}
-          </button>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" disabled={pending}>
+          {label}
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogTitle>{label}</DialogTitle>
+        <p className="text-ui text-muted-foreground">{message}</p>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <DialogClose asChild>
+            <Button variant={danger ? "destructive" : "primary"} disabled={pending} onClick={action}>
+              {label}
+            </Button>
+          </DialogClose>
         </div>
-      </dialog>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -162,9 +151,9 @@ function MoneyInput({
   required?: boolean;
 }) {
   return (
-    <label>
+    <Label className="grid gap-2 text-ui font-medium text-foreground">
       {label}
-      <input
+      <Input
         type="number"
         name={name}
         inputMode="decimal"
@@ -174,19 +163,64 @@ function MoneyInput({
         defaultValue={initial === undefined || initial === 0 ? "" : creditDecimal(initial)}
         required={required}
       />
-    </label>
+    </Label>
   );
 }
 
 function ProjectBudgetFields({ project }: { project?: Project }) {
   return (
     <>
-      <label>
+      <Label className="grid gap-2 text-ui font-medium text-foreground">
         Project name
-        <input name="name" defaultValue={project?.name} maxLength={60} required />
-      </label>
+        <Input name="name" defaultValue={project?.name} maxLength={60} required />
+      </Label>
       <MoneyInput label="Lifetime budget in USD" name="budget" initial={project?.budget} required />
     </>
+  );
+}
+
+function ProjectRequests({ requests }: { requests: Row[] }) {
+  return (
+    <Section title="Recent project requests">
+      <p className="text-meta text-muted-foreground">Teammates can review every request made with this project's keys.</p>
+      {requests.length === 0 ? (
+        <Empty title="No requests yet" icon={<Activity size={22} />}>
+          <p>Requests will appear here.</p>
+        </Empty>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border" tabIndex={0} aria-label="Project request table" role="region">
+          <table className="w-full border-collapse bg-card text-ui">
+            <thead>
+              <tr>
+                <th scope="col">Request</th>
+                <th scope="col">Key</th>
+                <th scope="col">Billing</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((row) => (
+                <tr key={row.id}>
+                  <th scope="row" className="min-w-48 font-medium">
+                    <div>{row.model}</div>
+                    <p className="text-meta text-muted-foreground">{dateTime(row.time)}</p>
+                    <code className="font-mono text-micro text-muted-foreground">{row.id}</code>
+                  </th>
+                  <td data-label="Key">{row.keyName}</td>
+                  <td data-label="Billing" data-span>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <span className="inline-flex items-center rounded-xl border border-info/40 bg-info/10 px-2 py-0.5 text-micro font-medium text-info" data-status={row.status}>
+                        {usageStatuses[row.status]}
+                      </span>
+                      {row.status !== "Failed" && <span className="text-right font-medium tabular-nums">{creditBalance(row.cost)}</span>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
   );
 }
 
@@ -250,18 +284,18 @@ function ProjectWorkspace({
   }
 
   return (
-    <div className="teams-stack">
+    <div className="grid gap-3">
       <Section
         title={project.name}
         aside={
           project.archived && (
-            <span className="pill teams-status" data-status="Archived">
+            <span className="inline-flex items-center rounded-xl border border-info/40 bg-info/10 px-2 py-0.5 text-micro font-medium text-info" data-status="Archived">
               Archived
             </span>
           )
         }
       >
-        <dl className="teams-metrics">
+        <dl className="grid gap-2 sm:grid-cols-2">
           <div>
             <dt>Budget</dt>
             <dd>{creditBalance(project.budget)}</dd>
@@ -276,7 +310,7 @@ function ProjectWorkspace({
           </div>
         </dl>
         <div
-          className="teams-budget-meter"
+          className="h-2 overflow-hidden rounded-xl bg-background"
           data-state={budgetState}
           role="meter"
           aria-label="Project budget used and held"
@@ -287,9 +321,9 @@ function ProjectWorkspace({
           <span style={{ width: `${budgetPercent}%` }} />
         </div>
         {canManage && (
-          <details className="teams-disclosure">
-            <summary>Project settings</summary>
-            <div className="teams-disclosure-body">
+          <details className="rounded-lg border border-border bg-background open:bg-card">
+            <summary className={summaryClass}>Project settings</summary>
+            <div className="grid gap-3 border-t border-border px-4 py-4">
               <FieldForm
                 label="Save project"
                 pending={pending}
@@ -329,33 +363,33 @@ function ProjectWorkspace({
       {role !== "Member" && (
         <Section title="Project API keys">
           {canManage && (
-            <details className="teams-disclosure">
-              <summary>New project key</summary>
-              <div className="teams-disclosure-body">
+            <details className="rounded-lg border border-border bg-background open:bg-card">
+              <summary className={summaryClass}>New project key</summary>
+              <div className="grid gap-3 border-t border-border px-4 py-4">
                 <FieldForm label="Create project key" pending={pending} submit={(fields) => void createKey(fields)}>
-                  <label>
+                  <Label className="grid gap-2 text-ui font-medium text-foreground">
                     Key name
-                    <input name="name" maxLength={60} required />
-                  </label>
+                    <Input name="name" maxLength={60} required />
+                  </Label>
                   <MoneyInput label="Lifetime key cap in USD" name="cap" />
                   <MoneyInput label="Daily key cap in USD" name="dailyCap" />
-                  <label>
+                  <Label className="grid gap-2 text-ui font-medium text-foreground">
                     Expires at end of day UTC
-                    <input name="expiresOn" type="date" min={day(now)} />
-                  </label>
+                    <Input name="expiresOn" type="date" min={day(now)} />
+                  </Label>
                 </FieldForm>
               </div>
             </details>
           )}
           {newKey && canManage && (
-            <div className="teams-new-key">
+            <div className="grid gap-2 rounded-lg border border-info/40 bg-info/10 p-3">
               <p role="status">Copy the new key now. This is its only display.</p>
               <code>{newKey}</code>
-              <div className="teams-row">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <CopyButton value={newKey} label="Copy project API key" />
-                <button className="button quiet" type="button" onClick={() => setNewKey(undefined)}>
+                <Button variant="outline" type="button" onClick={() => setNewKey(undefined)}>
                   Done
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -364,37 +398,37 @@ function ProjectWorkspace({
               <p>Create a key to start project inference.</p>
             </Empty>
           ) : (
-            <div className="table-wrap compact-table workspace-data-table data-rows" tabIndex={0} aria-label="Project key table" role="region">
-              <table>
+            <div className="overflow-x-auto rounded-lg border border-border" tabIndex={0} aria-label="Project key table" role="region">
+              <table className="w-full border-collapse bg-card text-ui">
                 <thead>
                   <tr>
                     <th scope="col">Key</th>
                     <th scope="col">Usage</th>
                     <th scope="col">Limits</th>
-                    {canManage && <th scope="col" className="teams-actions-head">Actions</th>}
+                    {canManage && <th scope="col" className="text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {projectKeys.map((key) => (
                     <tr key={key.id}>
                       <th scope="row">
-                        <div className="teams-key-title">
+                        <div className="grid gap-1">
                           <strong>{key.label}</strong>
                           <code>{key.prefix}…</code>
                         </div>
                       </th>
-                      <td data-label="Used and held" className="teams-number">
+                      <td data-label="Used and held" className="text-right font-medium tabular-nums">
                         {creditBalance(key.spent)}
                       </td>
                       <td data-label="Limits">
-                        <div className="teams-key-limits">
+                        <div className="grid gap-1 text-meta text-muted-foreground">
                           <div>{key.cap === 0 ? "No lifetime cap" : creditBalance(key.cap) + " lifetime"}</div>
                           {key.dailyCap !== 0 && <div>{creditBalance(key.dailyCap)} daily</div>}
                           {key.expiresAt !== 0 && <div>Expires {date(key.expiresAt)}</div>}
                         </div>
                       </td>
                       {canManage && (
-                        <td data-label="Actions" data-span className="teams-table-actions">
+                        <td data-label="Actions" data-span className="text-right">
                           <ConfirmAction
                             label="Revoke key"
                             message={`Revoke ${key.label} immediately?`}
@@ -412,46 +446,7 @@ function ProjectWorkspace({
           )}
         </Section>
       )}
-      <Section title="Recent project requests">
-        <p className="caption">Teammates can review every request made with this project's keys.</p>
-        {requests.length === 0 ? (
-          <Empty title="No requests yet" icon={<Activity size={22} />}>
-            <p>Requests will appear here.</p>
-          </Empty>
-        ) : (
-          <div className="table-wrap compact-table workspace-data-table data-rows" tabIndex={0} aria-label="Project request table" role="region">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Request</th>
-                  <th scope="col">Key</th>
-                  <th scope="col">Billing</th>
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((row) => (
-                  <tr key={row.id}>
-                    <th scope="row" className="teams-request">
-                      <div>{row.model}</div>
-                      <p className="caption">{dateTime(row.time)}</p>
-                      <code className="teams-reference">{row.id}</code>
-                    </th>
-                    <td data-label="Key">{row.keyName}</td>
-                    <td data-label="Billing" data-span>
-                      <div className="teams-billing">
-                        <span className="pill teams-status" data-status={row.status}>
-                          {usageStatuses[row.status]}
-                        </span>
-                        {row.status !== "Failed" && <span className="teams-number">{creditBalance(row.cost)}</span>}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
+      <ProjectRequests requests={requests} />
     </div>
   );
 }
@@ -480,18 +475,18 @@ function TeamWorkspace({
   const canManage = role !== "Member";
   const projects = team.projects;
   const project = projects.find((entry) => entry.id === selectedProject) ?? projects[0];
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
   const invites = team.invites.filter((invite) => invite.expiresAt > now);
 
   return (
     <>
-      <div className="teams-columns">
+      <div className="grid gap-4 xl:grid-cols-2">
         <Section title="Projects">
-          <p className="caption">Project requests spend the credits of the wallet that created the key.</p>
+          <p className="text-meta text-muted-foreground">Project requests spend the credits of the wallet that created the key.</p>
           {projects.length > 0 && (
-            <label>
+            <Label className="grid gap-2 text-ui font-medium text-foreground">
               Project
-              <select value={project?.id ?? ""} onChange={(event) => setSelectedProject(event.target.value)}>
+              <select className={selectClass} value={project?.id ?? ""} onChange={(event) => setSelectedProject(event.target.value)}>
                 {projects.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.name}
@@ -499,13 +494,13 @@ function TeamWorkspace({
                   </option>
                 ))}
               </select>
-            </label>
+            </Label>
           )}
-          {!projects.length && <p className="caption">No projects yet.</p>}
+          {!projects.length && <p className="text-meta text-muted-foreground">No projects yet.</p>}
           {canManage && (
-            <details className="teams-disclosure" open={projects.length === 0}>
-              <summary>New project</summary>
-              <div className="teams-disclosure-body">
+            <details className="rounded-lg border border-border bg-background open:bg-card" open={projects.length === 0}>
+              <summary className={summaryClass}>New project</summary>
+              <div className="grid gap-3 border-t border-border px-4 py-4">
                 <FieldForm
                   label="Create project"
                   pending={pending}
@@ -535,7 +530,7 @@ function TeamWorkspace({
           )}
         </Section>
         <Section title="Members">
-          <ul className="teams-list">
+          <ul className="grid gap-3">
             {team.members.map((member) => {
               const self = member.wallet === wallet;
               const removable =
@@ -543,15 +538,14 @@ function TeamWorkspace({
                 (self || role === "Owner" || (role === "Admin" && member.role === "Member"));
               return (
                 <li key={member.wallet}>
-                  <div className="teams-member-identity">
-                    <span className="teams-wallet" title={member.wallet}>{shorten(member.wallet)}</span>
-                    <span className="caption">{roles[member.role]}</span>
-                    {self && <span className="pill teams-self">You</span>}
+                  <div className="grid min-w-0 gap-1">
+                    <span className="font-mono text-ui font-medium text-foreground" title={member.wallet}>{shorten(member.wallet)}</span>
+                    <span className="text-meta text-muted-foreground">{roles[member.role]}</span>
+                    {self && <span className="inline-flex items-center rounded-xl border border-info/40 bg-info/10 px-2 py-0.5 text-micro font-medium text-info">You</span>}
                   </div>
-                  <div className="teams-row">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     {role === "Owner" && member.role !== "Owner" && (
-                      <button
-                        className="button quiet"
+                      <Button variant="outline"
                         type="button"
                         disabled={pending}
                         onClick={() =>
@@ -570,7 +564,7 @@ function TeamWorkspace({
                         }
                       >
                         {member.role === "Admin" ? "Make member" : "Make admin"}
-                      </button>
+                      </Button>
                     )}
                     {removable && (
                       <ConfirmAction
@@ -598,9 +592,9 @@ function TeamWorkspace({
             })}
           </ul>
           {canManage && (
-            <details className="teams-disclosure">
-              <summary>Invite a wallet</summary>
-              <div className="teams-disclosure-body">
+            <details className="rounded-lg border border-border bg-background open:bg-card">
+              <summary className={summaryClass}>Invite a wallet</summary>
+              <div className="grid gap-3 border-t border-border px-4 py-4">
                 <FieldForm
                   label="Send invitation"
                   pending={pending}
@@ -622,17 +616,17 @@ function TeamWorkspace({
                     );
                   }}
                 >
-                  <label>
+                  <Label className="grid gap-2 text-ui font-medium text-foreground">
                     Solana wallet address
-                    <input name="wallet" maxLength={44} required autoComplete="off" />
-                  </label>
-                  <label>
+                    <Input name="wallet" maxLength={44} required autoComplete="off" />
+                  </Label>
+                  <Label className="grid gap-2 text-ui font-medium text-foreground">
                     Team role
-                    <select name="role">
+                    <select className={selectClass} name="role">
                       <option value="member">Member</option>
                       {role === "Owner" && <option value="admin">Admin</option>}
                     </select>
-                  </label>
+                  </Label>
                 </FieldForm>
               </div>
             </details>
@@ -640,17 +634,16 @@ function TeamWorkspace({
           {invites.length > 0 && (
             <>
               <h3>Pending invitations</h3>
-              <ul className="teams-list">
+              <ul className="grid gap-3">
                 {invites.map((invite) => (
                   <li key={invite.wallet}>
-                    <div className="teams-member-identity">
-                      <span className="teams-wallet" title={invite.wallet}>{shorten(invite.wallet)}</span>
-                      <span className="caption">{roles[invite.role]}</span>
-                      <span className="caption">Expires {date(invite.expiresAt)}</span>
+                    <div className="grid min-w-0 gap-1">
+                      <span className="font-mono text-ui font-medium text-foreground" title={invite.wallet}>{shorten(invite.wallet)}</span>
+                      <span className="text-meta text-muted-foreground">{roles[invite.role]}</span>
+                      <span className="text-meta text-muted-foreground">Expires {date(invite.expiresAt)}</span>
                     </div>
                     {(role === "Owner" || invite.role === "Member") && canManage && (
-                      <button
-                        className="button quiet"
+                      <Button variant="outline"
                         type="button"
                         disabled={pending}
                         onClick={() =>
@@ -663,7 +656,7 @@ function TeamWorkspace({
                         }
                       >
                         Cancel invite
-                      </button>
+                      </Button>
                     )}
                   </li>
                 ))}
@@ -698,9 +691,11 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState("");
   const [notice, setNotice] = useState("");
+  const sendTeamEvent: SendEvent = (input) => teams.send(input);
+  const sendKeyEvent: SendEvent = (input) => keys.send(input);
   const all = teams.state?.teams ?? [];
   const team = all.find(({ id }) => id === selectedTeam) ?? all[0];
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
   const invitations = all.flatMap((entry) =>
     entry.invites
       .filter((invite) => invite.wallet === wallet && invite.expiresAt > now)
@@ -727,7 +722,7 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
   function createTeam(fields: FormData) {
     const id = crypto.randomUUID();
     run(
-      teams.send,
+      sendTeamEvent,
       { type: "createTeam", id, name: field(fields, "name").trim(), actor: wallet, now: Date.now() },
       () => setSelectedTeam(id),
       "Could not create the team.",
@@ -735,69 +730,68 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
   }
 
   return (
-    <div className="teams-stack">
+    <div className="grid gap-3">
       {teams.error && (
-        <div className="teams-row">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <p role="alert">{teams.error}</p>
-          <button className="button quiet" type="button" onClick={retry}>
+          <Button variant="outline" type="button" onClick={retry}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
       {!teams.state && !teams.error && <p role="status">Loading teams…</p>}
-      <p role="status" aria-live="polite" className={notice ? "caption" : "visually-hidden"}>
+      <p role="status" aria-live="polite" className={notice ? "rounded-md border border-ok/40 bg-ok/10 px-3 py-2 text-ui text-ok" : "sr-only"}>
         {notice}
       </p>
       {failure && (
-        <p role="alert" className="error">
+        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-ui text-destructive">
           {failure}
         </p>
       )}
       {teams.state && (
         <>
-          <Section title="Your teams" className={team ? "teams-overview-panel" : "teams-overview-panel teams-overview-empty"}>
+          <Section title="Your teams">
             {team && (
-              <label>
+              <Label className="grid gap-2 text-ui font-medium text-foreground">
                 Team
-                <select value={team.id} onChange={(event) => setSelectedTeam(event.target.value)}>
+                <select className={selectClass} value={team.id} onChange={(event) => setSelectedTeam(event.target.value)}>
                   {all.map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.name} · {roles[entry.members.find((member) => member.wallet === wallet)?.role ?? "Member"]}
                     </option>
                   ))}
                 </select>
-              </label>
+              </Label>
             )}
-            <details className="teams-disclosure" open={!team}>
-              <summary>New team</summary>
-              <div className="teams-disclosure-body">
+            <details className="rounded-lg border border-border bg-background open:bg-card" open={!team}>
+              <summary className={summaryClass}>New team</summary>
+              <div className="grid gap-3 border-t border-border px-4 py-4">
                 <FieldForm label="Create team" pending={pending} submit={createTeam}>
-                  <label>
+                  <Label className="grid gap-2 text-ui font-medium text-foreground">
                     Team name
-                    <input name="name" maxLength={60} required />
-                  </label>
+                    <Input name="name" maxLength={60} required />
+                  </Label>
                 </FieldForm>
               </div>
             </details>
           </Section>
           {invitations.length > 0 && (
             <Section title="Team invitations">
-              <ul className="teams-list">
+              <ul className="grid gap-3">
                 {invitations.map((invite) => (
                   <li key={invite.teamId}>
-                    <div className="teams-member-identity">
+                    <div className="grid min-w-0 gap-1">
                       <strong>{invite.teamName}</strong>
-                      <span className="caption">{roles[invite.role]}</span>
-                      <span className="caption">Expires {date(invite.expiresAt)}</span>
+                      <span className="text-meta text-muted-foreground">{roles[invite.role]}</span>
+                      <span className="text-meta text-muted-foreground">Expires {date(invite.expiresAt)}</span>
                     </div>
-                    <div className="teams-row">
-                      <button
-                        className="button accent"
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button
                         type="button"
                         disabled={pending}
                         onClick={() =>
                           run(
-                            teams.send,
+                            sendTeamEvent,
                             { type: "respond", teamId: invite.teamId, actor: wallet, accept: true, now: Date.now() },
                             () => setSelectedTeam(invite.teamId),
                             "Could not accept the invitation.",
@@ -805,14 +799,13 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
                         }
                       >
                         Accept
-                      </button>
-                      <button
-                        className="button quiet"
+                      </Button>
+                      <Button variant="outline"
                         type="button"
                         disabled={pending}
                         onClick={() =>
                           run(
-                            teams.send,
+                            sendTeamEvent,
                             { type: "respond", teamId: invite.teamId, actor: wallet, accept: false, now: Date.now() },
                             undefined,
                             "Could not decline the invitation.",
@@ -820,7 +813,7 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
                         }
                       >
                         Decline
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}
@@ -834,8 +827,8 @@ function SignedInTeams({ wallet, retry }: { wallet: string; retry: () => void })
               wallet={wallet}
               keys={keys.state?.keys ?? []}
               entries={usage.state?.rows ?? []}
-              keysSend={keys.send}
-              teamsSend={teams.send}
+              keysSend={sendKeyEvent}
+              teamsSend={sendTeamEvent}
               pending={pending}
               run={run}
             />
@@ -870,7 +863,7 @@ function TeamsSession() {
 
 export function TeamsWorkspace() {
   return (
-    <div className="workspace-surface">
+    <div className="grid min-w-0 gap-3 text-foreground">
       <TeamsSession />
     </div>
   );
