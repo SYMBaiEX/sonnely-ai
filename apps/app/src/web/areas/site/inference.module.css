@@ -32,6 +32,8 @@
 }
 
 .inference-hero .actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px 20px;
   margin-top: 14px;
@@ -321,6 +323,8 @@
 }
 
 .inference-closing .actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px 20px;
   margin: 0;
