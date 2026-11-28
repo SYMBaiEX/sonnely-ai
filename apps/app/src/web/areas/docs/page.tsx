@@ -28,8 +28,7 @@ import {
   tocOf,
 } from "../../../docs.ts";
 import "../site/appearance.ts";
-import { MotionSwitch, AmbientVisualizer } from "../site/motion.tsx";
-import { SiteHeader, useAmbientMotion, useTheme } from "../site/chrome.tsx";
+import { SiteHeader, useTheme } from "../site/chrome.tsx";
 import { Blocks } from "./blocks.tsx";
 
 const sidebarKey = "sonnely.docs.sidebar";
@@ -61,7 +60,6 @@ export function DocsPage({ slug }: { slug: string }) {
   const hasDesktopToc = toc.length > (slug === "index" ? 1 : 0);
   const before = docBefore(slug);
   const after = docAfter(slug);
-  const motion = useAmbientMotion();
   const theme = useTheme();
   const kind = slug === "index" ? "overview" : slug === "api" ? "api" : "guide";
   const [collapsed, setCollapsed] = useSidebarCollapsed();
@@ -73,14 +71,10 @@ export function DocsPage({ slug }: { slug: string }) {
   };
 
   return (
-    <div className="theme-root site docs-shell" data-theme={theme} data-motion={motion ? "on" : "off"} data-collapsed={collapsed ? "" : undefined}>
+    <div className="theme-root site docs-shell" data-theme={theme} data-collapsed={collapsed ? "" : undefined}>
       <a href="#docs-page" className="skip">
         Skip to documentation
       </a>
-      <div className="docs-backdrop" data-motion={motion ? "on" : "off"} aria-hidden="true">
-        <div className="workspace-scene" />
-        <AmbientVisualizer motion={motion} theme={theme} />
-      </div>
       <SiteHeader current={slug === "index" ? "/docs" : `/docs/${slug}`} />
       <div className="docs-sidebar-pill" role="group" aria-label="Sidebar actions">
         <button type="button" aria-label="Open sidebar" onClick={() => reopen("docs-sidebar-collapse")}>
@@ -97,7 +91,7 @@ export function DocsPage({ slug }: { slug: string }) {
             <header className="docs-article-header">
               <h1>{doc.title}</h1>
               <p className="docs-article-description">{doc.description}</p>
-              <div className="docs-page-actions">
+              <div className="docs-page-actions" role="group" aria-label="Document Markdown">
                 <CopyMarkdown slug={slug} />
                 <a className="docs-page-action" href={markdownUrl(slug)} target="_self">
                   <FileText size={15} aria-hidden="true" /> View Markdown
@@ -129,7 +123,6 @@ export function DocsPage({ slug }: { slug: string }) {
                 <a className="docs-pager-card" href={`/docs${before === "index" ? "" : `/${before}`}`}>
                   <span className="docs-pager-label">← Previous</span>
                   <strong>{docAt(before).title}</strong>
-                  <small>{docAt(before).description}</small>
                 </a>
               )}
               {after === "" ? (
@@ -138,7 +131,6 @@ export function DocsPage({ slug }: { slug: string }) {
                 <a className="docs-pager-card" data-direction="next" href={`/docs/${after}`}>
                   <span className="docs-pager-label">Next →</span>
                   <strong>{docAt(after).title}</strong>
-                  <small>{docAt(after).description}</small>
                 </a>
               )}
             </footer>
@@ -189,10 +181,7 @@ function Sidebar({ slug, onCollapse }: { slug: string; onCollapse: () => void })
           aria-controls="docs-sidebar-nav"
           onClick={() => setOpen(!open)}
         >
-          <span className="docs-nav-toggle-label">
-            Browse docs
-            <strong>{slug === "index" ? "Overview" : docAt(slug).title}</strong>
-          </span>
+          <span>Browse guides</span>
           <ChevronDown size={16} aria-hidden="true" />
         </button>
       </div>
@@ -231,7 +220,6 @@ function Sidebar({ slug, onCollapse }: { slug: string; onCollapse: () => void })
               Status <ArrowUpRight size={13} aria-hidden="true" />
             </a>
           </nav>
-          <MotionSwitch icon />
         </footer>
       </div>
     </aside>
@@ -283,7 +271,7 @@ function SearchDocs() {
           event.preventDefault();
           event.currentTarget.closest(".docs-search")?.querySelector("a")?.focus();
         }}
-        placeholder="Search"
+        placeholder="Search guides"
         aria-label="Search documentation"
         aria-controls="docs-search-results"
         aria-expanded={open && query.trim() !== ""}
@@ -295,20 +283,23 @@ function SearchDocs() {
       )}
       {open && query.trim() !== "" && (
         <div className="docs-search-results" id="docs-search-results" role="listbox" aria-label="Documentation search results">
-          {results.length === 0 && <p className="docs-search-empty">No results for “{query}”.</p>}
-          {results.map((r) => (
-            <a key={r.id} href={r.url} role="option" aria-selected="false" onClick={() => setOpen(false)}>
-              <strong>{r.type === "page" ? r.content.split(" — ")[0] : docTitle(r.url)}</strong>
-              <span>{r.content}</span>
-            </a>
-          ))}
+          {results.length === 0 && <p className="docs-search-empty" role="status">No results for “{query}”. Try a guide title or a shorter term.</p>}
+          {results.map((r) => {
+            const doc = searchResultDoc(r.url);
+            return (
+              <a key={r.id} href={r.url} role="option" aria-selected="false" onClick={() => setOpen(false)}>
+                <strong>{doc?.title ?? r.url}</strong>
+                <span>{r.type === "page" ? (doc?.description ?? r.content) : r.content}</span>
+              </a>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function docTitle(url: string): string {
+function searchResultDoc(url: string) {
   const slug = url === "/docs" ? "index" : url.replace("/docs/", "");
-  return docs.find((d) => d.slug === slug)?.title ?? url;
+  return docs.find((d) => d.slug === slug);
 }

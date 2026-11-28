@@ -5,7 +5,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Box,
-  Braces,
   ChevronDown,
   Copy,
   Cpu,
@@ -247,9 +246,7 @@ function ApiReference() {
     <div className="docs-api-entry">
       <div className="docs-api-base">
         <div>
-          <span>
-            <Braces size={16} aria-hidden="true" /> Base URL
-          </span>
+          <span>API base URL</span>
           <code>{baseUrl}</code>
         </div>
         <CopyBaseUrl value={baseUrl} />
