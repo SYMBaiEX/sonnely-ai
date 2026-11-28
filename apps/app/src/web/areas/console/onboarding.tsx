@@ -3,9 +3,10 @@ import { Activity, ArrowLeft, ArrowRight, Check, KeyRound, MessageSquare, Wallet
 import { useState, type FormEvent } from "react";
 import type { Console } from "../../../../gen/app__console.ts";
 import { Alert, Button, Dialog, DialogContent, DialogTitle, Input } from "@repo/ui";
-import { Brand, ThemeSwitch, type Theme } from "../site/chrome.tsx";
+import { Brand } from "../../shell/brand.tsx";
+import { ThemeSwitch, type Theme } from "../../shell/theme.tsx";
 import { TermsAcceptance } from "./terms-acceptance.tsx";
-import { WalletControl } from "./wallet.tsx";
+import { WalletControl } from "../../shell/wallet.tsx";
 
 const tour = [
   { name: "Playground", detail: "Compare models and send a private inference request.", href: "/console/chat", Icon: MessageSquare },

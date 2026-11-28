@@ -3,6 +3,7 @@
 @import "@fontsource/instrument-serif";
 @import "@repo/design-system/theme.css";
 @import "@repo/ui/styles.css";
+@import "./shell/shell.css";
 @source "../../node_modules/streamdown/dist/*.js";
 @source "../../node_modules/@streamdown/code/dist/*.js";
 

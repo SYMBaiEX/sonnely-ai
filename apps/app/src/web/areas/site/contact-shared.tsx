@@ -4,7 +4,7 @@ import { Button, Input, Textarea } from "@repo/ui";
 import type { Tickets } from "../../../../gen/app__support.ts";
 import { useRemote } from "../../remote.ts";
 import { useSession } from "../../session.ts";
-import { useBillingCluster, WalletControl } from "../console/wallet.tsx";
+import { useBillingCluster, WalletControl } from "../../shell/wallet.tsx";
 import styles from "./contact.module.css";
 
 export type ContactTopicId = "workspace" | "billing" | "partnership" | "feedback";

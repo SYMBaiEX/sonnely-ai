@@ -2,8 +2,8 @@
 import { AudioLines } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
 import { Switch } from "@repo/ui";
-import { motionKey, motionChangeEvent, reducedQuery, useAmbientMotion, setMotionPaused } from "./chrome.tsx";
-import type { Theme } from "./chrome.tsx";
+import { motionKey, motionChangeEvent, reducedQuery, useAmbientMotion, setMotionPaused } from "./theme.tsx";
+import type { Theme } from "./theme.tsx";
 
 const reduced = () => matchMedia(reducedQuery).matches;
 

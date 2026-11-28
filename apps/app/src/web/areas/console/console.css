@@ -1,5 +1,5 @@
 /** spec/app/console/index.md — scoped legacy console chrome and workspace design. */
-.theme-root[data-area="console"] .console {
+.shell-root[data-area="console"] .console {
   --console-control-size: 2.375rem;
   --console-text: 0.9375rem;
   --console-caption: 0.8125rem;
@@ -7,31 +7,31 @@
   --workspace-scene-opacity: 0.34;
 }
 
-.theme-root[data-area="console"] .console .workspace-scene {
+.shell-root[data-area="console"] .console .workspace-scene {
   mask-image: radial-gradient(ellipse 96% 85% at 77% 12%, #000 18%, transparent 91%);
 }
 
-.theme-root[data-area="console"] .console :is(.rail, .console-bar, .mobile-dock) {
+.shell-root[data-area="console"] .console :is(.rail, .console-bar, .mobile-dock) {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
 }
 
-.theme-root[data-area="console"] .console .rail {
+.shell-root[data-area="console"] .console .rail {
   background: var(--background);
   border-radius: 0;
 }
 
-.theme-root[data-area="console"] .console .rail-top {
+.shell-root[data-area="console"] .console .rail-top {
   padding-bottom: 0.55rem;
   border-bottom: 1px solid var(--border);
 }
 
-.theme-root[data-area="console"] .console .rail-nav {
+.shell-root[data-area="console"] .console .rail-nav {
   margin-top: 0.3rem;
 }
 
-.theme-root[data-area="console"] .console .rail-identity {
+.shell-root[data-area="console"] .console .rail-identity {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   gap: 8px;
@@ -44,11 +44,11 @@
   background: color-mix(in srgb, var(--card) 78%, var(--background));
 }
 
-.theme-root[data-area="console"] .console .rail-identity:hover {
+.shell-root[data-area="console"] .console .rail-identity:hover {
   background: var(--secondary);
 }
 
-.theme-root[data-area="console"] .console .rail-identity-icon {
+.shell-root[data-area="console"] .console .rail-identity-icon {
   display: grid;
   place-items: center;
   aspect-ratio: 1;
@@ -57,87 +57,87 @@
   background: var(--accent);
 }
 
-.theme-root[data-area="console"] .console .rail-identity :is(strong, small) {
+.shell-root[data-area="console"] .console .rail-identity :is(strong, small) {
   display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.theme-root[data-area="console"] .console .rail-identity strong {
+.shell-root[data-area="console"] .console .rail-identity strong {
   font-size: 0.83rem;
   font-weight: 630;
 }
 
-.theme-root[data-area="console"] .console .rail-identity small {
+.shell-root[data-area="console"] .console .rail-identity small {
   color: var(--muted-foreground);
   font-size: 0.7rem;
 }
 
-.theme-root[data-area="console"] .console .rail-nav p {
+.shell-root[data-area="console"] .console .rail-nav p {
   margin-top: 5px;
   padding-block: 6px 3px;
 }
 
-.theme-root[data-area="console"] .console .rail-nav a {
+.shell-root[data-area="console"] .console .rail-nav a {
   margin-block: 1px;
   border-radius: 7px;
 }
 
 @media (width >= 721px) {
-  .theme-root[data-area="console"] .console .rail-nav a {
+  .shell-root[data-area="console"] .console .rail-nav a {
     gap: 8px;
     min-height: 34px;
     padding: 6px 9px;
     font-size: 0.8125rem;
   }
 
-  .theme-root[data-area="console"] .console .rail-nav a svg {
+  .shell-root[data-area="console"] .console .rail-nav a svg {
     width: 16px;
     height: 16px;
   }
 }
 
-.theme-root[data-area="console"] .console .console-title-icon svg {
+.shell-root[data-area="console"] .console .console-title-icon svg {
   width: 16px;
   height: 16px;
 }
 
-.theme-root[data-area="console"] .console .rail-nav a[aria-current="page"],
-.theme-root[data-area="console"] .console .dock-item[aria-current="page"] {
+.shell-root[data-area="console"] .console .rail-nav a[aria-current="page"],
+.shell-root[data-area="console"] .console .dock-item[aria-current="page"] {
   background: var(--console-selected);
   border-color: transparent;
 }
 
-.theme-root[data-area="console"] .console .catalog-model-path svg {
+.shell-root[data-area="console"] .console .catalog-model-path svg {
   display: none;
 }
 
-.theme-root[data-area="console"] .console .rail-nav a[aria-current="page"] svg,
-.theme-root[data-area="console"] .console .crumb-page svg {
+.shell-root[data-area="console"] .console .rail-nav a[aria-current="page"] svg,
+.shell-root[data-area="console"] .console .crumb-page svg {
   color: var(--ring);
 }
 
-.theme-root[data-area="console"] .console .console-bar {
+.shell-root[data-area="console"] .console .console-bar {
   background: color-mix(in srgb, var(--background) 78%, transparent);
 }
 
-.theme-root[data-area="console"] .console .console-menu-toggle {
+.shell-root[data-area="console"] .console .console-menu-toggle {
   display: none;
 }
 
-.theme-root[data-area="console"] .console .console-bar .crumb,
-.theme-root[data-area="console"] .console .crumb-page {
+.shell-root[data-area="console"] .console .console-bar .crumb,
+.shell-root[data-area="console"] .console .crumb-page {
   min-width: 0;
 }
 
-.theme-root[data-area="console"] .console .crumb-page {
+.shell-root[data-area="console"] .console .crumb-page {
   display: inline-flex;
   align-items: center;
   gap: 7px;
 }
 
-.theme-root[data-area="console"] .console .crumb-page svg {
+.shell-root[data-area="console"] .console .crumb-page svg {
   flex: none;
 }
 
@@ -163,15 +163,15 @@
   font-variant-numeric: tabular-nums;
 }
 
-.theme-root[data-area="console"] .console .rail-bottom .balance {
+.shell-root[data-area="console"] .console .rail-bottom .balance {
   background: var(--card);
 }
 
-.theme-root[data-area="console"] .console .console-content {
+.shell-root[data-area="console"] .console .console-content {
   max-width: 1580px;
 }
 
-.theme-root[data-area="console"] .console .workspace-surface {
+.shell-root[data-area="console"] .console .workspace-surface {
   display: grid;
   gap: 12px;
   min-width: 0;
@@ -180,91 +180,91 @@
   isolation: isolate;
 }
 
-.theme-root[data-area="console"] .console .workspace-surface select {
+.shell-root[data-area="console"] .console .workspace-surface select {
   background-image: none;
 }
 
 @media (width >= 721px) {
-  .theme-root[data-area="console"] .console {
+  .shell-root[data-area="console"] .console {
     --home-inset: clamp(10px, 1.2vw, 16px);
     --home-collection-gap: 10px;
   }
 
-  .theme-root[data-area="console"] .console :is(input:not([type="radio"], [type="checkbox"]), select, textarea) {
+  .shell-root[data-area="console"] .console :is(input:not([type="radio"], [type="checkbox"]), select, textarea) {
     min-height: 38px;
     padding: 8px 10px;
   }
 
-  .theme-root[data-area="console"] .console .search-field {
+  .shell-root[data-area="console"] .console .search-field {
     min-height: 38px;
     padding-inline: 10px;
   }
 
-  .theme-root[data-area="console"] .console .button {
+  .shell-root[data-area="console"] .console .button {
     gap: 7px;
     min-height: 38px;
     padding: 7px 12px;
   }
 
-  .theme-root[data-area="console"] .console .button.small {
+  .shell-root[data-area="console"] .console .button.small {
     min-height: 31px;
     padding: 5px 8px;
   }
 }
 
 @media (width <= 720px) {
-  .theme-root[data-area="console"] .console {
+  .shell-root[data-area="console"] .console {
     --console-control-size: 2.75rem;
   }
 }
 
-.theme-root[data-area="console"] .console :is(.stack-panel, .callout, .chart-panel, .breakdown) {
+.shell-root[data-area="console"] .console :is(.stack-panel, .callout, .chart-panel, .breakdown) {
   padding: 14px;
 }
 
-.theme-root[data-area="console"] .console .stack-panel {
+.shell-root[data-area="console"] .console .stack-panel {
   gap: 9px;
 }
 
-.theme-root[data-area="console"] .console :is(.empty h2, .callout h2, .stack-panel h2, .chart-panel h2, .breakdown h2) {
+.shell-root[data-area="console"] .console :is(.empty h2, .callout h2, .stack-panel h2, .chart-panel h2, .breakdown h2) {
   font-size: 1.125rem;
 }
 
-.theme-root[data-area="console"] .console :is(.stat strong, .amount) {
+.shell-root[data-area="console"] .console :is(.stat strong, .amount) {
   font-size: 1.55rem;
   line-height: 1.1;
 }
 
-.theme-root[data-area="console"] .console :is(th, td) {
+.shell-root[data-area="console"] .console :is(th, td) {
   padding: 9px 10px;
 }
 
-.theme-root[data-area="console"] .console .term-chrome {
+.shell-root[data-area="console"] .console .term-chrome {
   padding-block: 7px;
 }
 
-.theme-root[data-area="console"] .console .catalog-list,
-.theme-root[data-area="console"] .console .catalog-list-grid {
+.shell-root[data-area="console"] .console .catalog-list,
+.shell-root[data-area="console"] .console .catalog-list-grid {
   gap: 10px;
 }
 
-.theme-root[data-area="console"] .console .catalog-model-main {
+.shell-root[data-area="console"] .console .catalog-model-main {
   gap: 10px;
   padding: 10px 14px;
 }
 
 @media (width >= 900px) {
-  .theme-root[data-area="console"] .console .catalog-model-main {
+  .shell-root[data-area="console"] .console .catalog-model-main {
     gap: 16px;
   }
 }
 
-.theme-root[data-area="console"] .console .catalog-model-routes > summary {
+.shell-root[data-area="console"] .console .catalog-model-routes > summary {
   min-height: 32px;
   padding: 6px 14px;
 }
 
-.theme-root[data-area="console"] .console .console-title {
+.shell-root[data-area="console"] .console .console-title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -287,7 +287,7 @@
   flex-wrap: wrap;
 }
 
-.theme-root[data-area="console"] .console .console-title-icon {
+.shell-root[data-area="console"] .console .console-title-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -307,7 +307,7 @@
   min-height: 36px;
 }
 
-.theme-root[data-area="console"] .console .console-title h1 {
+.shell-root[data-area="console"] .console .console-title h1 {
   margin-bottom: 0.1rem;
   font-size: 1.375rem;
   font-weight: 630;
@@ -316,17 +316,17 @@
   text-wrap: balance;
 }
 
-.theme-root[data-area="console"] .console .console-title p {
+.shell-root[data-area="console"] .console .console-title p {
   max-width: 65ch;
   font-size: var(--console-caption);
   line-height: 1.35;
 }
 
-.theme-root[data-area="console"] .console :is(.panel, .composer) {
+.shell-root[data-area="console"] .console :is(.panel, .composer) {
   box-shadow: none;
 }
 
-.theme-root[data-area="console"] .console :is(.billing-balance, .workspace-feature) {
+.shell-root[data-area="console"] .console :is(.billing-balance, .workspace-feature) {
   background: linear-gradient(
     145deg,
     color-mix(in srgb, var(--accent) 34%, var(--card)),
@@ -334,19 +334,19 @@
   );
 }
 
-.theme-root[data-area="console"] .console :is(.admin-access, .settings-panel, .billing-balance) svg {
+.shell-root[data-area="console"] .console :is(.admin-access, .settings-panel, .billing-balance) svg {
   flex-shrink: 0;
   color: var(--ring);
 }
 
-.theme-root[data-area="console"] .console .settings-panel .settings-row {
+.shell-root[data-area="console"] .console .settings-panel .settings-row {
   padding-block: 10px;
   border-top: 1px solid var(--border);
 }
 
 /* the profile form is a grid of full-width fields rather than a flex row, so
    narrow viewports stack the inputs instead of squeezing them into slivers */
-.theme-root[data-area="console"] .console .settings-profile-form {
+.shell-root[data-area="console"] .console .settings-profile-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 320px));
   align-items: start;
@@ -354,168 +354,168 @@
   padding-block: 10px;
   border-top: 1px solid var(--border);
 }
-.theme-root[data-area="console"] .console .settings-profile-form button[type="submit"] {
+.shell-root[data-area="console"] .console .settings-profile-form button[type="submit"] {
   grid-column: 1 / -1;
   justify-self: start;
 }
 @media (width <= 720px) {
-  .theme-root[data-area="console"] .console .settings-profile-form {
+  .shell-root[data-area="console"] .console .settings-profile-form {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 /* support request records: the status pills cluster at the end of the summary
    row instead of floating loose, and each state reads on its semantic token */
-.theme-root[data-area="console"] .console .crm-summary-meta {
+.shell-root[data-area="console"] .console .crm-summary-meta {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
   gap: 6px;
   margin-inline-start: auto;
 }
-.theme-root[data-area="console"] .console .crm-summary-meta .crm-state {
+.shell-root[data-area="console"] .console .crm-summary-meta .crm-state {
   margin-inline-start: 0;
 }
-.theme-root[data-area="console"] .console .crm-state {
+.shell-root[data-area="console"] .console .crm-state {
   white-space: nowrap;
 }
-.theme-root[data-area="console"] .console .crm-state[data-status] {
+.shell-root[data-area="console"] .console .crm-state[data-status] {
   background: var(--card);
 }
-.theme-root[data-area="console"] .console .crm-state[data-status="Open"] {
+.shell-root[data-area="console"] .console .crm-state[data-status="Open"] {
   color: var(--info);
   border-color: color-mix(in srgb, var(--info) 42%, var(--border));
   background: color-mix(in srgb, var(--info) 9%, var(--card));
 }
-.theme-root[data-area="console"] .console .crm-state[data-status="InProgress"] {
+.shell-root[data-area="console"] .console .crm-state[data-status="InProgress"] {
   color: var(--warn);
   border-color: color-mix(in srgb, var(--warn) 48%, var(--border));
   background: color-mix(in srgb, var(--warn) 10%, var(--card));
 }
-.theme-root[data-area="console"] .console .crm-state[data-status="Resolved"] {
+.shell-root[data-area="console"] .console .crm-state[data-status="Resolved"] {
   color: var(--ok);
   border-color: color-mix(in srgb, var(--ok) 42%, var(--border));
   background: color-mix(in srgb, var(--ok) 9%, var(--card));
 }
-.theme-root[data-area="console"] .console .crm-state[data-tone="accent"] {
+.shell-root[data-area="console"] .console .crm-state[data-tone="accent"] {
   color: var(--ring);
   border-color: color-mix(in srgb, var(--ring) 42%, var(--border));
   background: color-mix(in srgb, var(--ring) 9%, var(--card));
 }
 @media (width <= 720px) {
-  .theme-root[data-area="console"] .console .crm-record summary {
+  .shell-root[data-area="console"] .console .crm-record summary {
     flex-wrap: wrap;
     row-gap: 7px;
   }
-  .theme-root[data-area="console"] .console .crm-record summary > span:first-child {
+  .shell-root[data-area="console"] .console .crm-record summary > span:first-child {
     flex-basis: 100%;
   }
-  .theme-root[data-area="console"] .console .crm-summary-meta {
+  .shell-root[data-area="console"] .console .crm-summary-meta {
     margin-inline-start: 0;
   }
 }
 
-.theme-root[data-area="console"] .console .key-record-label {
+.shell-root[data-area="console"] .console .key-record-label {
   display: none;
 }
 
-.theme-root[data-area="console"] .console .key-record-expiry {
+.shell-root[data-area="console"] .console .key-record-expiry {
   display: block;
   margin-top: 4px;
   color: var(--muted-foreground);
   font-size: 0.72rem;
 }
 
-.theme-root[data-area="console"] .console .key-records th[scope="row"] {
+.shell-root[data-area="console"] .console .key-records th[scope="row"] {
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
-.theme-root[data-area="console"] .console .key-record-action {
+.shell-root[data-area="console"] .console .key-record-action {
   text-align: right;
 }
 
-.theme-root[data-area="console"] .console .stat {
+.shell-root[data-area="console"] .console .stat {
   gap: 5px;
   min-width: 0;
   padding: 12px;
   background: var(--card);
 }
 
-.theme-root[data-area="console"] .console .stat > span:first-child {
+.shell-root[data-area="console"] .console .stat > span:first-child {
   font: 620 0.6875rem/1.35 var(--font-sans);
   letter-spacing: 0.025em;
   text-transform: none;
 }
 
-.theme-root[data-area="console"] .console .stat :is(strong, b) {
+.shell-root[data-area="console"] .console .stat :is(strong, b) {
   overflow-wrap: anywhere;
 }
 
-.theme-root[data-area="console"] .console .stat strong {
+.shell-root[data-area="console"] .console .stat strong {
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   font-weight: 630;
   letter-spacing: -0.042em;
 }
 
-.theme-root[data-area="console"] .console .empty {
+.shell-root[data-area="console"] .console .empty {
   padding: clamp(14px, 2.5vw, 24px);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
 }
 
-.theme-root[data-area="console"] .console .empty-icon {
+.shell-root[data-area="console"] .console .empty-icon {
   width: 40px;
   height: 40px;
   border-radius: 11px;
 }
 
-.theme-root[data-area="console"] .console .panel > .empty {
+.shell-root[data-area="console"] .console .panel > .empty {
   border: 0;
   background: transparent;
 }
 
-.theme-root[data-area="console"] .console .catalog-tools {
+.shell-root[data-area="console"] .console .catalog-tools {
   padding: 7px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--card);
 }
 
-.theme-root[data-area="console"] .console .catalog-tools :is(select, .search-field) {
+.shell-root[data-area="console"] .console .catalog-tools :is(select, .search-field) {
   min-height: 44px;
 }
 
-.theme-root[data-area="console"] .console .referral-invite h2 {
+.shell-root[data-area="console"] .console .referral-invite h2 {
   margin: 0 0 4px;
   font-size: 1rem;
 }
 
-.theme-root[data-area="console"] .console :is(.chart-panel, .breakdown) .controls h2 {
+.shell-root[data-area="console"] .console :is(.chart-panel, .breakdown) .controls h2 {
   font-size: 1.12rem;
   letter-spacing: -0.015em;
 }
 
-.theme-root[data-area="console"] .console .workspace-data-table:focus-visible {
+.shell-root[data-area="console"] .console .workspace-data-table:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-.theme-root[data-area="console"] .console .payment-status {
+.shell-root[data-area="console"] .console .payment-status {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0 10px;
 }
 
-.theme-root[data-area="console"] .console .payment-history .text-link {
+.shell-root[data-area="console"] .console .payment-history .text-link {
   min-height: 44px;
 }
 
-.theme-root[data-area="console"] .console .payment-status button {
+.shell-root[data-area="console"] .console .payment-status button {
   padding: 0;
   background: transparent;
   border: 0;
@@ -523,45 +523,45 @@
   cursor: pointer;
 }
 
-.theme-root[data-area="console"] .console .payment-status button:disabled {
+.shell-root[data-area="console"] .console .payment-status button:disabled {
   opacity: 0.56;
   cursor: default;
 }
 
-.theme-root[data-area="console"] .console .chart-panel .bars {
+.shell-root[data-area="console"] .console .chart-panel .bars {
   background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), var(--border) 25%);
 }
 
-.theme-root[data-area="console"] .console .chart-panel .bars span {
+.shell-root[data-area="console"] .console .chart-panel .bars span {
   border-radius: 3px 3px 0 0;
   background: var(--ring);
 }
 
-.theme-root[data-area="console"] .console .chart-panel .bars span[data-empty] {
+.shell-root[data-area="console"] .console .chart-panel .bars span[data-empty] {
   background: var(--border);
 }
 
-.theme-root[data-area="console"] .console .chat-layout {
+.shell-root[data-area="console"] .console .chat-layout {
   background: color-mix(in srgb, var(--background) 36%, transparent);
   border-radius: var(--radius);
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .theme-root[data-area="console"] .console :is(.console-bar, .chat-layout) {
+  .shell-root[data-area="console"] .console :is(.console-bar, .chat-layout) {
     background: var(--background);
   }
 }
 
-.theme-root[data-area="console"] .console .sessions {
+.shell-root[data-area="console"] .console .sessions {
   background: color-mix(in srgb, var(--card) 58%, var(--background));
 }
 
-.theme-root[data-area="console"] .console .command-dialog {
+.shell-root[data-area="console"] .console .command-dialog {
   background: var(--popover);
   box-shadow: 0 22px 70px var(--effect-shadow);
 }
 
-.theme-root[data-area="console"] .console[data-motion="on"] :is(.console-title, .console-content > *, .chat-welcome, .playground-entry) {
+.shell-root[data-area="console"] .console[data-motion="on"] :is(.console-title, .console-content > *, .chat-welcome, .playground-entry) {
   animation-name: workspace-content-in;
   animation-duration: 280ms;
 }
@@ -577,30 +577,30 @@
   }
 }
 
-.theme-root[data-area="console"] .console[data-motion="off"]
+.shell-root[data-area="console"] .console[data-motion="off"]
   :is(.console-title, .console-content > *, .chat-welcome, .playground-entry, .chart-panel .bars span) {
   animation: none;
 }
 
 @media (width >= 931px) {
-  .theme-root[data-area="console"] .console {
+  .shell-root[data-area="console"] .console {
     grid-template-columns: 208px minmax(0, 1fr);
   }
 }
 
 @media (720px < width <= 930px) {
-  .theme-root[data-area="console"] .console {
+  .shell-root[data-area="console"] .console {
     grid-template-columns: 176px minmax(0, 1fr);
   }
 }
 
 @media (width > 720px) {
-  .theme-root[data-area="console"] .console {
+  .shell-root[data-area="console"] .console {
     gap: 0;
     padding: 8px;
   }
 
-  .theme-root[data-area="console"] .console .rail {
+  .shell-root[data-area="console"] .console .rail {
     top: 8px;
     height: calc(100dvh - 16px);
     padding: 12px 10px 10px;
@@ -608,16 +608,16 @@
     background: transparent;
   }
 
-  .theme-root[data-area="console"] .console .rail-bottom .balance {
+  .shell-root[data-area="console"] .console .rail-bottom .balance {
     display: none;
   }
 
-  .theme-root[data-area="console"] .console .console-stage {
+  .shell-root[data-area="console"] .console .console-stage {
     border: 1px solid var(--border);
     border-radius: 15px;
   }
 
-  .theme-root[data-area="console"] .console .console-bar {
+  .shell-root[data-area="console"] .console .console-bar {
     top: 8px;
     height: 48px;
     padding: 0 10px 0 14px;
@@ -626,35 +626,35 @@
     border-radius: 14px 14px 0 0;
   }
 
-  .theme-root[data-area="console"] .console .console-bar .bar-controls {
+  .shell-root[data-area="console"] .console .console-bar .bar-controls {
     gap: 7px;
   }
 
-  .theme-root[data-area="console"] .console .console-bar .button.small {
+  .shell-root[data-area="console"] .console .console-bar .button.small {
     min-height: 32px;
     padding: 5px 8px;
   }
 
-  .theme-root[data-area="console"] .console .console-bar .theme-switch {
+  .shell-root[data-area="console"] .console .console-bar .theme-switch {
     --switch-edge: 3px;
 
     width: 94px;
     height: 38px;
   }
 
-  .theme-root[data-area="console"] .console .console-bar .theme-switch svg {
+  .shell-root[data-area="console"] .console .console-bar .theme-switch svg {
     width: 14px;
     height: 14px;
   }
 
-  .theme-root[data-area="console"] .console .console-bar .wallet-button {
+  .shell-root[data-area="console"] .console .console-bar .wallet-button {
     gap: 7px;
     min-height: 34px;
     padding: 5px 9px;
     font-size: 0.8125rem;
   }
 
-  .theme-root[data-area="console"] .console .console-content {
+  .shell-root[data-area="console"] .console .console-content {
     gap: 12px;
     padding: 22px clamp(12px, 2vw, 28px);
   }
@@ -666,26 +666,26 @@
     display: none;
   }
 
-  .theme-root[data-area="console"] .console .rail-bottom .balance {
+  .shell-root[data-area="console"] .console .rail-bottom .balance {
     display: grid;
   }
 }
 
 @media (max-width: 720px) {
-  .theme-root[data-area="console"] .console .console-bar {
+  .shell-root[data-area="console"] .console .console-bar {
     gap: 8px;
     padding-inline: 9px;
   }
 
-  .theme-root[data-area="console"] .console .console-bar .crumb-page {
+  .shell-root[data-area="console"] .console .console-bar .crumb-page {
     display: none;
   }
 
-  .theme-root[data-area="console"] .console .console-bar .bar-controls {
+  .shell-root[data-area="console"] .console .console-bar .bar-controls {
     gap: 5px;
   }
 
-  .theme-root[data-area="console"] .console .console-bar :is(.console-menu-toggle, .command-toggle) {
+  .shell-root[data-area="console"] .console .console-bar :is(.console-menu-toggle, .command-toggle) {
     display: grid;
     place-items: center;
     width: 44px;
@@ -693,46 +693,46 @@
     padding: 0;
   }
 
-  .theme-root[data-area="console"] .console .rail-top {
+  .shell-root[data-area="console"] .console .rail-top {
     display: none;
   }
 
-  .theme-root[data-area="console"] .console .rail-identity {
+  .shell-root[data-area="console"] .console .rail-identity {
     margin-top: 2px;
   }
 
-  .theme-root[data-area="console"] .console .mobile-dock {
+  .shell-root[data-area="console"] .console .mobile-dock {
     background: var(--background);
   }
 
-  .theme-root[data-area="console"] .console .rail-nav a {
+  .shell-root[data-area="console"] .console .rail-nav a {
     min-height: 44px;
   }
 }
 
 @media (max-width: 440px) {
-  .theme-root[data-area="console"] .console .console-bar .wallet-button {
+  .shell-root[data-area="console"] .console .console-bar .wallet-button {
     width: 44px;
     min-height: 44px;
     padding: 0;
   }
 
-  .theme-root[data-area="console"] .console .wallet-button :is(.wallet-button-label, .wallet-button-chevron) {
+  .shell-root[data-area="console"] .console .wallet-button :is(.wallet-button-label, .wallet-button-chevron) {
     display: none;
   }
 }
 
 @media (max-width: 920px) {
-  .theme-root[data-area="console"] .console .key-records:has(table) {
+  .shell-root[data-area="console"] .console .key-records:has(table) {
     border: 0;
     background: transparent;
   }
 
-  .theme-root[data-area="console"] .console .key-records .table-wrap {
+  .shell-root[data-area="console"] .console .key-records .table-wrap {
     overflow: visible;
   }
 
-  .theme-root[data-area="console"] .console .key-records thead {
+  .shell-root[data-area="console"] .console .key-records thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -741,12 +741,12 @@
     white-space: nowrap;
   }
 
-  .theme-root[data-area="console"] .console .key-records :is(table, tbody) {
+  .shell-root[data-area="console"] .console .key-records :is(table, tbody) {
     display: grid;
     gap: 10px;
   }
 
-  .theme-root[data-area="console"] .console .key-records tbody tr {
+  .shell-root[data-area="console"] .console .key-records tbody tr {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
@@ -756,68 +756,68 @@
     background: var(--card);
   }
 
-  .theme-root[data-area="console"] .console .key-records tbody :is(th, td) {
+  .shell-root[data-area="console"] .console .key-records tbody :is(th, td) {
     padding: 0;
     border: 0;
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  .theme-root[data-area="console"] .console .key-records th[scope="row"] {
+  .shell-root[data-area="console"] .console .key-records th[scope="row"] {
     font-size: 0.95rem;
   }
 
-  .theme-root[data-area="console"] .console .key-records :is(th[scope="row"], .key-record-prefix, .key-record-action) {
+  .shell-root[data-area="console"] .console .key-records :is(th[scope="row"], .key-record-prefix, .key-record-action) {
     grid-column: 1 / -1;
   }
 
-  .theme-root[data-area="console"] .console .key-record-prefix {
+  .shell-root[data-area="console"] .console .key-record-prefix {
     margin-top: -7px;
     color: var(--muted-foreground);
   }
 
-  .theme-root[data-area="console"] .console .key-record-label {
+  .shell-root[data-area="console"] .console .key-record-label {
     display: block;
     margin-bottom: 4px;
     color: var(--muted-foreground);
     font-size: 0.75rem;
   }
 
-  .theme-root[data-area="console"] .console .key-record-action:empty {
+  .shell-root[data-area="console"] .console .key-record-action:empty {
     display: none;
   }
 
-  .theme-root[data-area="console"] .console .key-record-action .button {
+  .shell-root[data-area="console"] .console .key-record-action .button {
     min-height: 44px;
   }
 }
 
 @media (max-width: 600px) {
-  .theme-root[data-area="console"] .console .workspace-data-table :is(th, td) {
+  .shell-root[data-area="console"] .console .workspace-data-table :is(th, td) {
     padding-inline: 7px;
   }
 
-  .theme-root[data-area="console"] .console .workspace-data-table:not(.payment-history) th:first-child {
+  .shell-root[data-area="console"] .console .workspace-data-table:not(.payment-history) th:first-child {
     position: sticky;
     left: 0;
     background: var(--card);
   }
 
-  .theme-root[data-area="console"] .console .workspace-data-table th[scope="row"] {
+  .shell-root[data-area="console"] .console .workspace-data-table th[scope="row"] {
     min-width: 7rem;
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  .theme-root[data-area="console"] .console .payment-history :is(th, td) {
+  .shell-root[data-area="console"] .console .payment-history :is(th, td) {
     white-space: normal;
   }
 
-  .theme-root[data-area="console"] .console .payment-history :is(td:nth-child(2), td:nth-child(3)) {
+  .shell-root[data-area="console"] .console .payment-history :is(td:nth-child(2), td:nth-child(3)) {
     white-space: nowrap;
   }
 
-  .theme-root[data-area="console"] .console .payment-status {
+  .shell-root[data-area="console"] .console .payment-status {
     display: grid;
     justify-items: start;
   }
@@ -826,30 +826,30 @@
     align-items: start;
   }
 
-  .theme-root[data-area="console"] .console .crumb-page svg {
+  .shell-root[data-area="console"] .console .crumb-page svg {
     display: none;
   }
 }
 
 @media (max-width: 420px) {
-  .theme-root[data-area="console"] .console .crm-navigation {
+  .shell-root[data-area="console"] .console .crm-navigation {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     width: 100%;
   }
 
-  .theme-root[data-area="console"] .console .crm-navigation > button {
+  .shell-root[data-area="console"] .console .crm-navigation > button {
     grid-column: span 2;
     min-height: 44px;
   }
 
-  .theme-root[data-area="console"] .console .crm-navigation > button:nth-last-child(-n + 2) {
+  .shell-root[data-area="console"] .console .crm-navigation > button:nth-last-child(-n + 2) {
     grid-column: span 3;
   }
 }
 
 @media (max-width: 360px) {
-  .theme-root[data-area="console"] .console .stat {
+  .shell-root[data-area="console"] .console .stat {
     padding-inline: 13px;
   }
 }
@@ -1019,23 +1019,23 @@
 }
 
 
-.theme-root[data-area="console"] .console :is(input:not([type="radio"], [type="checkbox"]), select, textarea) {
+.shell-root[data-area="console"] .console :is(input:not([type="radio"], [type="checkbox"]), select, textarea) {
   font-size: var(--console-text);
 }
 
-.theme-root[data-area="console"] .console :is(form label, .caption) {
+.shell-root[data-area="console"] .console :is(form label, .caption) {
   font-size: var(--console-caption);
 }
 
-.theme-root[data-area="console"] .console :is(.console-content, .console-chat) :is(.button, .icon-button) {
+.shell-root[data-area="console"] .console :is(.console-content, .console-chat) :is(.button, .icon-button) {
   min-block-size: var(--console-control-size);
 }
 
-.theme-root[data-area="console"] .console :is(.console-content, .console-chat) .icon-button {
+.shell-root[data-area="console"] .console :is(.console-content, .console-chat) .icon-button {
   min-inline-size: var(--console-control-size);
 }
 
-.theme-root[data-area="console"] .console :is(.console-content, .console-chat) .button:not(.icon-button) {
+.shell-root[data-area="console"] .console :is(.console-content, .console-chat) .button:not(.icon-button) {
   font-size: var(--console-caption);
   line-height: 1.35;
   white-space: normal;
@@ -1106,28 +1106,28 @@
   font-size: var(--console-caption);
 }
 
-.theme-root[data-area="console"] .console .usage-filters {
+.shell-root[data-area="console"] .console .usage-filters {
   display: grid;
   gap: 12px;
   padding: 14px;
 }
 
-.theme-root[data-area="console"] .console .usage-filter-grid {
+.shell-root[data-area="console"] .console .usage-filter-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 1fr));
   gap: 10px 12px;
 }
 
-.theme-root[data-area="console"] .console .usage-filter-grid label {
+.shell-root[data-area="console"] .console .usage-filter-grid label {
   min-width: 0;
 }
 
-.theme-root[data-area="console"] .console .usage-filter-grid select {
+.shell-root[data-area="console"] .console .usage-filter-grid select {
   width: 100%;
   min-width: 0;
 }
 
-.theme-root[data-area="console"] .console .usage-sample {
+.shell-root[data-area="console"] .console .usage-sample {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1135,21 +1135,21 @@
   gap: 10px;
 }
 
-.theme-root[data-area="console"] .console .usage-sample p {
+.shell-root[data-area="console"] .console .usage-sample p {
   margin: 0;
 }
 
-.theme-root[data-area="console"] .console .usage-stats .stat {
+.shell-root[data-area="console"] .console .usage-stats .stat {
   align-content: start;
   min-width: 0;
 }
 
-.theme-root[data-area="console"] .console .usage-stats .stat small {
+.shell-root[data-area="console"] .console .usage-stats .stat small {
   color: var(--muted-foreground);
   overflow-wrap: anywhere;
 }
 
-.theme-root[data-area="console"] .console :is(.chart-panel, .breakdown) .control-label select {
+.shell-root[data-area="console"] .console :is(.chart-panel, .breakdown) .control-label select {
   min-width: 0;
 }
 
@@ -1517,20 +1517,20 @@
 }
 
 /** Legacy mobile console chrome, scoped to the console root. */
-.theme-root[data-area="console"] .console .mobile-menu-control {
+.shell-root[data-area="console"] .console .mobile-menu-control {
   display: none;
 }
 @media (max-width: 820px) {
-  .theme-root[data-area="console"] .console .console-theme {
+  .shell-root[data-area="console"] .console .console-theme {
     display: none;
   }
-  .theme-root[data-area="console"] .console .rail-theme {
+  .shell-root[data-area="console"] .console .rail-theme {
     display: inline-flex;
   }
-  .theme-root[data-area="console"] .console .compact-brand .brand-wordmark {
+  .shell-root[data-area="console"] .console .compact-brand .brand-wordmark {
     width: 70px;
   }
-  .theme-root[data-area="console"] .console .mobile-menu-control {
+  .shell-root[data-area="console"] .console .mobile-menu-control {
     display: grid;
     place-items: center;
     width: 44px;
@@ -1543,22 +1543,22 @@
     color: var(--foreground);
     box-shadow: inset 0 1px 0 var(--effect-rim), 0 1px 2px var(--effect-shadow);
   }
-  .theme-root[data-area="console"] .console .mobile-menu-control[aria-expanded="true"] {
+  .shell-root[data-area="console"] .console .mobile-menu-control[aria-expanded="true"] {
     border-color: color-mix(in srgb, var(--ring) 42%, var(--border));
     background: linear-gradient(160deg, var(--accent), var(--card) 85%);
     color: var(--ring);
   }
-  .theme-root[data-area="console"] .console .mobile-menu-control:active {
+  .shell-root[data-area="console"] .console .mobile-menu-control:active {
     background: var(--accent);
   }
-  .theme-root[data-area="console"] .console .mobile-menu-glyph {
+  .shell-root[data-area="console"] .console .mobile-menu-glyph {
     position: relative;
     width: 20px;
     height: 16px;
   }
-  .theme-root[data-area="console"] .console .mobile-menu-glyph::before,
-  .theme-root[data-area="console"] .console .mobile-menu-glyph::after,
-  .theme-root[data-area="console"] .console .mobile-menu-glyph > span {
+  .shell-root[data-area="console"] .console .mobile-menu-glyph::before,
+  .shell-root[data-area="console"] .console .mobile-menu-glyph::after,
+  .shell-root[data-area="console"] .console .mobile-menu-glyph > span {
     content: "";
     position: absolute;
     inset: 7px 1px auto;
@@ -1567,40 +1567,40 @@
     background: currentColor;
     forced-color-adjust: none;
   }
-  .theme-root[data-area="console"] .console .mobile-menu-glyph::before {
+  .shell-root[data-area="console"] .console .mobile-menu-glyph::before {
     transform: translateY(-5px);
   }
-  .theme-root[data-area="console"] .console .mobile-menu-glyph::after {
+  .shell-root[data-area="console"] .console .mobile-menu-glyph::after {
     transform: translateY(5px);
   }
-  .theme-root[data-area="console"] .console .mobile-menu-glyph > span {
+  .shell-root[data-area="console"] .console .mobile-menu-glyph > span {
     inset-inline: 3px;
   }
-  .theme-root[data-area="console"] .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph::before {
+  .shell-root[data-area="console"] .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph::before {
     transform: rotate(45deg);
   }
-  .theme-root[data-area="console"] .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph::after {
+  .shell-root[data-area="console"] .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph::after {
     transform: rotate(-45deg);
   }
-  .theme-root[data-area="console"] .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph > span {
+  .shell-root[data-area="console"] .console .mobile-menu-control[aria-expanded="true"] .mobile-menu-glyph > span {
     opacity: 0;
     transform: scaleX(0.5);
   }
 }
 @media (max-width: 820px) and (prefers-reduced-motion: no-preference) {
-  .theme-root[data-area="console"] .console .mobile-menu-glyph::before,
-  .theme-root[data-area="console"] .console .mobile-menu-glyph::after,
-  .theme-root[data-area="console"] .console .mobile-menu-glyph > span {
+  .shell-root[data-area="console"] .console .mobile-menu-glyph::before,
+  .shell-root[data-area="console"] .console .mobile-menu-glyph::after,
+  .shell-root[data-area="console"] .console .mobile-menu-glyph > span {
     transition: transform 180ms var(--ease-standard), opacity 120ms ease;
   }
 }
 @media (max-width: 720px) {
-  .theme-root[data-area="console"] .console {
+  .shell-root[data-area="console"] .console {
     display: block;
     padding: 8px;
     padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
-  .theme-root[data-area="console"] .console .rail {
+  .shell-root[data-area="console"] .console .rail {
     display: none;
     position: fixed;
     z-index: 10;
@@ -1612,46 +1612,46 @@
     margin-inline: auto;
     background: var(--popover);
   }
-  .theme-root[data-area="console"] .console .rail.rail-open {
+  .shell-root[data-area="console"] .console .rail.rail-open {
     display: flex;
   }
-  .theme-root[data-area="console"] .console .rail-nav {
+  .shell-root[data-area="console"] .console .rail-nav {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
   }
-  .theme-root[data-area="console"] .console .rail-nav p {
+  .shell-root[data-area="console"] .console .rail-nav p {
     grid-column: 1 / -1;
   }
-  .theme-root[data-area="console"] .console .rail-bottom {
+  .shell-root[data-area="console"] .console .rail-bottom {
     padding-top: 8px;
   }
-  .theme-root[data-area="console"] .console .console-bar {
+  .shell-root[data-area="console"] .console .console-bar {
     padding-inline: 8px;
     height: 52px;
     top: 8px;
   }
-  .theme-root[data-area="console"] .console .crumb > span:not(.compact-brand) {
+  .shell-root[data-area="console"] .console .crumb > span:not(.compact-brand) {
     display: none;
   }
-  .theme-root[data-area="console"] .console .crumb .compact-brand {
+  .shell-root[data-area="console"] .console .crumb .compact-brand {
     display: inline-flex;
   }
-  .theme-root[data-area="console"] .console .compact-brand .brand-icon {
+  .shell-root[data-area="console"] .console .compact-brand .brand-icon {
     display: grid;
     width: 29px;
     height: 29px;
   }
-  .theme-root[data-area="console"] .console .compact-brand .brand {
+  .shell-root[data-area="console"] .console .compact-brand .brand {
     gap: 6px;
     font-size: 17px;
   }
-  .theme-root[data-area="console"] .console .crumb strong {
+  .shell-root[data-area="console"] .console .crumb strong {
     display: none;
   }
-  .theme-root[data-area="console"] .console .console-content {
+  .shell-root[data-area="console"] .console .console-content {
     padding: 16px 8px;
   }
-  .theme-root[data-area="console"] .console .nav-scrim {
+  .shell-root[data-area="console"] .console .nav-scrim {
     display: block;
     position: fixed;
     z-index: 5;
@@ -1659,10 +1659,10 @@
     border: none;
     background: rgb(8 6 12 / 54%);
   }
-  .theme-root[data-area="console"] .console .workspace-scene {
+  .shell-root[data-area="console"] .console .workspace-scene {
     background-position: 64% 22%;
   }
-  .theme-root[data-area="console"] .console .mobile-dock {
+  .shell-root[data-area="console"] .console .mobile-dock {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     position: fixed;
@@ -1674,7 +1674,7 @@
     padding: 3px;
     border-radius: 16px;
   }
-  .theme-root[data-area="console"] .console .dock-item {
+  .shell-root[data-area="console"] .console .dock-item {
     display: grid;
     place-items: center;
     align-content: center;
@@ -1687,42 +1687,42 @@
     font-size: 10.5px;
     color: var(--muted-foreground);
   }
-  .theme-root[data-area="console"] .console .dock-item[aria-current],
-  .theme-root[data-area="console"] .console .dock-item[aria-expanded="true"] {
+  .shell-root[data-area="console"] .console .dock-item[aria-current],
+  .shell-root[data-area="console"] .console .dock-item[aria-expanded="true"] {
     color: var(--foreground);
     background: var(--accent);
     border-color: var(--border);
   }
 }
-.theme-root[data-area="console"] .console .command-dialog {
+.shell-root[data-area="console"] .console .command-dialog {
   margin: auto;
 }
 
 @media (max-width: 720px) {
-  .theme-root[data-area="console"] .console .console-bar .command-toggle {
+  .shell-root[data-area="console"] .console .console-bar .command-toggle {
     display: grid;
     width: 42px;
     min-height: 44px;
     padding: 0;
     place-items: center;
   }
-  .theme-root[data-area="console"] .console .console-bar .command-toggle > :not(svg) {
+  .shell-root[data-area="console"] .console .console-bar .command-toggle > :not(svg) {
     display: none;
   }
 }
 
-.theme-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) :is(button, input, textarea, select) {
+.shell-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) :is(button, input, textarea, select) {
   font: inherit;
   color: inherit;
 }
-.theme-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) button {
+.shell-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) button {
   cursor: pointer;
 }
-.theme-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) button:disabled {
+.shell-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
 }
-.theme-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) :is(input:not([type="checkbox"], [type="radio"]), textarea, select) {
+.shell-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) :is(input:not([type="checkbox"], [type="radio"]), textarea, select) {
   width: 100%;
   border: 1px solid var(--input);
   background: var(--card);
@@ -1730,68 +1730,68 @@
   padding: 10px 12px;
   min-height: 42px;
 }
-.theme-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) textarea {
+.shell-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) textarea {
   resize: vertical;
 }
-.theme-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) ::placeholder {
+.shell-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) ::placeholder {
   color: var(--muted-foreground);
   opacity: 1;
 }
-.theme-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) form label {
+.shell-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) form label {
   display: grid;
   gap: 6px;
   min-width: 0;
   font-size: 13px;
 }
-.theme-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) select {
+.shell-root[data-area="console"] .console :is(.settings-panel, [data-onboarding-dialog], .terms-banner) select {
   appearance: none;
   padding-inline-end: 34px;
 }
-.theme-root[data-area="console"] .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item) {
+.shell-root[data-area="console"] .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item) {
   font: inherit;
   color: inherit;
   cursor: pointer;
 }
 /* The inherit reset above outspecifies the semantic button inks, so the accent and danger variants restate theirs. */
-.theme-root[data-area="console"] .console :is(.button.accent, .button.ink) {
+.shell-root[data-area="console"] .console :is(.button.accent, .button.ink) {
   color: var(--primary-foreground);
 }
-.theme-root[data-area="console"] .console .button.danger {
+.shell-root[data-area="console"] .console .button.danger {
   color: var(--destructive-foreground);
 }
-.theme-root[data-area="console"] .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item):disabled {
+.shell-root[data-area="console"] .console :is(.button, .icon-button, .command-result, .theme-switch, .mobile-menu-control, .dock-item):disabled {
   cursor: not-allowed;
 }
 
-.theme-root[data-area="console"] .console .catalog-model-metrics > div {
+.shell-root[data-area="console"] .console .catalog-model-metrics > div {
   padding: 6px 9px;
 }
 
-.theme-root[data-area="console"] .console :is(.telemetry-legacy, .billing-area, .teams-panel) thead th {
+.shell-root[data-area="console"] .console :is(.telemetry-legacy, .billing-area, .teams-panel) thead th {
   font: 620 0.6875rem/1.35 var(--font-sans);
   letter-spacing: 0.025em;
   text-transform: none;
 }
 
-.theme-root[data-area="console"] .console .data-rows td[data-label]::before {
+.shell-root[data-area="console"] .console .data-rows td[data-label]::before {
   font-family: var(--font-sans);
   letter-spacing: 0.025em;
   text-transform: none;
 }
 
-.theme-root[data-area="console"] .console .usage-legacy .usage-summary-panel {
+.shell-root[data-area="console"] .console .usage-legacy .usage-summary-panel {
   padding: 0;
   overflow: hidden;
 }
 
-.theme-root[data-area="console"] .console .usage-legacy .usage-summary-panel .usage-stats {
+.shell-root[data-area="console"] .console .usage-legacy .usage-summary-panel .usage-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   background: var(--border);
 }
 
-.theme-root[data-area="console"] .console .usage-legacy .usage-summary-panel .stat {
+.shell-root[data-area="console"] .console .usage-legacy .usage-summary-panel .stat {
   align-content: start;
   gap: 3px;
   min-width: 0;
@@ -1799,54 +1799,54 @@
   background: var(--card);
 }
 
-.theme-root[data-area="console"] .console .usage-legacy .usage-summary-panel .stat strong {
+.shell-root[data-area="console"] .console .usage-legacy .usage-summary-panel .stat strong {
   font-size: 1.28rem;
   letter-spacing: -0.025em;
 }
 
-.theme-root[data-area="console"] .console .usage-legacy .usage-summary-panel .stat small {
+.shell-root[data-area="console"] .console .usage-legacy .usage-summary-panel .stat small {
   font-size: 0.72rem;
   line-height: 1.25;
 }
 
 @media (width <= 620px) {
-  .theme-root[data-area="console"] .console .usage-legacy .usage-summary-panel .usage-stats {
+  .shell-root[data-area="console"] .console .usage-legacy .usage-summary-panel .usage-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (width <= 360px) {
-  .theme-root[data-area="console"] .console .usage-legacy .usage-summary-panel .usage-stats {
+  .shell-root[data-area="console"] .console .usage-legacy .usage-summary-panel .usage-stats {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.theme-root[data-area="console"] .console .catalog-model {
+.shell-root[data-area="console"] .console .catalog-model {
   overflow: hidden;
   border-radius: 12px;
   box-shadow: none;
 }
 
-.theme-root[data-area="console"] .console .catalog-model > .term-chrome {
+.shell-root[data-area="console"] .console .catalog-model > .term-chrome {
   padding-inline: 12px;
 }
 
-.theme-root[data-area="console"] .console .catalog-model-mark {
+.shell-root[data-area="console"] .console .catalog-model-mark {
   display: none;
 }
 
-.theme-root[data-area="console"] .console .catalog-model-metrics {
+.shell-root[data-area="console"] .console .catalog-model-metrics {
   border-color: var(--border);
   background: transparent;
 }
 
-.theme-root[data-area="console"] .console .catalog-model-metrics dt {
+.shell-root[data-area="console"] .console .catalog-model-metrics dt {
   font-family: var(--font-sans);
   font-size: 0.66rem;
   letter-spacing: 0.025em;
 }
 
-.theme-root[data-area="console"] .console .referral-invite {
+.shell-root[data-area="console"] .console .referral-invite {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1854,122 +1854,122 @@
   padding: 12px 14px;
 }
 
-.theme-root[data-area="console"] .console .referral-invite > div {
+.shell-root[data-area="console"] .console .referral-invite > div {
   min-width: 0;
 }
 
-.theme-root[data-area="console"] .console .referral-invite p {
+.shell-root[data-area="console"] .console .referral-invite p {
   margin: 0;
   color: var(--muted-foreground);
   font-size: var(--console-caption);
 }
 
-.theme-root[data-area="console"] .console .referral-invite .secret-code {
+.shell-root[data-area="console"] .console .referral-invite .secret-code {
   margin-top: 7px;
   padding: 7px 9px;
   font-size: 0.75rem;
 }
 
-.theme-root[data-area="console"] .console .teams-panel h3 {
+.shell-root[data-area="console"] .console .teams-panel h3 {
   font-family: var(--font-sans);
   letter-spacing: 0.025em;
   text-transform: none;
 }
 
 @media (width > 720px) {
-  .theme-root[data-area="console"] .console .teams-form fieldset {
+  .shell-root[data-area="console"] .console .teams-form fieldset {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 18rem));
     justify-content: start;
   }
 
-  .theme-root[data-area="console"] .console .teams-form label:first-of-type {
+  .shell-root[data-area="console"] .console .teams-form label:first-of-type {
     grid-column: auto;
   }
 }
 
 @media (width <= 720px) {
-  .theme-root[data-area="console"] .console .referral-invite {
+  .shell-root[data-area="console"] .console .referral-invite {
     align-items: stretch;
     flex-direction: column;
   }
 }
 
 @media (width >= 721px) {
-  .theme-root[data-area="console"] .console :is(.logs-legacy, .usage-legacy, .batch-legacy, .keys-legacy, .billing-area, .teams-stack) {
+  .shell-root[data-area="console"] .console :is(.logs-legacy, .usage-legacy, .batch-legacy, .keys-legacy, .billing-area, .teams-stack) {
     gap: 12px;
   }
 
-  .theme-root[data-area="console"] .console :is(.log-filters, .log-panel) {
+  .shell-root[data-area="console"] .console :is(.log-filters, .log-panel) {
     gap: 10px;
     padding: 14px;
   }
 
-  .theme-root[data-area="console"] .console :is(.log-controls, .log-filter-panel, .log-filter-panel .filter-body) {
+  .shell-root[data-area="console"] .console :is(.log-controls, .log-filter-panel, .log-filter-panel .filter-body) {
     gap: 8px;
   }
 
-  .theme-root[data-area="console"] .console .usage-filters {
+  .shell-root[data-area="console"] .console .usage-filters {
     gap: 10px;
     padding: 12px;
   }
 
-  .theme-root[data-area="console"] .console :is(.usage-filter-panel, .usage-filter-panel .filter-body) {
+  .shell-root[data-area="console"] .console :is(.usage-filter-panel, .usage-filter-panel .filter-body) {
     gap: 10px;
   }
 
-  .theme-root[data-area="console"] .console .usage-filter-grid {
+  .shell-root[data-area="console"] .console .usage-filter-grid {
     gap: 8px 10px;
   }
 
-  .theme-root[data-area="console"] .console .batch-panel-section {
+  .shell-root[data-area="console"] .console .batch-panel-section {
     gap: 12px;
     padding: 14px;
   }
 
-  .theme-root[data-area="console"] .console .batch-upload {
+  .shell-root[data-area="console"] .console .batch-upload {
     min-height: 64px;
     padding: 10px;
   }
 
-  .theme-root[data-area="console"] .console .billing-area {
+  .shell-root[data-area="console"] .console .billing-area {
     --console-control-size: 2.375rem;
     --console-text: 0.9375rem;
     --console-caption: 0.8125rem;
   }
 
-  .theme-root[data-area="console"] .console .billing-grid {
+  .shell-root[data-area="console"] .console .billing-grid {
     gap: 12px;
   }
 
-  .theme-root[data-area="console"] .console .billing-area :is(.stack-panel, .breakdown) {
+  .shell-root[data-area="console"] .console .billing-area :is(.stack-panel, .breakdown) {
     gap: 10px;
     padding: 14px;
   }
 
-  .theme-root[data-area="console"] .console .teams-panel {
+  .shell-root[data-area="console"] .console .teams-panel {
     gap: 12px;
     padding: 14px;
   }
 
-  .theme-root[data-area="console"] .console .teams-disclosure > summary {
+  .shell-root[data-area="console"] .console .teams-disclosure > summary {
     min-height: 40px;
     padding: 9px 12px;
   }
 
-  .theme-root[data-area="console"] .console .teams-disclosure-body {
+  .shell-root[data-area="console"] .console .teams-disclosure-body {
     gap: 10px;
     padding: 12px;
   }
 
-  .theme-root[data-area="console"] .console .telemetry-legacy .chart-empty {
+  .shell-root[data-area="console"] .console .telemetry-legacy .chart-empty {
     height: 136px;
   }
 
-  .theme-root[data-area="console"] .console .telemetry-legacy .bars {
+  .shell-root[data-area="console"] .console .telemetry-legacy .bars {
     height: 190px;
   }
 
-  .theme-root[data-area="console"] .console .telemetry-legacy .compact-table {
+  .shell-root[data-area="console"] .console .telemetry-legacy .compact-table {
     max-height: 260px;
   }
 }

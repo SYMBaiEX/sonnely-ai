@@ -5,8 +5,8 @@ import { Button, Card, CardTitle, Input, Label, SegmentedControl, SegmentedContr
 import type { Console, Theme as ConsoleTheme } from "../../../../gen/app__console.ts";
 import type { Chat } from "../../../../gen/app__console__chat.ts";
 import { useRemote, type Remote } from "../../remote.ts";
-import type { Theme as BrowserTheme } from "../site/chrome.tsx";
-import { MotionSwitch } from "../site/motion.tsx";
+import type { Theme as BrowserTheme } from "../../shell/theme.tsx";
+import { MotionSwitch } from "../../shell/motion.tsx";
 import { useConsoleShell, type WorkspaceSessionRemote } from "./frame.tsx";
 import { CopyButton, Failure, WorkspaceHeading, date, shorten } from "./bits.tsx";
 

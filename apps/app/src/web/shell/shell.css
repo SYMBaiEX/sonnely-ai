@@ -1,0 +1,355 @@
+/* Shared shell chrome, theme artwork and control primitives. */
+.shell-root{
+  --shell-art-day: url("/forest-day.webp");
+  --shell-art-night: url("/forest-night.webp");
+  --shell-feature-day: url("/sanctuary-day.webp");
+  --shell-feature-night: url("/sanctuary-night.webp");
+  --shell-art: var(--shell-art-night);
+  --shell-feature-art: var(--shell-feature-night);
+  --shell-brand-art: url("/brand/sonnely-crimson.svg");
+  --shell-radius: 15px;
+  --shell-control-height: 44px;
+  --shell-control-height-compact: 36px;
+  --shell-control-radius: 9px;
+  --shell-container-max: 1320px;
+  --shell-container-gutter: 48px;
+  --effect-rim: light-dark(color-mix(in srgb, var(--card) 95%, transparent), color-mix(in srgb, var(--foreground) 13%, transparent));
+  --effect-shadow: light-dark(color-mix(in srgb, var(--foreground) 12%, transparent), color-mix(in srgb, var(--background) 55%, transparent));
+  --effect-haze: light-dark(color-mix(in srgb, var(--ring) 22%, transparent), color-mix(in srgb, var(--primary) 21%, transparent));
+  --workspace-scene-tint: light-dark(var(--effect-haze), color-mix(in srgb, var(--primary) 13%, transparent));
+  --control-height: 44px;
+  --control-height-compact: 36px;
+  --control-radius: 9px;
+  --container-max: 1320px;
+  --container-gutter: 48px;
+  --field-focus-edge: color-mix(in oklch, var(--ring) 68%, var(--input));
+  --field-focus-glow: color-mix(in oklch, var(--ring) 15%, transparent);
+  --home-elevation: 0 10px 25px light-dark(rgb(33 57 109 / 7%), rgb(0 0 0 / 21%));
+  --home-panel: light-dark(#f9fbff, #171218);
+  --home-chrome: light-dark(#eaf0fc, #231923);
+  --home-divider: light-dark(#ced8ef, #3c2c39);
+  color-scheme: light dark;
+  background: var(--background);
+  color: var(--foreground);
+}
+.shell-root .compact-brand,.shell-root .mobile-dock{
+  display: none;
+}
+
+.shell-root .brand-wordmark{
+  --wordmark-color: var(--wordmark-ink, var(--foreground));
+  display: block;
+  width: 100px;
+  aspect-ratio: 180 / 47;
+  flex-shrink: 0;
+  background: linear-gradient(
+    175deg,
+    var(--wordmark-color) 32%,
+    color-mix(in srgb, var(--wordmark-color) 84%, var(--ring))
+  );
+  mask: url("/brand/sonnely-wordmark.svg?v=2") center / contain no-repeat;
+}
+.shell-root .brand-icon{
+  background: var(--shell-brand-art) center / contain no-repeat;
+}
+.shell-root /** The thumb carries the active lamp while the track keeps both modes visible. **/
+.theme-switch{
+  --switch-edge: 4px;
+  --switch-glow: color-mix(in srgb, var(--ring) 68%, white);
+  --switch-metal: color-mix(in srgb, var(--ring) 34%, var(--card));
+  --switch-core: color-mix(in srgb, var(--ring) 12%, var(--background));
+  --switch-lit: color-mix(in srgb, var(--ring) 72%, white);
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  place-items: center;
+  width: 90px;
+  height: 40px;
+  padding: var(--switch-edge);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--background), var(--card));
+  color: var(--muted-foreground);
+  box-shadow:
+    inset 0 2px 5px var(--effect-shadow),
+    0 1px 0 var(--effect-rim);
+  cursor: pointer;
+}
+.shell-root .theme-switch[data-light="true"]{
+  --switch-glow: color-mix(in srgb, var(--ring) 65%, white);
+  --switch-metal: color-mix(in srgb, var(--accent) 72%, var(--ring));
+  --switch-core: color-mix(in srgb, var(--card) 72%, var(--accent));
+  --switch-lit: var(--ring);
+}
+.shell-root .theme-switch-thumb{
+  position: absolute;
+  inset: var(--switch-edge) auto var(--switch-edge) var(--switch-edge);
+  z-index: -1;
+  width: calc((100% - 2 * var(--switch-edge)) / 3);
+  border: 1px solid color-mix(in srgb, var(--switch-glow) 76%, transparent);
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 10%, var(--switch-metal), var(--switch-core) 76%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--switch-glow) 42%, transparent),
+    0 1px 4px var(--effect-shadow);
+}
+.shell-root .theme-switch[data-theme-pos="system"] .theme-switch-thumb{
+  transform: translateX(100%);
+}
+
+.shell-root .theme-switch[data-theme-pos="light"] .theme-switch-thumb{
+  transform: translateX(200%);
+}
+.shell-root .theme-switch-icon{
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+.shell-root .theme-switch[data-theme-pos="dark"] .theme-switch-moon,.shell-root .theme-switch[data-theme-pos="light"] .theme-switch-sun,.shell-root .theme-switch[data-theme-pos="system"] .theme-switch-system{
+  color: var(--switch-lit);
+}
+.shell-root .theme-switch:hover{
+  border-color: color-mix(in srgb, var(--border) 55%, var(--switch-glow));
+}
+.shell-root .theme-switch:focus-visible{
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.shell-root .console-theme{
+  display: inline-flex;
+}
+.shell-root .rail-theme{
+  display: none;
+}
+.shell-root .mobile-menu-control{
+  display: none;
+}
+
+.shell-root :is(h1, h2, h3, p, dl, dd, pre){
+  margin: 0;
+}
+.shell-root :is(h1, h2, h3){
+  line-height: 1.12;
+  font-weight: 570;
+  letter-spacing: -0.035em;
+}
+.shell-root p{
+  line-height: 1.55;
+}
+.shell-root :is(button, input, textarea, select){
+  font: inherit;
+  color: inherit;
+}
+.shell-root button{
+  cursor: pointer;
+}
+.shell-root button:disabled{
+  color: var(--muted-foreground);
+  cursor: not-allowed;
+}
+.shell-root svg{
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.shell-root :focus-visible{
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+/* Text fields show focus as a quiet accent-tinted edge with a soft glow rather
+   than the hard ring buttons and links keep. */
+.shell-root :is(input:not([type="checkbox"], [type="radio"]), textarea, select):focus-visible{
+  outline: none;
+  border-color: var(--field-focus-edge);
+  box-shadow: 0 0 0 3px var(--field-focus-glow);
+}
+@media (forced-colors: active) {
+  .shell-root :is(input:not([type="checkbox"], [type="radio"]), textarea, select):focus-visible{
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+    box-shadow: none;
+  }
+}
+.shell-root :is(code, pre){
+  font-family: var(--font-mono);
+}
+.shell-root .visually-hidden{
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.shell-root .mono{
+  font-family: var(--font-mono);
+}
+.shell-root .skip{
+  position: fixed;
+  left: 15px;
+  top: 15px;
+  transform: translateY(-200%);
+  padding: 12px 20px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  z-index: 100;
+  border-radius: 8px;
+}
+.shell-root .skip:focus{
+  transform: none;
+}
+.shell-root .wrap{
+  width: min(var(--shell-container-max), calc(100% - var(--shell-container-gutter) - var(--shell-container-gutter)));
+  margin-inline: auto;
+}
+.shell-root .button{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--shell-control-height);
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--shell-control-radius);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+  text-align: center;
+  white-space: nowrap;
+  transition:
+    background var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard),
+    transform var(--transition-duration-fast) var(--ease-standard);
+}
+.shell-root .button:not(:disabled):active{
+  transform: translateY(1px);
+}
+.shell-root .button.quiet{
+  background: var(--card);
+  border-color: var(--border);
+}
+.shell-root .button.quiet:hover{
+  background: var(--secondary);
+}
+.shell-root .button.small{
+  padding: 6px 10px;
+  min-height: var(--shell-control-height-compact);
+  font-size: var(--text-micro);
+  line-height: var(--leading-micro);
+}
+.shell-root .button.danger{
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+/* stylelint-disable-next-line no-descending-specificity -- the disabled state must override every button variant. */
+.shell-root .button:disabled{
+  background: var(--secondary);
+  border-color: var(--border);
+  color: var(--muted-foreground);
+  box-shadow: none;
+}
+.shell-root .full{
+  width: 100%;
+}
+.shell-root .icon-button{
+  display: grid;
+  place-items: center;
+  width: var(--shell-control-height-compact);
+  height: var(--shell-control-height-compact);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--shell-control-radius);
+}
+.shell-root .icon-button:hover{
+  background: var(--secondary);
+}
+.shell-root .brand{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 21px;
+  letter-spacing: -0.065em;
+  font-weight: 690;
+  white-space: nowrap;
+}
+.shell-root .brand-icon{
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-right: 3px;
+  flex-shrink: 0;
+}
+
+.shell-root .workspace-scene{
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: var(--shell-art) center 55% / cover;
+  opacity: var(--workspace-scene-opacity, 0.29);
+  mask-image: radial-gradient(ellipse 78% 60% at 83% 5%, var(--foreground) 13%, transparent 85%);
+}
+.shell-root[data-motion="on"] .workspace-scene{
+  animation: workspace-scene-in 760ms var(--ease-standard) both;
+}
+.shell-root .workspace-scene::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--workspace-scene-tint, var(--effect-haze)), var(--background));
+}
+.shell-root{
+  isolation: isolate;
+}
+.shell-root .ambient-visualizer{
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  color: var(--primary);
+  pointer-events: none;
+}
+.shell-root .console .ambient-visualizer{
+  opacity: 0.42;
+}
+html[data-season="winter"] .shell-root{
+  --shell-art-day: url("/winter-day.webp");
+  --shell-art-night: url("/winter-night.webp");
+  --shell-feature-day: url("/winter-sanctuary-day.webp");
+  --shell-feature-night: url("/winter-sanctuary-night.webp");
+}
+html.light .shell-root{
+  --shell-art: var(--shell-art-day);
+  --shell-feature-art: var(--shell-feature-day);
+  --shell-brand-art: url("/brand/sonnely-blue.svg");
+}
+@media (prefers-color-scheme: light) {
+  html:not(.dark) .shell-root{
+    --shell-art: var(--shell-art-day);
+    --shell-feature-art: var(--shell-feature-day);
+    --shell-brand-art: url("/brand/sonnely-blue.svg");
+  }
+}
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes workspace-scene-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: var(--workspace-scene-opacity, 0.29);
+  }
+}

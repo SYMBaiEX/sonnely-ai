@@ -16,7 +16,8 @@ import { Button, SegmentedControl, SegmentedControlItem, Tabs, TabsContent, Tabs
 import traceStyles from "./gateway-trace.module.css";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, Route } from "../../../../gen/app__models.ts";
-import { CopyButton, useAmbientMotion } from "./chrome.tsx";
+import { CopyButton } from "./chrome.tsx";
+import { useAmbientMotion } from "../../shell/theme.tsx";
 import { HighlightedCode, SyntaxTokens, useSyntaxHighlight, type SyntaxLanguage } from "../../syntax.tsx";
 import { Scene } from "./scene.tsx";
 import {
