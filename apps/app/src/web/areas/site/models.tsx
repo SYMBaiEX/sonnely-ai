@@ -1,5 +1,6 @@
 // spec/app/models.md, "Story: Filter the catalog"
-import { ArrowDown, ArrowRight, ArrowUpRight, Network } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Network, SlidersHorizontal } from "lucide-react";
+import { useRef, useState, type Ref } from "react";
 import { SearchField } from "../../search.tsx";
 import { useMachine } from "../../../../gen/app__models.react.ts";
 import {
@@ -43,23 +44,42 @@ import {
 
 function CatalogTools({
   filter,
+  searchRef,
   send,
 }: {
   filter: CatalogFilter;
+  searchRef: Ref<HTMLInputElement>;
   send: (event: Event) => unknown;
 }) {
+  const [showFilters, setShowFilters] = useState(false);
   const providerValue = filter.provider.tag === "Only" ? filter.provider.provider : "";
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "";
+  const activeFilters = Number(providerValue !== "") + Number(workloadValue !== "");
   return (
     <div className="catalog-filter">
-      <div className="catalog-filter-grid">
-        <SearchField
-          className="catalog-filter-search"
-          value={filter.query}
-          onChange={(event) => void send({ type: "search", query: event.target.value })}
-          placeholder="Find a model"
-          aria-label="Find a model"
-        />
+      <div data-models-toolbar>
+        <div>
+          <label htmlFor="models-search">Find a model</label>
+          <SearchField
+            id="models-search"
+            ref={searchRef}
+            value={filter.query}
+            onChange={(event) => void send({ type: "search", query: event.target.value })}
+            placeholder="Name or ID"
+          />
+        </div>
+        <button
+          type="button"
+          className={buttonQuiet}
+          aria-expanded={showFilters}
+          aria-controls="models-filter-fields"
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          <SlidersHorizontal size={16} aria-hidden="true" />
+          Filter &amp; sort{activeFilters > 0 && ` (${activeFilters})`}
+        </button>
+      </div>
+      <div id="models-filter-fields" className="catalog-filter-grid" hidden={!showFilters}>
         <label>
           <span>Provider</span>
           <select
@@ -111,7 +131,7 @@ function CatalogTools({
             }
           >
             <option value="AvailableFirst">Available first</option>
-            <option value="ByName">Model name</option>
+            <option value="ByName">Model name (A–Z)</option>
             <option value="ByInputRate">Lowest input token rate</option>
             <option value="ByOutputRate">Lowest output token rate</option>
           </select>
@@ -159,6 +179,7 @@ function statusRank(status: CatalogStatus) {
 export function ModelCatalog() {
   const { state, send } = useMachine(catalogRuntime);
   const live = useLiveAvailability();
+  const searchRef = useRef<HTMLInputElement>(null);
   const filter = state ?? {
     query: "",
     provider: { tag: "EveryProvider" } as const,
@@ -206,9 +227,16 @@ export function ModelCatalog() {
   const workloadValue = filter.workload.tag === "OnEndpoint" ? filter.workload.endpoint : "every";
   const filterSignature = [filter.query, providerValue, workloadValue, filter.availability, filter.sort].join("|");
 
+  async function clearFilters() {
+    searchRef.current?.focus();
+    if (filter.query) await send({ type: "search", query: "" });
+    if (chosenProvider) await send({ type: "chooseProvider", provider: { tag: "EveryProvider" } });
+    if (chosenEndpoint) await send({ type: "chooseWorkload", workload: { tag: "EveryWorkload" } });
+  }
+
   return (
     <div data-models-browser>
-      <div className="catalog-availability" role="group" aria-label="Catalog inventory">
+      <div className="catalog-availability" role="group" aria-label="Model lists">
         <button
           type="button"
           aria-pressed={!inventory}
@@ -223,15 +251,25 @@ export function ModelCatalog() {
           data-active={inventory || undefined}
           onClick={() => void send({ type: "chooseAvailability", availability: "CatalogOnly" })}
         >
-          Provider inventory <b>{inventoryCount}</b>
+          Provider only <b>{inventoryCount}</b>
         </button>
       </div>
-      <CatalogTools filter={filter} send={send} />
-      <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
+      <CatalogTools filter={filter} searchRef={searchRef} send={send} />
+      {displayed.length > 0
+        ? <CatalogCards groups={displayed} filterSignature={filterSignature} statuses={statuses} />
+        : (
+          <div id="model-rates" data-models-empty>
+            <p role="status">No models match your search and filters.</p>
+            <button type="button" className={buttonQuiet} onClick={() => void clearFilters()}>
+              Clear search and filters
+            </button>
+          </div>
+        )}
       <aside className="catalog-note">
-        <span>Rates shown are the final Sonnely rates.</span>
+        <span>Prices shown are the final Sonnely rates.</span>
         <a href="/pricing">How billing works <ArrowUpRight size={12} aria-hidden="true" /></a>
         <a href={apiBasePath + "/provider-models"}>Catalog JSON <ArrowUpRight size={12} aria-hidden="true" /></a>
+        {!live.loaded && !inventory && <span>Models marked Routed don’t have confirmed live availability.</span>}
       </aside>
     </div>
   );
@@ -258,7 +296,7 @@ function ModelGuide() {
           );
         })}
         <div className="models-guide-limits">
-          <dt>request limits</dt>
+          <dt>Sonnely request limits</dt>
           <dd>
             The context window describes the underlying model. Sonnely currently accepts up to{" "}
             {limits.bodyBytes.toLocaleString("en-US")} bytes per request and returns up to{" "}
@@ -274,16 +312,14 @@ function ModelGuide() {
 }
 
 export function ModelsPage() {
-  const [title, description] = pages.models;
+  const [title] = pages.models;
   const entry = entryActions.models;
-  const sonnelyModels = canonicalGroups.filter((group) => !group.catalogOnly).length;
-  const inventoryModels = canonicalGroups.length - sonnelyModels;
   return (
     <div className={wrap + " models-page"}>
       <header className="models-hero">
         <div className="models-hero-copy">
           <h1>{title}</h1>
-          <p className="models-hero-description">{description}</p>
+          <p className="models-hero-description">Compare model prices, context windows, and provider routes.</p>
           <nav className="actions" aria-label="Model catalog actions">
             <a
               href={entry.section}
@@ -300,26 +336,19 @@ export function ModelsPage() {
             >
               {entry.label} <ArrowDown size={15} aria-hidden="true" />
             </a>
-            <a href={entry.next} className={buttonQuiet}>
-              {entry.action} <ArrowRight size={15} aria-hidden="true" />
+            <a href={entry.next} className={textLink}>
+              Open playground <ArrowRight size={15} aria-hidden="true" />
             </a>
           </nav>
         </div>
-        <aside className="models-hero-index" aria-label="Model catalog at a glance">
+        <aside className="models-hero-index" aria-label="Catalog providers">
           <div>
             <Network size={17} aria-hidden="true" />
-            {Object.values(providerNames).join(" · ")}
+            <div>
+              <span>Catalog providers</span>
+              <strong>{Object.values(providerNames).join(" · ")}</strong>
+            </div>
           </div>
-          <dl className="models-hero-facts">
-            <div>
-              <dt>On Sonnely</dt>
-              <dd>{sonnelyModels}</dd>
-            </div>
-            <div>
-              <dt>Provider inventory</dt>
-              <dd>{inventoryModels}</dd>
-            </div>
-          </dl>
         </aside>
       </header>
       <section
