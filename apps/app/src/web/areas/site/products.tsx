@@ -1,12 +1,12 @@
 // spec/app/site/index.md, "Story: Check the service status"
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, Terminal } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Check } from "lucide-react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { HighlightedCode } from "../../syntax.tsx";
 import { apiBasePath } from "./data.ts";
 import { entryActions, pages, platformLinks, traceStages } from "./content.ts";
 import { ProductIcon } from "./icons.tsx";
 import { Scene } from "./scene.tsx";
-import { buttonAccent, buttonQuiet, sectionHead, textLink, wrap } from "./ui.ts";
+import { buttonAccent, buttonQuiet, textLink, wrap } from "./ui.ts";
 import "./inference.css";
 
 export function PlatformLinks({ compact = false, className = "" }: { compact?: boolean; className?: string }) {
@@ -70,42 +70,62 @@ const directoryBriefs = {
   },
 } as const;
 
+const requestPath = [
+  ["Send", "Request", "Send one OpenAI-compatible request."],
+  ["Cpu", "Execution", "Sonnely routes it to confidential compute."],
+  ["ReceiptText", "Settlement", "Follow the trace and see the charge."],
+] as const;
+
+function jumpToSection(event: MouseEvent<HTMLAnchorElement>) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const hash = event.currentTarget.hash;
+  const section = document.getElementById(hash.slice(1));
+  if (!section) return;
+  event.preventDefault();
+  history.replaceState(history.state, "", hash);
+  section.focus({ preventScroll: true });
+  section.scrollIntoView();
+}
+
 function Hero() {
   const [title, description] = pages.inference;
   const entry = entryActions.inference;
   return (
     <header className="inference-hero">
-      <div className="inference-hero-copy">
+      <div>
         <h1>
           {title}
           <span>.</span>
         </h1>
         <p className="inference-hero-description">{description}</p>
         <div className="actions">
-          <a href={entry.section} className={buttonAccent}>
-            {entry.label} <ArrowDown size={16} aria-hidden="true" />
-          </a>
-          <a href={entry.next} className={buttonQuiet}>
+          <a href={entry.next} className={buttonAccent}>
             {entry.action} <ArrowRight size={15} aria-hidden="true" />
+          </a>
+          <a href={entry.section} className={textLink} onClick={jumpToSection}>
+            Explore routing <ArrowDown size={16} aria-hidden="true" />
           </a>
         </div>
       </div>
-      <aside className="term inference-brief" data-scan aria-label="Inference at a glance">
-        <div className="term-chrome">
-          <span className="term-path">
-            <Terminal size={13} aria-hidden="true" /> ~/inference
-            <span className="term-caret" aria-hidden="true" />
-          </span>
-        </div>
-        <dl className="inference-brief-rows">
-          {inferenceBriefRows.map(([fact, value]) => (
-            <div key={fact}>
-              <dt>{fact}</dt>
-              <dd>{value}</dd>
-            </div>
+      <figure className="inference-brief">
+        <figcaption>
+          <span>One request, end to end</span>
+          <code>POST {apiBasePath}/chat/completions</code>
+        </figcaption>
+        <ol>
+          {requestPath.map(([icon, label, detail]) => (
+            <li key={label}>
+              <span>
+                <ProductIcon name={icon} size={19} />
+              </span>
+              <div>
+                <strong>{label}</strong>
+                <p>{detail}</p>
+              </div>
+            </li>
           ))}
-        </dl>
-      </aside>
+        </ol>
+      </figure>
     </header>
   );
 }
@@ -124,60 +144,38 @@ function Facts({ rows }: { rows: readonly (readonly [string, string])[] }) {
 }
 
 function FactCard({
-  path,
-  icon,
   rows,
   label,
 }: {
-  path: string;
-  icon: string;
   rows: readonly (readonly [string, string])[];
   label: string;
 }) {
   return (
-    <figure className="preview-data inference-factcard" aria-label={label} data-reveal="fade">
-      <figcaption>
-        <ProductIcon name={icon} size={15} aria-hidden="true" /> <strong>{path}</strong>
-      </figcaption>
-      <div className="preview-body">
-        <dl>
-          {rows.map(([fact, value]) => (
-            <div key={fact}>
-              <dt>{fact}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+    <figure className="inference-factcard">
+      <figcaption>{label}</figcaption>
+      <Facts rows={rows} />
     </figure>
   );
 }
 
 function CodeWindow({
-  path,
   tag,
   source,
   language,
   label,
 }: {
-  path: string;
   tag: string;
   source: string;
   language: "http" | "json";
   label: string;
 }) {
   return (
-    <figure className="term inference-term" data-scan aria-label={label} data-reveal="fade">
-      <div className="term-chrome">
-        <span className="term-path">
-          <Terminal size={13} aria-hidden="true" /> {path}
-          <span className="term-caret" aria-hidden="true" />
-        </span>
-        <span className="inference-term-tag" aria-hidden="true">
-          {tag}
-        </span>
-      </div>
-      <pre className="inference-code">
+    <figure className="inference-term">
+      <figcaption>
+        <span>{label}</span>
+        <code>{tag}</code>
+      </figcaption>
+      <pre className="inference-code" tabIndex={0} aria-label={label}>
         <HighlightedCode source={source} language={language} />
       </pre>
     </figure>
@@ -186,8 +184,6 @@ function CodeWindow({
 
 function Section({
   id,
-  index,
-  icon,
   title,
   href,
   action,
@@ -195,8 +191,6 @@ function Section({
   children,
 }: {
   id: string;
-  index: string;
-  icon: string;
   title: string;
   href: string;
   action: string;
@@ -204,19 +198,12 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="section inference-section" aria-labelledby={id + "-heading"}>
-      <header className={sectionHead}>
-        <div>
-          <p className="inference-stage">
-            <ProductIcon name={icon} size={12} aria-hidden="true" /> {index} · {id}
-          </p>
-          <h2 id={id + "-heading"}>{title}</h2>
-        </div>
-        <a href={href} className={textLink}>
-          {action} <ArrowUpRight size={15} aria-hidden="true" />
-        </a>
-      </header>
+    <section id={id} className="inference-section" aria-labelledby={id + "-heading"} tabIndex={-1}>
+      <h2 id={id + "-heading"}>{title}</h2>
       <div className={wide ? "inference-wide" : "inference-split"}>{children}</div>
+      <a href={href} className={textLink}>
+        {action} <ArrowUpRight size={15} aria-hidden="true" />
+      </a>
     </section>
   );
 }
@@ -227,7 +214,7 @@ function TracePreview() {
   const [active, setActive] = useState(1);
   const selected = traceStages[active];
   return (
-    <figure className="inference-trace" data-reveal="fade">
+    <figure className="inference-trace">
       <figcaption className="gateway-trace-head">
         <span className="gateway-trace-label">
           <i className="gateway-trace-dot" aria-hidden="true" /> example trace ·{" "}
@@ -263,7 +250,7 @@ function TracePreview() {
               onClick={() => setActive(index)}
             >
               <ProductIcon name={icon} size={13} aria-hidden="true" />
-              <span className="inference-trace-name">{name}</span>
+              <span>{name}</span>
               <span className="inference-trace-ms">{end - start} ms</span>
             </button>
           </li>
@@ -287,9 +274,7 @@ function Inference() {
     <>
       <Section
         id="routing"
-        index="01"
-        icon="Radio"
-        title="Sonnely picks the route."
+        title="Confidential routing"
         href="/models#available-models"
         action="Compare models and prices"
       >
@@ -299,18 +284,10 @@ function Inference() {
             from the catalog; Sonnely routes it to an available attested execution environment and
             meters the tokens it reports back.
           </p>
-          <Facts
-            rows={[
-              ["model", "catalog id"],
-              ["route", "automatic confidential"],
-              ["budget", "optional per-request cap"],
-            ]}
-          />
         </div>
         <CodeWindow
-          path="~/inference/routing"
-          tag={"post " + apiBasePath + "/chat/completions"}
-          label="Chat Completions request and response"
+          tag="Chat Completions"
+          label="Example request and response"
           source={[
             '→ { "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",',
             '    "messages": [{ "role": "user", "content": "…" }] }',
@@ -323,9 +300,7 @@ function Inference() {
       </Section>
       <Section
         id="streaming"
-        index="02"
-        icon="Activity"
-        title="Stream with a budget."
+        title="Streaming and cost limits"
         href="/docs/streaming"
         action="Read the streaming guide"
       >
@@ -337,8 +312,7 @@ function Inference() {
           </p>
         </div>
         <CodeWindow
-          path="~/inference/streaming"
-          tag="json · stream options"
+          tag="JSON"
           label="Streaming request fragment"
           source={JSON.stringify(
             {
@@ -354,9 +328,7 @@ function Inference() {
       </Section>
       <Section
         id="evidence"
-        index="03"
-        icon="Fingerprint"
-        title="Know the privacy boundary."
+        title="The privacy boundary"
         href="/docs/attestation"
         action="Review attestation evidence"
       >
@@ -369,9 +341,7 @@ function Inference() {
           </p>
         </div>
         <FactCard
-          path="~/inference/evidence"
-          icon="Fingerprint"
-          label="Privacy boundary roles"
+          label="What each component handles"
           rows={[
             ["sonnely gateway", "validation, forwarding, settlement"],
             ["confidential tee", "model execution"],
@@ -381,11 +351,9 @@ function Inference() {
       </Section>
       <Section
         id="traces"
-        index="04"
-        icon="Radio"
-        title="Follow the whole request."
+        title="Request traces"
         href="/docs/observability"
-        action="Read the usage guide"
+        action="Read the observability guide"
         wide
       >
         <div className="inference-copy">
@@ -406,25 +374,21 @@ function Inference() {
       </Section>
       <Section
         id="usage"
-        index="05"
-        icon="Activity"
-        title="Measure what you spend."
+        title="Workspace usage"
         href="/docs/observability"
         action="Read the usage guide"
       >
         <div className="inference-copy">
           <p>
-            Usage groups your workspace’s settled requests by model or UTC day: spend, tokens and
-            request counts over the date range you choose. Export up to 100 settled requests as a
-            batch for your own analytics, or download the loaded rows as CSV.
+            See spend, tokens, and request counts for the UTC date range you choose. Export up to
+            100 settled requests as a batch for your own analytics, or download the loaded rows as
+            CSV.
           </p>
         </div>
         <FactCard
-          path="~/inference/usage"
-          icon="Activity"
-          label="Usage breakdown shape"
+          label="Usage report options"
           rows={[
-            ["breakdown", "by model · by key"],
+            ["breakdown", "by model, provider, or key"],
             ["range", "utc date range"],
             ["export", "csv · usage batch"],
           ]}
@@ -432,11 +396,9 @@ function Inference() {
       </Section>
       <Section
         id="logs"
-        index="06"
-        icon="ReceiptText"
-        title="Settle every request in the open."
+        title="Request logs and charges"
         href="/docs/observability"
-        action="Inspect request logs"
+        action="Read the request logs guide"
       >
         <div className="inference-copy">
           <p>
@@ -447,18 +409,15 @@ function Inference() {
           </p>
         </div>
         <CodeWindow
-          path="~/inference/logs"
-          tag="http · response headers"
-          label="Response headers on every request"
+          tag="HTTP"
+          label="Example response headers"
           source={["x-sonnely-request-id: sr_9f2c…", "x-sonnely-provider: tinfoil"].join("\n")}
           language="http"
         />
       </Section>
       <Section
         id="batch"
-        index="07"
-        icon="Code2"
-        title="Run inference in batch."
+        title="Batch inference"
         href="/docs/batch"
         action="Read the batch guide"
       >
@@ -470,9 +429,7 @@ function Inference() {
           </p>
         </div>
         <FactCard
-          path="~/inference/batch"
-          icon="Code2"
-          label="Batch run shape"
+          label="Batch run limits and output"
           rows={[
             ["rows", "up to 200 requests"],
             ["resume", "browser checkpoint"],
@@ -485,30 +442,30 @@ function Inference() {
 }
 
 const sections = [
-  ["routing", "routing"],
-  ["streaming", "streaming"],
-  ["evidence", "privacy boundary"],
-  ["traces", "traces"],
-  ["usage", "usage"],
-  ["logs", "request logs"],
-  ["batch", "batch"],
+  ["routing", "Routing"],
+  ["streaming", "Streaming"],
+  ["evidence", "Privacy boundary"],
+  ["traces", "Traces"],
+  ["usage", "Usage"],
+  ["logs", "Request logs"],
+  ["batch", "Batch"],
 ] as const;
 
 export function InferencePage() {
   return (
     <div className={wrap + " inference-page"}>
       <Hero />
-      <nav className="inference-nav" aria-label="On this page">
-        <span className="inference-nav-path" aria-hidden="true">
-          <Terminal size={12} /> ~/inference
-        </span>
-        {sections.map(([id, label], position) => (
-          <a key={id} href={"#" + id}>
-            <span aria-hidden="true">{String(position + 1).padStart(2, "0")}</span> {label}
-          </a>
-        ))}
-      </nav>
-      <Inference />
+      <div>
+        <nav className="inference-nav" aria-label="On this page">
+          <p aria-hidden="true">On this page</p>
+          {sections.map(([id, label]) => (
+            <a key={id} href={"#" + id} onClick={jumpToSection}>{label}</a>
+          ))}
+        </nav>
+        <div>
+          <Inference />
+        </div>
+      </div>
       <section className="closing inference-closing" aria-labelledby="inference-closing-heading">
         <Scene />
         <div>
