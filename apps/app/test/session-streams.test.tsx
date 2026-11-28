@@ -43,7 +43,7 @@ async function settle() {
   });
 }
 
-async function renderProbe(machine: "teams" | "admin-referrals" = "teams") {
+async function renderProbe(machine: "teams" | "admin-referrals" | "console__chat" = "teams") {
   vi.resetModules();
   FakeEventSource.instances = [];
   const remote = await import("../src/web/remote.ts");
@@ -141,6 +141,23 @@ describe("session-bound streams (spec/app/session.md, \"Only an active session c
       stateAfterSignOut: probe.teams().state,
       sessionTag: probe.session().state?.tag,
     }).toEqual({ multiplexedClosed: true, stateAfterSignOut: undefined, sessionTag: "SignedOut" });
+  });
+
+  // spec/app/console/chat.md, "The playground is the threads, the open one and the chosen model"
+  it("subscribes a fleet machine to its own stream endpoint, not the multiplexed one", async () => {
+    stubTransport();
+    const probe = await renderProbe("console__chat");
+    const scopedUrl = "/api/machines/console__chat/stream";
+    expect({
+      scoped: machineSources(scopedUrl).length,
+      multiplexed: machineSources("/api/machines/stream").filter((instance) => instance.url === "/api/machines/stream").length,
+    }).toEqual({ scoped: 1, multiplexed: 0 });
+
+    const scoped = machineSources(scopedUrl)[0];
+    act(() => {
+      scoped.emit({ threads: [{ id: "thread-a" }], active: "thread-a", model: "m" });
+    });
+    expect((probe.teams().state as { threads?: unknown[] } | undefined)?.threads?.length).toBe(1);
   });
 
   // spec/app/session.md, "Only an active session can sign out"
