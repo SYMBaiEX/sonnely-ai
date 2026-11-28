@@ -15,12 +15,12 @@ it('recovers from a search with no matches without losing the selected list or s
     const search = page.getByRole("searchbox");
     const status = page.getByRole("status");
     const filters = page.getByRole("button", { name: /filter & sort/i });
-    const providerOnly = page.getByRole("button", { name: /provider only/i });
+    const providerOnly = page.getByRole("radio", { name: /provider only/i });
     const provider = page.getByRole("combobox", { name: "Provider" });
     const workload = page.getByRole("combobox", { name: "Workload" });
     const sort = page.getByRole("combobox", { name: "Sort by" });
     await providerOnly.click();
-    await expect.element(providerOnly).toHaveAttribute("aria-pressed", "true");
+    await expect.element(providerOnly).toHaveAttribute("aria-checked", "true");
     const firstResult = page.getByRole("article").first();
     await expect.element(firstResult).toBeVisible();
     const liveRegion = status.element();
@@ -39,7 +39,7 @@ it('recovers from a search with no matches without losing the selected list or s
     await clearFilters.click();
     await expect.element(search).toHaveValue("");
     await expect.element(search).toHaveFocus();
-    await expect.element(providerOnly).toHaveAttribute("aria-pressed", "true");
+    await expect.element(providerOnly).toHaveAttribute("aria-checked", "true");
     await expect.element(firstResult).toBeVisible();
     expect(status.element()).toBe(liveRegion);
     expect(liveRegion.textContent).toBe(initialStatus);

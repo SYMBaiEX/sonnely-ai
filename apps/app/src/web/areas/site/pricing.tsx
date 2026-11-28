@@ -1,12 +1,23 @@
 // spec/app/models.md, "Story: Filter the catalog"
 import { ArrowDown, ArrowUpRight, Plus } from "lucide-react";
 import { useState } from "react";
-import { Input } from "@repo/ui";
+import {
+  Button,
+  Card,
+  Field,
+  Input,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  cn,
+} from "@repo/ui";
 import { creditBalance, formatRate, limits, requestCharge, routeRates } from "./data.ts";
 import { canonicalGroups, chatModels, chatModelRoute, liveStatuses, useLiveAvailability } from "./catalog-data.ts";
 import { CatalogCards } from "./catalog-cards.tsx";
-import { sectionHead, textLink } from "./ui.ts";
-import "./pricing.css";
+import { serif } from "./ui.ts";
 
 const tokenPriced = (group: (typeof canonicalGroups)[number]) =>
   group.entries.some((entry) =>
@@ -45,70 +56,84 @@ function CostExample() {
   ];
 
   return (
-    <section className="pricing-estimate" id="estimate" aria-labelledby="pricing-estimate-title" tabIndex={-1}>
-      <div className="pricing-estimate-section">
-        <h2 id="pricing-estimate-title">Request estimator</h2>
-        <p>One text request, without cached input.</p>
-        <div className="pricing-estimate-inputs">
-          <label>
-            <span>Model</span>
-            <select value={modelId} onChange={(event) => setModelId(event.target.value)}>
-              {chatModels.map((model) => {
-                const route = chatModelRoute(model)!;
-                return (
-                  <option key={model.provider + route.modelId} value={route.modelId}>
-                    {model.name}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-          {fields.map(({ id, label, value, setValue, max, invalid }) => (
-            <div key={id}>
-              <label htmlFor={id}>{label}</label>
-              <Input
-                id={id}
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={max}
-                step={1}
-                invalid={invalid}
-                aria-describedby={invalid ? `${id}-error` : undefined}
-                value={value}
-                onChange={(event) => setValue(event.target.value)}
+    <section id="estimate" aria-labelledby="pricing-estimate-title" tabIndex={-1} className="scroll-mt-24">
+      <Card className="gap-0 overflow-hidden p-0">
+        <div className="grid md:grid-cols-2">
+          <div className="p-5 sm:p-6">
+            <h2 id="pricing-estimate-title" className="text-heading font-strong leading-heading tracking-heading">Request estimator</h2>
+            <p className="mt-2 text-ui text-muted-foreground">One text request, without cached input.</p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Model"
+                className="sm:col-span-2"
+                control={(field) => (
+                  <Select {...field} value={modelId} onChange={(event) => setModelId(event.target.value)} className="h-11">
+                    {chatModels.map((model) => {
+                      const route = chatModelRoute(model);
+                      return route && (
+                        <option key={model.provider + route.modelId} value={route.modelId}>
+                          {model.name}
+                        </option>
+                      );
+                    })}
+                  </Select>
+                )}
               />
-              {invalid && <p id={`${id}-error`}>Enter a whole number from 0 to {max.toLocaleString("en-US")}.</p>}
+              {fields.map(({ id, label, value, setValue, max, invalid }) => (
+                <Field
+                  key={id}
+                  controlId={id}
+                  label={label}
+                  error={invalid ? `Enter a whole number from 0 to ${max.toLocaleString("en-US")}.` : undefined}
+                  control={(field) => (
+                    <Input
+                      {...field}
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={max}
+                      step={1}
+                      value={value}
+                      onChange={(event) => setValue(event.target.value)}
+                      className="h-11 font-mono"
+                    />
+                  )}
+                />
+              ))}
             </div>
-          ))}
+          </div>
+          <figure className="border-t border-border bg-accent/40 p-5 sm:p-6 md:border-t-0 md:border-l">
+            <figcaption className="text-ui font-medium">Estimated charge</figcaption>
+            <output data-invalid={estimate === null} className={cn("mt-2 block font-mono text-title font-medium leading-title tracking-title", estimate === null && "font-sans text-body leading-body text-muted-foreground")}>
+              {estimate === null ? "Fix the token counts to see an estimate." : creditBalance(estimate)}
+            </output>
+            <Table aria-label="Rates per million tokens" className="mt-4 text-ui">
+              <TableBody>
+                <TableRow>
+                  <TableHead scope="row" className="px-0 py-2 font-regular text-muted-foreground">Input / 1M</TableHead>
+                  <TableCell className="px-0 py-2 text-right font-mono">{formatRate(rates.Input ?? 0)}</TableCell>
+                </TableRow>
+                {rates.Cached !== undefined && rates.Cached >= 0 && (
+                  <TableRow>
+                    <TableHead scope="row" className="px-0 py-2 font-regular text-muted-foreground">Cached input / 1M</TableHead>
+                    <TableCell className="px-0 py-2 text-right font-mono">{formatRate(rates.Cached)}</TableCell>
+                  </TableRow>
+                )}
+                <TableRow className="border-b-0">
+                  <TableHead scope="row" className="px-0 py-2 font-regular text-muted-foreground">Output / 1M</TableHead>
+                  <TableCell className="px-0 py-2 text-right font-mono">{formatRate(rates.Output ?? 0)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            <p className="mt-3 text-meta text-muted-foreground">Final charges use reported token counts, including cached input.</p>
+            <Button asChild variant="ghost" size="sm" className="mt-3 px-0 text-primary">
+              <a href="#inference-rates">
+                Compare provider rates <ArrowDown size={14} aria-hidden="true" />
+              </a>
+            </Button>
+          </figure>
         </div>
-      </div>
-      <figure className="pricing-invoice">
-        <figcaption>Estimated charge</figcaption>
-        <output data-invalid={estimate === null}>
-          {estimate === null ? "Fix the token counts to see an estimate." : creditBalance(estimate)}
-        </output>
-        <dl aria-label="Rates per million tokens">
-          <div>
-            <dt>Input / 1M</dt>
-            <dd>{formatRate(rates.Input ?? 0)}</dd>
-          </div>
-          {rates.Cached !== undefined && rates.Cached >= 0 && (
-            <div>
-              <dt>Cached input / 1M</dt>
-              <dd>{formatRate(rates.Cached)}</dd>
-            </div>
-          )}
-          <div>
-            <dt>Output / 1M</dt>
-            <dd>{formatRate(rates.Output ?? 0)}</dd>
-          </div>
-        </dl>
-        <p>Final charges use reported token counts, including cached input.</p>
-        <a href="#inference-rates" className={textLink}>
-          Compare provider rates <ArrowDown size={14} aria-hidden="true" />
-        </a>
-      </figure>
+      </Card>
     </section>
   );
 }
@@ -135,16 +160,18 @@ function PricingEssentials() {
     },
   ] as const;
   return (
-    <section className="section pricing-terms" aria-labelledby="pricing-essentials-title">
-      <h2 id="pricing-essentials-title">How billing works</h2>
-      <ul className="pricing-terms-grid" role="list">
+    <section className="mt-14" aria-labelledby="pricing-essentials-title">
+      <h2 id="pricing-essentials-title" className="text-heading font-strong leading-heading tracking-heading sm:text-title sm:leading-title sm:tracking-title">How billing works</h2>
+      <ul className="mt-6 grid gap-6 md:grid-cols-3" role="list">
         {terms.map(({ title, copy, href, link }) => (
-          <li key={title}>
-            <h3>{title}</h3>
-            <p>{copy}</p>
-            <a href={href} className={textLink}>
-              {link} <ArrowUpRight size={14} aria-hidden="true" />
-            </a>
+          <li key={title} className="grid content-start gap-3 border-t border-border pt-4">
+            <h3 className="text-lead font-strong leading-lead">{title}</h3>
+            <p className="text-ui text-muted-foreground">{copy}</p>
+            <Button asChild variant="ghost" size="sm" className="justify-start px-0 text-primary">
+              <a href={href}>
+                {link} <ArrowUpRight size={14} aria-hidden="true" />
+              </a>
+            </Button>
           </li>
         ))}
       </ul>
@@ -155,21 +182,41 @@ function PricingEssentials() {
 function InferenceRates() {
   const live = useLiveAvailability();
   return (
-    <section className="section pricing-rates" id="inference-rates" aria-labelledby="inference-rates-title" tabIndex={-1}>
-      <div className={sectionHead}>
+    <section className="mt-14 scroll-mt-24" id="inference-rates" aria-labelledby="inference-rates-title" tabIndex={-1}>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 id="inference-rates-title">Model rates</h2>
-          <p>
+          <h2 id="inference-rates-title" className="text-heading font-strong leading-heading tracking-heading sm:text-title sm:leading-title sm:tracking-title">Model rates</h2>
+          <p className="mt-2 max-w-prose text-ui text-muted-foreground">
             Compare rates for {pricedGroups.length} routable models. Token rates are per million tokens;
             expand a model to see provider-specific and per-request fees.
           </p>
         </div>
-        <a href="/models" className={textLink}>
-          Model catalog <ArrowUpRight size={15} aria-hidden="true" />
-        </a>
+        <Button asChild variant="ghost" size="sm" className="px-0 text-primary">
+          <a href="/models">
+            Model catalog <ArrowUpRight size={15} aria-hidden="true" />
+          </a>
+        </Button>
       </div>
       <CatalogCards groups={pricedGroups} filterSignature="pricing" statuses={liveStatuses(live)} />
     </section>
+  );
+}
+
+function PricingQuestion({ question, answer, open, onToggle }: { question: string; answer: string; open: boolean; onToggle: () => void }) {
+  return (
+    <div className="border-t border-border last:border-b">
+      <Button
+        type="button"
+        variant="ghost"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="h-auto w-full justify-between rounded-none px-0 py-4 text-left font-medium hover:bg-transparent"
+      >
+        {question}
+        <Plus size={17} aria-hidden="true" className={cn("shrink-0 transition-transform duration-fast", open && "rotate-45")} />
+      </Button>
+      {open && <p className="pb-4 text-ui text-muted-foreground">{answer}</p>}
+    </div>
   );
 }
 
@@ -181,22 +228,26 @@ function PricingQuestions() {
     ["Where can I see what a request cost?", "Open Usage in the console to review token counts, request status, and charges. Billing lists payment receipts separately."],
     ["Can I spend credits from devnet payments?", "No. Devnet payments test checkout. Spendable credits require a verified mainnet payment."],
   ] as const;
+  const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   return (
-    <section className="section home-split home-faq pricing-faq" aria-labelledby="pricing-questions-title">
-      <div className="home-section-intro">
-        <h2 id="pricing-questions-title">Billing questions</h2>
-        <a className={textLink} href="/docs/billing">
-          Read the billing guide <ArrowUpRight size={16} aria-hidden="true" />
-        </a>
+    <section className="mt-14 grid gap-6 lg:grid-cols-[minmax(180px,0.5fr)_minmax(0,1.5fr)]" aria-labelledby="pricing-questions-title">
+      <div>
+        <h2 id="pricing-questions-title" className="text-heading font-strong leading-heading tracking-heading sm:text-title sm:leading-title sm:tracking-title">Billing questions</h2>
+        <Button asChild variant="ghost" size="sm" className="mt-3 px-0 text-primary">
+          <a href="/docs/billing">
+            Read the billing guide <ArrowUpRight size={16} aria-hidden="true" />
+          </a>
+        </Button>
       </div>
-      <div className="faq">
+      <div>
         {questions.map(([question, answer]) => (
-          <details name="pricing-questions" key={question}>
-            <summary>
-              {question} <Plus size={17} aria-hidden="true" />
-            </summary>
-            <p>{answer}</p>
-          </details>
+          <PricingQuestion
+            key={question}
+            question={question}
+            answer={answer}
+            open={openQuestion === question}
+            onToggle={() => setOpenQuestion(openQuestion === question ? null : question)}
+          />
         ))}
       </div>
     </section>
@@ -205,20 +256,26 @@ function PricingQuestions() {
 
 export function PricingPage() {
   return (
-    <div className="wrap pricing-page">
-      <div className="pricing-hero">
+    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 sm:py-12 lg:py-16">
+      <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] xl:gap-14">
         <header>
-          <h1>Pay for <span>what you use.</span></h1>
-          <p className="pricing-hero-description">
+          <h1 className="text-title font-strong leading-title tracking-title md:text-display md:leading-display md:tracking-display">
+            Pay for <span style={serif} className="block font-regular">what you use.</span>
+          </h1>
+          <p className="mt-4 max-w-prose text-lead text-muted-foreground">
             Fund credits in USDC or SOL. Each request is charged from your balance based on reported usage.
           </p>
-          <div className="actions">
-            <a href="#estimate" className={textLink}>
-              Estimate a request <ArrowDown size={15} aria-hidden="true" />
-            </a>
-            <a href="#inference-rates" className={textLink}>
-              Browse model rates <ArrowDown size={15} aria-hidden="true" />
-            </a>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Button asChild variant="ghost" className="px-0 text-primary">
+              <a href="#estimate">
+                Estimate a request <ArrowDown size={15} aria-hidden="true" />
+              </a>
+            </Button>
+            <Button asChild variant="ghost" className="px-0 text-primary">
+              <a href="#inference-rates">
+                Browse model rates <ArrowDown size={15} aria-hidden="true" />
+              </a>
+            </Button>
           </div>
         </header>
         <CostExample />
