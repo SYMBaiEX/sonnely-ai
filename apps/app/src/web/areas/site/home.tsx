@@ -11,8 +11,8 @@ import {
   Plus,
   Wallet,
 } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import { Button } from "@repo/ui";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Button, SegmentedControl, SegmentedControlItem, Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
 import traceStyles from "./gateway-trace.module.css";
 import { catalog } from "../../../../gen/app__models.ts";
 import type { CatalogEntry, Route } from "../../../../gen/app__models.ts";
@@ -265,24 +265,17 @@ function HomeDemo() {
           <span className="quickstart-toolbar-label" id="home-api-example-label">
             Sample task
           </span>
-          <div
-            className="home-api-segments"
-            role="group"
+          <SegmentedControl
             aria-labelledby="home-api-example-label"
-            style={{ "--segment": active } as CSSProperties}
+            value={String(active)}
+            onValueChange={(value) => setActive(Number(value))}
           >
             {demoExamples.map(({ label }, index) => (
-              <Button
-                type="button"
-                variant="ghost"
-                key={label}
-                aria-pressed={active === index}
-                onClick={() => setActive(index)}
-              >
+              <SegmentedControlItem key={label} value={String(index)}>
                 {label}
-              </Button>
+              </SegmentedControlItem>
             ))}
-          </div>
+          </SegmentedControl>
         </div>
         <div className="quickstart-panes">
           <div className="quickstart-request">
@@ -290,24 +283,17 @@ function HomeDemo() {
               <span className="quickstart-pane-label">
                 Request
               </span>
-              <div
-                className="home-api-segments"
-                role="group"
+              <SegmentedControl
                 aria-label="Request language"
-                style={{ "--segment": demoLanguages.indexOf(language) } as CSSProperties}
+                value={language}
+                onValueChange={(value) => setLanguage(value as (typeof demoLanguages)[number])}
               >
                 {demoLanguages.map((option) => (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    key={option}
-                    aria-pressed={language === option}
-                    onClick={() => setLanguage(option)}
-                  >
+                  <SegmentedControlItem key={option} value={option}>
                     {option}
-                  </Button>
+                  </SegmentedControlItem>
                 ))}
-              </div>
+              </SegmentedControl>
               <CopyButton key={language + active} value={source} label="Copy request" />
             </div>
             <pre className="home-api-code" aria-label={language + " request"}>
@@ -628,30 +614,7 @@ const workspaceCards = [
 ] as const;
 
 function WorkspacePreview() {
-  const [active, setActive] = useState(0);
-
-  function navigate(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let next: number;
-    switch (event.key) {
-      case "ArrowLeft":
-        next = (index + workspaceCards.length - 1) % workspaceCards.length;
-        break;
-      case "ArrowRight":
-        next = (index + 1) % workspaceCards.length;
-        break;
-      case "Home":
-        next = 0;
-        break;
-      case "End":
-        next = workspaceCards.length - 1;
-        break;
-      default:
-        return;
-    }
-    event.preventDefault();
-    setActive(next);
-    event.currentTarget.parentElement?.querySelectorAll("button")[next]?.focus();
-  }
+  const [active, setActive] = useState<string>(workspaceCards[0].id);
 
   return (
     <section className="section home-workspace" aria-labelledby="workspace-title">
@@ -661,66 +624,37 @@ function WorkspacePreview() {
           See pricing <ArrowUpRight size={16} aria-hidden="true" />
         </a>
       </div>
-      <div className="workspace-showcase">
-        <div
-          className="workspace-tabs"
-          role="tablist"
-          aria-label="Workspace preview"
-        >
-          {workspaceCards.map(({ id, label, icon: Icon }, index) => (
-            <Button
-              id={"workspace-tab-" + id}
-              type="button"
-              variant="ghost"
-              role="tab"
-              key={id}
-              aria-selected={active === index}
-              aria-controls={"workspace-panel-" + id}
-              tabIndex={active === index ? 0 : -1}
-              onClick={() => setActive(index)}
-              onKeyDown={(event) => navigate(event, index)}
-            >
+      <Tabs value={active} onValueChange={setActive} className="workspace-showcase">
+        <TabsList className="workspace-tabs" aria-label="Workspace preview">
+          {workspaceCards.map(({ id, label, icon: Icon }) => (
+            <TabsTrigger value={id} key={id}>
               <Icon size={18} aria-hidden="true" /> {label}
-            </Button>
+            </TabsTrigger>
           ))}
-        </div>
-        {workspaceCards.map(
-          ({ id, previewTitle, icon: Icon, title, description, link, action, Preview }, index) => (
-            <div
-              className="workspace-preview"
-              id={"workspace-panel-" + id}
-              role="tabpanel"
-              aria-labelledby={"workspace-tab-" + id}
-              hidden={index !== active}
-              tabIndex={0}
-              key={id}
-            >
-              {index === active && (
-                <>
-                  <div className="workspace-preview-copy">
-                    <h3>{title}</h3>
-                    <p>{description}</p>
-                    <a className={textLink} href={link}>
-                      {action} <ArrowUpRight size={16} aria-hidden="true" />
-                    </a>
-                  </div>
-                  <div className="workspace-visual">
-                    <figure className="preview-data">
-                      <figcaption>
-                        <Icon size={15} aria-hidden="true" /> <strong>{previewTitle}</strong>
-                        <small>Sample data</small>
-                      </figcaption>
-                      <div className="preview-body">
-                        <Preview />
-                      </div>
-                    </figure>
-                  </div>
-                </>
-              )}
+        </TabsList>
+        {workspaceCards.map(({ id, previewTitle, icon: Icon, title, description, link, action, Preview }) => (
+          <TabsContent className="workspace-preview" value={id} key={id}>
+            <div className="workspace-preview-copy">
+              <h3>{title}</h3>
+              <p>{description}</p>
+              <a className={textLink} href={link}>
+                {action} <ArrowUpRight size={16} aria-hidden="true" />
+              </a>
             </div>
-          ),
-        )}
-      </div>
+            <div className="workspace-visual">
+              <figure className="preview-data">
+                <figcaption>
+                  <Icon size={15} aria-hidden="true" /> <strong>{previewTitle}</strong>
+                  <small>Sample data</small>
+                </figcaption>
+                <div className="preview-body">
+                  <Preview />
+                </div>
+              </figure>
+            </div>
+          </TabsContent>
+        ))}
+      </Tabs>
     </section>
   );
 }
