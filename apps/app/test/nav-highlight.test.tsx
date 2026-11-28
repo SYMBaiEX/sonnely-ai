@@ -61,6 +61,18 @@ it('dismisses the mobile menu on route changes and when selecting the current ho
   expect([trigger.getAttribute("aria-expanded"), el.querySelector(".nav-dismiss")]).toEqual(["false", null]);
 });
 
+it('dismisses the mobile menu from the header theme control on Escape (spec/app/nav.md, "Story: Move around")', () => {
+  const { el } = renderApp();
+  const trigger = el.querySelector<HTMLButtonElement>(".mobile-menu-control")!;
+  const theme = el.querySelector<HTMLButtonElement>(".site-actions button")!;
+  act(() => trigger.click());
+  theme.focus();
+  act(() => {
+    theme.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
+  expect([trigger.getAttribute("aria-expanded"), document.activeElement]).toEqual(["false", trigger]);
+});
+
 // spec/app/nav.md, "Story: Move around"
 it("keeps the hash of a cross-page link and scrolls to its element", async () => {
   const { el, runtime } = renderApp();

@@ -180,7 +180,7 @@ function SiteNavigation({ current }: { current: string }) {
   }
 
   return (
-    <div className="wrap site-nav">
+    <div className="wrap site-nav" onKeyDown={handleEscape}>
       <Brand onClick={closeMobile} />
       {mobileOpen && (
         <button type="button" className="nav-dismiss" aria-label="Dismiss navigation" tabIndex={-1} onClick={dismissMobile} />
@@ -193,13 +193,12 @@ function SiteNavigation({ current }: { current: string }) {
         aria-expanded={mobileOpen}
         aria-controls="site-navigation"
         onClick={() => setOpenRoute(mobileOpen ? null : current)}
-        onKeyDown={handleEscape}
       >
         <span className="mobile-menu-glyph" aria-hidden="true">
           <span />
         </span>
       </button>
-      <nav id="site-navigation" aria-label="Main navigation" data-mobile-open={mobileOpen || undefined} onKeyDown={handleEscape}>
+      <nav id="site-navigation" aria-label="Main navigation" data-mobile-open={mobileOpen || undefined}>
         {headerLinks.map(([href, label]) => (
           <a
             key={href}
