@@ -73,6 +73,16 @@ it('dismisses the mobile menu from the header theme control on Escape (spec/app/
   expect([trigger.getAttribute("aria-expanded"), document.activeElement]).toEqual(["false", trigger]);
 });
 
+it('cycles the public header theme through system, light and dark (spec/app/nav.md, "Story: Move around")', () => {
+  const { el } = renderApp();
+  const theme = el.querySelector<HTMLButtonElement>(".site-actions button")!;
+  expect(theme.textContent).toBe("dark");
+  for (const next of ["system", "light", "dark"]) {
+    act(() => theme.click());
+    expect([theme.textContent, localStorage.getItem("sonnely.theme")]).toEqual([next, next]);
+  }
+});
+
 // spec/app/nav.md, "Story: Move around"
 it("keeps the hash of a cross-page link and scrolls to its element", async () => {
   const { el, runtime } = renderApp();

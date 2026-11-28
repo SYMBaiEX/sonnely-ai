@@ -214,10 +214,29 @@ function SiteNavigation({ current }: { current: string }) {
         </div>
       </nav>
       <div className="site-actions">
-        <ThemeSwitch />
+        <HeaderThemeButton />
         <ConsoleLink />
       </div>
     </div>
+  );
+}
+
+function HeaderThemeButton() {
+  const theme = useTheme();
+  const next = nextTheme[theme];
+  const Icon = theme === "dark" ? Moon : theme === "system" ? MonitorSmartphone : Sun;
+
+  return (
+    <button
+      type="button"
+      className="inline-flex h-11 w-[88px] items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 hover:border-ring"
+      aria-label={`Color theme: ${theme}. Activate for ${next}.`}
+      data-theme-pos={theme}
+      onClick={() => setTheme(next)}
+    >
+      <Icon size={16} aria-hidden="true" />
+      <span className="text-sm font-medium capitalize">{theme}</span>
+    </button>
   );
 }
 
