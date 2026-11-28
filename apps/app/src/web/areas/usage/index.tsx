@@ -224,7 +224,7 @@ function UsageConsole() {
 
   return (
     <div className="telemetry-legacy usage-legacy">
-      <WorkspaceHeading icon={BarChart3} title="Usage" description="Track charges, tokens, and request performance. Dates use UTC.">
+      <WorkspaceHeading icon={BarChart3} title="Usage" description="Charges, tokens, and request performance in UTC.">
         <button type="button" className="button quiet" disabled={!rows.length} onClick={exportCsv}>
           <Download size={15} aria-hidden="true" /> Export CSV
         </button>
@@ -256,9 +256,11 @@ function UsageConsole() {
           </FilterPanel>
         </section>
       )}
-      <div className="stat-grid usage-stats" role="group" aria-label="Usage summary">
-        {stats.map(([label, value, description]) => <div className="panel stat" key={label}><span>{label}</span><strong>{value}</strong>{description && <small>{description}</small>}</div>)}
-      </div>
+      <section className="panel usage-summary-panel" aria-label="Usage summary">
+        <div className="usage-stats">
+          {stats.map(([label, value, description]) => <div className="stat" key={label}><span>{label}</span><strong>{value}</strong>{description && <small>{description}</small>}</div>)}
+        </div>
+      </section>
       <section className="panel chart-panel" aria-labelledby="usage-chart-heading">
         <div className="between controls"><h2 id="usage-chart-heading">{metric} by day</h2><div className="actions"><label className="control-label">Chart metric<select value={metric} onChange={(event) => setMetric(event.target.value as UsageMetric)}>{usageChartMetrics.map((value) => <option key={value}>{value}</option>)}</select></label><div className="segmented" aria-label="Chart view">{(["Chart", "Table"] as const).map((value) => <button type="button" key={value} aria-pressed={value === view} onClick={() => setView(value)}>{value}</button>)}</div></div></div>
         {!rows.length || !hasMetric ? <div className="chart-empty"><BarChart3 size={23} aria-hidden="true" /><p role="status">{!rows.length ? activityStatus : "No cached input measurements in this view."}</p></div> : view === "Chart" ? <><div className="bars" role="img" aria-label={metric + " by day over the last " + range + " days"}>{series.map(({ time, value }) => <span key={time} title={shortDate(time) + " · " + metricValue(value)} data-empty={!value || undefined} style={{ height: value ? Math.max(1, (value / high) * 100) + "%" : "1px" }} />)}</div><div className="between caption"><span>{shortDate(series[0].time)}</span><span>{shortDate(series[range - 1].time)}</span></div></> : <div className="table-wrap compact-table"><table><thead><tr><th scope="col">Date (UTC)</th><th scope="col">{metric}</th></tr></thead><tbody>{series.map(({ time, value }) => <tr key={time}><th scope="row">{date(time)}</th><td>{metricValue(value)}</td></tr>)}</tbody></table></div>}

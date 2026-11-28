@@ -55,7 +55,7 @@ export function WorkspaceHeading({
     <header className="console-title">
       <div className="console-title-identity">
         <span className="console-title-icon">
-          <Icon size={21} aria-hidden="true" />
+          <Icon size={16} aria-hidden="true" />
         </span>
         <div>
           <h1>{title}</h1>
