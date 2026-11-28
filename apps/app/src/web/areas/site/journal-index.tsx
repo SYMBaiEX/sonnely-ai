@@ -2,28 +2,13 @@
 import { ArrowUpRight } from "lucide-react";
 import { useRef, useState } from "react";
 import { SearchField } from "../../search.tsx";
-import { articles, categoryIcons, readingMinutes, type Article } from "./journal.ts";
+import { articles, categoryIcons, type Article } from "./journal.ts";
 import { ProductIcon } from "./icons.tsx";
 import "./journal.css";
 
 const topics = ["All", ...new Set(articles.map((article) => article.category))];
 
-function topicCount(topic: string) {
-  return topic === "All"
-    ? articles.length
-    : articles.filter((article) => article.category === topic).length;
-}
-
-export function JournalMeta({ article }: { article: Article }) {
-  return (
-    <span className="jrn-meta">
-      <ProductIcon name={categoryIcons[article.category] ?? "Box"} size={13} aria-hidden="true" />
-      {article.category} · {readingMinutes(article)} min read
-    </span>
-  );
-}
-
-function JournalEntry({ article, lead }: { article: Article; lead: boolean }) {
+export function JournalEntry({ article, lead = false }: { article: Article; lead?: boolean }) {
   const Title = lead ? "h2" : "h3";
   return (
     <li className={lead ? "jrn-entry jrn-lead" : "jrn-entry"}>
@@ -36,10 +21,7 @@ function JournalEntry({ article, lead }: { article: Article; lead: boolean }) {
           <Title>{article.title}</Title>
           <p>{article.summary}</p>
         </span>
-        <span className="jrn-minutes">
-          {readingMinutes(article)} min read
-          <ArrowUpRight size={16} aria-hidden="true" />
-        </span>
+        <ArrowUpRight className="jrn-arrow" size={16} aria-hidden="true" />
       </a>
     </li>
   );
@@ -70,7 +52,6 @@ export function JournalIndex() {
               onClick={() => setTopic(item)}
             >
               {item}
-              <span className="jrn-count">{topicCount(item)}</span>
             </button>
           ))}
         </div>
@@ -80,7 +61,7 @@ export function JournalIndex() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search articles"
-          aria-label="Search the journal"
+          aria-label="Search articles"
         />
       </div>
       {entries.length ? (
@@ -91,7 +72,9 @@ export function JournalIndex() {
         </ul>
       ) : (
         <div className="jrn-empty" role="status">
-          <p>No articles match {term ? "“" + search.trim() + "”" : "this topic"}.</p>
+          <p>
+            No {topic === "All" ? "" : topic + " "}articles match “{search.trim()}”.
+          </p>
           <button
             type="button"
             className="button quiet small"
