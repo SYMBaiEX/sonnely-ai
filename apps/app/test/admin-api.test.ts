@@ -147,16 +147,23 @@ describe("admin API", () => {
     const first = await post(handler, "/api/admin/adjust", adjustment);
     const second = await post(handler, "/api/admin/adjust", adjustment);
     const distinct = await post(handler, "/api/admin/adjust", { ...adjustment, id: "adjustment-repeat-2", activityId: "activity-repeat-2" });
+    const firstBody = await first.json() as { ok?: boolean; balanceAfter?: number };
+    const secondBody = await second.json() as { ok?: boolean; balanceAfter?: number };
     const crmResponse = await handler(new Request("http://localhost/api/machines/admin-crm", { headers: { cookie: "sonnely_session=" + token } }));
     const ledger = (existsSync(join(dir, "billing-ledger")) ? JSON.parse(readFileSync(join(dir, "billing-ledger"), "utf8")) : Ledger.initial) as Ledger.Ledger;
     const crm = await crmResponse.json() as Crm.Crm;
     expect({
       statuses: [first.status, second.status, distinct.status],
+      bodies: [firstBody, secondBody],
       ledgerAdjustments: ledger.entries.filter((entry) => entry.detail.startsWith("adjustment-repeat")),
       crmAdjustments: crm.adjustments.filter((row) => row.id.startsWith("adjustment-repeat")),
       crmActivities: crm.activities.filter((row) => row.kind === "adjust"),
     }).toEqual({
       statuses: [200, 200, 200],
+      bodies: [
+        { ok: true, balanceAfter: 5_000 },
+        { ok: true, balanceAfter: 5_000 },
+      ],
       ledgerAdjustments: [
         { wallet: account, kind: "AdjustCredit", detail: adjustment.id, amount: 5_000 },
         { wallet: account, kind: "AdjustCredit", detail: "adjustment-repeat-2", amount: 5_000 },
@@ -170,6 +177,34 @@ describe("admin API", () => {
         expect.objectContaining({ account, kind: "adjust" }),
       ],
     });
+  });
+
+  // spec/app/billing/ledger.md, "Story: Adjust a balance"
+  // spec/app/admin/crm.md, "A balance adjustment is recorded without overdrawing the balance read"
+  it("refuses a direct CRM adjustment write outside the coordinated adjustment path", async () => {
+    const { handler, dir } = makeAdminApi();
+    await grantOperator(handler);
+    const direct = await post(handler, "/api/machines/admin-crm", {
+      type: "recordAdjustment",
+      id: "adjustment-direct",
+      activityId: "activity-direct",
+      account,
+      admin: operator,
+      delta: 5_000,
+      reason: "direct ledger bypass",
+      balanceBefore: 0,
+      summary: "direct ledger bypass",
+      now: 1,
+    });
+    const crmResponse = await handler(new Request("http://localhost/api/machines/admin-crm", { headers: { cookie: "sonnely_session=" + token } }));
+    const crm = await crmResponse.json() as Crm.Crm;
+    const ledger = (existsSync(join(dir, "billing-ledger")) ? JSON.parse(readFileSync(join(dir, "billing-ledger"), "utf8")) : Ledger.initial) as Ledger.Ledger;
+    expect({
+      status: direct.status,
+      adjustments: crm.adjustments,
+      activities: crm.activities.filter((row) => row.kind === "adjust"),
+      entries: ledger.entries,
+    }).toEqual({ status: 403, adjustments: [], activities: [], entries: [] });
   });
 
   // spec/app/billing/ledger.md, "An adjustment credits or debits once per record"

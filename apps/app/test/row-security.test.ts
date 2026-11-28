@@ -140,6 +140,14 @@ function seed(dir: string, finalizedDeposit = false) {
       ],
     }],
   }));
+  writeFileSync(join(dir, "admin-crm"), JSON.stringify({
+    profiles: [{ wallet: walletA, name: "Aster", username: "aster", joined: 1, onboarding: "pending", termsVersion: "", termsAcceptedAt: 0, inviter: "", updatedAt: 1 }],
+    activities: [],
+    tasks: [],
+    flags: [],
+    segments: [],
+    adjustments: [],
+  }));
   writeFileSync(join(dir, encodeURIComponent("console__chat:" + walletA)), JSON.stringify({
     threads: [{ id: "thread-a", model: "m", messages: [{ role: "User", content: "secret prompt", model: "m" }] }],
     active: "thread-a",
@@ -690,8 +698,11 @@ describe("row-level access", () => {
     await postMachine(handler, "admin-referrals", { type: "issueCode", code: "code-b", wallet: walletB }, tokenB);
     const issued = await postMachine(handler, "admin-referrals", { type: "issueCode", code: "code-a", wallet: walletA }, tokenA);
     const issuedBody = JSON.stringify(await issued.json());
+    const beforeSave = Date.now();
     const saved = await postMachine(handler, "admin-crm", { type: "saveProfile", wallet: walletB, name: "B", username: "", joined: 1, onboarding: "pending", termsVersion: "", termsAcceptedAt: 0, inviter: "", now: 1 }, tokenB);
+    const afterSave = Date.now();
     const savedBody = JSON.stringify(await saved.json());
+    const savedProfile = (JSON.parse(savedBody) as { state?: { profiles?: { updatedAt?: number }[] } }).state?.profiles?.[0];
     const refused = await postMachine(handler, "admin-referrals", { type: "issueCode", code: "code-a2", wallet: walletA }, tokenA);
     const refusedBody = JSON.stringify(await refused.json());
     expect({
@@ -700,8 +711,9 @@ describe("row-level access", () => {
       issuedOwn: issuedBody.includes("code-a"),
       savedStatus: saved.status,
       savedLeak: savedBody.includes(walletA),
+      savedServerTime: savedProfile?.updatedAt !== undefined && savedProfile.updatedAt >= beforeSave && savedProfile.updatedAt <= afterSave,
       refusedLeak: refusedBody.includes("code-b") || refusedBody.includes('"state"'),
-    }).toEqual({ issuedStatus: 200, issuedLeak: false, issuedOwn: true, savedStatus: 200, savedLeak: false, refusedLeak: false });
+    }).toEqual({ issuedStatus: 200, issuedLeak: false, issuedOwn: true, savedStatus: 200, savedLeak: false, savedServerTime: true, refusedLeak: false });
   });
 
   // spec/app/admin/operators.md, "Operator roles": roster membership is not a capability —
@@ -829,35 +841,141 @@ describe("row-level access", () => {
     expect({ hostile: hostile.status, own: own.status, unknown: unknown.status }).toEqual({ hostile: 403, own: 200, unknown: 403 });
   });
 
+  // spec/app/admin/index.md, "Every admin change checks the sender"
+  it("binds registry audit timestamps to the server clock", async () => {
+    const handler = makeApp();
+    const evidenceOperator = "evidence-operator";
+    const before = Date.now();
+    const granted = await postMachine(handler, "admin", { type: "grant", wallet: evidenceOperator, role: "Support", at: 1 }, tokenAdm);
+    const registered = await postMachine(handler, "admin", { type: "register", id: "acct-evidence", subject: "User", at: 1 }, tokenAdm);
+    const suspended = await postMachine(handler, "admin", { type: "suspend", id: "acct-evidence", at: 1 }, tokenAdm);
+    const reinstated = await postMachine(handler, "admin", { type: "reinstate", id: "acct-evidence", at: 1 }, tokenAdm);
+    const revoked = await postMachine(handler, "admin", { type: "revoke", wallet: evidenceOperator, at: 1 }, tokenAdm);
+    const after = Date.now();
+    const state = await (await get(handler, "/api/machines/admin", tokenAdm)).json() as Admin.Registry;
+    const acts = ["operators.grant", "account.register", "account.suspend", "account.reinstate", "operators.revoke"];
+    const entries = acts.map((act) => state.audit.find((entry) => entry.act === act && (entry.target === evidenceOperator || entry.target === "acct-evidence")));
+    const inWindow = (value: number | undefined) => value !== undefined && value >= before && value <= after;
+    expect({
+      statuses: [granted.status, registered.status, suspended.status, reinstated.status, revoked.status],
+      evidence: entries.map((entry) => ({ act: entry?.act, actor: entry?.actor, serverTime: inWindow(entry?.at) })),
+    }).toEqual({
+      statuses: [200, 200, 200, 200, 200],
+      evidence: acts.map((act) => ({ act, actor: walletAdm, serverTime: true })),
+    });
+  });
+
+  // spec/app/admin/crm.md, "An internal note is appended once"
+  // spec/app/admin/crm.md, "A follow-up is created, completed and reopened without losing it"
+  // spec/app/admin/crm.md, "Flags are one row per customer and flag"
+  // spec/app/admin/crm.md, "Saved views belong to their operator"
+  it("binds CRM evidence actors and timestamps to the operator and server clock", async () => {
+    const handler = makeApp();
+    const before = Date.now();
+    const note = await postMachine(handler, "admin-crm", { type: "addNote", id: "evidence-note", account: walletA, actor: walletA, note: "reviewed outage evidence", now: 1 }, tokenAdm);
+    const task = await postMachine(handler, "admin-crm", { type: "createTask", id: "evidence-task", activityId: "evidence-task-activity", account: walletA, assignee: walletOp, creator: walletA, title: "review evidence", dueAt: 2_000, summary: "Review evidence", now: 1 }, tokenAdm);
+    const complete = await postMachine(handler, "admin-crm", { type: "completeTask", id: "evidence-task", now: 1 }, tokenAdm);
+    const flag = await postMachine(handler, "admin-crm", { type: "setFlag", activityId: "evidence-flag-set", account: walletA, flag: "high_risk", note: "", admin: walletA, summary: "Flagged high_risk", now: 1 }, tokenAdm);
+    const reviewFlag = await postMachine(handler, "admin-crm", { type: "setFlag", activityId: "evidence-review-set", account: walletA, flag: "review", note: "", admin: walletA, summary: "Flagged review", now: 1 }, tokenAdm);
+    const removeFlag = await postMachine(handler, "admin-crm", { type: "removeFlag", activityId: "evidence-review-remove", account: walletA, flag: "review", admin: walletA, summary: "Removed review", now: 1 }, tokenAdm);
+    const segment = await postMachine(handler, "admin-crm", { type: "saveSegment", id: "evidence-segment", admin: walletA, name: "Evidence", definition: "flagged", now: 1 }, tokenAdm);
+    const disposableSegment = await postMachine(handler, "admin-crm", { type: "saveSegment", id: "evidence-delete-segment", admin: walletA, name: "Delete evidence", definition: "flagged", now: 1 }, tokenAdm);
+    const deletedSegment = await postMachine(handler, "admin-crm", { type: "deleteSegment", id: "evidence-delete-segment", admin: walletB }, tokenAdm);
+    const after = Date.now();
+    const state = await (await get(handler, "/api/machines/admin-crm", tokenAdm)).json() as Crm.Crm;
+    const noteRow = state.activities.find((row) => row.id === "evidence-note");
+    const taskRow = state.tasks.find((row) => row.id === "evidence-task");
+    const taskActivity = state.activities.find((row) => row.id === "evidence-task-activity");
+    const flagRow = state.flags.find((row) => row.account === walletA && row.flag === "high_risk");
+    const flagActivity = state.activities.find((row) => row.id === "evidence-flag-set");
+    const removeActivity = state.activities.find((row) => row.id === "evidence-review-remove");
+    const segmentRow = state.segments.find((row) => row.id === "evidence-segment");
+    const inWindow = (value: number | undefined) => value !== undefined && value >= before && value <= after;
+    expect({
+      statuses: [note.status, task.status, complete.status, flag.status, reviewFlag.status, removeFlag.status, segment.status, disposableSegment.status, deletedSegment.status],
+      evidence: {
+        noteActor: noteRow?.actor,
+        noteServerTime: inWindow(noteRow?.time),
+        taskCreator: taskRow?.creator,
+        taskCreatedServerTime: inWindow(taskRow?.createdAt),
+        taskDoneServerTime: inWindow(taskRow?.doneAt),
+        taskActivityActor: taskActivity?.actor,
+        flagAdmin: flagRow?.admin,
+        flagCreatedServerTime: inWindow(flagRow?.createdAt),
+        flagActivityActor: flagActivity?.actor,
+        removeActor: removeActivity?.actor,
+        removeServerTime: inWindow(removeActivity?.time),
+        segmentAdmin: segmentRow?.admin,
+        segmentCreatedServerTime: inWindow(segmentRow?.createdAt),
+        deletedSegmentGone: !state.segments.some((row) => row.id === "evidence-delete-segment"),
+      },
+    }).toEqual({
+      statuses: [200, 200, 200, 200, 200, 200, 200, 200, 200],
+      evidence: {
+        noteActor: walletAdm,
+        noteServerTime: true,
+        taskCreator: walletAdm,
+        taskCreatedServerTime: true,
+        taskDoneServerTime: true,
+        taskActivityActor: walletAdm,
+        flagAdmin: walletAdm,
+        flagCreatedServerTime: true,
+        flagActivityActor: walletAdm,
+        removeActor: walletAdm,
+        removeServerTime: true,
+        segmentAdmin: walletAdm,
+        segmentCreatedServerTime: true,
+        deletedSegmentGone: true,
+      },
+    });
+  });
+
   // spec/app/admin/index.md, "Accounts are registered once": serving a wallet registers it, so an
   // operator can suspend and reinstate the account end to end
   // spec/app/admin/index.md, "What the admin reads elsewhere": the join is the shell's
   // operator-only read over the store itself — platform-wide rows, not the operator's own.
   it("answers the admin overview with the platform-wide join for operators only", async () => {
-    const handler = makeApp();
+    const { handler } = makeAppWithDir(false, [usageRow("request-overview", walletA, "")]);
     const customer = await get(handler, "/api/admin/overview", tokenA);
     const support = await get(handler, "/api/admin/overview", tokenOp);
     const admin = await get(handler, "/api/admin/overview", tokenAdm);
-    const body = await admin.text();
-    const joined = JSON.parse(body);
+    const joined = await admin.json() as {
+      session?: Session.Sessions | null;
+      keys?: WorkspaceKeys.Keys | null;
+      billing?: Ledger.Ledger | null;
+      usage?: Usage.Usage | null;
+      support?: Support.Tickets | null;
+      teams?: Teams.Teams | null;
+      deposits?: Deposits.Deposits | null;
+      crm?: Crm.Crm | null;
+      registry?: Admin.Registry | null;
+    };
     expect({
       customerStatus: customer.status,
       supportStatus: support.status,
       adminStatus: admin.status,
-      keysBothWallets: (joined.keys?.keys ?? []).map((row: { id: string }) => row.id).sort(),
-      ledgerCoversA: (joined.billing?.entries ?? []).some((row: { wallet: string }) => row.wallet === walletA),
-      ticketsJoined: (joined.support?.tickets ?? []).map((row: { id: string }) => row.id),
-      registryPresent: joined.registry != undefined && Array.isArray(joined.registry?.ops?.roster),
-      depositsJoined: (joined.deposits?.intents ?? []).some((row: { reference: string }) => row.reference === "ref-a"),
+      sessionLogins: (joined.session?.logins ?? []).length,
+      keysBothWallets: (joined.keys?.keys ?? []).map((row) => row.id).sort(),
+      ledgerCoversA: (joined.billing?.entries ?? []).some((row) => row.wallet === walletA),
+      usageJoined: (joined.usage?.rows ?? []).map((row) => row.id),
+      ticketsJoined: (joined.support?.tickets ?? []).map((row) => row.id),
+      teamsJoined: (joined.teams?.teams ?? []).map((row) => row.id),
+      depositsJoined: (joined.deposits?.intents ?? []).some((row) => row.reference === "ref-a"),
+      crmProfiles: (joined.crm?.profiles ?? []).map((row) => row.wallet),
+      registryPresent: joined.registry != undefined && Array.isArray(joined.registry.ops.roster),
     }).toEqual({
       customerStatus: 403,
       supportStatus: 200,
       adminStatus: 200,
+      sessionLogins: 5,
       keysBothWallets: ["key-a", "key-b"],
       ledgerCoversA: true,
+      usageJoined: ["request-overview"],
       ticketsJoined: ["ticket-a"],
-      registryPresent: true,
+      teamsJoined: ["team-a"],
       depositsJoined: true,
+      crmProfiles: [walletA],
+      registryPresent: true,
     });
   });
 
