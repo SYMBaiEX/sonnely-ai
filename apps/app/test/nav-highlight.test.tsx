@@ -92,15 +92,18 @@ it('links directly to the landing API example and supports horizontal workspace 
   expect(jump.textContent).toContain("API quickstart");
   expect(el.querySelector(jump.hash)?.getAttribute("aria-labelledby")).toBe("home-quickstart-heading");
 
-  const keys = el.querySelector<HTMLButtonElement>("#workspace-tab-keys")!;
-  const usage = el.querySelector<HTMLButtonElement>("#workspace-tab-usage")!;
+  const tabs = [...el.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  const keys = tabs.find((tab) => tab.textContent?.includes("API keys"))!;
+  const usage = tabs.find((tab) => tab.textContent?.includes("Usage"))!;
   act(() => {
     keys.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
   });
   await vi.waitFor(() => {
+    const panel = el.querySelector(`#${usage.getAttribute("aria-controls")}`);
     expect(usage.getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(usage);
-    expect(el.querySelector("#workspace-panel-usage")?.hasAttribute("hidden")).toBe(false);
+    expect(panel?.getAttribute("aria-labelledby")).toBe(usage.id);
+    expect(panel?.hasAttribute("hidden")).toBe(false);
   });
 });
 
