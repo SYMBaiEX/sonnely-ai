@@ -74,11 +74,41 @@ function publish(frame: MachineFrame) {
   updateMachine(frame.machine, { state: frame.state });
 }
 
+// EventSource retries a dropped connection itself, but a fatal answer — a non-200 while the
+// server restarts or a proxy resets mid-deploy — closes it for good, and nothing in the browser
+// ever retries again. The reopen timers below resurrect a closed source with capped backoff so a
+// deploy or a network blip never costs the user a manual refresh.
+const reopenCap = 30_000;
+const scopedReopenTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const scopedReopenDelays = new Map<string, number>();
+let streamReopenTimer: ReturnType<typeof setTimeout> | undefined;
+let streamReopenDelay = 0;
+
+function reopenDelayAfter(previous: number) {
+  return Math.min(Math.max(previous * 2, 1000), reopenCap);
+}
+
+function scheduleScopedReopen(name: string) {
+  if (scopedReopenTimers.has(name)) return;
+  const delay = reopenDelayAfter(scopedReopenDelays.get(name) ?? 0);
+  scopedReopenDelays.set(name, delay);
+  scopedReopenTimers.set(
+    name,
+    setTimeout(() => {
+      scopedReopenTimers.delete(name);
+      if (machineListeners.has(name) && !scopedSources.has(name)) openScopedStream(name);
+    }, delay),
+  );
+}
+
 function openScopedStream(name: string) {
   if (scopedSources.has(name)) return;
   const next = new EventSource(`${base(name)}/stream`);
   scopedSources.set(name, next);
-  next.onopen = () => updateMachine(name, { error: undefined });
+  next.onopen = () => {
+    scopedReopenDelays.delete(name);
+    updateMachine(name, { error: undefined });
+  };
   next.onmessage = (message) => {
     try {
       updateMachine(name, { state: JSON.parse(String(message.data)) });
@@ -87,11 +117,21 @@ function openScopedStream(name: string) {
     }
   };
   next.onerror = () => {
-    if (scopedSources.get(name) === next) updateMachine(name, { error: "stream disconnected" });
+    if (scopedSources.get(name) !== next) return;
+    updateMachine(name, { error: "stream disconnected" });
+    if (next.readyState === EventSource.CLOSED) {
+      scopedSources.delete(name);
+      scheduleScopedReopen(name);
+    }
   };
 }
 
 function closeScopedStream(name: string) {
+  const timer = scopedReopenTimers.get(name);
+  if (timer !== undefined) {
+    clearTimeout(timer);
+    scopedReopenTimers.delete(name);
+  }
   scopedSources.get(name)?.close();
   scopedSources.delete(name);
 }
@@ -100,17 +140,35 @@ function openStream() {
   if (source) return;
   const next = new EventSource("/api/machines/stream");
   source = next;
-  next.onopen = () => setStreamError(undefined);
+  next.onopen = () => {
+    streamReopenDelay = 0;
+    setStreamError(undefined);
+  };
   next.onmessage = (message) => {
     const frame = parseFrame(String(message.data));
     if (frame) publish(frame);
   };
   next.onerror = () => {
-    if (source === next) setStreamError("stream disconnected");
+    if (source !== next) return;
+    setStreamError("stream disconnected");
+    if (next.readyState === EventSource.CLOSED) {
+      source = undefined;
+      if (streamReopenTimer === undefined) {
+        streamReopenDelay = reopenDelayAfter(streamReopenDelay);
+        streamReopenTimer = setTimeout(() => {
+          streamReopenTimer = undefined;
+          if ([...machineListeners.keys()].some((name) => !scopedMachines.has(name))) openStream();
+        }, streamReopenDelay);
+      }
+    }
   };
 }
 
 function closeStream() {
+  if (streamReopenTimer !== undefined) {
+    clearTimeout(streamReopenTimer);
+    streamReopenTimer = undefined;
+  }
   source?.close();
   source = undefined;
   streamError = undefined;

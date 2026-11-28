@@ -5,6 +5,7 @@
 // the session wallet — never anything the client supplied.
 import * as Admin from "../gen/app__admin.effect.vibe"
 import * as Session from "../gen/app__session.effect.vibe"
+import * as Schedule from "effect/Schedule"
 import { authenticatedSession, authenticatedWallet } from "./api/session.vibe"
 import { Fleet, fleetMachineNames, type FleetMachine } from "./fleet.vibe"
 
@@ -154,20 +155,41 @@ export effect function sessionBoundFrames<A>(frames: Stream.Stream<A>, wallet: s
   return sessionBound(frames, sessions, digest)
 }
 
+// SSE comment frames never surface as message events in the browser; they exist so an idle
+// connection still carries bytes — intermediaries drop silent connections, and a dropped one
+// otherwise goes unnoticed until the next frame. Merged inside the session binding, each
+// heartbeat is also a revalidation point, so a quiet connection cannot linger past expiry.
+function heartbeats(): Stream.Stream<string> {
+  return Stream.map(Stream.fromSchedule(Schedule.spaced("20 seconds")), () => ": hb\n\n")
+}
+
+/** One text/event-stream response carrying encoded frames plus heartbeat comments. */
+export function sseResponse(pushes: Stream.Stream<string>) {
+  return HttpServerResponse.stream(Stream.encodeText(Stream.merge(pushes, heartbeats())), {
+    contentType: "text/event-stream",
+    headers: noStore,
+  })
+}
+
+/** sseResponse with every frame — heartbeats included — bound to the opening session. */
+export effect function sessionBoundSse(pushes: Stream.Stream<string>, wallet: string, digest: string) {
+  const bound = try sessionBoundFrames(Stream.merge(pushes, heartbeats()), wallet, digest)
+  return HttpServerResponse.stream(Stream.encodeText(bound), {
+    contentType: "text/event-stream",
+    headers: noStore,
+  })
+}
+
 effect function getStream(m: MachineLike, scoping: Scoping) {
   const session = try authenticatedSession()
   const wallet = session.wallet
   if (scoping.visibility != "public" && wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   try observeFirstSeen(wallet)
-  const frames = try sessionBoundFrames(m.changes, wallet, session.digest)
-  const pushes = Stream.map(frames, (raw) => {
+  const pushes = Stream.map(m.changes, (raw) => {
     const state = scoping.project != undefined && wallet != "" ? scoping.project(raw, wallet) : raw
     return `data: ${JSON.stringify(state)}\n\n`
   })
-  return HttpServerResponse.stream(Stream.encodeText(pushes), {
-    contentType: "text/event-stream",
-    headers: noStore,
-  })
+  return try sessionBoundSse(pushes, wallet, session.digest)
 }
 
 effect function getFleetState(fleet: Fleet.Shape, name: string) {
@@ -184,12 +206,8 @@ effect function getFleetStream(fleet: Fleet.Shape, name: string) {
   if (wallet == "") return try HttpServerResponse.json({ error: "sign in required" }, { status: 401, headers: noStore })
   try observeFirstSeen(wallet)
   const machine = try fleet.machine(name, wallet)
-  const frames = try sessionBoundFrames(machine.changes, wallet, session.digest)
-  const pushes = Stream.map(frames, (state) => `data: ${JSON.stringify(state)}\n\n`)
-  return HttpServerResponse.stream(Stream.encodeText(pushes), {
-    contentType: "text/event-stream",
-    headers: noStore,
-  })
+  const pushes = Stream.map(machine.changes, (state) => `data: ${JSON.stringify(state)}\n\n`)
+  return try sessionBoundSse(pushes, wallet, session.digest)
 }
 
 effect function postFleetEvent(fleet: Fleet.Shape, name: string, policy: WritePolicy) {
@@ -246,11 +264,8 @@ effect function getMultiplexedStream(registry: MachineRegistry.Shape) {
       streams.push(Stream.map(instance.changes, (state) => `data: ${JSON.stringify({ machine: name, state })}\n\n`))
     }
   }
-  const merged = try sessionBoundFrames(Stream.mergeAll(streams, { concurrency: "unbounded" }), wallet, session.digest)
-  return HttpServerResponse.stream(Stream.encodeText(merged), {
-    contentType: "text/event-stream",
-    headers: noStore,
-  })
+  const merged = Stream.mergeAll(streams, { concurrency: "unbounded" })
+  return try sessionBoundSse(merged, wallet, session.digest)
 }
 
 const multiplexedMachines = Layer.provideMerge(

@@ -5,7 +5,7 @@
 import { Machine, opaque, stored } from "../../gen/app__support.effect.vibe"
 import * as Admin from "../../gen/app__admin.effect.vibe"
 import type { Tickets } from "../../gen/app__support.ts"
-import { machineRegistration } from "../machines.vibe"
+import { machineRegistration, sseResponse } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
 import { operatorRequired, operatorWithRoles } from "./admin.vibe"
 import { authenticatedWallet } from "./session.vibe"
@@ -42,10 +42,7 @@ effect function getStream(admin: Admin.Machine.Shape, m: QueueMachine) {
   const operator = try operatorRequired(admin)
   const full = operator != ""
   const pushes = Stream.map(m.changes, (raw) => `data: ${JSON.stringify(full ? raw : project(raw as Tickets, wallet))}\n\n`)
-  return HttpServerResponse.stream(Stream.encodeText(pushes), {
-    contentType: "text/event-stream",
-    headers: noStore,
-  })
+  return sseResponse(pushes)
 }
 
 // Customer events stay the customer's: open binds its wallet to the session, and a customer reply

@@ -6,7 +6,7 @@
 import * as Keys from "../../gen/app__keys.effect.vibe"
 import * as KeyValueStore from "effect/persistence/KeyValueStore"
 import * as Teams from "../../gen/app__teams.effect.vibe"
-import { sessionBoundFrames } from "../machines.vibe"
+import { sessionBoundSse } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
 import { authenticatedSession, authenticatedWallet } from "./session.vibe"
 import { managedProjectsFor } from "./teams.vibe"
@@ -76,15 +76,11 @@ effect function getStream(keys: Keys.Machine.Shape) {
   const session = try authenticatedSession()
   const wallet = session.wallet
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
-  const frames = try sessionBoundFrames(keys.changes, wallet, session.digest)
-  const pushes = Stream.mapEffect(frames, (state) => effect {
+  const pushes = Stream.mapEffect(keys.changes, (state) => effect {
     const visible = try projectState(state, wallet)
     return `data: ${JSON.stringify(visible)}\n\n`
   })
-  return HttpServerResponse.stream(Stream.encodeText(pushes), {
-    contentType: "text/event-stream",
-    headers: noStore,
-  })
+  return try sessionBoundSse(pushes, wallet, session.digest)
 }
 
 export const keysApi = Layer.unwrap(effect {

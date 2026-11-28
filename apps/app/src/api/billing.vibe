@@ -13,7 +13,7 @@ import * as Referrals from "../../gen/app__admin__referrals.effect.vibe"
 import type { PaymentOrder } from "./billing/solana.ts"
 import * as intents from "./billing/intents.ts"
 import * as solana from "./billing/solana.ts"
-import { machineRegistration } from "../machines.vibe"
+import { machineRegistration, sseResponse } from "../machines.vibe"
 import { stateStore } from "../serve.vibe"
 import { authenticatedWallet } from "./session.vibe"
 
@@ -104,10 +104,7 @@ effect function getStream(m: ReadMachine, project: (state: any, wallet: string) 
   const wallet = try authenticatedWallet()
   if (wallet == "") return try reply({ error: "sign in required" }, 401)
   const pushes = Stream.map(m.changes, (s) => `data: ${JSON.stringify(project(s, wallet))}\n\n`)
-  return HttpServerResponse.stream(Stream.encodeText(pushes), {
-    contentType: "text/event-stream",
-    headers: noStore,
-  })
+  return sseResponse(pushes)
 }
 
 // spec/app/billing/deposits.md, "Story: Open a payment intent": a fresh reference binds the wallet,
